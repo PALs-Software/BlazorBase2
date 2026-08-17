@@ -1,0 +1,64 @@
+<div class="filter-group @(IsRoot ? "" : "filter-group-nested")">
+    @if (!IsRoot)
+    {
+        <div class="filter-group-header">
+            <span class="filter-group-label">@Localizer["FilterGroup"]</span>
+            <FluentButton Appearance="Appearance.Stealth"
+                          OnClick="@OnRemove"
+                          Title="@Localizer["FilterRemoveGroup"].Value"
+                          IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Delete())" />
+        </div>
+    }
+
+    <div class="filter-group-body">
+        @{
+            var renderedAny = false;
+        }
+        @foreach (var condition in Group.Conditions)
+        {
+            if (renderedAny)
+            {
+                <div class="filter-connector">
+                    <button type="button" class="filter-connector-chip @LogicClass" @onclick="ToggleLogic" title="@Localizer["FilterToggleLogic"].Value">@LogicLabel</button>
+                </div>
+            }
+            <FilterConditionEditor Condition="condition"
+                                   Fields="Fields"
+                                   Localizer="Localizer"
+                                   OnRemove="@(() => RemoveCondition(condition))" />
+            renderedAny = true;
+        }
+        @foreach (var childGroup in Group.Groups)
+        {
+            if (renderedAny)
+            {
+                <div class="filter-connector">
+                    <button type="button" class="filter-connector-chip @LogicClass" @onclick="ToggleLogic" title="@Localizer["FilterToggleLogic"].Value">@LogicLabel</button>
+                </div>
+            }
+            <FilterGroupEditor Group="childGroup"
+                               Fields="Fields"
+                               Localizer="Localizer"
+                               IsRoot="false"
+                               OnRemove="@(() => RemoveGroup(childGroup))" />
+            renderedAny = true;
+        }
+
+        @if (!renderedAny)
+        {
+            <div class="filter-group-hint">@Localizer["FilterGroupEmpty"]</div>
+        }
+    </div>
+
+    <div class="filter-group-actions">
+        <FluentButton Appearance="Appearance.Stealth"
+                      OnClick="@AddCondition"
+                      IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Add())">
+            @Localizer["FilterAddCondition"]
+        </FluentButton>
+        <FluentButton Appearance="Appearance.Stealth"
+                      OnClick="@AddGroup">
+            @Localizer["FilterAddGroup"]
+        </FluentButton>
+    </div>
+</div>

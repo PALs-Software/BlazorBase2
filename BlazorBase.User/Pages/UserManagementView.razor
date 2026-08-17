@@ -1,0 +1,16 @@
+@using BlazorBase.CRUD.Components
+@using BlazorBase.User.Components
+@using BlazorBase.User.Models
+
+<div class="user-management-view">
+    <BaseList TModel="UserModel"
+              CardType="typeof(UserCard)"
+              AddButtonText="@Localizer["AddUser"]"
+              EmptyText="@Localizer["NoUsers"]"
+              Localizer="@(Localizer as IStringLocalizer)">
+        <BaseColumn TModel="UserModel" Property="@(user => user.DisplayName)" Title="@Localizer["ColumnDisplayName"]" />
+        <BaseColumn TModel="UserModel" Property="@(user => user.Email)" Title="@Localizer["ColumnEmail"]" />
+        <BaseColumn TModel="UserModel" Property="@(user => user.Role)" Title="@Localizer["ColumnRole"]" />
+        <BaseColumn TModel="UserModel" Property="@(user => user.IsActive)" Title="@Localizer["ColumnIsActive"]" />
+    </BaseList>
+</div>

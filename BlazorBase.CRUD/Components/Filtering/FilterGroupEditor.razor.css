@@ -1,0 +1,84 @@
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filter-group-nested {
+    border: 1px solid var(--neutral-stroke-rest);
+    border-radius: 8px;
+    padding: 10px;
+    background: var(--neutral-layer-1);
+}
+
+.filter-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.filter-group-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--neutral-foreground-hint);
+}
+
+.filter-group-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-group-hint {
+    color: var(--neutral-foreground-hint);
+    font-size: 13px;
+    padding: 4px 2px;
+}
+
+.filter-connector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0;
+}
+
+.filter-connector::before,
+.filter-connector::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--neutral-stroke-divider-rest);
+}
+
+.filter-connector-chip {
+    border: none;
+    border-radius: 999px;
+    padding: 3px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #ffffff;
+    cursor: pointer;
+    user-select: none;
+    transition: filter 0.1s ease-in-out;
+}
+
+.filter-connector-chip.and {
+    background: var(--accent-fill-rest);
+}
+
+.filter-connector-chip.or {
+    background: #c77700;
+}
+
+.filter-connector-chip:hover {
+    filter: brightness(1.12);
+}
+
+.filter-group-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}

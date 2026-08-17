@@ -1,0 +1,77 @@
+@using BlazorBase.CRUD.Components.Internal
+@using BlazorBase.CRUD.Configuration
+@using BlazorBase.CRUD.Models
+@typeparam TModel
+
+<div class="base-listpart">
+    <div class="base-listpart-header">
+        @if (CanAdd)
+        {
+            <FluentButton Appearance="Appearance.Stealth"
+                          OnClick="@OnAddItemAsync"
+                          IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Add())">
+                @FrameworkLocalizer["Add"]
+            </FluentButton>
+        }
+        @if (HasListPartActions)
+        {
+            <BaseActionToolbar TModel="TModel"
+                               ActionGroups="@ActionGroups"
+                               Context="CrudActionContext.ListPart"
+                               Localizer="@Localizer" />
+        }
+    </div>
+
+    <div class="base-listpart-items">
+        @if (Items is not null)
+        {
+            @foreach (var item in Items)
+            {
+                <div class="base-listpart-item">
+                    @if (EditMode == ListPartEditMode.Inline && CardConfiguration?.Fields is { Count: > 0 } inlineFields)
+                    {
+                        <div class="base-listpart-item-fields">
+                            @foreach (var field in inlineFields.Where(IsFieldVisibleForUser))
+                            {
+                                <BasePropertyInput TModel="TModel"
+                                                   Model="@item"
+                                                   FieldConfig="@field"
+                                                   IsEditing="@IsFieldEditableForUser(field)"
+                                                   Localizer="@Localizer"
+                                                   OnAfterPropertyChanged="@(args => OnInlinePropertyChanged(item, args))" />
+                            }
+                        </div>
+                    }
+                    else if (EditMode == ListPartEditMode.Dialog)
+                    {
+                        <button type="button"
+                                class="base-listpart-item-content base-listpart-item-button"
+                                @onclick="@(() => OpenEditDialogAsync(item))">
+                            @ResolveItemLabel(item)
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="base-listpart-item-content">
+                            @ResolveItemLabel(item)
+                        </div>
+                    }
+
+                    @if (CanDelete && item is not null)
+                    {
+                        <FluentButton Appearance="Appearance.Stealth"
+                                      OnClick="@(() => OnRemoveItemAsync(item))"
+                                      IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Delete())" />
+                    }
+                </div>
+            }
+        }
+    </div>
+
+    @if (Items is null || !Items.Any())
+    {
+        <div class="base-listpart-empty">
+            <FluentLabel Typo="Typography.Body">@FrameworkLocalizer["NoListItems"]</FluentLabel>
+        </div>
+    }
+</div>

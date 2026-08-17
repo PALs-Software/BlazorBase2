@@ -1,0 +1,41 @@
+<div class="base-file-modal-anchor">
+    <FluentDialog @ref="Dialog"
+                  Modal="true"
+                  TrapFocus="true"
+                  Hidden="@(!IsVisible)"
+                  Class="base-file-modal-dialog"
+                  HiddenChanged="@OnHiddenChanged">
+        <FluentDialogHeader ShowDismiss="true">
+            <FluentLabel Typo="Typography.H6">@Localizer["ViewFile"]</FluentLabel>
+        </FluentDialogHeader>
+
+        <FluentDialogBody>
+            @if (FileResult is not null && FileResult.ContentType.StartsWith("image", StringComparison.OrdinalIgnoreCase))
+            {
+                <div class="modal-image-container">
+                    <img src="@DownloadUrl" alt="@Localizer["ImageAlt"]" class="modal-image" />
+                </div>
+            }
+            else if (FileResult is not null)
+            {
+                <div class="modal-file-info">
+                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Document())" />
+                    <FluentLabel>@FileResult.FileName@FileResult.Extension</FluentLabel>
+                </div>
+            }
+        </FluentDialogBody>
+
+        <FluentDialogFooter>
+            @if (FileResult is not null)
+            {
+                <a href="@DownloadUrl" download class="download-link">
+                    <FluentButton Appearance="Appearance.Accent">
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ArrowDownload())" />
+                        @Localizer["Download"]
+                    </FluentButton>
+                </a>
+            }
+            <FluentButton OnClick="@Close">@Localizer["Close"]</FluentButton>
+        </FluentDialogFooter>
+    </FluentDialog>
+</div>

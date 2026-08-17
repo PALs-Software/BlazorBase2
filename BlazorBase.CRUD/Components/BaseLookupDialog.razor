@@ -1,0 +1,55 @@
+@typeparam TModel
+
+<FluentDialog @ref="Dialog">
+    <FluentDialogHeader>
+        <FluentLabel Typo="Typography.PaneHeader">@(Title ?? FrameworkLocalizer["LookupSelect"].Value)</FluentLabel>
+    </FluentDialogHeader>
+    <FluentDialogBody>
+        <div class="base-lookup-search">
+            <FluentTextField @bind-Value="SearchText"
+                             @bind-Value:after="OnSearchChangedAsync"
+                             Placeholder="@FrameworkLocalizer["LookupSearchPlaceholder"].Value"
+                             Style="width: 100%;" />
+        </div>
+
+        <div class="base-lookup-items">
+            @if (IsLoading)
+            {
+                <FluentProgress />
+            }
+            else if (LoadedItems.Count == 0)
+            {
+                <FluentLabel Typo="Typography.Body">@FrameworkLocalizer["LookupNoItemsFound"]</FluentLabel>
+            }
+            else
+            {
+                @foreach (var item in LoadedItems)
+                {
+                    <div class="base-lookup-item @(item == SelectedItem ? "selected" : "")"
+                         @onclick="() => SelectItem(item)">
+                        <FluentLabel Typo="Typography.Body">@GetDisplayText(item)</FluentLabel>
+                    </div>
+                }
+
+                @if (HasMoreItems)
+                {
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  OnClick="@LoadMoreAsync">
+                        @FrameworkLocalizer["LookupLoadMore"]
+                    </FluentButton>
+                }
+            }
+        </div>
+    </FluentDialogBody>
+    <FluentDialogFooter>
+        <FluentButton Appearance="Appearance.Accent"
+                      Disabled="@(SelectedItem is null)"
+                      OnClick="@ConfirmAsync">
+            @FrameworkLocalizer["LookupSelect"]
+        </FluentButton>
+        <FluentButton Appearance="Appearance.Outline"
+                      OnClick="@CancelAsync">
+            @FrameworkLocalizer["Cancel"]
+        </FluentButton>
+    </FluentDialogFooter>
+</FluentDialog>

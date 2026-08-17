@@ -1,0 +1,29 @@
+<div class="filter-panel-overlay" @onclick="@OnClose"></div>
+<div class="filter-panel">
+    <div class="filter-panel-header">
+        <span class="filter-panel-title">@Localizer["Filter"]</span>
+        <FluentButton Appearance="Appearance.Stealth"
+                      OnClick="@OnClose"
+                      Title="@Localizer["FilterClose"].Value"
+                      IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())" />
+    </div>
+
+    <div class="filter-panel-body">
+        @if (Fields.Count == 0)
+        {
+            <FluentLabel Typo="Typography.Body">@Localizer["FilterEmpty"]</FluentLabel>
+        }
+        else
+        {
+            <FilterGroupEditor Group="Root"
+                               Fields="Fields"
+                               Localizer="Localizer"
+                               IsRoot="true" />
+        }
+    </div>
+
+    <div class="filter-panel-footer">
+        <FluentButton Appearance="Appearance.Accent" OnClick="@ApplyAsync">@Localizer["FilterApply"]</FluentButton>
+        <FluentButton Appearance="Appearance.Stealth" OnClick="@ResetAsync">@Localizer["FilterReset"]</FluentButton>
+    </div>
+</div>

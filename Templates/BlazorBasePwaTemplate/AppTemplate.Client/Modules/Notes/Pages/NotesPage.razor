@@ -1,0 +1,18 @@
+@page "/notes"
+@attribute [Authorize]
+@using AppTemplate.Client.Modules.Notes.Components
+@using AppTemplate.Shared.Modules.Notes.Entities
+@using BlazorBase.CRUD.Components
+
+<PageTitle>@Localizer["PageTitle"]</PageTitle>
+
+<h1>@Localizer["PageTitle"]</h1>
+
+<BaseList TModel="Note"
+          CardType="typeof(NoteCard)"
+          AddButtonText="@Localizer["AddButtonText"]"
+          EmptyText="@Localizer["EmptyText"]"
+          Localizer="@(Localizer as IStringLocalizer)">
+    <BaseColumn TModel="Note" Property="@(note => note.Title)" />
+    <BaseColumn TModel="Note" Property="@(note => note.ModifiedOn)" Format="g" Width="180px" />
+</BaseList>

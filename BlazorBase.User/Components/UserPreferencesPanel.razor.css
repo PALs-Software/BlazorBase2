@@ -1,0 +1,13 @@
+::deep .settings-form {
+    max-width: 500px;
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+::deep .settings-select {
+    min-width: 200px;
+}
+
+::deep .full-width {
+    width: 100%;
+}

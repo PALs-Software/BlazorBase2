@@ -1,0 +1,133 @@
+@page "/login"
+@attribute [AllowAnonymous]
+
+<PageTitle>@(IsSetupMode ? Localizer["SetupPageTitle"] : Localizer["PageTitle"])</PageTitle>
+
+<div>
+<FluentStack Orientation="Orientation.Vertical" HorizontalAlignment="HorizontalAlignment.Center"
+             Class="login-container">
+    <FluentCard Class="login-card">
+        @if (IsLoading)
+        {
+            <FluentProgressRing />
+        }
+        else if (IsSetupMode)
+        {
+            <h2>@Localizer["Welcome"]</h2>
+            <p>@Localizer["SetupDescription"]</p>
+
+            <EditForm EditContext="SetupEditContext" OnValidSubmit="HandleSetup" FormName="SetupForm">
+                <DataAnnotationsValidator />
+
+                <FluentStack Orientation="Orientation.Vertical" Class="form-stack">
+                    <FluentTextField @bind-Value="SetupModel.DisplayName"
+                                    @onkeydown="HandleSetupKeyDown"
+                                    Immediate="true"
+                                    Label="@Localizer["DisplayName"]"
+                                    Required="true"
+                                    AutoComplete="name"
+                                    Class="full-width" />
+                    <FluentValidationMessage For="() => SetupModel.DisplayName" />
+
+                    <FluentTextField @bind-Value="SetupModel.Email"
+                                    @onkeydown="HandleSetupKeyDown"
+                                    Immediate="true"
+                                    Label="@Localizer["Email"]"
+                                    TextFieldType="TextFieldType.Email"
+                                    Required="true"
+                                    AutoComplete="username"
+                                    Class="full-width" />
+                    <FluentValidationMessage For="() => SetupModel.Email" />
+
+                    <FluentTextField @bind-Value="SetupModel.Password"
+                                    @onkeydown="HandleSetupKeyDown"
+                                    Immediate="true"
+                                    Label="@Localizer["Password"]"
+                                    TextFieldType="TextFieldType.Password"
+                                    Required="true"
+                                    AutoComplete="new-password"
+                                    Class="full-width" />
+                    <FluentValidationMessage For="() => SetupModel.Password" />
+
+                    <FluentTextField @bind-Value="SetupPasswordConfirm"
+                                    @onkeydown="HandleSetupKeyDown"
+                                    Immediate="true"
+                                    Label="@Localizer["ConfirmPassword"]"
+                                    TextFieldType="TextFieldType.Password"
+                                    Required="true"
+                                    AutoComplete="new-password"
+                                    Class="full-width" />
+
+                    @if (CollectHouseholdName)
+                    {
+                        <FluentTextField @bind-Value="SetupModel.HouseholdName"
+                                        @onkeydown="HandleSetupKeyDown"
+                                        Immediate="true"
+                                        Label="@Localizer["HouseholdName"]"
+                                        AutoComplete="off"
+                                        Class="full-width" />
+                    }
+
+                    @if (!string.IsNullOrEmpty(ErrorMessage))
+                    {
+                        <FluentMessageBar Intent="MessageIntent.Error" Title="@Localizer["Error"]">
+                            @ErrorMessage
+                        </FluentMessageBar>
+                    }
+
+                    <FluentButton Type="ButtonType.Submit"
+                                  Appearance="Appearance.Accent"
+                                  Loading="IsSubmitting"
+                                  Class="full-width">
+                        @Localizer["CreateAdminAccount"]
+                    </FluentButton>
+                </FluentStack>
+            </EditForm>
+        }
+        else
+        {
+            <h2>@Localizer["Login"]</h2>
+
+            <EditForm EditContext="LoginEditContext" OnValidSubmit="HandleLogin" FormName="LoginForm">
+                <DataAnnotationsValidator />
+
+                <FluentStack Orientation="Orientation.Vertical" Class="form-stack">
+                    <FluentTextField @bind-Value="LoginModel.Email"
+                                    @onkeydown="HandleLoginKeyDown"
+                                    Immediate="true"
+                                    Label="@Localizer["Email"]"
+                                    TextFieldType="TextFieldType.Email"
+                                    Required="true"
+                                    AutoComplete="username"
+                                    Class="full-width" />
+                    <FluentValidationMessage For="() => LoginModel.Email" />
+
+                    <FluentTextField @bind-Value="LoginModel.Password"
+                                    @onkeydown="HandleLoginKeyDown"
+                                    Immediate="true"
+                                    Label="@Localizer["Password"]"
+                                    TextFieldType="TextFieldType.Password"
+                                    Required="true"
+                                    AutoComplete="current-password"
+                                    Class="full-width" />
+                    <FluentValidationMessage For="() => LoginModel.Password" />
+
+                    @if (!string.IsNullOrEmpty(ErrorMessage))
+                    {
+                        <FluentMessageBar Intent="MessageIntent.Error" Title="@Localizer["Error"]">
+                            @ErrorMessage
+                        </FluentMessageBar>
+                    }
+
+                    <FluentButton Type="ButtonType.Submit"
+                                  Appearance="Appearance.Accent"
+                                  Loading="IsSubmitting"
+                                  Class="full-width">
+                        @Localizer["Login"]
+                    </FluentButton>
+                </FluentStack>
+            </EditForm>
+        }
+    </FluentCard>
+</FluentStack>
+</div>

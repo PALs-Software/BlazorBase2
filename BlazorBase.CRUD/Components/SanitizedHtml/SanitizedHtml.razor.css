@@ -1,0 +1,93 @@
+::deep p {
+    margin: 0 0 0.75em 0;
+}
+
+::deep p:last-child {
+    margin-bottom: 0;
+}
+
+::deep ul,
+::deep ol {
+    margin: 0 0 0.75em 0;
+    padding-left: 1.5em;
+}
+
+::deep li {
+    margin-bottom: 0.25em;
+}
+
+::deep a {
+    color: var(--accent-foreground-rest);
+    text-decoration: underline;
+}
+
+::deep a:hover {
+    color: var(--accent-foreground-hover);
+}
+
+::deep strong {
+    font-weight: 600;
+}
+
+::deep em {
+    font-style: italic;
+}
+
+::deep h1 {
+    font-size: var(--type-ramp-plus-3-font-size, 28px);
+    line-height: var(--type-ramp-plus-3-line-height, 36px);
+    font-weight: 600;
+    margin: 0 0 0.5em 0;
+}
+
+::deep h2 {
+    font-size: var(--type-ramp-plus-2-font-size, 20px);
+    line-height: var(--type-ramp-plus-2-line-height, 28px);
+    font-weight: 600;
+    margin: 0 0 0.5em 0;
+}
+
+::deep h3 {
+    font-size: var(--type-ramp-plus-1-font-size, 16px);
+    line-height: var(--type-ramp-plus-1-line-height, 22px);
+    font-weight: 600;
+    margin: 0 0 0.5em 0;
+}
+
+::deep h4 {
+    font-size: var(--type-ramp-base-font-size, 14px);
+    line-height: var(--type-ramp-base-line-height, 20px);
+    font-weight: 600;
+    margin: 0 0 0.5em 0;
+}
+
+::deep blockquote {
+    margin: 0 0 0.75em 0;
+    padding: 0.5em 0 0.5em 1em;
+    border-left: 3px solid var(--neutral-stroke-rest);
+    color: var(--neutral-foreground-hint);
+}
+
+::deep code {
+    font-family: var(--font-monospace, monospace);
+    font-size: 0.875em;
+    background: var(--neutral-layer-2);
+    padding: 0.15em 0.35em;
+    border-radius: var(--control-corner-radius);
+}
+
+::deep pre {
+    font-family: var(--font-monospace, monospace);
+    font-size: 0.875em;
+    background: var(--neutral-layer-2);
+    padding: 0.75em 1em;
+    border-radius: var(--control-corner-radius);
+    overflow-x: auto;
+    margin: 0 0 0.75em 0;
+}
+
+::deep pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+}

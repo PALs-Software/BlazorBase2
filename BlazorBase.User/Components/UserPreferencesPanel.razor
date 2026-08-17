@@ -1,0 +1,39 @@
+<div>
+<FluentLabel Typo="Typography.PageTitle">@Localizer["Title"]</FluentLabel>
+
+<FluentStack Orientation="Orientation.Vertical" Class="settings-form">
+
+    <FluentSelect TOption="KeyValuePair<string, string>" Label="@Localizer["Theme"]" Value="@SelectedTheme" SelectedOptionChanged="@(o => SelectedTheme = o.Key)"
+                  Items="@ThemeDisplayOptions" OptionValue="@(o => o.Key)" OptionText="@(o => o.Value)"
+                  Class="settings-select" />
+
+    <FluentSelect TOption="KeyValuePair<string, string>" Label="@Localizer["Language"]" Value="@SelectedLanguage" SelectedOptionChanged="@(o => SelectedLanguage = o.Key)"
+                  Items="@LanguageDisplayOptions" OptionValue="@(o => o.Key)" OptionText="@(o => o.Value)"
+                  Class="settings-select" />
+
+    @if (ShowServerUrl)
+    {
+        <FluentTextField Label="@Localizer["ServerUrl"]" @bind-Value="ServerUrl" Class="full-width" />
+        <FluentButton Appearance="Appearance.Outline" OnClick="TestConnection"
+                      Loading="@TestingConnection">
+            @Localizer["TestConnection"]
+        </FluentButton>
+        @if (ConnectionTestResult is not null)
+        {
+            <FluentMessageBar Intent="@(ConnectionTestOk ? MessageIntent.Success : MessageIntent.Error)">
+                @ConnectionTestResult
+            </FluentMessageBar>
+        }
+    }
+
+    <FluentButton Appearance="Appearance.Accent" OnClick="SaveSettings" Loading="@Saving">
+        @Localizer["Save"]
+    </FluentButton>
+
+    @if (SaveMessage is not null)
+    {
+        <FluentMessageBar Intent="@MessageIntent.Success">@SaveMessage</FluentMessageBar>
+    }
+
+</FluentStack>
+</div>

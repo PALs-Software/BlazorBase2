@@ -1,0 +1,57 @@
+.base-property-input {
+    width: 100%;
+}
+
+.base-property-input ::deep fluent-text-field,
+.base-property-input ::deep fluent-text-area,
+.base-property-input ::deep fluent-select,
+.base-property-input ::deep fluent-date-picker {
+    width: 100%;
+}
+
+.base-bool-field {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.base-navigation-browse {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.base-navigation-browse ::deep fluent-text-field {
+    flex: 1;
+}
+
+.base-browse-panel {
+    position: relative;
+    border: 1px solid var(--neutral-stroke-rest);
+    border-radius: var(--control-corner-radius);
+    background: var(--neutral-layer-floating);
+    padding: 8px;
+    margin-top: 4px;
+    z-index: 10;
+}
+
+.base-browse-panel-items {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 8px;
+}
+
+.base-browse-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: var(--control-corner-radius);
+}
+
+.base-browse-item:hover {
+    background: var(--neutral-fill-stealth-hover);
+}
+
+.base-browse-item.selected {
+    background: var(--accent-fill-rest);
+    color: var(--foreground-on-accent-rest);
+}

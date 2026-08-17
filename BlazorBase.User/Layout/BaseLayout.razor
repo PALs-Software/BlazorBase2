@@ -1,0 +1,37 @@
+@implements IDisposable
+
+<FluentDesignTheme Mode="@CurrentMode" />
+
+<div class="layout-root">
+<FluentLayout>
+    <FluentHeader>
+        @AppTitle
+        <FluentSpacer />
+        @if (HeaderContent is not null)
+        {
+            @HeaderContent
+        }
+    </FluentHeader>
+
+    <FluentStack Orientation="Orientation.Horizontal" Class="main-content">
+        @if (Navigation is not null)
+        {
+            @Navigation
+        }
+
+        <FluentBodyContent Class="body-content">
+            @if (Banner is not null)
+            {
+                @Banner
+            }
+            @ChildContent
+        </FluentBodyContent>
+    </FluentStack>
+</FluentLayout>
+</div>
+
+<FluentToastProvider />
+<FluentDialogProvider />
+<FluentTooltipProvider />
+<FluentMessageBarProvider />
+<FluentMenuProvider />

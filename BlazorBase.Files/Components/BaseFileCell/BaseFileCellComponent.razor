@@ -1,0 +1,18 @@
+@using BlazorBase.CRUD.Components.CustomProperties
+
+@implements IBaseCustomPropertyDisplay
+
+<div class="base-file-cell">
+    @if (FileId != Guid.Empty)
+    {
+        <img src="@ThumbnailUrl"
+             alt="@ComponentLocalizer["ThumbnailAlt"]"
+             class="cell-thumbnail" />
+    }
+    else
+    {
+        <div class="cell-empty">
+            <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ImageOff())" />
+        </div>
+    }
+</div>

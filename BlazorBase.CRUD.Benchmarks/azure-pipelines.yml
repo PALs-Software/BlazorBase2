@@ -1,0 +1,148 @@
+# Azure DevOps Pipeline for BlazorBase.CRUD.Benchmarks
+#
+# Runs BenchmarkDotNet for the BlazorBase.CRUD overhead suite, publishes the
+# JSON/Markdown/CSV reports as a pipeline artifact, and (when a baseline
+# artifact from a previous run is available) compares the current results
+# against it, failing the build if a regression exceeds the configured
+# threshold.
+#
+# Variable groups / parameters:
+#   - benchmarkFilter       : BenchmarkDotNet --filter argument (default: *)
+#   - regressionThreshold   : Allowed slowdown in percent (default: 10)
+#   - baselineBuildId       : Build ID whose artifact should be compared
+#                             against (optional; if empty, comparison step is
+#                             skipped — typical for the first run).
+#   - benchmarksAgentPool   : Self-hosted pool with a dedicated runner. Highly
+#                             recommended for stable measurements — Microsoft-
+#                             hosted agents show 20-50% variance and make
+#                             commit-to-commit comparison unreliable.
+
+trigger: none
+
+pr: none
+
+schedules:
+  - cron: "0 3 * * 1-5"
+    displayName: Nightly benchmark run (weekdays)
+    branches:
+      include:
+        - main
+    always: true
+
+parameters:
+  - name: benchmarkFilter
+    displayName: BenchmarkDotNet --filter argument
+    type: string
+    default: "*"
+  - name: regressionThreshold
+    displayName: Allowed slowdown (percent) before failing
+    type: number
+    default: 10
+  - name: baselineBuildId
+    displayName: Baseline Build ID for comparison (empty = skip comparison)
+    type: string
+    default: ""
+
+variables:
+  buildConfiguration: Release
+  benchmarkProject: Libs/BlazorBase.CRUD.Benchmarks/BlazorBase.CRUD.Benchmarks.csproj
+  artifactsRoot: $(System.DefaultWorkingDirectory)/Libs/BlazorBase.CRUD.Benchmarks/BenchmarkDotNet.Artifacts
+  artifactName: benchmark-results
+
+pool:
+  name: $(benchmarksAgentPool)
+
+stages:
+  - stage: Benchmark
+    displayName: Run benchmarks
+    jobs:
+      - job: RunBenchmarks
+        displayName: BenchmarkDotNet run
+        timeoutInMinutes: 120
+        steps:
+          - task: UseDotNet@2
+            displayName: Install .NET 10 SDK
+            inputs:
+              packageType: sdk
+              version: 10.0.x
+
+          - task: DotNetCoreCLI@2
+            displayName: Restore
+            inputs:
+              command: restore
+              projects: $(benchmarkProject)
+
+          - task: DotNetCoreCLI@2
+            displayName: Build (Release)
+            inputs:
+              command: build
+              projects: $(benchmarkProject)
+              arguments: --configuration $(buildConfiguration) --no-restore
+
+          - task: DotNetCoreCLI@2
+            displayName: Run benchmarks
+            inputs:
+              command: run
+              projects: $(benchmarkProject)
+              arguments: >-
+                --configuration $(buildConfiguration)
+                --no-build
+                --
+                --filter "${{ parameters.benchmarkFilter }}"
+                --artifacts $(artifactsRoot)
+                --exporters json
+                --exporters github
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish benchmark results
+            inputs:
+              targetPath: $(artifactsRoot)
+              artifactName: $(artifactName)
+              publishLocation: pipeline
+
+  - stage: Compare
+    displayName: Compare against baseline
+    condition: and(succeeded(), ne('${{ parameters.baselineBuildId }}', ''))
+    dependsOn: Benchmark
+    jobs:
+      - job: CompareResults
+        displayName: Compare results
+        timeoutInMinutes: 15
+        steps:
+          - task: DownloadPipelineArtifact@2
+            displayName: Download current benchmark results
+            inputs:
+              source: current
+              artifact: $(artifactName)
+              path: $(Pipeline.Workspace)/current
+
+          - task: DownloadPipelineArtifact@2
+            displayName: Download baseline benchmark results
+            inputs:
+              source: specific
+              project: $(System.TeamProjectId)
+              pipeline: $(System.DefinitionId)
+              runVersion: specific
+              runId: ${{ parameters.baselineBuildId }}
+              artifact: $(artifactName)
+              path: $(Pipeline.Workspace)/baseline
+
+          - task: PowerShell@2
+            displayName: Compare JSON reports
+            inputs:
+              targetType: filePath
+              filePath: Libs/BlazorBase.CRUD.Benchmarks/tools/Compare-BenchmarkResults.ps1
+              arguments: >-
+                -BaselinePath "$(Pipeline.Workspace)/baseline/results"
+                -CurrentPath "$(Pipeline.Workspace)/current/results"
+                -ThresholdPercent ${{ parameters.regressionThreshold }}
+                -OutputMarkdown "$(Build.ArtifactStagingDirectory)/comparison.md"
+                -OutputCsv "$(Build.ArtifactStagingDirectory)/comparison.csv"
+
+          - task: PublishPipelineArtifact@1
+            displayName: Publish comparison report
+            condition: always()
+            inputs:
+              targetPath: $(Build.ArtifactStagingDirectory)
+              artifactName: benchmark-comparison
+              publishLocation: pipeline

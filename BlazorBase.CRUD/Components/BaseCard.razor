@@ -1,0 +1,129 @@
+@using BlazorBase.CRUD.Components.Internal
+@using BlazorBase.CRUD.Configuration
+@typeparam TModel
+
+<div class="base-card" @ref="CardRootElement">
+    <div class="base-card-header">
+        <h2 class="base-card-title">@CardTitle</h2>
+        <FluentButton Appearance="Appearance.Stealth"
+                      Class="base-card-close"
+                      Title="@FrameworkLocalizer["Close"].Value"
+                      IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())"
+                      OnClick="@TryCloseAsync" />
+    </div>
+
+    @if (IsContentLoading)
+    {
+        <div class="base-card-loading">
+            <FluentProgressRing />
+        </div>
+    }
+
+    <CascadingValue Value="@((IFieldCollector<TModel>)this)" IsFixed="true">
+        <CascadingValue Value="@((IListPartCollector<TModel>)this)" IsFixed="true">
+            <CascadingValue Value="@((IActionGroupCollector<TModel>)this)" IsFixed="true">
+                <CascadingValue Value="@((IDisplayKeyCollector<TModel>)this)" IsFixed="true">
+                <div class="base-card-content @(IsContentLoading ? "base-card-content-loading" : null)">
+                @ChildContent
+
+    @if (HasCardActions)
+    {
+        <BaseActionToolbar TModel="TModel"
+                           ActionGroups="@ResolvedActionGroups"
+                           Context="CrudActionContext.Card"
+                           Item="@Model"
+                           Localizer="@Localizer" />
+    }
+
+    <EditForm Model="@Model" OnValidSubmit="@OnValidSubmitAsync">
+        <DataAnnotationsValidator />
+
+        @if (GroupedFields.Count > 0)
+        {
+            <FluentAccordion>
+                @{ var groupIndex = 0; }
+                @foreach (var group in GroupedFields)
+                {
+                    <FluentAccordionItem Expanded="@(groupIndex == 0 || ExpandAllGroups)"
+                                         Heading="@group.Key">
+                        <div class="base-card-grid" style="--max-columns: @MaxColumns">
+                            @foreach (var field in group.Value)
+                            {
+                                <div class="base-card-field" style="grid-column: span @field.ColSpan">
+                                    <BasePropertyInput TModel="TModel"
+                                                       Model="@Model"
+                                                       FieldConfig="@field"
+                                                       IsEditing="@IsFieldEditableForUser(field)"
+                                                       Localizer="@Localizer"
+                                                       OnBeforePropertyChanged="@OnBeforePropertyChanged"
+                                                       OnAfterPropertyChanged="@OnAfterPropertyChanged" />
+                                </div>
+                            }
+                        </div>
+                    </FluentAccordionItem>
+                    groupIndex++;
+                }
+            </FluentAccordion>
+        }
+        else
+        {
+            <div class="base-card-grid" style="--max-columns: @MaxColumns">
+                @foreach (var field in VisibleFieldsForUser)
+                {
+                    <div class="base-card-field" style="grid-column: span @field.ColSpan">
+                        <BasePropertyInput TModel="TModel"
+                                           Model="@Model"
+                                           FieldConfig="@field"
+                                           IsEditing="@IsFieldEditableForUser(field)"
+                                           Localizer="@Localizer"
+                                           OnBeforePropertyChanged="@OnBeforePropertyChanged"
+                                           OnAfterPropertyChanged="@OnAfterPropertyChanged" />
+                    </div>
+                }
+            </div>
+        }
+
+        @foreach (var listPart in ResolvedListParts)
+        {
+            <div class="base-card-listpart">
+                <FluentLabel Typo="Typography.Subject" id="@($"listpart-{listPart.PropertyName}")">@ResolveListPartTitle(listPart)</FluentLabel>
+                @if (ResolveListPartTooltip(listPart) is { } listPartTooltip)
+                {
+                    <FluentTooltip Anchor="@($"listpart-{listPart.PropertyName}")">@listPartTooltip</FluentTooltip>
+                }
+                @RenderListPartItems(listPart)
+            </div>
+        }
+
+        <FluentValidationSummary />
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <FluentMessageBar Intent="@MessageIntent.Error">
+                @ErrorMessage
+            </FluentMessageBar>
+        }
+
+        @if (!ReadOnly)
+        {
+            <div class="base-card-actions">
+                @if (CanSave)
+                {
+                    <FluentButton Type="ButtonType.Submit"
+                                  Appearance="Appearance.Accent">
+                        @(SaveButtonText ?? FrameworkLocalizer["Save"].Value)
+                    </FluentButton>
+                }
+                <FluentButton Appearance="Appearance.Outline"
+                              OnClick="@TryCloseAsync">
+                    @(CancelButtonText ?? FrameworkLocalizer["Cancel"].Value)
+                </FluentButton>
+            </div>
+        }
+    </EditForm>
+                </div>
+                </CascadingValue>
+            </CascadingValue>
+        </CascadingValue>
+    </CascadingValue>
+</div>

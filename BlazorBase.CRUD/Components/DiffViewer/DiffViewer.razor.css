@@ -1,0 +1,191 @@
+.diff-viewer {
+    font-family: var(--font-monospace, 'Consolas', 'Monaco', monospace);
+    font-size: 13px;
+    line-height: 1.5;
+    overflow-x: auto;
+    background: var(--neutral-layer-1);
+    border: 1px solid var(--neutral-stroke-rest);
+    border-radius: var(--control-corner-radius);
+}
+
+.diff-mode-switch {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    background: var(--neutral-layer-2);
+    border-bottom: 1px solid var(--neutral-stroke-rest);
+}
+
+.diff-mode-btn {
+    padding: 3px 10px;
+    background: transparent;
+    border: 1px solid var(--neutral-stroke-rest);
+    border-radius: var(--control-corner-radius);
+    color: var(--neutral-foreground-rest);
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.1s;
+}
+
+.diff-mode-btn:hover {
+    background: var(--neutral-fill-stealth-hover);
+}
+
+.diff-mode-btn--active {
+    background: var(--accent-fill-rest);
+    color: var(--foreground-on-accent-rest);
+    border-color: var(--accent-fill-rest);
+}
+
+.diff-mode-btn--active:hover {
+    background: var(--accent-fill-hover);
+}
+
+.diff-notice {
+    padding: 16px;
+    color: var(--neutral-foreground-hint);
+    font-family: var(--font-base, inherit);
+    font-size: 13px;
+}
+
+.diff-notice--binary,
+.diff-notice--large {
+    color: var(--warning-foreground-rest, #b58900);
+}
+
+.diff-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.diff-col-num {
+    width: 52px;
+    min-width: 52px;
+    padding: 0 8px;
+    text-align: right;
+    color: var(--neutral-foreground-hint);
+    user-select: none;
+    background: var(--neutral-layer-2);
+    border-right: 1px solid var(--neutral-stroke-divider-rest);
+    vertical-align: top;
+}
+
+.diff-col-content {
+    padding: 0 8px;
+    white-space: pre;
+    overflow: hidden;
+    vertical-align: top;
+    word-break: normal;
+}
+
+.diff-wrap .diff-col-content {
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.diff-hunk-header {
+    background: var(--neutral-layer-3, #1e2a3b);
+    color: var(--neutral-foreground-hint);
+    font-style: italic;
+    padding: 2px 8px;
+}
+
+.diff-row--added,
+.diff-row--added .diff-col-num {
+    background: color-mix(in srgb, #28a745 12%, transparent);
+}
+
+.diff-row--removed,
+.diff-row--removed .diff-col-num {
+    background: color-mix(in srgb, #d73a49 12%, transparent);
+}
+
+.diff-row--context,
+.diff-row--context .diff-col-num {
+    background: transparent;
+}
+
+.diff-cell--added {
+    background: color-mix(in srgb, #28a745 12%, transparent);
+}
+
+.diff-cell--removed {
+    background: color-mix(in srgb, #d73a49 12%, transparent);
+}
+
+.diff-cell--empty {
+    background: var(--neutral-layer-2);
+}
+
+.diff-table--side-by-side .diff-col-content {
+    width: calc(50% - 52px);
+}
+
+.diff-col-gutter {
+    width: 28px;
+    min-width: 28px;
+    padding: 0 2px;
+    text-align: center;
+    background: var(--neutral-layer-2);
+    border-right: 1px solid var(--neutral-stroke-divider-rest);
+    vertical-align: top;
+}
+
+.diff-line-row .diff-add-comment-btn {
+    display: none;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    margin: 1px auto;
+    background: var(--neutral-fill-stealth-rest);
+    border: 1px solid var(--neutral-stroke-rest);
+    border-radius: var(--control-corner-radius);
+    color: var(--neutral-foreground-rest);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    transition: background 0.1s, color 0.1s;
+}
+
+.diff-line-row:hover .diff-add-comment-btn,
+.diff-line-row:focus-within .diff-add-comment-btn {
+    display: block;
+}
+
+.diff-add-comment-btn:hover {
+    background: var(--accent-fill-rest);
+    color: var(--foreground-on-accent-rest);
+    border-color: var(--accent-fill-rest);
+}
+
+.diff-add-comment-btn:focus-visible {
+    display: block;
+    outline: 2px solid var(--focus-stroke-outer);
+    outline-offset: 1px;
+}
+
+.diff-comment-row .diff-comment-cell {
+    padding: 0;
+    background: var(--neutral-layer-1);
+    border-top: 1px solid var(--neutral-stroke-divider-rest);
+}
+
+.diff-comment-row:empty,
+.diff-comment-row .diff-comment-cell:empty {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .diff-mode-btn {
+        min-height: 40px;
+        padding: 8px 12px;
+    }
+}
+
+@media (max-width: 640px) {
+    .diff-mode-btn {
+        min-height: 44px;
+        padding: 10px 12px;
+    }
+}

@@ -1,0 +1,6 @@
+@typeparam TModel
+@using BlazorBase.CRUD.Components.Filtering
+
+<CascadingValue Value="@((IFilterFieldCollector<TModel>)this)" IsFixed="true">
+    @ChildContent
+</CascadingValue>

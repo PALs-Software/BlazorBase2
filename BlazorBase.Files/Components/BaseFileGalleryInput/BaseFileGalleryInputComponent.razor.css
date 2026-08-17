@@ -1,0 +1,61 @@
+.base-file-gallery-input {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.upload-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 1rem;
+    border: 2px dashed var(--neutral-stroke-rest);
+    border-radius: var(--control-corner-radius);
+    cursor: pointer;
+    text-align: center;
+}
+
+.upload-area:hover {
+    border-color: var(--accent-fill-rest);
+}
+
+.gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.gallery-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.gallery-thumbnail {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: var(--control-corner-radius);
+    border: 1px solid var(--neutral-stroke-rest);
+}
+
+.gallery-file-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100px;
+    height: 100px;
+    border: 1px solid var(--neutral-stroke-rest);
+    border-radius: var(--control-corner-radius);
+    gap: 0.25rem;
+    font-size: var(--type-ramp-minus1-font-size);
+    color: var(--neutral-foreground-rest);
+    text-align: center;
+    padding: 0.25rem;
+    overflow: hidden;
+}

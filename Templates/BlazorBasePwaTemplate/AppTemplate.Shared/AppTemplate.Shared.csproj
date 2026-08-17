@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      Where the BlazorBase2 framework sits, relative to this project. The default is the git submodule
+      a generated project adds at Libs/. Inside the framework repository itself the template is built
+      against the real sources instead, through the Directory.Build.props next to the template root -
+      a submodule pointing at its own repository would not resolve in a squashed public mirror, and a
+      symlink breaks Razor class library builds (dotnet/razor#10574).
+    -->
+    <BlazorBaseLibsPath Condition="'$(BlazorBaseLibsPath)' == ''">..\Libs\</BlazorBaseLibsPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(BlazorBaseLibsPath)BlazorBase.CRUD\BlazorBase.CRUD.csproj" />
+  </ItemGroup>
+
+</Project>

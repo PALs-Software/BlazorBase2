@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>AppTemplate</title>
+    <base href="/" />
+    <link rel="preload" id="webassembly" />
+
+    <meta name="theme-color" content="#101720" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="AppTemplate" />
+
+    <link rel="manifest" href="manifest.webmanifest" />
+    <!-- The SVG scales to any tab and display density; the PNG is there for Safari before 16. -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link href="AppTemplate.Client.styles.css" rel="stylesheet" />
+    <script type="importmap"></script>
+</head>
+
+<body>
+    <div id="app">
+        <div class="app-boot">
+            <div class="app-boot-mark">AppTemplate</div>
+            <div class="app-boot-trail"><i></i></div>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unexpected error has occurred.
+        <a href="." class="reload">Reload</a>
+        <span class="dismiss">🗙</span>
+    </div>
+
+    <!-- Plain name on purpose; see OverrideHtmlAssetPlaceholders in AppTemplate.Client.csproj. -->
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script>
+        navigator.serviceWorker?.register('service-worker.js', { updateViaCache: 'none' });
+
+        /*
+          A new worker takes over as soon as it is installed, which can swap the assets underneath a
+          page that booted from the previous deployment — the app would then be running an old client
+          against a new API. Reloading once on the handover keeps the two halves in step. The flag
+          guards the reload loop that would otherwise follow the very first install.
+        */
+        const wasAlreadyControlled = Boolean(navigator.serviceWorker?.controller);
+        let hasReloadedForUpdate = false;
+
+        navigator.serviceWorker?.addEventListener('controllerchange', () => {
+            // The first install also hands over control, and there is nothing stale to replace then.
+            if (!wasAlreadyControlled || hasReloadedForUpdate)
+                return;
+
+            hasReloadedForUpdate = true;
+            location.reload();
+        });
+    </script>
+</body>
+
+</html>

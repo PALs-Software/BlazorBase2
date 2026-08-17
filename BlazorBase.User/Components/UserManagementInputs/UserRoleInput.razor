@@ -1,0 +1,18 @@
+@using BlazorBase.CRUD.Components.CustomProperties
+@implements IBaseCustomPropertyInput
+
+<div class="user-role-input">
+    <FluentSelect TOption="string"
+                  @bind-Value="RoleValue"
+                  Disabled="@(ReadOnly || !IsEditing)"
+                  Label="@FieldLabel">
+        @if (ShowPlaceholder)
+        {
+            <FluentOption Value="">@PlaceholderText</FluentOption>
+        }
+        @foreach (var roleName in RoleNames)
+        {
+            <FluentOption Value="@roleName">@roleName</FluentOption>
+        }
+    </FluentSelect>
+</div>

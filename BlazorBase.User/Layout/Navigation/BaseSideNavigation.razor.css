@@ -1,0 +1,38 @@
+.base-side-nav {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+::deep .base-side-nav-divider {
+    margin: 0.5rem 0;
+}
+
+::deep .base-side-nav-section {
+    padding: 8px 16px 4px;
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+}
+
+::deep fluent-nav-link[active],
+::deep fluent-nav-link[aria-current] {
+    background: var(--color-bg-selected);
+    border-left: 3px solid var(--color-accent);
+}
+
+::deep fluent-nav-link:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+::deep .base-side-nav-danger {
+    color: var(--color-danger);
+}
+
+.base-side-nav.collapsed ::deep .base-side-nav-text {
+    display: none;
+}

@@ -1,0 +1,222 @@
+/* The host positions and shows/hides the `.base-bottom-nav` root (e.g. a fixed bottom bar revealed
+   only on small screens). This file owns the internal appearance of the tabs and the "More" sheet.
+   The sheet is rendered as a sibling of the bar so its fixed backdrop covers the full viewport — do
+   not place the component inside a `position: fixed`/transformed wrapper. */
+
+/* ----- bottom tabs ----- */
+::deep .base-bottom-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    text-decoration: none;
+    color: var(--color-text-secondary);
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 6px 4px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+::deep .base-bottom-tab-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+::deep .base-bottom-tab-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+::deep .base-bottom-tab-label {
+    line-height: 1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+::deep .base-bottom-tab.active,
+::deep .base-bottom-more.more-active {
+    color: var(--color-accent);
+    font-weight: 700;
+    background: var(--color-bg-selected);
+}
+
+::deep .base-bottom-tab.active .base-bottom-tab-icon {
+    color: var(--color-accent);
+}
+
+::deep .base-bottom-tab:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+/* ----- "More" sheet ----- */
+.base-more-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 500;
+}
+
+.base-more-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 501;
+    background: var(--color-bg-elevated);
+    border-top: 1px solid var(--color-border);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    padding: var(--space-2) 0 var(--space-4);
+    animation: base-sheet-slide-up 0.2s ease;
+}
+
+@keyframes base-sheet-slide-up {
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
+}
+
+.base-more-handle {
+    width: 36px;
+    height: 4px;
+    background: var(--color-border-strong);
+    border-radius: var(--radius-pill);
+    margin: 0 auto var(--space-2);
+}
+
+.base-more-title {
+    padding: var(--space-1) var(--space-4) var(--space-2);
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+}
+
+.base-more-nav {
+    display: flex;
+    flex-direction: column;
+}
+
+::deep .base-more-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    box-sizing: border-box;
+    padding: 14px var(--space-4);
+    min-height: 52px;
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+}
+
+::deep .base-more-item:hover {
+    background: var(--color-bg-hover);
+}
+
+::deep .base-more-item-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    flex-shrink: 0;
+    color: var(--color-text-secondary);
+}
+
+::deep .base-more-item-text {
+    flex: 1;
+    min-width: 0;
+}
+
+::deep .base-more-chevron {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+}
+
+::deep .base-more-item.active {
+    color: var(--color-accent);
+    font-weight: 600;
+}
+
+::deep .base-more-item.active .base-more-item-icon {
+    color: var(--color-accent);
+}
+
+::deep .base-more-action {
+    margin-top: var(--space-1);
+    border-top: 1px solid var(--color-border);
+}
+
+::deep .base-more-danger {
+    color: var(--color-danger);
+}
+
+::deep .base-more-danger .base-more-item-icon {
+    color: var(--color-danger);
+}
+
+::deep .base-more-danger:hover {
+    background: var(--color-danger-bg);
+}
+
+.base-more-back {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    box-sizing: border-box;
+    padding: var(--space-2) var(--space-4);
+    margin-bottom: var(--space-1);
+    min-height: 44px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--color-border);
+    cursor: pointer;
+    color: var(--color-text-primary);
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: left;
+}
+
+.base-more-back:hover {
+    background: var(--color-bg-hover);
+}
+
+.base-more-back:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.base-more-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+}

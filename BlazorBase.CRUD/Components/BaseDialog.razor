@@ -1,0 +1,21 @@
+@typeparam TModel
+
+<FluentDialogBody>
+    <CascadingValue Value="@((bool?)DialogData.IsNew)" Name="@CardCascadeNames.IsNew">
+        @if (DialogData.CardType is not null)
+        {
+            <DynamicComponent Type="@DialogData.CardType" Parameters="@GetCustomCardParameters()" />
+        }
+        else
+        {
+            <BaseCard TModel="TModel"
+                      Model="@DialogData.Model"
+                      IsNew="@DialogData.IsNew"
+                      DataProvider="@DialogData.DataProvider"
+                      Localizer="@DialogData.Localizer"
+                      Configuration="@CardConfiguration"
+                      OnAfterSave="@OnSavedAsync"
+                      OnCancelled="@OnCancelledAsync" />
+        }
+    </CascadingValue>
+</FluentDialogBody>

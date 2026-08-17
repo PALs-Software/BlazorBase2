@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="AppTemplate.Client/AppTemplate.Client.csproj" />
+  <Project Path="AppTemplate.Server/AppTemplate.Server.csproj" />
+  <Project Path="AppTemplate.Shared/AppTemplate.Shared.csproj" />
+  <Project Path="AppTemplate.Tests/AppTemplate.Tests.csproj" />
+</Solution>

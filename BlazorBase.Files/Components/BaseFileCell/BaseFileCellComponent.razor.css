@@ -1,0 +1,23 @@
+.base-file-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cell-thumbnail {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: var(--control-corner-radius);
+    border: 1px solid var(--neutral-stroke-rest);
+}
+
+.cell-placeholder,
+.cell-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    color: var(--neutral-foreground-hint);
+}

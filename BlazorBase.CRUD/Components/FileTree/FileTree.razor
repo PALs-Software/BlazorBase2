@@ -1,0 +1,22 @@
+@using BlazorBase.CRUD.Models.FileTree
+
+<div class="file-tree" role="tree" aria-label="File tree">
+    @if (Nodes.Count == 0)
+    {
+        <div class="file-tree__empty">@EmptyLabel</div>
+    }
+    else
+    {
+        @foreach (var node in Nodes)
+        {
+            <FileTreeNodeView Node="@node"
+                              SelectedPath="@SelectedPath"
+                              ExpandByDefault="@ExpandRootByDefault"
+                              FocusedPath="@FocusedPath"
+                              OnNodeSelected="@OnNodeActivated"
+                              OnKeyNavigation="@OnKeyNavigationAsync"
+                              OnElementReady="@(info => OnNodeElementReady(info))"
+                              OnExpansionChanged="@(info => OnExpansionChanged(info.Path, info.Expanded))" />
+        }
+    }
+</div>

@@ -1,0 +1,13 @@
+@using AppTemplate.Shared.Modules.Notes.Entities
+@using BlazorBase.CRUD.Components
+
+<BaseCard TModel="Note"
+          Model="@Model"
+          DataProvider="@DataProvider"
+          Localizer="@Localizer"
+          Configuration="@Configuration"
+          OnAfterSave="@OnAfterSave"
+          OnCancelled="@OnCancelled">
+    <PropertyField TModel="Note" Property="@(note => note.Title)" />
+    <PropertyField TModel="Note" Property="@(note => note.Content)" Lines="6" />
+</BaseCard>

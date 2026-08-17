@@ -1,0 +1,117 @@
+@namespace BlazorBase.User.Layout.Navigation
+
+<nav class="base-bottom-nav" aria-label="@Localizer["NavAriaLabel"]">
+    @foreach (var item in PrimaryItems)
+    {
+        <NavLink href="@item.Href"
+                 Match="@(item.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)"
+                 class="base-bottom-tab"
+                 ActiveClass="active">
+            <span class="base-bottom-tab-icon">
+                @if (item.Icon is not null)
+                {
+                    <FluentIcon Value="@item.Icon" />
+                }
+            </span>
+            <span class="base-bottom-tab-label">@item.Label</span>
+        </NavLink>
+    }
+    @if (HasMore)
+    {
+        <button type="button"
+                class="base-bottom-tab base-bottom-more @(IsMoreOpen ? "more-active" : null)"
+                @onclick="ToggleMoreSheet"
+                aria-expanded="@IsMoreOpen.ToString().ToLowerInvariant()"
+                aria-controls="base-bottom-more-sheet"
+                aria-haspopup="true">
+            <span class="base-bottom-tab-icon">
+                <FluentIcon Value="@MoreIcon" />
+            </span>
+            <span class="base-bottom-tab-label">@Localizer["More"]</span>
+        </button>
+    }
+</nav>
+
+@if (IsMoreOpen)
+{
+    <div class="base-more-backdrop" @onclick="CloseMoreSheet" role="presentation"></div>
+    <div class="base-more-sheet" id="base-bottom-more-sheet" role="dialog" aria-modal="true" aria-label="@Localizer["MoreSheetAriaLabel"]">
+        <div class="base-more-handle"></div>
+
+        @if (OpenGroup is null)
+        {
+            <div class="base-more-title">@Localizer["More"]</div>
+            @if (MoreSheetContent is not null)
+            {
+                <div class="base-more-content">
+                    @MoreSheetContent
+                </div>
+            }
+            <nav class="base-more-nav" aria-label="@Localizer["MoreSheetAriaLabel"]">
+                @foreach (var item in MoreItems)
+                {
+                    @if (item.IsGroup)
+                    {
+                        <button type="button" class="base-more-item base-more-group" @onclick="@(() => OpenGroupView(item))" aria-haspopup="true">
+                            <span class="base-more-item-icon">
+                                @if (item.Icon is not null)
+                                {
+                                    <FluentIcon Value="@item.Icon" />
+                                }
+                            </span>
+                            <span class="base-more-item-text">@item.Label</span>
+                            <span class="base-more-chevron">
+                                <FluentIcon Value="@ChevronRightIcon" />
+                            </span>
+                        </button>
+                    }
+                    else if (item.IsAction)
+                    {
+                        <button type="button" class="base-more-item base-more-action @(item.IsDanger ? "base-more-danger" : null)" @onclick="@(() => InvokeActionAsync(item))">
+                            <span class="base-more-item-icon">
+                                @if (item.Icon is not null)
+                                {
+                                    <FluentIcon Value="@item.Icon" />
+                                }
+                            </span>
+                            <span class="base-more-item-text">@item.Label</span>
+                        </button>
+                    }
+                    else
+                    {
+                        <NavLink href="@item.Href" Match="@(item.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)" class="base-more-item" @onclick="CloseMoreSheet">
+                            <span class="base-more-item-icon">
+                                @if (item.Icon is not null)
+                                {
+                                    <FluentIcon Value="@item.Icon" />
+                                }
+                            </span>
+                            <span class="base-more-item-text">@item.Label</span>
+                        </NavLink>
+                    }
+                }
+            </nav>
+        }
+        else
+        {
+            <button type="button" class="base-more-back" @onclick="BackToRoot">
+                <FluentIcon Value="@ChevronLeftIcon" />
+                <span>@OpenGroup.Label</span>
+            </button>
+            <nav class="base-more-nav" aria-label="@OpenGroup.Label">
+                @foreach (var child in OpenGroup.Children)
+                {
+                    <NavLink href="@child.Href" Match="@(child.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)" class="base-more-item" @onclick="CloseMoreSheet">
+                        <span class="base-more-item-icon">
+                            @if (child.Icon is not null)
+                            {
+                                <FluentIcon Value="@child.Icon" />
+                            }
+                        </span>
+                        <span class="base-more-item-text">@child.Label</span>
+                    </NavLink>
+                }
+            </nav>
+        }
+    </div>
+}

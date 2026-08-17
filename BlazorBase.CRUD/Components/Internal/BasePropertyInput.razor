@@ -1,0 +1,147 @@
+@using System.Reflection
+@using BlazorBase.CRUD.Configuration
+@typeparam TModel
+
+<div class="base-property-input" id="@TooltipAnchorId">
+    @if (FieldConfig.EditorTemplate is not null && IsEditing)
+    {
+        @FieldConfig.EditorTemplate(new PropertyFieldContext<TModel>
+        {
+            Model = Model,
+            Value = CurrentValue,
+            IsEditing = true,
+            ValueChanged = EventCallback.Factory.Create<object?>(this, OnValueChangedAsync)
+        })
+    }
+    else if (FieldConfig.DisplayTemplate is not null && !IsEditing)
+    {
+        @FieldConfig.DisplayTemplate(new PropertyFieldContext<TModel>
+        {
+            Model = Model,
+            Value = CurrentValue,
+            IsEditing = false,
+            ValueChanged = EventCallback.Factory.Create<object?>(this, OnValueChangedAsync)
+        })
+    }
+    else if (ResolvedCustomInput is not null)
+    {
+        <DynamicComponent Type="ResolvedCustomInput" Parameters="@CustomInputParameters" @ref="CustomInputRef" />
+    }
+    else if (PropertyType == typeof(bool) || PropertyType == typeof(bool?))
+    {
+        <div class="base-bool-field">
+            <FluentInputLabel Label="@ResolvedLabel" ForId="@FieldElementId" />
+            <FluentSwitch @bind-Value="BoolValue"
+                          ReadOnly="@(!IsEditing)"
+                          Id="@FieldElementId" />
+        </div>
+    }
+    else if (PropertyType == typeof(DateTime) || PropertyType == typeof(DateTime?) ||
+             PropertyType == typeof(DateTimeOffset) || PropertyType == typeof(DateTimeOffset?))
+    {
+        <FluentDatePicker @bind-Value="DateValue"
+                          ReadOnly="@(!IsEditing)"
+                          Label="@ResolvedLabel" />
+    }
+    else if (IsNumericType)
+    {
+        <FluentTextField @bind-Value="NumericStringValue"
+                         ReadOnly="@(!IsEditing)"
+                         Label="@ResolvedLabel"
+                         Placeholder="@ResolvedPlaceholder"
+                         InputMode="InputMode.Numeric" />
+    }
+    else if (PropertyType.IsEnum)
+    {
+        <FluentSelect TOption="string"
+                      @bind-Value="StringValue"
+                      Disabled="@(!IsEditing)"
+                      Label="@ResolvedLabel">
+            @foreach (var enumValue in Enum.GetValues(PropertyType))
+            {
+                <FluentOption Value="@enumValue.ToString()">@enumValue</FluentOption>
+            }
+        </FluentSelect>
+    }
+    else if (IsNavigationProperty && !UseBrowseMode)
+    {
+        <FluentSelect TOption="string"
+                      @key="@NavigationSelectGeneration"
+                      Value="@CurrentFkStringValue"
+                      ValueChanged="@OnNavigationSelectChangedAsync"
+                      Disabled="@(!IsEditing)"
+                      Label="@ResolvedLabel">
+            <FluentOption Value="">@FrameworkLocalizer["SelectEmpty"]</FluentOption>
+            @foreach (var item in LookupItems)
+            {
+                <FluentOption Value="@item.Id">@item.DisplayText</FluentOption>
+            }
+        </FluentSelect>
+    }
+    else if (IsNavigationProperty && UseBrowseMode)
+    {
+        <div class="base-navigation-browse">
+            <FluentTextField Value="@SelectedDisplayText"
+                             ReadOnly="true"
+                             Label="@ResolvedLabel" />
+            @if (IsEditing)
+            {
+                <FluentButton Appearance="Appearance.Outline"
+                              OnClick="@ToggleBrowsePanel">
+                    @FrameworkLocalizer["BrowsePlaceholder"]
+                </FluentButton>
+            }
+        </div>
+        @if (ShowBrowsePanel)
+        {
+            <div class="base-browse-panel">
+                <FluentTextField @bind-Value="BrowseSearchText"
+                                 @bind-Value:after="OnBrowseSearchAsync"
+                                 Placeholder="@FrameworkLocalizer["BrowseSearchPlaceholder"].Value" />
+                <div class="base-browse-panel-items">
+                    @foreach (var item in BrowseItems)
+                    {
+                        <div class="base-browse-item @(item.Id == CurrentFkStringValue ? "selected" : "")"
+                             @onclick="() => OnBrowseItemSelectedAsync(item)">
+                            @item.DisplayText
+                        </div>
+                    }
+                    @if (HasMoreBrowseItems)
+                    {
+                        <FluentButton Appearance="Appearance.Stealth"
+                                      OnClick="@LoadMoreBrowseItemsAsync">
+                            @FrameworkLocalizer["BrowseLoadMore"]
+                        </FluentButton>
+                    }
+                </div>
+            </div>
+        }
+    }
+    else if (NavigationReadDenied)
+    {
+        <FluentTextField Value="@SelectedDisplayText"
+                         ReadOnly="true"
+                         Label="@ResolvedLabel" />
+    }
+    else if (FieldConfig.Lines > 1)
+    {
+        <FluentTextArea @bind-Value="StringValue"
+                        ReadOnly="@(!IsEditing)"
+                        Label="@ResolvedLabel"
+                        Placeholder="@ResolvedPlaceholder"
+                        Rows="@FieldConfig.Lines" />
+    }
+    else
+    {
+        <FluentTextField @bind-Value="StringValue"
+                         ReadOnly="@(!IsEditing)"
+                         Label="@ResolvedLabel"
+                         Placeholder="@ResolvedPlaceholder"
+                         Required="@FieldConfig.Required" />
+    }
+
+    @if (ResolvedTooltip is not null)
+    {
+        <FluentTooltip Anchor="@TooltipAnchorId">@ResolvedTooltip</FluentTooltip>
+    }
+</div>

@@ -1,0 +1,94 @@
+.rte-root {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.rte-label {
+    display: block;
+    font-size: var(--type-ramp-minus-1-font-size, 12px);
+    font-weight: 600;
+    color: var(--neutral-foreground-rest);
+    margin-bottom: 4px;
+}
+
+.rte-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    padding: 4px 6px;
+    background: var(--neutral-layer-2);
+    border: 1px solid var(--neutral-stroke-rest);
+    border-bottom: none;
+    border-radius: var(--control-corner-radius) var(--control-corner-radius) 0 0;
+}
+
+.rte-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 28px;
+    padding: 0 6px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--control-corner-radius);
+    color: var(--neutral-foreground-rest);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    transition: background 0.1s;
+}
+
+.rte-btn:hover {
+    background: var(--neutral-fill-stealth-hover);
+    border-color: var(--neutral-stroke-rest);
+}
+
+.rte-btn:active {
+    background: var(--neutral-fill-stealth-active);
+}
+
+.rte-btn:focus-visible {
+    outline: 2px solid var(--accent-stroke-control-rest);
+    outline-offset: 1px;
+}
+
+.rte-separator {
+    display: inline-block;
+    width: 1px;
+    height: 20px;
+    background: var(--neutral-stroke-divider-rest);
+    margin: 4px 4px;
+    align-self: center;
+}
+
+.rte-surface {
+    min-height: 120px;
+    padding: 8px 10px;
+    background: var(--neutral-layer-1);
+    border: 1px solid var(--neutral-stroke-rest);
+    border-radius: 0 0 var(--control-corner-radius) var(--control-corner-radius);
+    color: var(--neutral-foreground-rest);
+    font-size: var(--type-ramp-base-font-size, 14px);
+    line-height: var(--type-ramp-base-line-height, 1.5);
+    overflow-y: auto;
+    outline: none;
+    word-break: break-word;
+}
+
+.rte-surface:focus {
+    border-color: var(--accent-stroke-control-rest);
+    box-shadow: 0 0 0 1px var(--accent-stroke-control-rest);
+}
+
+.rte-disabled .rte-toolbar {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.rte-disabled .rte-surface {
+    opacity: 0.6;
+    background: var(--neutral-layer-2);
+    cursor: not-allowed;
+}

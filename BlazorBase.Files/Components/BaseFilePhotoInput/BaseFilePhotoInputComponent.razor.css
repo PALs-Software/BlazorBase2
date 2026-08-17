@@ -1,0 +1,41 @@
+.base-file-photo-input {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.upload-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 1rem;
+    border: 2px dashed var(--neutral-stroke-rest);
+    border-radius: var(--control-corner-radius);
+    cursor: pointer;
+    text-align: center;
+}
+
+.upload-area:hover {
+    border-color: var(--accent-fill-rest);
+}
+
+.preview-area {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.preview-image {
+    max-width: 120px;
+    max-height: 120px;
+    object-fit: contain;
+    border-radius: var(--control-corner-radius);
+    border: 1px solid var(--neutral-stroke-rest);
+}
+
+.file-name {
+    font-size: var(--type-ramp-base-font-size);
+    color: var(--neutral-foreground-rest);
+}

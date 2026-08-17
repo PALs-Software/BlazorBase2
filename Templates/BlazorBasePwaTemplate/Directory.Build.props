@@ -1,0 +1,15 @@
+<Project>
+
+  <PropertyGroup>
+    <!--
+      Builds the template against the framework sources it lives next to, so the template stays
+      compilable and testable inside this repository without a copy of the framework in it.
+
+      This file is excluded from the template output (see .template.config/template.json), so a
+      generated project falls back to the per-project default of Libs\ and adds the framework there
+      as a git submodule.
+    -->
+    <BlazorBaseLibsPath>$(MSBuildThisFileDirectory)..\..\</BlazorBaseLibsPath>
+  </PropertyGroup>
+
+</Project>

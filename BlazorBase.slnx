@@ -1,0 +1,35 @@
+<Solution>
+  <Folder Name="/Documentation/">
+    <File Path="Documentation/README.md" />
+    <File Path="Documentation/BlazorBase.Chart.md" />
+    <File Path="Documentation/BlazorBase.CRUD.md" />
+    <File Path="Documentation/BlazorBase.CRUD.Generators.md" />
+    <File Path="Documentation/BlazorBase.Files.md" />
+    <File Path="Documentation/BlazorBase.Files.Server.md" />
+    <File Path="Documentation/BlazorBase.User.md" />
+    <File Path="Documentation/BlazorBase.User.Server.md" />
+    <File Path="Documentation/BlazorBase.User.Wasm.md" />
+    <File Path="Documentation/BlazorBase.User.Maui.md" />
+  </Folder>
+  <Project Path="BlazorBase.Chart/BlazorBase.Chart.csproj" />
+  <Project Path="BlazorBase.Mailing/BlazorBase.Mailing.csproj" />
+  <Project Path="BlazorBase.DataProtection/BlazorBase.DataProtection.csproj" />
+  <Project Path="BlazorBase.CRUD/BlazorBase.CRUD.csproj" />
+  <Project Path="BlazorBase.Files/BlazorBase.Files.csproj" />
+  <Project Path="BlazorBase.Files.Server/BlazorBase.Files.Server.csproj" />
+  <Project Path="BlazorBase.CRUD.Generators/BlazorBase.CRUD.Generators.csproj" />
+  <Project Path="BlazorBase.CRUD.Benchmarks/BlazorBase.CRUD.Benchmarks.csproj" />
+  <Project Path="BlazorBase.User/BlazorBase.User.csproj" />
+  <Project Path="BlazorBase.User.Server/BlazorBase.User.Server.csproj" />
+  <Project Path="BlazorBase.User.Wasm/BlazorBase.User.Wasm.csproj" />
+  <Project Path="BlazorBase.User.Maui/BlazorBase.User.Maui.csproj" />
+  <Folder Name="/Tests/">
+    <Project Path="BlazorBase.CRUD.Test/BlazorBase.CRUD.Test.csproj" />
+    <Project Path="BlazorBase.DataProtection.Test/BlazorBase.DataProtection.Test.csproj" />
+    <Project Path="BlazorBase.CRUD.Generators.Test/BlazorBase.CRUD.Generators.Test.csproj" />
+    <Project Path="BlazorBase.Mailing.Test/BlazorBase.Mailing.Test.csproj" />
+    <Project Path="BlazorBase.User.Test/BlazorBase.User.Test.csproj" />
+    <Project Path="BlazorBase.User.Server.Test/BlazorBase.User.Server.Test.csproj" />
+    <Project Path="BlazorBase.Files.Server.Test/BlazorBase.Files.Server.Test.csproj" />
+  </Folder>
+</Solution>

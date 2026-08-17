@@ -1,0 +1,59 @@
+@using BlazorBase.CRUD.Components.CustomProperties
+
+@implements IBaseCustomPropertyInput
+@implements ICardSaveParticipant
+
+<div class="base-file-gallery-input">
+    @if (IsEditing && !ReadOnly)
+    {
+        <FluentInputFile Accept="@AcceptValue"
+                        AdditionalAttributes="@AdditionalFileInputAttributes"
+                        MaximumFileSize="@MaximumFileSizeBytes"
+                        OnFileUploaded="@OnFileUploadedAsync"
+                        Mode="InputFileMode.Stream"
+                        Multiple="true">
+            <ChildContent>
+                <div class="upload-area">
+                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ArrowUpload())" />
+                    <span>@ComponentLocalizer["SelectFiles"]</span>
+                </div>
+            </ChildContent>
+        </FluentInputFile>
+    }
+
+    @if (UploadedFiles.Count > 0)
+    {
+        <div class="gallery">
+            @foreach (var file in UploadedFiles)
+            {
+                <div class="gallery-item">
+                    @if (file.ContentType.StartsWith("image", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <img src="@GetThumbnailUrl(file)" alt="@ComponentLocalizer["ThumbnailAlt"]" class="gallery-thumbnail" />
+                    }
+                    else
+                    {
+                        <div class="gallery-file-icon">
+                            <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.Document())" />
+                            <span>@file.FileName</span>
+                        </div>
+                    }
+
+                    @if (IsEditing && !ReadOnly)
+                    {
+                        <FluentButton Appearance="Appearance.Stealth"
+                                      OnClick="@(() => RemoveFileAsync(file))"
+                                      Title="@ComponentLocalizer["RemoveFile"]">
+                            <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Delete())" />
+                        </FluentButton>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(ValidationMessage))
+    {
+        <FluentMessageBar Intent="MessageIntent.Error">@ValidationMessage</FluentMessageBar>
+    }
+</div>

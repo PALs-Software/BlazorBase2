@@ -1,0 +1,16 @@
+@using BlazorBase.CRUD.Components
+@using BlazorBase.User.Models
+
+<BaseCard TModel="UserModel"
+          Model="@Model"
+          DataProvider="@DataProvider"
+          Localizer="@Localizer"
+          Configuration="@Configuration"
+          OnAfterSave="@OnAfterSave"
+          OnCancelled="@OnCancelled">
+    <PropertyField TModel="UserModel" Property="@(user => user.DisplayName)" Label="@Localize("FieldDisplayName")" />
+    <PropertyField TModel="UserModel" Property="@(user => user.Email)" Label="@Localize("FieldEmail")" />
+    <PropertyField TModel="UserModel" Property="@(user => user.Role)" Label="@Localize("FieldRole")" />
+    <PropertyField TModel="UserModel" Property="@(user => user.IsActive)" Label="@Localize("FieldIsActive")" />
+    <PropertyField TModel="UserModel" Property="@(user => user.Password)" Label="@Localize("FieldPassword")" />
+</BaseCard>

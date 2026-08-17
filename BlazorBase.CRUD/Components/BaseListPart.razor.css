@@ -1,0 +1,32 @@
+.base-listpart {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border: 1px solid var(--neutral-stroke-divider-rest);
+    border-radius: 4px;
+    padding: 8px;
+}
+
+.base-listpart-header {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.base-listpart-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--neutral-stroke-divider-rest);
+}
+
+.base-listpart-item:last-child {
+    border-bottom: none;
+}
+
+.base-listpart-empty {
+    display: flex;
+    justify-content: center;
+    padding: 12px;
+    color: var(--neutral-foreground-hint);
+}

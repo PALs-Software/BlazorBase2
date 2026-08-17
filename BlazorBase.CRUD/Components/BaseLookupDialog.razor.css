@@ -1,0 +1,23 @@
+.base-lookup-search {
+    margin-bottom: 12px;
+}
+
+.base-lookup-items {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.base-lookup-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.base-lookup-item:hover {
+    background: var(--neutral-layer-2);
+}
+
+.base-lookup-item.selected {
+    background: var(--accent-fill-rest);
+    color: var(--foreground-on-accent-rest);
+}

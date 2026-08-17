@@ -1,0 +1,22 @@
+@implements IAsyncDisposable
+
+<div class="rte-root @(Disabled || ReadOnly ? "rte-disabled" : "")" aria-disabled="@((Disabled || ReadOnly).ToString().ToLowerInvariant())">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label class="rte-label" for="@ElementId">@Label</label>
+    }
+
+    <div class="rte-toolbar">
+        <button class="rte-btn" type="button" data-cmd="bold" title="@BoldLabel" aria-label="@BoldLabel"><b>B</b></button>
+        <button class="rte-btn" type="button" data-cmd="italic" title="@ItalicLabel" aria-label="@ItalicLabel"><i>I</i></button>
+        <button class="rte-btn" type="button" data-cmd="underline" title="@UnderlineLabel" aria-label="@UnderlineLabel"><u>U</u></button>
+        <span class="rte-separator"></span>
+        <button class="rte-btn" type="button" data-cmd="insertUnorderedList" title="@BulletListLabel" aria-label="@BulletListLabel">&#8226;&#8212;</button>
+        <button class="rte-btn" type="button" data-cmd="insertOrderedList" title="@NumberedListLabel" aria-label="@NumberedListLabel">1&#8212;</button>
+        <span class="rte-separator"></span>
+        <button class="rte-btn" type="button" data-cmd="createLink" title="@InsertLinkLabel" aria-label="@InsertLinkLabel">&#128279;</button>
+        <button class="rte-btn" type="button" data-cmd="removeFormat" title="@ClearFormattingLabel" aria-label="@ClearFormattingLabel">&#10005;</button>
+    </div>
+
+    <div id="@ElementId" class="rte-surface"></div>
+</div>

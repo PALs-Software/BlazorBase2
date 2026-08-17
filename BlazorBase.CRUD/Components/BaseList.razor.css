@@ -1,0 +1,169 @@
+.base-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+}
+
+.base-list-header {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.base-list-filter-toggle {
+    margin-right: auto;
+}
+
+.base-list-filter-badge {
+    margin-left: 6px;
+}
+
+/*
+   The grid scrolls itself instead of letting the page grow with it, so both scrollbars stay
+   inside the viewport no matter how many rows are loaded. Hosts that give .base-list a height
+   (flex chain) get an exact fit through flex; everywhere else the viewport-relative cap applies.
+   Override --base-list-grid-max-height (or set it to none) to adapt the cap per host or page.
+*/
+.base-list-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: var(--base-list-grid-max-height, calc(100dvh - 14rem));
+    overflow: auto;
+    background: var(--color-bg-surface, var(--neutral-layer-1));
+    border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px));
+}
+
+::deep tr[row-type='sticky-header'] > th,
+::deep tr[row-type='header'] > th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    background: var(--color-bg-elevated, var(--neutral-fill-secondary-rest));
+    border-bottom: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+}
+
+::deep .column-header {
+    text-align: left;
+}
+
+::deep .fluent-data-grid th,
+::deep .fluent-data-grid td {
+    border-bottom-color: var(--color-border, var(--neutral-stroke-divider-rest));
+}
+
+/*
+   Columns without an explicit width share the space equally, which on a phone leaves every one of
+   them too narrow to read and truncated to an ellipsis. The floor is what the cell actually needs, so
+   the grid outgrows its container instead and .base-list-grid above scrolls — hiding a value behind an
+   ellipsis loses it, scrolling does not. A column holding long prose would grow far too wide for that
+   rule; give it an explicit Width, or set --base-list-column-min-width to a fixed length per host or
+   page. Columns sized by the caller are not affected either way.
+*/
+::deep th.base-list-column-flexible,
+::deep td.base-list-column-flexible {
+    min-width: var(--base-list-column-min-width, max-content);
+}
+
+::deep tr.fluent-data-grid-row:not([row-type]) td {
+    color: var(--color-text-primary, var(--neutral-foreground-rest));
+    cursor: pointer;
+    transition: background-color 0.1s ease-in-out;
+}
+
+::deep tr.fluent-data-grid-row:not([row-type]):hover td {
+    background-color: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
+}
+
+::deep .base-list-select-column {
+    width: 40px;
+    text-align: center;
+}
+
+.select-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--neutral-stroke-rest);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin: 0 auto;
+}
+
+.select-circle.selected {
+    background-color: var(--accent-fill-rest);
+    border-color: var(--accent-fill-rest);
+}
+
+.select-circle:hover {
+    border-color: var(--accent-fill-hover);
+}
+
+.selection-count {
+    margin-right: auto;
+    font-weight: 600;
+}
+
+.base-list-loading {
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+}
+
+.base-list-empty {
+    display: flex;
+    justify-content: center;
+    padding: 24px;
+    color: var(--neutral-foreground-hint);
+}
+
+.context-menu-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+}
+
+.context-menu {
+    position: fixed;
+    z-index: 10000;
+    background: var(--neutral-layer-floating);
+    border: 1px solid var(--neutral-stroke-rest);
+    border-radius: calc(var(--layer-corner-radius) * 1px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.14);
+    padding: 4px 0;
+    min-width: 180px;
+}
+
+.context-menu ::deep [role="menuitem"] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    color: var(--neutral-foreground-rest);
+    font-size: 14px;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    user-select: none;
+}
+
+.context-menu ::deep [role="menuitem"]:hover {
+    background: var(--neutral-fill-stealth-hover);
+}
+
+.context-menu-divider {
+    height: 1px;
+    background: var(--neutral-stroke-divider-rest);
+    margin: 4px 0;
+}

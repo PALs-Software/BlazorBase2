@@ -1,0 +1,51 @@
+@using BlazorBase.CRUD.Models
+@typeparam TModel
+
+<div class="base-action-toolbar">
+    @foreach (var group in VisibleGroups)
+    {
+        @if (group.Actions.Count == 1)
+        {
+            var action = group.Actions[0];
+            @if (IsActionVisible(action))
+            {
+                <FluentButton Appearance="@action.Appearance"
+                              Title="@ResolveText(action.ToolTip ?? action.Caption)"
+                              IconStart="@action.Icon"
+                              OnClick="@(() => InvokeActionAsync(action))"
+                              Disabled="@(!IsActionEnabled(action))">
+                    @if (!string.IsNullOrEmpty(action.Caption))
+                    {
+                        @ResolveText(action.Caption)
+                    }
+                </FluentButton>
+            }
+        }
+        else
+        {
+            <FluentMenuButton Text="@ResolveText(group.Caption ?? group.Name)"
+                              IconStart="@group.Icon"
+                              ButtonAppearance="Appearance.Stealth">
+                @foreach (var action in group.Actions.OrderBy(a => a.Order))
+                {
+                    @if (IsActionVisible(action))
+                    {
+                        <FluentMenuItem OnClick="@(() => InvokeActionAsync(action))"
+                                        Disabled="@(!IsActionEnabled(action))">
+                            @if (action.Icon is not null)
+                            {
+                                <FluentIcon Value="@action.Icon" Slot="start" />
+                            }
+                            @ResolveText(action.Caption)
+                        </FluentMenuItem>
+                    }
+                }
+            </FluentMenuButton>
+        }
+    }
+
+    @if (DynamicComponentFragment is not null)
+    {
+        @DynamicComponentFragment
+    }
+</div>

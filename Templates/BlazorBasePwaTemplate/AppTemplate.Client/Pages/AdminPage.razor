@@ -1,0 +1,10 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = RoleConstants.Admin)]
+@using AppTemplate.Shared.Modules.Authentication
+@using BlazorBase.User.Pages
+
+<PageTitle>@Localizer["PageTitle"]</PageTitle>
+
+<h1>@Localizer["PageTitle"]</h1>
+
+<UserManagementView />

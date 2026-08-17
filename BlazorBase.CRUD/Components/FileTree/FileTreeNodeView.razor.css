@@ -1,0 +1,66 @@
+.ftnode {
+    display: block;
+    outline: none;
+}
+
+.ftnode__row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    cursor: pointer;
+    border-radius: var(--control-corner-radius);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ftnode__row:hover {
+    background: var(--neutral-fill-stealth-hover);
+}
+
+.ftnode--selected > .ftnode__row {
+    background: var(--accent-fill-rest);
+    color: var(--foreground-on-accent-rest);
+}
+
+.ftnode__row:focus-visible {
+    outline: 2px solid var(--accent-stroke-control-rest);
+    outline-offset: -2px;
+}
+
+.ftnode__icon {
+    flex-shrink: 0;
+    font-size: 12px;
+    line-height: 1;
+    width: 14px;
+    text-align: center;
+    color: var(--neutral-foreground-hint);
+}
+
+.ftnode--selected > .ftnode__row .ftnode__icon {
+    color: var(--foreground-on-accent-rest);
+}
+
+.ftnode__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ftnode__children {
+    padding-left: 16px;
+}
+
+@media (max-width: 768px) {
+    .ftnode__row {
+        min-height: 40px;
+        padding: 8px 8px;
+    }
+}
+
+@media (max-width: 640px) {
+    .ftnode__row {
+        min-height: 44px;
+        padding: 10px 8px;
+    }
+}

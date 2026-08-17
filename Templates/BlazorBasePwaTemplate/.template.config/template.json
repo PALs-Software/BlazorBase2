@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "PAL",
+  "classifications": [ "Web", "Blazor", "PWA" ],
+  "identity": "BlazorBase.Templates.Pwa",
+  "name": "BlazorBase PWA (Client + Server)",
+  "shortName": "blazorbase-pwa",
+  "sourceName": "AppTemplate",
+  "preferNameDirectory": true,
+  "symbols": {
+    "BlazorBaseUrl": {
+      "type": "parameter",
+      "datatype": "string",
+      "description": "Repository the generated project adds as its Libs submodule. Defaults to the public mirror; pass your own upstream when developing against one.",
+      "defaultValue": "https://github.com/PALs-Software/BlazorBase2.git",
+      "replaces": "BLAZORBASE_REPOSITORY_URL"
+    }
+  },
+  "sources": [
+    {
+      "exclude": [
+        "Libs/**",
+        ".template.config/**",
+        "**/bin/**",
+        "**/obj/**",
+        "Directory.Build.props",
+        "README.md"
+      ]
+    }
+  ]
+}

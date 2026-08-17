@@ -1,0 +1,43 @@
+@page "/setup-server"
+@attribute [AllowAnonymous]
+
+<PageTitle>Server Setup</PageTitle>
+
+<div>
+<FluentStack Orientation="Orientation.Vertical" HorizontalAlignment="HorizontalAlignment.Center"
+             Class="setup-container">
+    <FluentCard Class="setup-card">
+        <h2>Server Setup</h2>
+        <p>Enter the URL of your server.</p>
+
+        <FluentStack Orientation="Orientation.Vertical" Class="form-stack">
+            <FluentTextField @bind-Value="ServerUrl"
+                             Label="Server URL"
+                             Placeholder="https://your-server.example.com"
+                             Required="true"
+                             Class="full-width" />
+
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <FluentMessageBar Intent="MessageIntent.Error" Title="Error">
+                    @ErrorMessage
+                </FluentMessageBar>
+            }
+
+            @if (IsSuccess)
+            {
+                <FluentMessageBar Intent="MessageIntent.Success" Title="Success">
+                    Connection successful!
+                </FluentMessageBar>
+            }
+
+            <FluentButton Appearance="Appearance.Accent"
+                          Loading="IsTesting"
+                          OnClick="HandleSave"
+                          Class="full-width">
+                Connect
+            </FluentButton>
+        </FluentStack>
+    </FluentCard>
+</FluentStack>
+</div>

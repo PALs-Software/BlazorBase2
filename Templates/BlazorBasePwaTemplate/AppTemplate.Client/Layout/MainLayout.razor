@@ -1,0 +1,49 @@
+@inherits LayoutComponentBase
+
+<FluentDesignTheme Mode="@FluentThemeMode" CustomColor="@FluentAccentColor" />
+
+<div class="shell">
+    <header class="topbar">
+        <a class="wordmark" href="">AppTemplate</a>
+
+        @if (IsAuthenticated)
+        {
+            <nav class="nav-rail">
+                @foreach (var item in NavigationItems)
+                {
+                    <NavLink class="nav-item" href="@item.Href" Match="@item.Match">@item.Label</NavLink>
+                }
+            </nav>
+        }
+
+        <div class="topbar-actions">
+            <button type="button" class="icon-button" title="@ThemeToggleTitle" @onclick="ToggleThemeAsync">
+                @(IsDarkTheme ? "☾" : "☀")
+            </button>
+            @if (IsAuthenticated)
+            {
+                <span class="avatar" title="@Localizer["AvatarTitle"]">@UserInitials</span>
+            }
+        </div>
+    </header>
+
+    <main class="content">
+        @Body
+    </main>
+
+    @if (IsAuthenticated)
+    {
+        <nav class="bottom-bar">
+            @foreach (var item in NavigationItems)
+            {
+                <NavLink class="bottom-item" href="@item.Href" Match="@item.Match">@item.Label</NavLink>
+            }
+        </nav>
+    }
+</div>
+
+<FluentToastProvider />
+<FluentDialogProvider />
+<FluentTooltipProvider />
+<FluentMessageBarProvider />
+<FluentMenuProvider />

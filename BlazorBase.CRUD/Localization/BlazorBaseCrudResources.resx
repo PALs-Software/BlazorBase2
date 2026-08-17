@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Reset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="Select" xml:space="preserve">
+    <value>Select</value>
+  </data>
+  <data name="Deselect" xml:space="preserve">
+    <value>Deselect</value>
+  </data>
+  <data name="SelectAll" xml:space="preserve">
+    <value>Select All</value>
+  </data>
+  <data name="DeselectAll" xml:space="preserve">
+    <value>Deselect All</value>
+  </data>
+  <data name="SelectedCount" xml:space="preserve">
+    <value>{0} selected</value>
+  </data>
+  <data name="DeleteCount" xml:space="preserve">
+    <value>Delete ({0})</value>
+  </data>
+  <data name="NoItemsFound" xml:space="preserve">
+    <value>No items found.</value>
+  </data>
+  <data name="UnnamedListItem" xml:space="preserve">
+    <value>(unnamed)</value>
+  </data>
+  <data name="NoListItems" xml:space="preserve">
+    <value>No items.</value>
+  </data>
+  <data name="Filter" xml:space="preserve">
+    <value>Filter</value>
+  </data>
+  <data name="FilterApply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="FilterReset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="FilterClose" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="FilterAddCondition" xml:space="preserve">
+    <value>Add condition</value>
+  </data>
+  <data name="FilterAddGroup" xml:space="preserve">
+    <value>Add group</value>
+  </data>
+  <data name="FilterRemoveGroup" xml:space="preserve">
+    <value>Remove group</value>
+  </data>
+  <data name="FilterRemoveCondition" xml:space="preserve">
+    <value>Remove condition</value>
+  </data>
+  <data name="FilterGroup" xml:space="preserve">
+    <value>Group</value>
+  </data>
+  <data name="FilterGroupEmpty" xml:space="preserve">
+    <value>No conditions yet — add one below.</value>
+  </data>
+  <data name="FilterToggleLogic" xml:space="preserve">
+    <value>Toggle AND / OR</value>
+  </data>
+  <data name="FilterLogicAnd" xml:space="preserve">
+    <value>AND</value>
+  </data>
+  <data name="FilterLogicOr" xml:space="preserve">
+    <value>OR</value>
+  </data>
+  <data name="FilterFieldPlaceholder" xml:space="preserve">
+    <value>Field</value>
+  </data>
+  <data name="FilterValuePlaceholder" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="BoolTrue" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="BoolFalse" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="FilterEmpty" xml:space="preserve">
+    <value>No filterable fields.</value>
+  </data>
+  <data name="FilterOperator_Contains" xml:space="preserve">
+    <value>contains</value>
+  </data>
+  <data name="FilterOperator_Equals" xml:space="preserve">
+    <value>=</value>
+  </data>
+  <data name="FilterOperator_NotEquals" xml:space="preserve">
+    <value>≠</value>
+  </data>
+  <data name="FilterOperator_GreaterThan" xml:space="preserve">
+    <value>&gt;</value>
+  </data>
+  <data name="FilterOperator_LessThan" xml:space="preserve">
+    <value>&lt;</value>
+  </data>
+  <data name="FilterOperator_GreaterThanOrEqual" xml:space="preserve">
+    <value>≥</value>
+  </data>
+  <data name="FilterOperator_LessThanOrEqual" xml:space="preserve">
+    <value>≤</value>
+  </data>
+  <data name="FilterOperator_StartsWith" xml:space="preserve">
+    <value>starts with</value>
+  </data>
+  <data name="FilterOperator_EndsWith" xml:space="preserve">
+    <value>ends with</value>
+  </data>
+  <data name="FilterOperator_IsNull" xml:space="preserve">
+    <value>is empty</value>
+  </data>
+  <data name="FilterOperator_IsNotNull" xml:space="preserve">
+    <value>is not empty</value>
+  </data>
+  <data name="ConfirmDeletionTitle" xml:space="preserve">
+    <value>Confirm Deletion</value>
+  </data>
+  <data name="ConfirmDeleteOne" xml:space="preserve">
+    <value>Are you sure you want to delete this item?</value>
+  </data>
+  <data name="ConfirmDeleteMany" xml:space="preserve">
+    <value>Are you sure you want to delete {0} item(s)?</value>
+  </data>
+  <data name="DialogTitleAdd" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="DialogTitleEdit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="ConcurrencyConflict" xml:space="preserve">
+    <value>This entry was modified by another user. Please reload to see the latest version.</value>
+  </data>
+  <data name="LookupSearchPlaceholder" xml:space="preserve">
+    <value>Search...</value>
+  </data>
+  <data name="LookupSelect" xml:space="preserve">
+    <value>Select</value>
+  </data>
+  <data name="LookupLoadMore" xml:space="preserve">
+    <value>Load more...</value>
+  </data>
+  <data name="LookupNoItemsFound" xml:space="preserve">
+    <value>No items found.</value>
+  </data>
+  <data name="BrowsePlaceholder" xml:space="preserve">
+    <value>Browse...</value>
+  </data>
+  <data name="BrowseSearchPlaceholder" xml:space="preserve">
+    <value>Search...</value>
+  </data>
+  <data name="BrowseLoadMore" xml:space="preserve">
+    <value>Load more...</value>
+  </data>
+  <data name="SelectEmpty" xml:space="preserve">
+    <value>— Select —</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="DiscardChangesTitle" xml:space="preserve">
+    <value>Discard changes?</value>
+  </data>
+  <data name="ConfirmDiscardChanges" xml:space="preserve">
+    <value>You have unsaved changes. Do you want to discard them?</value>
+  </data>
+  <data name="Discard" xml:space="preserve">
+    <value>Discard</value>
+  </data>
+  <data name="KeepEditing" xml:space="preserve">
+    <value>Keep editing</value>
+  </data>
+</root>

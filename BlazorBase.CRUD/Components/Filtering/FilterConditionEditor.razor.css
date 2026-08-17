@@ -1,0 +1,29 @@
+.filter-condition {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 10px;
+    border: 1px solid var(--neutral-stroke-divider-rest);
+    border-radius: 8px;
+    background: var(--neutral-layer-1);
+}
+
+.filter-condition-field {
+    min-width: 140px;
+    flex: 1 1 140px;
+}
+
+.filter-condition-operator {
+    min-width: 120px;
+    flex: 0 1 140px;
+}
+
+.filter-condition-value {
+    min-width: 120px;
+    flex: 1 1 140px;
+}
+
+.filter-condition-remove {
+    margin-left: auto;
+}

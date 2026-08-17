@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!--
+      Deliberately off. It makes the SDK fingerprint blazor.webassembly.js and write the resolved
+      name into index.html in place of the "#[.{fingerprint}]" placeholder — but that rewrite only
+      runs for the project being published, and here the server assembles wwwroot. The published page
+      therefore shipped the placeholder verbatim, the browser cut the URL at the "#", and the app
+      never booted, while development kept working because it serves this project's own build output.
+      With the property off, the boot script keeps its plain name in every configuration
+      (BlazorFingerprintBlazorJs is conditioned on it) and index.html can reference it directly.
+    -->
+    <OverrideHtmlAssetPlaceholders>false</OverrideHtmlAssetPlaceholders>
+    <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      Where the BlazorBase2 framework sits, relative to this project. The default is the git submodule
+      a generated project adds at Libs/. Inside the framework repository itself the template is built
+      against the real sources instead, through the Directory.Build.props next to the template root -
+      a submodule pointing at its own repository would not resolve in a squashed public mirror, and a
+      symlink breaks Razor class library builds (dotnet/razor#10574).
+    -->
+    <BlazorBaseLibsPath Condition="'$(BlazorBaseLibsPath)' == ''">..\Libs\</BlazorBaseLibsPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.10" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Localization" Version="10.0.5" />
+    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.14.0" />
+    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.14.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AppTemplate.Shared\AppTemplate.Shared.csproj" />
+    <ProjectReference Include="$(BlazorBaseLibsPath)BlazorBase.CRUD\BlazorBase.CRUD.csproj" />
+    <ProjectReference Include="$(BlazorBaseLibsPath)BlazorBase.User\BlazorBase.User.csproj" />
+    <ProjectReference Include="$(BlazorBaseLibsPath)BlazorBase.User.Wasm\BlazorBase.User.Wasm.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ServiceWorker Include="wwwroot\service-worker.js" PublishedContent="wwwroot\service-worker.published.js" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AppTemplate.Tests" />
+  </ItemGroup>
+
+</Project>

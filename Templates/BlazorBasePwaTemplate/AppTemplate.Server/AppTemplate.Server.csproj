@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>apptemplate-7c2f9e14-3b6a-4d82-9f01-5e8c3a7b2d40</UserSecretsId>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      Where the BlazorBase2 framework sits, relative to this project. The default is the git submodule
+      a generated project adds at Libs/. Inside the framework repository itself the template is built
+      against the real sources instead, through the Directory.Build.props next to the template root -
+      a submodule pointing at its own repository would not resolve in a squashed public mirror, and a
+      symlink breaks Razor class library builds (dotnet/razor#10574).
+    -->
+    <BlazorBaseLibsPath Condition="'$(BlazorBaseLibsPath)' == ''">..\Libs\</BlazorBaseLibsPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AppTemplate.Client\AppTemplate.Client.csproj" />
+    <ProjectReference Include="..\AppTemplate.Shared\AppTemplate.Shared.csproj" />
+    <ProjectReference Include="$(BlazorBaseLibsPath)BlazorBase.CRUD\BlazorBase.CRUD.csproj" />
+    <ProjectReference Include="$(BlazorBaseLibsPath)BlazorBase.User\BlazorBase.User.csproj" />
+    <ProjectReference Include="$(BlazorBaseLibsPath)BlazorBase.User.Server\BlazorBase.User.Server.csproj" />
+    <ProjectReference Include="$(BlazorBaseLibsPath)BlazorBase.DataProtection\BlazorBase.DataProtection.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AppTemplate.Tests" />
+  </ItemGroup>
+
+</Project>
