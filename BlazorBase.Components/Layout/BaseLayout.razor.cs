@@ -45,6 +45,12 @@ public partial class BaseLayout(IThemeService themeService, ILanguageService lan
         LanguageService.LanguageChanged += OnLanguageChanged;
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await ThemeService.ApplyAsync();
+    }
+
     private void OnThemeChanged() => InvokeAsync(StateHasChanged);
 
     private void OnLanguageChanged() => InvokeAsync(StateHasChanged);

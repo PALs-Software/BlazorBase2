@@ -1,0 +1,117 @@
+/*
+   BlazorBase design tokens — the default light and dark themes.
+
+   Every BlazorBase component styles itself through these custom properties, so an application that
+   links this file gets a coherent look without touching component markup, and application code that
+   uses the same names stays in step automatically.
+
+   Three states, not two. An explicit choice stamps data-theme="light"/"dark" on <html>; the default
+   "system" setting stamps nothing, and only prefers-color-scheme separates the two. The light palette
+   is therefore defined on bare :root, and the dark values are redefined twice — once behind the media
+   query (guarded so an explicit light choice still beats a dark OS) and once behind the stamp.
+
+   Customising: override the tokens in a stylesheet linked after this one. Swapping the brand colour
+   takes two of them, --color-accent and --color-bg-selected; everything else is neutral scaffolding.
+*/
+
+:root {
+    --color-bg-surface: #F7F8F8;
+    --color-bg-elevated: #FFFFFF;
+    --color-bg-hover: #EFF1F1;
+    --color-bg-selected: #0F766E14;
+
+    --color-border: #E4E5E5;
+    --color-border-strong: #C8CBCB;
+    --color-border-focus: #0F766E;
+
+    --color-text-primary: #161D1D;
+    --color-text-secondary: #4B5556;
+    --color-text-muted: #6C7677;
+
+    --color-accent: #0F766E;
+    --color-text-on-accent: #FFFFFF;
+
+    --color-success: #15803D;
+    --color-warning: #A16207;
+    --color-danger: #B91C1C;
+    --color-danger-bg: #B91C1C0F;
+    --color-text-on-danger: #FFFFFF;
+
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-pill: 999px;
+
+    --font-base: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-display: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-monospace: ui-monospace, "Cascadia Code", "SF Mono", monospace;
+
+    color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --color-bg-surface: #111414;
+        --color-bg-elevated: #1A1E1E;
+        --color-bg-hover: #222827;
+        --color-bg-selected: #2DD4BF20;
+
+        --color-border: #2C3232;
+        --color-border-strong: #3E4544;
+        --color-border-focus: #2DD4BF;
+
+        --color-text-primary: #E8ECEB;
+        --color-text-secondary: #A3ADAC;
+        --color-text-muted: #7C8786;
+
+        --color-accent: #2DD4BF;
+        --color-text-on-accent: #07100F;
+
+        --color-success: #4ADE80;
+        --color-warning: #FACC15;
+        --color-danger: #F87171;
+        --color-danger-bg: #F8717118;
+        --color-text-on-danger: #1B0E10;
+
+        color-scheme: dark;
+    }
+}
+
+:root[data-theme="dark"] {
+    --color-bg-surface: #111414;
+    --color-bg-elevated: #1A1E1E;
+    --color-bg-hover: #222827;
+    --color-bg-selected: #2DD4BF20;
+
+    --color-border: #2C3232;
+    --color-border-strong: #3E4544;
+    --color-border-focus: #2DD4BF;
+
+    --color-text-primary: #E8ECEB;
+    --color-text-secondary: #A3ADAC;
+    --color-text-muted: #7C8786;
+
+    --color-accent: #2DD4BF;
+    --color-text-on-accent: #07100F;
+
+    --color-success: #4ADE80;
+    --color-warning: #FACC15;
+    --color-danger: #F87171;
+    --color-danger-bg: #F8717118;
+    --color-text-on-danger: #1B0E10;
+
+    color-scheme: dark;
+}
+
+body {
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
+    font-family: var(--font-base);
+}
