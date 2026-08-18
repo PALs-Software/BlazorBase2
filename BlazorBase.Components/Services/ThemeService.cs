@@ -7,10 +7,11 @@ namespace BlazorBase.Components.Services;
 /// Keeps the light/dark preference and puts it on the document, where the token stylesheet picks it up.
 /// </summary>
 /// <remarks>
-/// A signed-in user carries the preference in their profile, so the claim wins when there is one — that
-/// way the choice follows them to another device. Everyone else falls back to what the browser stored,
-/// which is also what keeps the choice across a reload; before this existed the preference lived only
-/// in memory and every refresh silently reverted it.
+/// A signed-in user carries the preference in their profile, which seeds a browser that has no choice
+/// of its own — that way the setting follows them to a new device. An explicit choice made here wins
+/// afterwards, because local storage is only ever written by <see cref="SetThemeAsync"/>: letting the
+/// profile claim win instead meant clicking the toggle appeared to work and silently reverted on the
+/// next reload, since the claim still carried the old value until the profile itself was saved.
 /// </remarks>
 public class ThemeService(AuthenticationStateProvider authenticationStateProvider, IJSRuntime jsRuntime) : IThemeService, IAsyncDisposable
 {
@@ -22,9 +23,10 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
     #endregion
 
     private IJSObjectReference? Module;
-    private bool PreferenceCameFromProfile;
 
     public ThemePreference CurrentTheme { get; private set; } = ThemePreference.System;
+
+    public string? AccentColor { get; private set; }
 
     public event Action? ThemeChanged;
 
@@ -33,29 +35,23 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
         var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var claim = authenticationState.User.FindFirst("themePreference")?.Value;
 
-        if (claim is null || !Enum.TryParse<ThemePreference>(claim, true, out var parsed))
-            return;
-
-        CurrentTheme = parsed;
-        PreferenceCameFromProfile = true;
+        if (claim is not null && Enum.TryParse<ThemePreference>(claim, true, out var parsed))
+            CurrentTheme = parsed;
     }
 
     public async Task ApplyAsync()
     {
         var module = await LoadModuleAsync();
+        var stored = await module.InvokeAsync<string?>("stored");
 
-        if (!PreferenceCameFromProfile)
+        if (stored is not null && Enum.TryParse<ThemePreference>(stored, true, out var parsed) && parsed != CurrentTheme)
         {
-            var stored = await module.InvokeAsync<string?>("stored");
-
-            if (stored is not null && Enum.TryParse<ThemePreference>(stored, true, out var parsed) && parsed != CurrentTheme)
-            {
-                CurrentTheme = parsed;
-                ThemeChanged?.Invoke();
-            }
+            CurrentTheme = parsed;
+            ThemeChanged?.Invoke();
         }
 
         await module.InvokeVoidAsync("apply", CurrentTheme.ToString());
+        await ReadAccentAsync(module);
     }
 
     public async Task SetThemeAsync(ThemePreference preference)
@@ -64,8 +60,15 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
 
         var module = await LoadModuleAsync();
         await module.InvokeVoidAsync("apply", preference.ToString());
+        await ReadAccentAsync(module);
 
         ThemeChanged?.Invoke();
+    }
+
+    private async Task ReadAccentAsync(IJSObjectReference module)
+    {
+        var accent = await module.InvokeAsync<string?>("readToken", "--color-accent");
+        AccentColor = string.IsNullOrWhiteSpace(accent) ? null : accent;
     }
 
     private async Task<IJSObjectReference> LoadModuleAsync()

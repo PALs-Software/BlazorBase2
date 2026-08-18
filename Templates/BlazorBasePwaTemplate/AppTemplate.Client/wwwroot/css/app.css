@@ -15,9 +15,9 @@ body {
     margin: 0;
     padding: 0;
     min-height: 100%;
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-family: var(--font-body);
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
+    font-family: var(--font-base);
     font-size: 15px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
@@ -53,7 +53,7 @@ h1:focus {
     align-items: center;
     justify-content: center;
     gap: var(--space-5);
-    background: var(--color-surface);
+    background: var(--color-bg-surface);
 }
 
 .app-boot-mark {
@@ -61,14 +61,14 @@ h1:focus {
     font-weight: 800;
     font-size: 22px;
     letter-spacing: -0.03em;
-    color: var(--color-text);
+    color: var(--color-text-primary);
 }
 
 .app-boot-trail {
     width: 190px;
     height: 3px;
     border-radius: 2px;
-    background: var(--color-line);
+    background: var(--color-border);
     overflow: hidden;
 }
 
@@ -84,8 +84,8 @@ h1:focus {
 /* ---------- Framework error banner ---------- */
 
 #blazor-error-ui {
-    background: var(--color-surface-raised);
-    color: var(--color-text);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
     border-top: 2px solid var(--color-danger);
     bottom: 0;
     box-sizing: border-box;

@@ -11,6 +11,13 @@ public interface IThemeService
 {
     ThemePreference CurrentTheme { get; }
 
+    /// <summary>
+    /// The accent the active theme resolves to, for handing on to FluentUI's design system so its own
+    /// components adopt the palette instead of staying on their default blue. Null until
+    /// <see cref="ApplyAsync"/> has run.
+    /// </summary>
+    string? AccentColor { get; }
+
     event Action? ThemeChanged;
 
     /// <summary>

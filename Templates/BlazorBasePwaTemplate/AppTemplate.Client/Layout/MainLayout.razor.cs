@@ -1,52 +1,34 @@
 using System.Security.Claims;
-using AppTemplate.Client.Interop;
-using AppTemplate.Client.Layout.Navigation;
 using AppTemplate.Shared.Modules.Authentication;
-using BlazorBase.User.Services;
+using BlazorBase.Components.Layout.Navigation;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.Extensions.Localization;
-using Microsoft.FluentUI.AspNetCore.Components;
+using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular;
 
 namespace AppTemplate.Client.Layout;
 
 public partial class MainLayout(
-    IThemeService themeService,
-    IThemeInterop themeInterop,
     AuthenticationStateProvider authenticationStateProvider,
     IStringLocalizer<MainLayout> localizer) : LayoutComponentBase, IDisposable
 {
     #region Injects
-    private readonly IThemeService ThemeService = themeService;
-    private readonly IThemeInterop ThemeInterop = themeInterop;
+
     private readonly AuthenticationStateProvider AuthenticationStateProvider = authenticationStateProvider;
     private readonly IStringLocalizer<MainLayout> Localizer = localizer;
+
     #endregion
 
-    private const string AccentTokenName = "--color-accent";
-
     private IReadOnlyList<NavigationItem> NavigationItems = [];
-
-    private bool IsDarkTheme;
-
-    private DesignThemeModes FluentThemeMode = DesignThemeModes.System;
-
-    private string? FluentAccentColor;
 
     private bool IsAuthenticated;
 
     private string UserInitials = string.Empty;
 
-    private string ThemeToggleTitle => IsDarkTheme ? Localizer["SwitchToLight"] : Localizer["SwitchToDark"];
-
     protected override async Task OnInitializedAsync()
     {
-        ThemeService.ThemeChanged += OnThemeChanged;
         AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
 
-        await ThemeService.InitializeAsync();
-        await ApplyThemeAsync();
         await ReadAuthenticationStateAsync();
     }
 
@@ -56,23 +38,40 @@ public partial class MainLayout(
         var user = authenticationState.User;
 
         IsAuthenticated = user.Identity?.IsAuthenticated == true;
-        NavigationItems = BuildNavigationItems(user);
+        NavigationItems = BuildNavigationItems();
         UserInitials = ResolveUserInitials(user);
     }
 
-    private IReadOnlyList<NavigationItem> BuildNavigationItems(ClaimsPrincipal user)
-    {
-        List<NavigationItem> items =
-        [
-            new NavigationItem(Localizer["NavHome"], string.Empty, NavLinkMatch.All),
-            new NavigationItem(Localizer["NavNotes"], "notes")
-        ];
-
-        if (user.IsInRole(RoleConstants.Admin))
-            items.Add(new NavigationItem(Localizer["NavAdmin"], "admin/users"));
-
-        return items;
-    }
+    /// <summary>
+    /// One list for both presentations — the rail and the mobile bar render it, and
+    /// <c>NavigationVisibility</c> drops what the current user may not see, so the two cannot diverge.
+    /// </summary>
+    private IReadOnlyList<NavigationItem> BuildNavigationItems() =>
+    [
+        new()
+        {
+            Href = string.Empty,
+            Label = Localizer["NavHome"],
+            MatchAll = true,
+            IsMobilePrimary = true,
+            Icon = new Size20.Home(),
+        },
+        new()
+        {
+            Href = "notes",
+            Label = Localizer["NavNotes"],
+            IsMobilePrimary = true,
+            Icon = new Size20.Notepad(),
+        },
+        new()
+        {
+            Href = "admin/users",
+            Label = Localizer["NavAdmin"],
+            RequiredRole = RoleConstants.Admin,
+            IsMobilePrimary = true,
+            Icon = new Size20.PeopleSettings(),
+        },
+    ];
 
     private static string ResolveUserInitials(ClaimsPrincipal user)
     {
@@ -95,34 +94,9 @@ public partial class MainLayout(
             StateHasChanged();
         });
 
-    private async Task ApplyThemeAsync()
-    {
-        IsDarkTheme = ThemeService.CurrentTheme switch
-        {
-            ThemePreference.Dark => true,
-            ThemePreference.Light => false,
-            _ => await ThemeInterop.PrefersDarkAsync()
-        };
-
-        await ThemeInterop.ApplyAsync(ThemeService.CurrentTheme);
-
-        FluentThemeMode = IsDarkTheme ? DesignThemeModes.Dark : DesignThemeModes.Light;
-        FluentAccentColor = await ThemeInterop.ReadTokenAsync(AccentTokenName);
-    }
-
-    private async Task ToggleThemeAsync()
-    {
-        var next = IsDarkTheme ? ThemePreference.Light : ThemePreference.Dark;
-        await ThemeService.SetThemeAsync(next);
-        await ApplyThemeAsync();
-    }
-
-    private void OnThemeChanged() => InvokeAsync(StateHasChanged);
-
     public void Dispose()
     {
         GC.SuppressFinalize(this);
-        ThemeService.ThemeChanged -= OnThemeChanged;
         AuthenticationStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
     }
 }

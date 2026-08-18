@@ -31,10 +31,29 @@ public class ThemeServiceTests : BunitContext
         Assert.Equal("Dark", Assert.Single(applyHandler.Invocations).Arguments[0]);
     }
 
+    /// <summary>
+    /// The profile seeds a browser that has no choice of its own; an explicit choice made in this
+    /// browser wins afterwards, or clicking the toggle would revert on the next reload.
+    /// </summary>
     [Fact]
-    public async Task Apply_KeepsTheProfilePreference_WhenTheBrowserRemembersSomethingElse()
+    public async Task Apply_PrefersTheBrowsersChoice_OverTheProfilePreference()
     {
         var module = SetupModule(stored: "Light");
+        var applyHandler = module.SetupVoid("apply", _ => true);
+        applyHandler.SetVoidResult();
+        var service = CreateService(claim: "Dark");
+
+        await service.InitializeAsync();
+        await service.ApplyAsync();
+
+        Assert.Equal(ThemePreference.Light, service.CurrentTheme);
+        Assert.Equal("Light", Assert.Single(applyHandler.Invocations).Arguments[0]);
+    }
+
+    [Fact]
+    public async Task Apply_SeedsFromTheProfile_WhenTheBrowserHasNoChoiceYet()
+    {
+        var module = SetupModule(stored: null);
         var applyHandler = module.SetupVoid("apply", _ => true);
         applyHandler.SetVoidResult();
         var service = CreateService(claim: "Dark");
@@ -82,6 +101,7 @@ public class ThemeServiceTests : BunitContext
     {
         var module = JSInterop.SetupModule(ModulePath);
         module.Setup<string?>("stored").SetResult(stored);
+        module.Setup<string?>("readToken", _ => true).SetResult("#0F766E");
         return module;
     }
 

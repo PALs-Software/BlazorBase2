@@ -1,67 +1,13 @@
 /*
-  Design tokens for AppTemplate. Every colour in the app resolves through these custom
-  properties so light/dark stay in sync and no component hardcodes a value — swap this
-  file's values for a new project's own palette without touching component markup.
+  Tokens specific to this application's shell. The colour, spacing, radius and type scales come from
+  BlazorBase, linked before this file — override any of those here to give the app its own look:
+
+      :root { --color-accent: #6D28D9; --color-bg-selected: #6D28D914; }
 */
 
-:root,
-[data-theme="dark"] {
-  --color-surface:          #101720;
-  --color-surface-raised:   #182233;
-  --color-surface-hover:    #1E2A3D;
-  --color-line:             #2A374A;
-
-  --color-text:             #EDEFF2;
-  --color-text-dim:         #B7C0CC;
-  --color-text-mute:        #8593A6;
-  --color-text-on-accent:   #0B1220;
-
-  --color-accent:           #3E7BFA;
-  --color-accent-soft:      #3E7BFA26;
-  --color-danger:           #E5534B;
-
-  --shadow-raised:          0 6px 24px #0000004D;
-
-  color-scheme: dark;
-}
-
-[data-theme="light"] {
-  --color-surface:          #F5F7FA;
-  --color-surface-raised:   #FFFFFF;
-  --color-surface-hover:    #ECEFF3;
-  --color-line:             #DDE3EA;
-
-  --color-text:             #1A2330;
-  --color-text-dim:         #48566B;
-  --color-text-mute:        #667789;
-  --color-text-on-accent:   #FFFFFF;
-
-  --color-accent:           #2456D6;
-  --color-accent-soft:      #2456D61A;
-  --color-danger:           #C6362D;
-
-  --shadow-raised:          0 6px 24px #1A23301F;
-
-  color-scheme: light;
-}
-
 :root {
-  --font-display: system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-body:    system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono:    ui-monospace, 'Cascadia Code', monospace;
-
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
-  --space-7: 48px;
-
-  --shell-max: 1120px;
-  --tap-target: 44px;
+    --space-7: 48px;
+    --shell-max: 1120px;
+    --tap-target: 44px;
+    --shadow-raised: 0 6px 24px #0000001F;
 }

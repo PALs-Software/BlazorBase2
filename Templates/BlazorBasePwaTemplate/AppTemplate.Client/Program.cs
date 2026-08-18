@@ -1,6 +1,5 @@
 using AppTemplate.Client;
 using AppTemplate.Client.Modules.Authentication.Services;
-using AppTemplate.Client.Interop;
 using AppTemplate.Shared.Modules.Notes.Entities;
 using BlazorBase.CRUD.Extensions;
 using BlazorBase.User.Models;
@@ -22,7 +21,6 @@ builder.Services.AddLocalization();
 builder.Services.AddBlazorBaseUserClient();
 builder.Services.AddBlazorBaseUserWasm(builder.HostEnvironment.BaseAddress);
 
-builder.Services.AddScoped<IThemeInterop, ThemeInterop>();
 
 builder.Services.AddHttpClient<IAuthService, AuthService>(client => client.BaseAddress = apiBaseAddress);
 

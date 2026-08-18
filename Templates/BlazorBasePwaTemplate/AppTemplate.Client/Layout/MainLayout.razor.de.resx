@@ -40,10 +40,4 @@
   <data name="AvatarTitle" xml:space="preserve">
     <value>Angemeldet</value>
   </data>
-  <data name="SwitchToLight" xml:space="preserve">
-    <value>Zum hellen Design wechseln</value>
-  </data>
-  <data name="SwitchToDark" xml:space="preserve">
-    <value>Zum dunklen Design wechseln</value>
-  </data>
 </root>

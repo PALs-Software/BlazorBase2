@@ -1,143 +1,45 @@
-.shell {
-    max-width: var(--shell-max);
-    margin: 0 auto;
-    padding: 0 var(--space-5) 120px;
-}
-
-.topbar {
-    display: flex;
-    align-items: center;
-    gap: var(--space-6);
-    padding: 22px 0 18px;
-    border-bottom: 1px solid var(--color-line);
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    background: var(--color-surface);
-}
-
-.wordmark {
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 19px;
-    letter-spacing: -0.03em;
-    white-space: nowrap;
-    text-decoration: none;
-    color: var(--color-text);
-}
-
-.nav-rail {
-    display: flex;
-    gap: var(--space-1);
-}
-
-/*
-  ::deep, because these classes sit on NavLink. A child component's rendered element does
-  not carry this layout's scope attribute, so a plain `.nav-item` rule never matches and the
-  links fall back to browser defaults — underlined and unpadded.
-*/
-.nav-rail ::deep .nav-item {
-    color: var(--color-text-dim);
-    font-size: 14px;
-    font-weight: 500;
-    padding: 7px 14px;
-    border-radius: var(--radius-sm);
-    text-decoration: none;
-    white-space: nowrap;
-}
-
-.nav-rail ::deep .nav-item:hover {
-    color: var(--color-text);
-    background: var(--color-surface-hover);
-}
-
-.nav-rail ::deep .nav-item.active {
-    color: var(--color-surface);
-    background: var(--color-text);
-}
-
-.topbar-actions {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-}
-
-.icon-button {
-    appearance: none;
-    border: 1px solid var(--color-line);
-    background: transparent;
-    color: var(--color-text-dim);
-    width: 34px;
-    height: 34px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
+.avatar {
     display: grid;
     place-items: center;
-    font-size: 14px;
-}
-
-.icon-button:hover {
-    color: var(--color-text);
-    border-color: var(--color-text-mute);
-}
-
-.avatar {
     width: 34px;
     height: 34px;
     border-radius: 50%;
     background: var(--color-accent);
     color: var(--color-text-on-accent);
-    display: grid;
-    place-items: center;
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 13px;
+    font-size: 12px;
+    font-weight: 700;
+    user-select: none;
 }
 
-.content {
-    padding-top: var(--space-2);
+/*
+  The framework components render themselves; where they sit is the host's call. The rail owns the
+  space beside the body on a desktop, and below the breakpoint it gives way to the bar docked at the
+  bottom edge. The bar is a direct child of the layout root, not of a transformed wrapper, so its
+  "More" sheet can cover the viewport.
+*/
+.side-nav {
+    display: block;
+    height: 100%;
 }
 
-.bottom-bar {
+.bottom-nav {
     display: none;
 }
 
 @media (max-width: 640px) {
-    .shell {
-        padding: 0 var(--space-4) calc(72px + env(safe-area-inset-bottom));
-    }
-
-    .nav-rail {
+    .side-nav {
         display: none;
     }
 
-    .bottom-bar {
-        display: flex;
+    .bottom-nav {
+        display: block;
         position: fixed;
         left: 0;
         right: 0;
         bottom: 0;
         z-index: 30;
-        background: var(--color-surface-raised);
-        border-top: 1px solid var(--color-line);
         padding-bottom: env(safe-area-inset-bottom);
-    }
-
-    .bottom-bar ::deep .bottom-item {
-        flex: 1;
-        min-height: var(--tap-target);
-        display: grid;
-        place-items: center;
-        color: var(--color-text-dim);
-        font-size: 12.5px;
-        font-weight: 500;
-        text-decoration: none;
-        padding: 10px 4px;
-    }
-
-    .bottom-bar ::deep .bottom-item.active {
-        color: var(--color-accent);
-        box-shadow: inset 0 2px 0 var(--color-accent);
+        background: var(--color-bg-elevated);
+        border-top: 1px solid var(--color-border);
     }
 }

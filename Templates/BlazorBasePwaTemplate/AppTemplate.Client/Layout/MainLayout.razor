@@ -1,49 +1,31 @@
 @inherits LayoutComponentBase
+@using BlazorBase.Components.Layout
+@using BlazorBase.Components.Layout.Navigation
 
-<FluentDesignTheme Mode="@FluentThemeMode" CustomColor="@FluentAccentColor" />
-
-<div class="shell">
-    <header class="topbar">
-        <a class="wordmark" href="">AppTemplate</a>
-
+<BaseLayout AppTitle="AppTemplate">
+    <HeaderContent>
+        <BaseThemeToggle />
         @if (IsAuthenticated)
         {
-            <nav class="nav-rail">
-                @foreach (var item in NavigationItems)
-                {
-                    <NavLink class="nav-item" href="@item.Href" Match="@item.Match">@item.Label</NavLink>
-                }
-            </nav>
+            <span class="avatar" title="@Localizer["AvatarTitle"]">@UserInitials</span>
         }
-
-        <div class="topbar-actions">
-            <button type="button" class="icon-button" title="@ThemeToggleTitle" @onclick="ToggleThemeAsync">
-                @(IsDarkTheme ? "☾" : "☀")
-            </button>
-            @if (IsAuthenticated)
-            {
-                <span class="avatar" title="@Localizer["AvatarTitle"]">@UserInitials</span>
-            }
-        </div>
-    </header>
-
-    <main class="content">
+    </HeaderContent>
+    <Navigation>
+        @if (IsAuthenticated)
+        {
+            <div class="side-nav">
+                <BaseSideNavigation Items="@NavigationItems" />
+            </div>
+        }
+    </Navigation>
+    <ChildContent>
         @Body
-    </main>
+    </ChildContent>
+</BaseLayout>
 
-    @if (IsAuthenticated)
-    {
-        <nav class="bottom-bar">
-            @foreach (var item in NavigationItems)
-            {
-                <NavLink class="bottom-item" href="@item.Href" Match="@item.Match">@item.Label</NavLink>
-            }
-        </nav>
-    }
-</div>
-
-<FluentToastProvider />
-<FluentDialogProvider />
-<FluentTooltipProvider />
-<FluentMessageBarProvider />
-<FluentMenuProvider />
+@if (IsAuthenticated)
+{
+    <div class="bottom-nav">
+        <BaseBottomNavigation Items="@NavigationItems" />
+    </div>
+}

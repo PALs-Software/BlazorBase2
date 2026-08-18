@@ -26,3 +26,7 @@ export function stored() {
         return null;
     }
 }
+
+export function readToken(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}

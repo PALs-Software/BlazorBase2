@@ -4,6 +4,13 @@
    not place the component inside a `position: fixed`/transformed wrapper. */
 
 /* ----- bottom tabs ----- */
+/* The tabs share the width through flex: 1, which needs the bar itself to be a flex container.
+   Leaving that to the host meant every one of them had to discover it from a column of stacked
+   tabs first. Where the bar sits is still the host's call. */
+.base-bottom-nav {
+    display: flex;
+}
+
 ::deep .base-bottom-tab {
     flex: 1;
     display: flex;

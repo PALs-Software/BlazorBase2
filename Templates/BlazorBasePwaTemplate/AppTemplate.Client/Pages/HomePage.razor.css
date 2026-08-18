@@ -5,7 +5,7 @@
 }
 
 .home p {
-    color: var(--color-text-dim);
+    color: var(--color-text-secondary);
     margin: var(--space-3) 0 var(--space-5);
 }
 

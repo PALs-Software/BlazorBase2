@@ -202,7 +202,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     private bool LastShiftState { get; set; }
     private ElementReference GridContainerRef { get; set; }
     private FluentDataGrid<TModel>? DataGrid { get; set; }
-    private bool GridRefreshPending { get; set; }
+    private List<TModel>? GridRenderedItems { get; set; }
+    private List<TModel>? GridRefreshedItems { get; set; }
     private IJSObjectReference? JsModule { get; set; }
 
     #endregion
@@ -236,7 +237,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     {
         if (!firstRender)
         {
-            await FlushPendingGridRefreshAsync();
+            await RefreshGridForRenderedItemsAsync();
             return;
         }
 
@@ -403,9 +404,6 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         IsLoading = true;
         StateHasChanged();
 
-        if (reset)
-            LoadedItems.Clear();
-
         var filters = new List<FilterDescriptor>(CurrentFilters);
         if (AdditionalFilters is not null)
             filters.AddRange(AdditionalFilters);
@@ -429,26 +427,35 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             LoadedItems.AddRange(result.Items);
 
         IsLoading = false;
-        GridRefreshPending = true;
         StateHasChanged();
     }
 
     /// <summary>
-    /// Makes the grid re-read the freshly loaded items, once the render that handed them over is done.
+    /// Records which collection the grid was handed during this render.
+    /// </summary>
+    private IQueryable<TModel> CaptureRenderedItems()
+    {
+        GridRenderedItems = LoadedItems;
+        return LoadedItems.AsQueryable();
+    }
+
+    /// <summary>
+    /// Makes a virtualized grid read the collection it was just given.
     /// </summary>
     /// <remarks>
-    /// A virtualized FluentDataGrid reads <c>Items</c> through its own cache and does not reliably
-    /// notice that the collection was replaced: after a delete it kept painting the removed row, and
-    /// deleting one of several rows made it claim it had no data at all while the remaining rows were
-    /// still loaded. Forcing the refresh is what the component offers for exactly this, and it has to
-    /// happen after the render, because before that the grid still holds the previous collection.
+    /// It caches through its own virtualization layer and does not reliably notice that the collection
+    /// was replaced, so a delete could leave it painting a removed row or claiming it had no data while
+    /// rows were loaded. The comparison is against what the completed render actually passed, not
+    /// against the current field: a render triggered elsewhere can finish between the reload and the
+    /// render carrying its result, and a plain "refresh pending" flag was consumed by that one instead —
+    /// which is why this was intermittent rather than broken outright.
     /// </remarks>
-    private async Task FlushPendingGridRefreshAsync()
+    private async Task RefreshGridForRenderedItemsAsync()
     {
-        if (!GridRefreshPending || DataGrid is null)
+        if (DataGrid is null || ReferenceEquals(GridRefreshedItems, GridRenderedItems))
             return;
 
-        GridRefreshPending = false;
+        GridRefreshedItems = GridRenderedItems;
         await DataGrid.RefreshDataAsync();
     }
 

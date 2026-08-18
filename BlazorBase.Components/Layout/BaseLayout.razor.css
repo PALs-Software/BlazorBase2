@@ -6,3 +6,24 @@
     padding: 1rem 1.5rem;
     overflow-y: auto;
 }
+
+/*
+   FluentUI paints its header in its own brand blue, which has nothing to do with the application's
+   palette — every host would otherwise start by overriding it. Take the colours from the theme
+   tokens instead, so the shell matches whatever palette is linked.
+*/
+::deep header.header {
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    border-bottom: 1px solid var(--color-border);
+    font-family: var(--font-display);
+}
+
+::deep header.header a {
+    color: var(--color-text-primary);
+}
+
+.layout-root {
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
+}
