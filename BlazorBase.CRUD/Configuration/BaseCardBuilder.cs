@@ -1,6 +1,6 @@
 using System.Linq.Expressions;
-using BlazorBase.CRUD.Components.RichTextEditor;
-using BlazorBase.CRUD.Components.SanitizedHtml;
+using BlazorBase.Components.Editors;
+using BlazorBase.Components.Html;
 using BlazorBase.CRUD.Models;
 using BlazorBase.CRUD.Security;
 using Microsoft.AspNetCore.Components;

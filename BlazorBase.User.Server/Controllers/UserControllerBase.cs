@@ -4,6 +4,7 @@ using BlazorBase.User.Server.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Server.Controllers;
 

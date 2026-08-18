@@ -1,0 +1,42 @@
+@using BlazorBase.Components.Models.FileTree
+
+<div class="ftnode @(IsSelected ? "ftnode--selected" : "")"
+     role="treeitem"
+     aria-expanded="@(Node.IsDirectory ? IsExpanded.ToString().ToLowerInvariant() : null)"
+     aria-selected="@IsSelected.ToString().ToLowerInvariant()">
+
+    <span class="ftnode__row"
+          tabindex="@(IsFocused ? 0 : -1)"
+          @ref="RowElement"
+          @onclick="HandleClickAsync"
+          @onclick:stopPropagation
+          @onkeydown="HandleKeyDownAsync"
+          @onkeydown:stopPropagation>
+        @if (Node.IsDirectory)
+        {
+            <span class="ftnode__icon ftnode__icon--dir">@(IsExpanded ? "▾" : "▸")</span>
+        }
+        else
+        {
+            <span class="ftnode__icon ftnode__icon--file">&#128196;</span>
+        }
+        <span class="ftnode__name">@Node.Name</span>
+    </span>
+
+    @if (Node.IsDirectory && IsExpanded && Node.Children.Count > 0)
+    {
+        <div class="ftnode__children" role="group">
+            @foreach (var child in Node.Children)
+            {
+                <FileTreeNodeView Node="@child"
+                                  SelectedPath="@SelectedPath"
+                                  ExpandByDefault="@false"
+                                  FocusedPath="@FocusedPath"
+                                  OnNodeSelected="@OnNodeSelected"
+                                  OnKeyNavigation="@OnKeyNavigation"
+                                  OnElementReady="@OnElementReady"
+                                  OnExpansionChanged="@OnExpansionChanged" />
+            }
+        </div>
+    }
+</div>

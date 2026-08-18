@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Models;
 

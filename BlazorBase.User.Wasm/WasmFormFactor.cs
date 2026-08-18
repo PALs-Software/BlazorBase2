@@ -1,4 +1,5 @@
 using BlazorBase.User.Services;
+using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Wasm;
 

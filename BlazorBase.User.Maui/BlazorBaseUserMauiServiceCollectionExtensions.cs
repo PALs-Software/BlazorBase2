@@ -1,5 +1,6 @@
 using BlazorBase.User.Services;
 using Microsoft.Extensions.DependencyInjection;
+using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Maui;
 

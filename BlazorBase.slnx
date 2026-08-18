@@ -18,6 +18,8 @@
   <Project Path="BlazorBase.Files/BlazorBase.Files.csproj" />
   <Project Path="BlazorBase.Files.Server/BlazorBase.Files.Server.csproj" />
   <Project Path="BlazorBase.CRUD.Generators/BlazorBase.CRUD.Generators.csproj" />
+  <Project Path="BlazorBase.Components.Test/BlazorBase.Components.Test.csproj" />
+  <Project Path="BlazorBase.Components/BlazorBase.Components.csproj" />
   <Project Path="BlazorBase.CRUD.Benchmarks/BlazorBase.CRUD.Benchmarks.csproj" />
   <Project Path="BlazorBase.User/BlazorBase.User.csproj" />
   <Project Path="BlazorBase.User.Server/BlazorBase.User.Server.csproj" />

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Server.Test.Controllers;
 

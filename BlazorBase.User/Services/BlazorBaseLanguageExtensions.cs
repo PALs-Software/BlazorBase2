@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Services;
 

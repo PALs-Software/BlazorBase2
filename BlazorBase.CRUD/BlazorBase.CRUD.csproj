@@ -24,4 +24,8 @@
     <ProjectReference Include="..\BlazorBase.DataProtection\BlazorBase.DataProtection.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\BlazorBase.Components\BlazorBase.Components.csproj" />
+  </ItemGroup>
+
 </Project>

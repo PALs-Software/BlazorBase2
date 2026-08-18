@@ -5,6 +5,7 @@ using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using BlazorBase.User.Models;
 using BlazorBase.User.Services;
+using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Pages;
 

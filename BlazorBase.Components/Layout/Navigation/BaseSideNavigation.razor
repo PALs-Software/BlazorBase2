@@ -1,0 +1,47 @@
+@namespace BlazorBase.Components.Layout.Navigation
+
+<nav class="base-side-nav @(IsCollapsed ? "collapsed" : null)" aria-label="@AriaLabel">
+    <FluentNavMenu Width="220" Collapsible="false" Title="@Title">
+        @foreach (var item in VisibleItems)
+        {
+            @if (item.IsGroup)
+            {
+                <FluentDivider Class="base-side-nav-divider" />
+                @if (!IsCollapsed)
+                {
+                    <div class="base-side-nav-section">@item.Label</div>
+                }
+                @foreach (var child in item.Children)
+                {
+                    <FluentNavLink Href="@child.Href"
+                                   Match="@(child.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)"
+                                   Icon="@child.Icon"
+                                   IconColor="Color.Neutral"
+                                   Title="@child.Label">
+                        <span class="base-side-nav-text">@child.Label</span>
+                    </FluentNavLink>
+                }
+            }
+            else if (item.IsAction)
+            {
+                <FluentNavLink @onclick="@(() => InvokeItemAsync(item))"
+                               Icon="@item.Icon"
+                               IconColor="Color.Neutral"
+                               Title="@item.Label"
+                               Class="@(item.IsDanger ? "base-side-nav-danger" : null)">
+                    <span class="base-side-nav-text">@item.Label</span>
+                </FluentNavLink>
+            }
+            else
+            {
+                <FluentNavLink Href="@item.Href"
+                               Match="@(item.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)"
+                               Icon="@item.Icon"
+                               IconColor="Color.Neutral"
+                               Title="@item.Label">
+                    <span class="base-side-nav-text">@item.Label</span>
+                </FluentNavLink>
+            }
+        }
+    </FluentNavMenu>
+</nav>

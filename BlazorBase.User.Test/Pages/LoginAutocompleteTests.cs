@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.FluentUI.AspNetCore.Components;
 using NSubstitute;
 using Xunit;
+using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Test.Pages;
 

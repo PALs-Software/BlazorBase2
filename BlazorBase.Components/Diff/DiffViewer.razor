@@ -1,0 +1,203 @@
+@implements IAsyncDisposable
+@using BlazorBase.Components.Models.Diff
+
+<div id="@ElementId" class="diff-viewer @(WrapLines ? "diff-wrap" : "")">
+
+    @if (ShowModeSwitch)
+    {
+        <div class="diff-mode-switch" role="toolbar" aria-label="@ModeSwitchLabel">
+            <button type="button"
+                    class="diff-mode-btn @(Mode == DiffViewMode.Inline ? "diff-mode-btn--active" : "")"
+                    aria-pressed="@(Mode == DiffViewMode.Inline ? "true" : "false")"
+                    @onclick="@(() => SetModeAsync(DiffViewMode.Inline))">
+                @InlineModeLabel
+            </button>
+            <button type="button"
+                    class="diff-mode-btn @(Mode == DiffViewMode.SideBySide ? "diff-mode-btn--active" : "")"
+                    aria-pressed="@(Mode == DiffViewMode.SideBySide ? "true" : "false")"
+                    @onclick="@(() => SetModeAsync(DiffViewMode.SideBySide))">
+                @SideBySideModeLabel
+            </button>
+            <button type="button"
+                    class="diff-mode-btn @(Mode == DiffViewMode.NewOnly ? "diff-mode-btn--active" : "")"
+                    aria-pressed="@(Mode == DiffViewMode.NewOnly ? "true" : "false")"
+                    @onclick="@(() => SetModeAsync(DiffViewMode.NewOnly))">
+                @NewOnlyModeLabel
+            </button>
+        </div>
+    }
+
+    @if (Diff is null || Diff.Hunks.Count == 0)
+    {
+        <div class="diff-notice">@EmptyDiffLabel</div>
+    }
+    else if (Diff.IsBinary)
+    {
+        <div class="diff-notice diff-notice--binary">@BinaryFileLabel</div>
+    }
+    else if (TotalLineCount > MaxRenderedLines)
+    {
+        <div class="diff-notice diff-notice--large">@LargeDiffLabel</div>
+    }
+    else if (Mode == DiffViewMode.Inline)
+    {
+        @foreach (var hunk in Diff.Hunks)
+        {
+            <table class="diff-table diff-table--inline">
+                <thead>
+                    <tr>
+                        @if (OnAddLineComment.HasDelegate)
+                        {
+                            <th class="diff-col-gutter" aria-hidden="true"></th>
+                        }
+                        <th class="diff-col-num" aria-label="Old line"></th>
+                        <th class="diff-col-num" aria-label="New line"></th>
+                        <th class="diff-col-content diff-hunk-header">@hunk.Header</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var line in hunk.Lines)
+                    {
+                        var inlineContext = BuildCommentContext(line);
+                        <tr class="diff-line-row @GetInlineRowClass(line.Kind)">
+                            @if (OnAddLineComment.HasDelegate)
+                            {
+                                <td class="diff-col-gutter">
+                                    <button type="button"
+                                            class="diff-add-comment-btn"
+                                            aria-label="@AddCommentLabel"
+                                            @onclick="@(() => OnAddLineComment.InvokeAsync(inlineContext))">+</button>
+                                </td>
+                            }
+                            <td class="diff-col-num">@(line.OldLineNumber.HasValue ? line.OldLineNumber.Value.ToString() : "")</td>
+                            <td class="diff-col-num">@(line.NewLineNumber.HasValue ? line.NewLineNumber.Value.ToString() : "")</td>
+                            <td class="diff-col-content" data-code data-lang="@(Language ?? "")">@line.Content</td>
+                        </tr>
+                        @if (LineCommentTemplate is not null)
+                        {
+                            <tr class="diff-comment-row">
+                                <td colspan="@(OnAddLineComment.HasDelegate ? 4 : 3)" class="diff-comment-cell">
+                                    @LineCommentTemplate(inlineContext)
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+    }
+    else if (Mode == DiffViewMode.SideBySide)
+    {
+        @foreach (var hunk in Diff.Hunks)
+        {
+            var sidePairs = BuildSideBySidePairs(hunk);
+
+            <table class="diff-table diff-table--side-by-side">
+                <thead>
+                    <tr>
+                        @if (OnAddLineComment.HasDelegate)
+                        {
+                            <th class="diff-col-gutter" aria-hidden="true"></th>
+                        }
+                        <th class="diff-col-num" aria-label="Old line"></th>
+                        <th class="diff-col-content diff-hunk-header" colspan="1">@hunk.Header</th>
+                        <th class="diff-col-num" aria-label="New line"></th>
+                        <th class="diff-col-content diff-hunk-header"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var pair in sidePairs)
+                    {
+                        var representativeLine = pair.NewLine ?? pair.OldLine;
+                        @if (representativeLine is not null)
+                        {
+                            var sideContext = BuildCommentContext(representativeLine);
+                            <tr class="diff-line-row">
+                                @if (OnAddLineComment.HasDelegate)
+                                {
+                                    <td class="diff-col-gutter">
+                                        <button type="button"
+                                                class="diff-add-comment-btn"
+                                                aria-label="@AddCommentLabel"
+                                                @onclick="@(() => OnAddLineComment.InvokeAsync(sideContext))">+</button>
+                                    </td>
+                                }
+                                <td class="diff-col-num">@(pair.OldLine?.OldLineNumber.HasValue == true ? pair.OldLine.OldLineNumber.Value.ToString() : "")</td>
+                                <td class="diff-col-content @GetSideClass(pair.OldLine?.Kind)" data-code data-lang="@(Language ?? "")">@(pair.OldLine?.Content ?? "")</td>
+                                <td class="diff-col-num">@(pair.NewLine?.NewLineNumber.HasValue == true ? pair.NewLine.NewLineNumber.Value.ToString() : "")</td>
+                                <td class="diff-col-content @GetSideClass(pair.NewLine?.Kind)" data-code data-lang="@(Language ?? "")">@(pair.NewLine?.Content ?? "")</td>
+                            </tr>
+                            @if (LineCommentTemplate is not null)
+                            {
+                                <tr class="diff-comment-row">
+                                    <td colspan="@(OnAddLineComment.HasDelegate ? 5 : 4)" class="diff-comment-cell">
+                                        @LineCommentTemplate(sideContext)
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr class="diff-line-row">
+                                @if (OnAddLineComment.HasDelegate)
+                                {
+                                    <td class="diff-col-gutter"></td>
+                                }
+                                <td class="diff-col-num"></td>
+                                <td class="diff-col-content" data-code data-lang="@(Language ?? "")"></td>
+                                <td class="diff-col-num"></td>
+                                <td class="diff-col-content" data-code data-lang="@(Language ?? "")"></td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+    }
+    else
+    {
+        @foreach (var hunk in Diff.Hunks)
+        {
+            <table class="diff-table diff-table--new-only">
+                <thead>
+                    <tr>
+                        @if (OnAddLineComment.HasDelegate)
+                        {
+                            <th class="diff-col-gutter" aria-hidden="true"></th>
+                        }
+                        <th class="diff-col-num" aria-label="New line"></th>
+                        <th class="diff-col-content diff-hunk-header">@hunk.Header</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var line in hunk.Lines.Where(l => l.Kind == DiffLineKind.Added))
+                    {
+                        var newOnlyContext = BuildCommentContext(line);
+                        <tr class="diff-line-row diff-row--added">
+                            @if (OnAddLineComment.HasDelegate)
+                            {
+                                <td class="diff-col-gutter">
+                                    <button type="button"
+                                            class="diff-add-comment-btn"
+                                            aria-label="@AddCommentLabel"
+                                            @onclick="@(() => OnAddLineComment.InvokeAsync(newOnlyContext))">+</button>
+                                </td>
+                            }
+                            <td class="diff-col-num">@(line.NewLineNumber.HasValue ? line.NewLineNumber.Value.ToString() : "")</td>
+                            <td class="diff-col-content" data-code data-lang="@(Language ?? "")">@line.Content</td>
+                        </tr>
+                        @if (LineCommentTemplate is not null)
+                        {
+                            <tr class="diff-comment-row">
+                                <td colspan="@(OnAddLineComment.HasDelegate ? 3 : 2)" class="diff-comment-cell">
+                                    @LineCommentTemplate(newOnlyContext)
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+    }
+
+</div>

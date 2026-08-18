@@ -4,6 +4,7 @@ using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Services;
 using Microsoft.Extensions.Configuration;
 using Xunit;
+using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Server.Test.Services;
 

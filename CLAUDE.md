@@ -31,9 +31,10 @@ The solution is [BlazorBase.slnx](BlazorBase.slnx). Target framework is **.NET 1
 Every library follows the same principle — UI/abstraction lives in `net10.0` Razor Class Libraries; host-specific behavior is injected through clean DI seams. A host registers platform implementations and the same components work unchanged.
 
 ```
+BlazorBase.Components       (standalone — layout, navigation, theming, editors)
 BlazorBase.Chart            (standalone — Chart.js interop)
 BlazorBase.Mailing          (standalone — SMTP + Razor-rendered email)
-BlazorBase.CRUD             (standalone)
+BlazorBase.CRUD             → BlazorBase.Components
   └─ BlazorBase.CRUD.Generators   (consumed as an analyzer, optional)
 BlazorBase.User             → BlazorBase.CRUD
 BlazorBase.User.Server      → BlazorBase.User, BlazorBase.CRUD   (ASP.NET Core: Identity + JWT)
@@ -64,6 +65,21 @@ Consequences that drive the design and are easy to get wrong:
 ### User/auth: generic over the host's user type
 
 The auth pipeline is generic on `TUser : BaseUser` and `TContext : BaseUserDbContext<TUser>`, letting a host add custom user properties without forking the pipeline. `AuthControllerBase<TUser>` and `UserControllerBase<TUser>` are **abstract** — the host must derive thin concrete `[ApiController]` classes so ASP.NET Core discovers them. JWT access tokens are short-lived; refresh tokens are persisted and **rotated** on every refresh (old token revoked). On the client, `AuthTokenHandler` (a `DelegatingHandler`) attaches the bearer, proactively refreshes within 1 minute of expiry, and retries once on `401`. `ITokenStorage` / `IAppConfigService` are the platform seams (Wasm = `localStorage` + same-origin; Maui = `SecureStorage` + user-entered URL). See [Documentation/BlazorBase.User.Server.md](Documentation/BlazorBase.User.Server.md) and [Documentation/BlazorBase.User.md](Documentation/BlazorBase.User.md).
+
+### BlazorBase.Components: the shared UI layer
+
+Layout, navigation, theming and the standalone editors live here, deliberately below CRUD and User in
+the graph. They know nothing about entities or identity, so neither project is the right owner: an app
+that only needs a data grid should not have to reference the auth stack to get an app shell, and a
+`RichTextEditor` is not a CRUD concept.
+
+- `Layout/` — `BaseLayout` (header, navigation slot, body) plus `Navigation/`. One `NavigationItem`
+  tree drives both `BaseSideNavigation` (desktop rail) and `BaseBottomNavigation` (mobile tab bar with
+  an overflow sheet), filtered once by `NavigationVisibility` so role visibility cannot diverge between
+  form factors.
+- `Editors/`, `Diff/`, `Files/`, `Html/` — `RichTextEditor`, `DiffViewer`, `FileTree`, `SanitizedHtml`.
+  CRUD consumes them; none of them consumes CRUD.
+- `Services/` — `IThemeService`, `ILanguageService`, `IFormFactor`.
 
 ### Chart & Mailing (standalone)
 

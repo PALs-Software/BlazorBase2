@@ -5,6 +5,7 @@ using System.Text;
 using BlazorBase.User.Server.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Server.Services;
 

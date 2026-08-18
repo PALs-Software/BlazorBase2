@@ -1,6 +1,7 @@
 using BlazorBase.User.Models;
 using BlazorBase.User.Services;
 using Microsoft.Extensions.Localization;
+using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Components;
 

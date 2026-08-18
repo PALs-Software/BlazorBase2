@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Identity;
+using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Server.Entities;
 
