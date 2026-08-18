@@ -581,14 +581,14 @@ var current = await provider.Query()
 
 ## DiffViewer Component
 
-`BlazorBase.CRUD.Components.DiffViewer.DiffViewer` renders a `FileDiff` in three modes: Inline, Side-by-side, or New-only. Uses the vendored highlight.js 11.9.0 (common-languages build, BSD-3, no CDN) for optional syntax highlighting.
+`BlazorBase.Components.Diff.DiffViewer` renders a `FileDiff` in three modes: Inline, Side-by-side, or New-only. Uses the vendored highlight.js 11.9.0 (common-languages build, BSD-3, no CDN) for optional syntax highlighting.
 
 ### Diff model namespace
 
-The five diff types live in `BlazorBase.CRUD.Models.Diff` (moved from `DevPortal.Shared.Modules.Repositories.Diff`; JSON wire format unchanged):
+The five diff types live in `BlazorBase.Components.Models.Diff` (moved from `DevPortal.Shared.Modules.Repositories.Diff`; JSON wire format unchanged):
 
 ```csharp
-namespace BlazorBase.CRUD.Models.Diff;
+namespace BlazorBase.Components.Models.Diff;
 
 public record FileDiff(string Path, string? OldPath, FileChangeKind ChangeKind, bool IsBinary, IReadOnlyList<DiffHunk> Hunks);
 public record DiffHunk(string Header, int OldStart, int OldLines, int NewStart, int NewLines, IReadOnlyList<DiffLine> Lines);
@@ -615,7 +615,7 @@ public enum FileChangeKind { Added, Modified, Deleted, Renamed, Copied, TypeChan
 ### `DiffLineCommentContext` record
 
 ```csharp
-namespace BlazorBase.CRUD.Components.DiffViewer;
+namespace BlazorBase.Components.Diff;
 
 public record DiffLineCommentContext(
     string? FilePath,
@@ -661,7 +661,7 @@ Content is bound as Razor text (HTML-encoded by Blazor). The `[data-code]` attri
 | `wwwroot/lib/highlight/github-dark.min.css` | Dark theme |
 | `wwwroot/lib/highlight/LICENSE` | BSD-3-Clause license |
 
-The `github-dark.min.css` theme is injected once into `<head>` by `syntaxHighlight.js` — no consumer-side `<link>` tag required. The JS module path is `./_content/BlazorBase.CRUD/js/syntaxHighlight.js`.
+The `github-dark.min.css` theme is injected once into `<head>` by `syntaxHighlight.js` — no consumer-side `<link>` tag required. The JS module path is `./_content/BlazorBase.Components/js/syntaxHighlight.js`.
 
 ### Usage
 
@@ -674,9 +674,9 @@ The `github-dark.min.css` theme is injected once into `<head>` by `syntaxHighlig
 
 ## FileTree Component
 
-`BlazorBase.CRUD.Components.FileTree.FileTree` renders an ARIA-compliant navigable file tree. Build the node hierarchy from a flat path list with `FileTreeBuilder.Build(paths)`.
+`BlazorBase.Components.Files.FileTree` renders an ARIA-compliant navigable file tree. Build the node hierarchy from a flat path list with `FileTreeBuilder.Build(paths)`.
 
-### Models (`BlazorBase.CRUD.Models.FileTree`)
+### Models (`BlazorBase.Components.Models.FileTree`)
 
 ```csharp
 public sealed class FileTreeNode
@@ -1486,7 +1486,7 @@ public partial class InventoryPage(IBaseDataProvider<InventoryItem> items)
 
 ## RichTextEditor Component
 
-`BlazorBase.CRUD.Components.RichTextEditor.RichTextEditor` is a generic, vendored WYSIWYG rich-text editor that edits and produces an **HTML string**. It has no external dependencies and loads no CDN resources — the JS module ships as a static web asset of `BlazorBase.CRUD`.
+`BlazorBase.Components.Editors.RichTextEditor` is a generic, vendored WYSIWYG rich-text editor that edits and produces an **HTML string**. It has no external dependencies and loads no CDN resources — the JS module ships as a static web asset of `BlazorBase.Components`.
 
 ### Parameters
 
@@ -1597,7 +1597,7 @@ new BaseCardBuilder<Article>()
 
 ## SanitizedHtml Component
 
-`BlazorBase.CRUD.Components.SanitizedHtml.SanitizedHtml` renders an HTML string safely inside a `<div class="sanitized-html">` root element.
+`BlazorBase.Components.Html.SanitizedHtml` renders an HTML string safely inside a `<div class="sanitized-html">` root element.
 
 ### Parameters
 
@@ -1645,10 +1645,10 @@ FieldBuilder<TModel> HtmlField()
 
 ## IHtmlSanitizer
 
-`BlazorBase.CRUD.Sanitization.IHtmlSanitizer` is a generic abstraction for HTML sanitization. It is **interface-only** — no implementation is provided here.
+`BlazorBase.Components.Sanitization.IHtmlSanitizer` is a generic abstraction for HTML sanitization. It is **interface-only** — no implementation is provided here.
 
 ```csharp
-namespace BlazorBase.CRUD.Sanitization;
+namespace BlazorBase.Components.Sanitization;
 
 public interface IHtmlSanitizer
 {

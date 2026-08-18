@@ -50,7 +50,7 @@
 
 .diff-notice--binary,
 .diff-notice--large {
-    color: var(--warning-foreground-rest, #b58900);
+    color: var(--color-warning, var(--warning-foreground-rest, #b58900));
 }
 
 .diff-table {

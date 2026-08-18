@@ -15,8 +15,11 @@ Two default themes ship as one stylesheet of CSS custom properties. Link it once
 <link rel="stylesheet" href="_content/BlazorBase.Components/css/blazorbase.css" />
 ```
 
-Every BlazorBase component styles itself through these tokens, so linking the file is what gives the
-components their look. Application code that uses the same names stays in step automatically.
+The shell reads these tokens: `BaseLayout`, both navigation components and the CRUD `BaseList`.
+Everything else still styles itself from FluentUI's own design tokens, so linking this file themes the
+frame around the content, not yet every control inside it — migrating a stylesheet means replacing a
+`var(--neutral-layer-1)` with `var(--color-bg-surface, var(--neutral-layer-1))`, which keeps the
+FluentUI value as the fallback. Application code that uses these names stays in step automatically.
 
 ### Applying and switching
 
@@ -31,12 +34,15 @@ before the first render:
 | `CurrentTheme` | `System`, `Light` or `Dark`. |
 
 `BaseLayout` already does both calls. Hosting it is all an application needs; `BaseThemeToggle` gives
-the user a control that cycles system → light → dark.
+the user a control that cycles system → light → dark. Register the services with
+`services.AddBlazorBaseComponents()` — `AddBlazorBaseUserClient()` already calls it, so an application
+on the user stack needs nothing extra.
 
-Where the preference comes from, in order: the signed-in user's profile claim (so the choice follows
-them to another device), otherwise the browser's local storage (so it survives a reload). Setting a
-theme always writes local storage; persisting it to the profile is the host's call, which
-`UserPreferencesPanel` in `BlazorBase.User` does.
+Where the preference comes from: the signed-in user's profile claim seeds a browser that has no choice
+of its own, so the setting follows the user to a new device. An explicit choice made here wins from
+then on, which is also what makes it survive a reload. Only `SetThemeAsync` writes to local storage —
+persisting the choice to the profile is the host's call, which `UserPreferencesPanel` in
+`BlazorBase.User` does.
 
 ### The three states
 
@@ -129,8 +135,11 @@ component owns the appearance of the tabs and the sheet, not where the bar lives
 | `DiffViewer` | Unified or side-by-side file diff with syntax highlighting and per-line comment anchors. |
 | `FileTree` | Collapsible file tree over `FileTreeNode`. |
 
-`IHtmlSanitizer` is a seam, not an implementation — without a registration the raw value is used, which
-is the correct behaviour for trusted content and a deliberate risk for anything else.
+`IHtmlSanitizer` is a seam, not an implementation, and the two components fall back differently when
+no sanitizer is registered. `SanitizedHtml` HTML-encodes the value, so it stays safe and simply shows
+the markup as text. `RichTextEditor` passes the value through unchanged, which is correct for content
+an author already owns and a real risk for anything else — register a sanitizer before letting one
+user's markup reach another user.
 
 ---
 
@@ -140,4 +149,4 @@ is the correct behaviour for trusted content and a deliberate risk for anything 
 |---|---|
 | `IThemeService` | Light/dark/system preference, see above. |
 | `ILanguageService` | Current UI language and switching. |
-| `IFormFactor` | Reports the host platform and form factor; implemented by `BlazorBase.User.Wasm` and `BlazorBase.User.Maui`. |
+| `IFormFactor` | Reports the host platform and form factor. The seam only; the WebAssembly and MAUI packages each register their own implementation. |

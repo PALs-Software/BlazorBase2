@@ -57,6 +57,25 @@
     background: var(--color-bg-selected);
 }
 
+/* Colour alone must not carry the active state (WCAG 1.4.1), so the active tab also grows a rule
+   along its top edge. */
+::deep .base-bottom-tab.active::before,
+::deep .base-bottom-more.more-active::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 25%;
+    right: 25%;
+    height: 2px;
+    border-radius: var(--radius-pill);
+    background: var(--color-accent);
+}
+
+::deep .base-bottom-tab {
+    position: relative;
+    min-height: var(--tap-target, 44px);
+}
+
 ::deep .base-bottom-tab.active .base-bottom-tab-icon {
     color: var(--color-accent);
 }
@@ -72,6 +91,12 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.5);
     z-index: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .base-more-sheet {
+        animation: none;
+    }
 }
 
 .base-more-sheet {
@@ -140,6 +165,11 @@
 
 ::deep .base-more-item:hover {
     background: var(--color-bg-hover);
+}
+
+::deep .base-more-item:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
 }
 
 ::deep .base-more-item-icon {

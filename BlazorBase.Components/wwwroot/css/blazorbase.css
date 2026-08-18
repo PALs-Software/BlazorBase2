@@ -26,13 +26,13 @@
 
     --color-text-primary: #161D1D;
     --color-text-secondary: #4B5556;
-    --color-text-muted: #6C7677;
+    --color-text-muted: #616B6C;
 
     --color-accent: #0F766E;
     --color-text-on-accent: #FFFFFF;
 
-    --color-success: #15803D;
-    --color-warning: #A16207;
+    --color-success: #116632;
+    --color-warning: #8A5406;
     --color-danger: #B91C1C;
     --color-danger-bg: #B91C1C0F;
     --color-text-on-danger: #FFFFFF;
@@ -69,7 +69,7 @@
 
         --color-text-primary: #E8ECEB;
         --color-text-secondary: #A3ADAC;
-        --color-text-muted: #7C8786;
+        --color-text-muted: #8A9494;
 
         --color-accent: #2DD4BF;
         --color-text-on-accent: #07100F;
@@ -96,7 +96,7 @@
 
     --color-text-primary: #E8ECEB;
     --color-text-secondary: #A3ADAC;
-    --color-text-muted: #7C8786;
+    --color-text-muted: #8A9494;
 
     --color-accent: #2DD4BF;
     --color-text-on-accent: #07100F;

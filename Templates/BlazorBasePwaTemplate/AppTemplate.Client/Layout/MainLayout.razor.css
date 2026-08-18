@@ -14,15 +14,17 @@
 /*
   The framework components render themselves; where they sit is the host's call. The rail owns the
   space beside the body on a desktop, and below the breakpoint it gives way to the bar docked at the
-  bottom edge. The bar is a direct child of the layout root, not of a transformed wrapper, so its
-  "More" sheet can cover the viewport.
+  bottom edge.
+
+  The bar itself is positioned, not a wrapper around it: a fixed wrapper would open a stacking context
+  and cap the "More" sheet, which the component renders as a sibling and lifts above the page.
 */
 .side-nav {
     display: block;
     height: 100%;
 }
 
-.bottom-nav {
+.bottom-nav ::deep .base-bottom-nav {
     display: none;
 }
 
@@ -31,8 +33,8 @@
         display: none;
     }
 
-    .bottom-nav {
-        display: block;
+    .bottom-nav ::deep .base-bottom-nav {
+        display: flex;
         position: fixed;
         left: 0;
         right: 0;

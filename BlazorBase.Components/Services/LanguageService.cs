@@ -77,7 +77,7 @@ public class LanguageService(AuthenticationStateProvider authStateProvider, Navi
     /// </summary>
     /// <remarks>
     /// Guarded by <see cref="StartupLanguageApplied"/> so that a host which never called
-    /// <see cref="BlazorBaseLanguageExtensions.UseBlazorBaseLanguageAsync"/> keeps its previous
+    /// <c>UseBlazorBaseLanguageAsync</c> keeps its previous
     /// behaviour instead of reloading into the very same startup language over and over.
     /// </remarks>
     private bool RequiresReloadForResources(string cultureCode)

@@ -36,8 +36,7 @@ public static class BlazorBaseUserServiceCollectionExtensions
         services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<BlazorBaseUserAuthStateProvider>());
 
         services.AddScoped<AuthTokenHandler>();
-        services.AddScoped<ILanguageService, LanguageService>();
-        services.AddScoped<IThemeService, ThemeService>();
+        services.AddBlazorBaseComponents();
 
         services.AddOptions<BlazorBaseUserClientOptions>();
 

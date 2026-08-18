@@ -1,17 +1,15 @@
 using BlazorBase.Components.Services;
 using Microsoft.AspNetCore.Components;
-using Microsoft.Extensions.Localization;
 using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace BlazorBase.Components.Layout;
 
-public partial class BaseLayout(IThemeService themeService, ILanguageService languageService, IStringLocalizer<BaseLayout> localizer) : ComponentBase, IDisposable
+public partial class BaseLayout(IThemeService themeService, ILanguageService languageService) : ComponentBase, IDisposable
 {
     #region Injects
 
     private readonly IThemeService ThemeService = themeService;
     private readonly ILanguageService LanguageService = languageService;
-    private readonly IStringLocalizer<BaseLayout> Localizer = localizer;
 
     #endregion
 

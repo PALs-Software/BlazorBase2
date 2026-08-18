@@ -32,8 +32,8 @@ Provides ready-made UI components (list, card, dialogs), an abstracted data laye
 - [RichTextEditor Component](#richtexteditor-component)
 - [DiffViewer Component](#diffviewer-component)
 - [FileTree Component](#filetree-component)
-- [Diff Models (BlazorBase.CRUD.Models.Diff)](#diff-models-blazorbasecrudmodelsdiff)
-- [FileTree Models (BlazorBase.CRUD.Models.FileTree)](#filetree-models-blazorbasecrudmodelsfiletree)
+- [Diff Models (BlazorBase.Components.Models.Diff)](#diff-models-blazorbasecrudmodelsdiff)
+- [FileTree Models (BlazorBase.Components.Models.FileTree)](#filetree-models-blazorbasecrudmodelsfiletree)
 - [IHtmlSanitizer](#ihtmlsanitizer)
 - [BaseValidationException](#basevalidationexception)
 
@@ -1770,7 +1770,7 @@ public static class ProductEntityMappingExtensions
 
 ## RichTextEditor Component
 
-`BlazorBase.CRUD.Components.RichTextEditor.RichTextEditor` is a generic, vendored WYSIWYG editor that edits and produces an HTML string. No external packages or CDN resources are required — the JS module ships as a static web asset of this RCL.
+`BlazorBase.Components.Editors.RichTextEditor` is a generic, vendored WYSIWYG editor that edits and produces an HTML string. No external packages or CDN resources are required — the JS module ships as a static web asset of `BlazorBase.Components`.
 
 ### Parameters
 
@@ -1876,7 +1876,7 @@ new BaseCardBuilder<Article>()
 
 ## SanitizedHtml Component
 
-`BlazorBase.CRUD.Components.SanitizedHtml.SanitizedHtml` renders an HTML string safely inside a `<div class="sanitized-html">` root element.
+`BlazorBase.Components.Html.SanitizedHtml` renders an HTML string safely inside a `<div class="sanitized-html">` root element.
 
 ### Parameters
 
@@ -1899,7 +1899,7 @@ new BaseCardBuilder<Article>()
 
 ## DiffViewer Component
 
-`BlazorBase.CRUD.Components.DiffViewer.DiffViewer` renders a single-file unified diff in three modes with optional syntax highlighting via the vendored highlight.js 11.9.0 (common-languages build, BSD-3 license, no CDN).
+`BlazorBase.Components.Diff.DiffViewer` renders a single-file unified diff in three modes with optional syntax highlighting via the vendored highlight.js 11.9.0 (common-languages build, BSD-3 license, no CDN).
 
 ### Parameters
 
@@ -1943,7 +1943,7 @@ highlight.js 11.9.0 is vendored at `wwwroot/lib/highlight/highlight.min.js` (com
 ### `DiffLineCommentContext` record
 
 ```csharp
-namespace BlazorBase.CRUD.Components.DiffViewer;
+namespace BlazorBase.Components.Diff;
 
 public record DiffLineCommentContext(
     string? FilePath,
@@ -1986,7 +1986,7 @@ All three new parameters default to no-ops (`null` / no delegate). Existing call
 
 ## FileTree Component
 
-`BlazorBase.CRUD.Components.FileTree.FileTree` renders an ARIA-compliant navigable file tree from a list of `FileTreeNode` roots. Supports expand/collapse, single-node selection, and keyboard navigation.
+`BlazorBase.Components.Files.FileTree` renders an ARIA-compliant navigable file tree from a list of `FileTreeNode` roots. Supports expand/collapse, single-node selection, and keyboard navigation.
 
 ### Parameters
 
@@ -2036,12 +2036,12 @@ Implements the [WAI-ARIA tree pattern](https://www.w3.org/WAI/ARIA/apg/patterns/
 
 ---
 
-## Diff Models (`BlazorBase.CRUD.Models.Diff`)
+## Diff Models (`BlazorBase.Components.Models.Diff`)
 
 Pure data records/enums shared between the diff viewer and any server-side parser. JSON wire format is identical to the former `DevPortal.Shared.Modules.Repositories.Diff` namespace (only the namespace moved).
 
 ```csharp
-namespace BlazorBase.CRUD.Models.Diff;
+namespace BlazorBase.Components.Models.Diff;
 
 public record FileDiff(string Path, string? OldPath, FileChangeKind ChangeKind, bool IsBinary, IReadOnlyList<DiffHunk> Hunks);
 public record DiffHunk(string Header, int OldStart, int OldLines, int NewStart, int NewLines, IReadOnlyList<DiffLine> Lines);
@@ -2052,10 +2052,10 @@ public enum FileChangeKind { Added, Modified, Deleted, Renamed, Copied, TypeChan
 
 ---
 
-## FileTree Models (`BlazorBase.CRUD.Models.FileTree`)
+## FileTree Models (`BlazorBase.Components.Models.FileTree`)
 
 ```csharp
-namespace BlazorBase.CRUD.Models.FileTree;
+namespace BlazorBase.Components.Models.FileTree;
 
 public sealed class FileTreeNode
 {
@@ -2077,10 +2077,10 @@ public static class FileTreeBuilder
 
 ## IHtmlSanitizer
 
-`BlazorBase.CRUD.Sanitization.IHtmlSanitizer` is an interface-only abstraction for HTML sanitization. No concrete implementation or sanitizer package is shipped here.
+`BlazorBase.Components.Sanitization.IHtmlSanitizer` is an interface-only abstraction for HTML sanitization. No concrete implementation or sanitizer package is shipped here.
 
 ```csharp
-namespace BlazorBase.CRUD.Sanitization;
+namespace BlazorBase.Components.Sanitization;
 
 public interface IHtmlSanitizer
 {

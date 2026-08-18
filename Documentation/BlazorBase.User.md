@@ -673,7 +673,7 @@ private async Task SaveSettingsAsync()
 
 ## Navigation
 
-A data-driven primary navigation under `BlazorBase.User.Layout.Navigation`. The host builds **one** list of
+A data-driven primary navigation under `BlazorBase.Components.Layout.Navigation`. The host builds **one** list of
 `NavigationItem` entries and feeds it to two renderers, so the desktop and mobile presentations cannot
 diverge — only the rendering differs.
 

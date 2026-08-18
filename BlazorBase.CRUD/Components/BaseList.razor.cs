@@ -202,8 +202,11 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     private bool LastShiftState { get; set; }
     private ElementReference GridContainerRef { get; set; }
     private FluentDataGrid<TModel>? DataGrid { get; set; }
-    private List<TModel>? GridRenderedItems { get; set; }
-    private List<TModel>? GridRefreshedItems { get; set; }
+    private IQueryable<TModel>? GridQuery { get; set; }
+    private List<TModel>? GridQuerySource { get; set; }
+    private int DataVersion { get; set; }
+    private int RenderedVersion { get; set; }
+    private int RefreshedVersion { get; set; }
     private IJSObjectReference? JsModule { get; set; }
 
     #endregion
@@ -427,16 +430,33 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             LoadedItems.AddRange(result.Items);
 
         IsLoading = false;
+        DataVersion++;
         StateHasChanged();
     }
 
     /// <summary>
-    /// Records which collection the grid was handed during this render.
+    /// Hands the grid a query that only changes when the data behind it does, and records which load
+    /// this render carried.
     /// </summary>
+    /// <remarks>
+    /// <c>AsQueryable()</c> wraps a list in a new object every call, and the grid compares its
+    /// <c>Items</c> by reference — so building it inline made every single render look like a new data
+    /// source to the grid: it tore down and recreated a DI scope and re-queried, and the explicit
+    /// refresh below then cancelled that and queried again. Caching the query per collection instance
+    /// stops the churn; the version counter is what still tells a genuine reload apart, including
+    /// loading a further page, which keeps the same collection and would otherwise go unnoticed.
+    /// </remarks>
     private IQueryable<TModel> CaptureRenderedItems()
     {
-        GridRenderedItems = LoadedItems;
-        return LoadedItems.AsQueryable();
+        if (GridQuery is null || !ReferenceEquals(GridQuerySource, LoadedItems))
+        {
+            GridQuerySource = LoadedItems;
+            GridQuery = LoadedItems.AsQueryable();
+        }
+
+        RenderedVersion = DataVersion;
+
+        return GridQuery;
     }
 
     /// <summary>
@@ -452,10 +472,10 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     /// </remarks>
     private async Task RefreshGridForRenderedItemsAsync()
     {
-        if (DataGrid is null || ReferenceEquals(GridRefreshedItems, GridRenderedItems))
+        if (DataGrid is null || RefreshedVersion == RenderedVersion)
             return;
 
-        GridRefreshedItems = GridRenderedItems;
+        RefreshedVersion = RenderedVersion;
         await DataGrid.RefreshDataAsync();
     }
 

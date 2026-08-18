@@ -1,6 +1,6 @@
 import hljs from '../lib/highlight/highlight.min.js';
 
-const ThemeHref = '_content/BlazorBase.CRUD/lib/highlight/github-dark.min.css';
+const ThemeHref = '_content/BlazorBase.Components/lib/highlight/github-dark.min.css';
 
 function ensureTheme() {
     if (document.querySelector(`link[data-hljs-theme]`))

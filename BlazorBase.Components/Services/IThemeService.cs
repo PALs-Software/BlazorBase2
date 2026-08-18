@@ -1,12 +1,5 @@
 namespace BlazorBase.Components.Services;
 
-public enum ThemePreference
-{
-    System,
-    Light,
-    Dark,
-}
-
 public interface IThemeService
 {
     ThemePreference CurrentTheme { get; }

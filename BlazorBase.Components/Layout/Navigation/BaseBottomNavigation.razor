@@ -6,7 +6,8 @@
         <NavLink href="@item.Href"
                  Match="@(item.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)"
                  class="base-bottom-tab"
-                 ActiveClass="active">
+                 ActiveClass="active"
+                 aria-current="@(item.MatchAll ? "page" : null)">
             <span class="base-bottom-tab-icon">
                 @if (item.Icon is not null)
                 {
@@ -20,10 +21,10 @@
     {
         <button type="button"
                 class="base-bottom-tab base-bottom-more @(IsMoreOpen ? "more-active" : null)"
+                @ref="MoreButtonElement"
                 @onclick="ToggleMoreSheet"
                 aria-expanded="@IsMoreOpen.ToString().ToLowerInvariant()"
-                aria-controls="base-bottom-more-sheet"
-                aria-haspopup="true">
+                aria-haspopup="dialog">
             <span class="base-bottom-tab-icon">
                 <FluentIcon Value="@MoreIcon" />
             </span>
@@ -35,7 +36,14 @@
 @if (IsMoreOpen)
 {
     <div class="base-more-backdrop" @onclick="CloseMoreSheet" role="presentation"></div>
-    <div class="base-more-sheet" id="base-bottom-more-sheet" role="dialog" aria-modal="true" aria-label="@Localizer["MoreSheetAriaLabel"]">
+    <div class="base-more-sheet"
+         id="base-bottom-more-sheet"
+         role="dialog"
+         aria-modal="true"
+         aria-label="@Localizer["MoreSheetAriaLabel"]"
+         tabindex="-1"
+         @ref="SheetElement"
+         @onkeydown="OnSheetKeyDown">
         <div class="base-more-handle"></div>
 
         @if (OpenGroup is null)

@@ -12,6 +12,10 @@ namespace BlazorBase.Components.Services;
 /// afterwards, because local storage is only ever written by <see cref="SetThemeAsync"/>: letting the
 /// profile claim win instead meant clicking the toggle appeared to work and silently reverted on the
 /// next reload, since the claim still carried the old value until the profile itself was saved.
+///
+/// Only <see cref="SetThemeAsync"/> writes to local storage. Writing on every load would persist what
+/// the profile seeded, and that value would then outrank the profile from then on — changing the
+/// preference on another device would never reach this browser again.
 /// </remarks>
 public class ThemeService(AuthenticationStateProvider authenticationStateProvider, IJSRuntime jsRuntime) : IThemeService, IAsyncDisposable
 {
@@ -44,14 +48,19 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
         var module = await LoadModuleAsync();
         var stored = await module.InvokeAsync<string?>("stored");
 
+        var adopted = false;
+
         if (stored is not null && Enum.TryParse<ThemePreference>(stored, true, out var parsed) && parsed != CurrentTheme)
         {
             CurrentTheme = parsed;
-            ThemeChanged?.Invoke();
+            adopted = true;
         }
 
-        await module.InvokeVoidAsync("apply", CurrentTheme.ToString());
+        await module.InvokeVoidAsync("apply", CurrentTheme.ToString(), false);
         await ReadAccentAsync(module);
+
+        if (adopted)
+            ThemeChanged?.Invoke();
     }
 
     public async Task SetThemeAsync(ThemePreference preference)
@@ -59,7 +68,7 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
         CurrentTheme = preference;
 
         var module = await LoadModuleAsync();
-        await module.InvokeVoidAsync("apply", preference.ToString());
+        await module.InvokeVoidAsync("apply", preference.ToString(), true);
         await ReadAccentAsync(module);
 
         ThemeChanged?.Invoke();
@@ -81,11 +90,20 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
 
     public async ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
+
         if (Module is null)
             return;
 
-        await Module.DisposeAsync();
+        try
+        {
+            await Module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit or web view is already gone; there is nothing left to release on the other side.
+        }
+
         Module = null;
-        GC.SuppressFinalize(this);
     }
 }

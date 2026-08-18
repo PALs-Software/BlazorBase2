@@ -64,12 +64,6 @@
     <div class="base-list-grid" @ref="GridContainerRef"
          @onmousedown="OnMouseDown"
          @oncontextmenu="OnContextMenuAsync" @oncontextmenu:preventDefault>
-        @*
-            Mounted unless the list is genuinely empty — the same condition the empty message uses.
-            Unmounting it while a reload is in flight was worse than the stale rows it was meant to
-            avoid: a virtualized grid that is mounted fresh comes up with no rows at all, so deleting
-            one of several rows intermittently left the list claiming it had no data.
-        *@
         @if (LoadedItems.Count > 0 || IsLoading)
         {
             <FluentDataGrid @ref="DataGrid"

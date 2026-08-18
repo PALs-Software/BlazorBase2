@@ -1,6 +1,6 @@
 const storageKey = 'blazorbase-theme';
 
-export function apply(preference) {
+export function apply(preference, persist) {
     const root = document.documentElement;
 
     if (preference === 'System') {
@@ -9,10 +9,15 @@ export function apply(preference) {
         root.dataset.theme = preference.toLowerCase();
     }
 
-    try {
-        localStorage.setItem(storageKey, preference);
-    } catch {
-        // private browsing modes reject writes; the theme still applies for this session
+    // Only an explicit choice is remembered. Persisting on every load would store whatever the
+    // profile seeded, and that stored value then outranks the profile forever - so changing the
+    // preference on another device would never reach this browser again.
+    if (persist) {
+        try {
+            localStorage.setItem(storageKey, preference);
+        } catch {
+            // private browsing modes reject writes; the theme still applies for this session
+        }
     }
 
     const resolved = getComputedStyle(root).getPropertyValue('--color-bg-surface').trim();

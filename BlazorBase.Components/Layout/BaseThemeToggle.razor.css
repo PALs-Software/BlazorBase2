@@ -1,0 +1,13 @@
+/*
+  FluentUI sizes its buttons at 32px, below the 44px a thumb needs — and this control sits in the
+  header, which is exactly where it gets tapped. The host's --tap-target wins when it defines one.
+*/
+::deep .base-theme-toggle {
+    min-width: var(--tap-target, 44px);
+    min-height: var(--tap-target, 44px);
+}
+
+::deep .base-theme-toggle:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}

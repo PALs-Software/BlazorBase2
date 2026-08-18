@@ -53,7 +53,7 @@
     border: 1px solid var(--neutral-stroke-rest);
     border-radius: var(--control-corner-radius);
     gap: 0.25rem;
-    font-size: var(--type-ramp-minus1-font-size);
+    font-size: var(--type-ramp-minus-1-font-size);
     color: var(--neutral-foreground-rest);
     text-align: center;
     padding: 0.25rem;

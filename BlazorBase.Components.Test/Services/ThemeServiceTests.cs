@@ -97,6 +97,26 @@ public class ThemeServiceTests : BunitContext
         Assert.Equal("System", Assert.Single(applyHandler.Invocations).Arguments[0]);
     }
 
+    /// <summary>
+    /// Only an explicit choice is remembered. Persisting the profile's seed would make it outrank the
+    /// profile from then on, so a change made on another device would never reach this browser again.
+    /// </summary>
+    [Fact]
+    public async Task Apply_DoesNotPersistTheSeed_ButSetThemeDoes()
+    {
+        var module = SetupModule(stored: null);
+        var applyHandler = module.SetupVoid("apply", _ => true);
+        applyHandler.SetVoidResult();
+        var service = CreateService(claim: "Dark");
+
+        await service.InitializeAsync();
+        await service.ApplyAsync();
+        Assert.Equal(false, Assert.Single(applyHandler.Invocations).Arguments[1]);
+
+        await service.SetThemeAsync(ThemePreference.Light);
+        Assert.Equal(true, applyHandler.Invocations.Last().Arguments[1]);
+    }
+
     private BunitJSModuleInterop SetupModule(string? stored)
     {
         var module = JSInterop.SetupModule(ModulePath);
