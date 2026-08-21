@@ -18,12 +18,14 @@ The solution is [BlazorBase.slnx](BlazorBase.slnx). Target framework is **.NET 1
 |---|---|
 | Build everything | `dotnet build BlazorBase.slnx` (needs MAUI workloads because of `BlazorBase.User.Maui`) |
 | Build a single library (no MAUI workloads needed) | `dotnet build BlazorBase.CRUD/BlazorBase.CRUD.csproj` |
+| Run all tests | `dotnet test BlazorBase.slnx` (same MAUI caveat; the eight test projects still run if the MAUI target fails to build) |
 | Install MAUI workloads (first-time) | `dotnet workload install maui-android maui-ios maui-maccatalyst` |
 | Run all benchmarks | `dotnet run -c Release --project BlazorBase.CRUD.Benchmarks` |
 | Filter benchmarks | `dotnet run -c Release --project BlazorBase.CRUD.Benchmarks -- --filter "*Read*"` |
 | List benchmarks without running | `dotnet run -c Release --project BlazorBase.CRUD.Benchmarks -- --list flat` |
 
-- **There is no unit-test project.** The only executable validation is the BenchmarkDotNet suite in `BlazorBase.CRUD.Benchmarks`, which is a deliberate manual tool: it **only runs in Release** (BenchmarkDotNet refuses Debug), takes minutes, and is intentionally not wrapped in xUnit/MSTest. See [BlazorBase.CRUD.Benchmarks/README.md](BlazorBase.CRUD.Benchmarks/README.md) for how to add a scenario and the Azure DevOps pipeline.
+- **Package versions are managed centrally.** [Directory.Packages.props](Directory.Packages.props) declares every version once; project files carry a bare `<PackageReference Include="…" />` with no `Version`. Adding a package means one `PackageVersion` entry there plus the bare reference in the project that needs it — a `Version` in a `.csproj` is an error (NU1008), which is the point: the same package sat at four versions across the solution before this.
+- **Eight xUnit test projects** cover the libraries (`*.Test`), using bUnit for the component ones. The BenchmarkDotNet suite in `BlazorBase.CRUD.Benchmarks` is separate and deliberately manual: it **only runs in Release** (BenchmarkDotNet refuses Debug), takes minutes, and is intentionally not wrapped in xUnit. See [BlazorBase.CRUD.Benchmarks/README.md](BlazorBase.CRUD.Benchmarks/README.md) for how to add a scenario and the Azure DevOps pipeline.
 - **This repo owns no EF migrations.** Identity/`RefreshToken` schema comes from `BaseUserDbContext<TUser>`, but migrations are generated and applied by the **host** app against its concrete `DbContext`. The benchmark uses a throw-away SQLite `EnsureCreated()` database, so no migrations are needed there.
 
 ## Architecture: one shared UI layer, many hosts

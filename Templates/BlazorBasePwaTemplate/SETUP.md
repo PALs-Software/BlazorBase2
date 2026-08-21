@@ -24,6 +24,11 @@ dotnet build -p:BlazorBaseLibsPath=../../BlazorBase2/
 
 `BlazorBaseLibsPath` is declared in each project file and defaults to `Libs\`.
 
+Package versions live in `Directory.Packages.props`, not in the project files — those reference
+packages by name only. Add a package with one `PackageVersion` entry there plus a bare
+`<PackageReference Include="…" />` in the project that needs it; a `Version` in a `.csproj` is an
+error (NU1008).
+
 ## 2. Set the secrets
 
 From `AppTemplate.Server`:
