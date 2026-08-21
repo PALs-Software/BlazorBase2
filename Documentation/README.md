@@ -8,6 +8,7 @@ This folder contains the documentation for all reusable BlazorBase libraries shi
 
 | Library | Type | Documentation |
 |---|---|---|
+| **BlazorBase.Localization** | .NET library (net10.0) | [BlazorBase.Localization.md](BlazorBase.Localization.md) |
 | **BlazorBase.Components** | Razor Class Library (net10.0) | [BlazorBase.Components.md](BlazorBase.Components.md) |
 | **BlazorBase.CRUD** | Razor Class Library (net10.0) | [BlazorBase.CRUD.md](BlazorBase.CRUD.md) |
 | **BlazorBase.CRUD.Generators** | Roslyn Source Generator (netstandard2.0) | [BlazorBase.CRUD.Generators.md](BlazorBase.CRUD.Generators.md) |
@@ -65,9 +66,20 @@ All BlazorBase libraries follow the same architectural principle: a shared UI/ab
 ### Project Dependencies
 
 ```
+BlazorBase.Localization    (standalone — no Blazor, no FluentUI)
+
+BlazorBase.Components      (standalone RCL)
+
 BlazorBase.Chart           (standalone)
 
-BlazorBase.CRUD            (standalone)
+BlazorBase.Mailing         (standalone)
+
+BlazorBase.DataProtection  (standalone, browser-safe)
+
+BlazorBase.CRUD
+  ├─ BlazorBase.Components
+  ├─ BlazorBase.Localization
+  ├─ BlazorBase.DataProtection
   └─ BlazorBase.CRUD.Generators  (consumed as analyzer)
 
 BlazorBase.Files           (browser-safe RCL)
@@ -147,6 +159,8 @@ References:
 | List + Form components, fluent builders, custom actions | BlazorBase.CRUD |
 | Lifecycle interceptors, validators, audit fields | BlazorBase.CRUD |
 | Optional DTO/mapping generation | BlazorBase.CRUD.Generators |
+| App shell, navigation, theming, confirmation seam, query-string reader | BlazorBase.Components |
+| Localizer chaining and the empty fallback | BlazorBase.Localization |
 | Chart.js wrapper (Bar/Line/Pie) | BlazorBase.Chart |
 | Login / Setup / User management UI | BlazorBase.User |
 | JWT auth state, token refresh handler, language service | BlazorBase.User |

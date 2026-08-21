@@ -1,6 +1,6 @@
 using Microsoft.FluentUI.AspNetCore.Components;
 
-namespace BlazorBase.CRUD.Services;
+namespace BlazorBase.Components.Services;
 
 /// <summary>
 /// Default <see cref="IConfirmationService"/> that shows a FluentUI confirmation dialog.

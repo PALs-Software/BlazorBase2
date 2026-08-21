@@ -6,6 +6,7 @@ using BlazorBase.CRUD.Models;
 using BlazorBase.CRUD.Test.Infrastructure;
 using BlazorBase.CRUD.Test.Infrastructure.TestEntities;
 using Xunit;
+using BlazorBase.Localization;
 
 namespace BlazorBase.CRUD.Test.Filtering;
 

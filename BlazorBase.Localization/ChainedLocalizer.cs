@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Localization;
 
-namespace BlazorBase.CRUD.Localization;
+namespace BlazorBase.Localization;
 
 /// <summary>
 /// Walks through multiple localizers in priority order and returns the first hit where the key was actually found.

@@ -1,9 +1,9 @@
-namespace BlazorBase.CRUD.Navigation;
+namespace BlazorBase.Components.Routing;
 
 /// <summary>
 /// Reads a single query-string parameter value from an absolute or relative URI. Kept dependency-free (no
-/// <c>Microsoft.AspNetCore.WebUtilities</c>) and pure so it can be unit-tested in isolation. Used by
-/// <see cref="Components.BaseList{TModel}"/> to resolve the deep-linked item from the current URL.
+/// <c>Microsoft.AspNetCore.WebUtilities</c>) and pure so it can be unit-tested in isolation. The CRUD
+/// <c>BaseList</c> resolves its deep-linked item with it; any page that answers to a query parameter can.
 /// </summary>
 public static class QueryStringReader
 {

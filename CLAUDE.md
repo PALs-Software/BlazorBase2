@@ -33,10 +33,12 @@ The solution is [BlazorBase.slnx](BlazorBase.slnx). Target framework is **.NET 1
 Every library follows the same principle — UI/abstraction lives in `net10.0` Razor Class Libraries; host-specific behavior is injected through clean DI seams. A host registers platform implementations and the same components work unchanged.
 
 ```
-BlazorBase.Components       (standalone — layout, navigation, theming, editors)
+BlazorBase.Localization     (standalone — localizer composition, no Blazor, no FluentUI)
+BlazorBase.Components       (standalone — layout, navigation, theming, editors, routing helpers)
 BlazorBase.Chart            (standalone — Chart.js interop)
 BlazorBase.Mailing          (standalone — SMTP + Razor-rendered email)
-BlazorBase.CRUD             → BlazorBase.Components
+BlazorBase.DataProtection   (standalone — browser-safe encryption)
+BlazorBase.CRUD             → BlazorBase.Components, BlazorBase.Localization, BlazorBase.DataProtection
   └─ BlazorBase.CRUD.Generators   (consumed as an analyzer, optional)
 BlazorBase.User             → BlazorBase.CRUD
 BlazorBase.User.Server      → BlazorBase.User, BlazorBase.CRUD   (ASP.NET Core: Identity + JWT)
@@ -81,7 +83,8 @@ that only needs a data grid should not have to reference the auth stack to get a
   form factors.
 - `Editors/`, `Diff/`, `Files/`, `Html/` — `RichTextEditor`, `DiffViewer`, `FileTree`, `SanitizedHtml`.
   CRUD consumes them; none of them consumes CRUD.
-- `Services/` — `IThemeService`, `ILanguageService`, `IFormFactor`.
+- `Services/` — `IThemeService`, `ILanguageService`, `IFormFactor`, `IConfirmationService`.
+- `Routing/` — `QueryStringReader`, a dependency-free query-parameter reader.
 
 ### Chart & Mailing (standalone)
 

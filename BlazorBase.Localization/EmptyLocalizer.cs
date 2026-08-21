@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Localization;
 
-namespace BlazorBase.CRUD.Localization;
+namespace BlazorBase.Localization;
 
 /// <summary>
 /// Fallback localizer that always reports ResourceNotFound, returning the raw key as value.

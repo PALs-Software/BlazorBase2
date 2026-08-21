@@ -6,7 +6,7 @@ using BlazorBase.CRUD.DataProviders;
 using BlazorBase.CRUD.Events;
 using BlazorBase.CRUD.Interceptors;
 using BlazorBase.CRUD.Security;
-using BlazorBase.CRUD.Services;
+using BlazorBase.Components.Services;
 using BlazorBase.CRUD.Validation;
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
@@ -34,7 +34,10 @@ public static class BaseServiceCollectionExtensions
     /// <summary>
     /// Registers the interactive UI services the CRUD components depend on (currently the
     /// <see cref="IConfirmationService"/>, backed by <see cref="FluentUiConfirmationService"/> which
-    /// needs the FluentUI <c>IDialogService</c>). Call this only from a host that actually renders the
+    /// needs the FluentUI <c>IDialogService</c>). Both types live in <c>BlazorBase.Components</c> - the
+    /// registration stays here because it is the CRUD components that need them, and because
+    /// <c>AddBlazorBaseComponents()</c> must stay callable from a host that has no dialog service.
+    /// Call this only from a host that actually renders the
     /// CRUD components interactively — the WASM/MAUI client or a Blazor Server interactive host — after
     /// <c>AddFluentUIComponents()</c>. A pure hosting backend that never renders the components (for
     /// example the hosted-WASM server) must not call this and therefore needs no FluentUI

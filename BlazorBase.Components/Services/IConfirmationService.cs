@@ -1,4 +1,4 @@
-namespace BlazorBase.CRUD.Services;
+namespace BlazorBase.Components.Services;
 
 /// <summary>
 /// Asks the user to confirm an action and reports whether they accepted. The default

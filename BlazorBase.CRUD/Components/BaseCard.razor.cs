@@ -9,7 +9,7 @@ using BlazorBase.CRUD.Localization;
 using BlazorBase.CRUD.Models;
 using BlazorBase.CRUD.Navigation;
 using BlazorBase.CRUD.Security;
-using BlazorBase.CRUD.Services;
+using BlazorBase.Components.Services;
 using BlazorBase.CRUD.Validation;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;

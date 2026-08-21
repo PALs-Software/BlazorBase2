@@ -184,3 +184,23 @@ user's markup reach another user.
 | `IThemeService` | Light/dark/system preference, see above. |
 | `ILanguageService` | Current UI language and switching. |
 | `IFormFactor` | Reports the host platform and form factor. The seam only; the WebAssembly and MAUI packages each register their own implementation. |
+| `IConfirmationService` | Asks the user to confirm an action and reports whether they accepted. `FluentUiConfirmationService` is the default and needs FluentUI's `IDialogService`. |
+
+`IConfirmationService` lives here because opening a dialog is a UI concern, not a CRUD one — an
+application that never touches the data grid can still use it. The convenience registration currently
+rides along with `AddBlazorBaseCrudComponents()` in `BlazorBase.CRUD`, which is deliberately separate
+from `AddBlazorBaseComponents()`: a pure hosting backend that never renders interactively must not be
+made to supply an `IDialogService`. Register it yourself with `TryAddScoped` if you want it without the
+CRUD layer.
+
+---
+
+## Routing
+
+`QueryStringReader.TryReadValue(uri, name)` reads one query-string parameter out of an absolute or
+relative URI. It takes no dependency on `Microsoft.AspNetCore.WebUtilities` and is pure, so it tests in
+isolation. The first occurrence wins, the key match is case-insensitive, a fragment is ignored, and a
+parameter that is present without a value yields an empty string rather than null — null means absent.
+
+The CRUD `BaseList` resolves its deep-linked item with it; any page that answers to a query parameter
+can do the same.

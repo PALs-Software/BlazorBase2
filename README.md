@@ -7,7 +7,8 @@ applications. Open [BlazorBase.slnx](BlazorBase.slnx) in Visual Studio to build 
 
 | Project | Purpose |
 |---|---|
-| `BlazorBase.Components` | Layout, navigation, theming and standalone editors |
+| `BlazorBase.Localization` | Localizer composition, usable without Blazor |
+| `BlazorBase.Components` | Layout, navigation, theming, standalone editors and routing helpers |
 | `BlazorBase.CRUD` | Generic CRUD components, models and services |
 | `BlazorBase.CRUD.Generators` | Source generators for the CRUD layer |
 | `BlazorBase.CRUD.Benchmarks` | Benchmarks for the CRUD layer |
