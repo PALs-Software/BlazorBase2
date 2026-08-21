@@ -36,8 +36,14 @@
     border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px));
 }
 
-::deep tr[row-type='sticky-header'] > th,
-::deep tr[row-type='header'] > th {
+/*
+   The .fluent-data-grid class is here to win a specificity tie, not to narrow the match. FluentUI's
+   own FluentDataGrid.razor.css carries [scope] tr[row-type='sticky-header'] > th with exactly this
+   specificity, and its bundle is @imported after every other RCL's, so at equal weight it took the
+   header - the background below was written and then silently overruled in every application.
+*/
+::deep .fluent-data-grid tr[row-type='sticky-header'] > th,
+::deep .fluent-data-grid tr[row-type='header'] > th {
     position: sticky;
     top: 0;
     z-index: 2;
