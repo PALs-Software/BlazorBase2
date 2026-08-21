@@ -27,7 +27,16 @@
    (flex chain) get an exact fit through flex; everywhere else the viewport-relative cap applies.
    Override --base-list-grid-max-height (or set it to none) to adapt the cap per host or page.
 */
+/*
+   A sortable column header is a Fluent UI stealth button, and "stealth" resolves to
+   --neutral-fill-stealth-rest, which Fluent UI derives to match its own default layer - not the
+   surface underneath it here. The button therefore paints a filled box inset in every header cell,
+   which only stayed invisible while the cell behind it happened to carry the same colour. Custom
+   properties inherit into a web component's shadow DOM, so redefining the token for this subtree is
+   enough; hover and active are left alone so the control still reacts.
+*/
 .base-list-grid {
+    --neutral-fill-stealth-rest: transparent;
     flex: 1 1 auto;
     min-height: 0;
     max-height: var(--base-list-grid-max-height, calc(100dvh - 14rem));
