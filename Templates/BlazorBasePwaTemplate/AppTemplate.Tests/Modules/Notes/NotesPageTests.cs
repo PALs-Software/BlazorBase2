@@ -10,7 +10,7 @@ using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace AppTemplate.Tests.Modules.Notes;
 
-public class NotesPageTests : TestContext
+public class NotesPageTests : BunitContext
 {
     public NotesPageTests()
     {
@@ -19,14 +19,14 @@ public class NotesPageTests : TestContext
         Services.AddLocalization();
         Services.AddSingleton<IBaseDataProvider<Note>>(new StubNoteDataProvider());
 
-        var authorization = this.AddTestAuthorization();
+        var authorization = this.AddAuthorization();
         authorization.SetAuthorized("test-user");
     }
 
     [Fact]
     public void Render_WithNoNotes_ShowsEmptyText()
     {
-        var component = RenderComponent<NotesPage>();
+        var component = Render<NotesPage>();
 
         var localizer = Services.GetRequiredService<IStringLocalizer<NotesPage>>();
         Assert.Contains(localizer["EmptyText"].Value, component.Markup);
