@@ -8,8 +8,8 @@
     width: 40px;
     height: 40px;
     object-fit: cover;
-    border-radius: var(--control-corner-radius);
-    border: 1px solid var(--neutral-stroke-rest);
+    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
+    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
 }
 
 .cell-placeholder,
@@ -19,5 +19,5 @@
     justify-content: center;
     width: 40px;
     height: 40px;
-    color: var(--neutral-foreground-hint);
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
 }

@@ -27,6 +27,7 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
     #endregion
 
     private IJSObjectReference? Module;
+    private DotNetObjectReference<ThemeService>? SelfReference;
 
     public ThemePreference CurrentTheme { get; private set; } = ThemePreference.System;
 
@@ -58,9 +59,41 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
 
         await module.InvokeVoidAsync("apply", CurrentTheme.ToString(), false);
         await ReadAccentAsync(module);
+        await WatchSystemAsync(module);
 
         if (adopted)
             ThemeChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Called from the browser when the operating system switches between light and dark.
+    /// </summary>
+    /// <remarks>
+    /// Only the <see cref="ThemePreference.System"/> preference follows along; an explicit choice
+    /// stamps the root element and is unaffected by what the operating system does. The stylesheet
+    /// repaints on its own either way — what needs re-reading is everything derived from the tokens on
+    /// this side, which is why the accent is fetched again and the layout asked to render.
+    /// </remarks>
+    [JSInvokable]
+    public async Task OnSystemThemeChangedAsync()
+    {
+        if (CurrentTheme != ThemePreference.System)
+            return;
+
+        var module = await LoadModuleAsync();
+        await module.InvokeVoidAsync("apply", CurrentTheme.ToString(), false);
+        await ReadAccentAsync(module);
+
+        ThemeChanged?.Invoke();
+    }
+
+    private async Task WatchSystemAsync(IJSObjectReference module)
+    {
+        if (SelfReference is not null)
+            return;
+
+        SelfReference = DotNetObjectReference.Create(this);
+        await module.InvokeVoidAsync("watchSystem", SelfReference);
     }
 
     public async Task SetThemeAsync(ThemePreference preference)
@@ -97,6 +130,7 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
 
         try
         {
+            await Module.InvokeVoidAsync("unwatchSystem");
             await Module.DisposeAsync();
         }
         catch (JSDisconnectedException)
@@ -105,5 +139,7 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
         }
 
         Module = null;
+        SelfReference?.Dispose();
+        SelfReference = null;
     }
 }

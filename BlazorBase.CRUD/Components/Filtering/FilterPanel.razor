@@ -1,5 +1,11 @@
 <div class="filter-panel-overlay" @onclick="@OnClose"></div>
-<div class="filter-panel">
+<div class="filter-panel"
+     role="dialog"
+     aria-modal="true"
+     aria-label="@Localizer["Filter"]"
+     tabindex="-1"
+     @ref="PanelElement"
+     @onkeydown="OnKeyDownAsync">
     <div class="filter-panel-header">
         <span class="filter-panel-title">@Localizer["Filter"]</span>
         <FluentButton Appearance="Appearance.Stealth"

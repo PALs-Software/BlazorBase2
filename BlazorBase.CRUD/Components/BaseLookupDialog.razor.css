@@ -10,14 +10,14 @@
 .base-lookup-item {
     padding: 8px 12px;
     cursor: pointer;
-    border-radius: 4px;
+    border-radius: var(--radius-sm, 4px);
 }
 
 .base-lookup-item:hover {
-    background: var(--neutral-layer-2);
+    background: var(--color-bg-hover, var(--neutral-layer-2));
 }
 
 .base-lookup-item.selected {
-    background: var(--accent-fill-rest);
-    color: var(--foreground-on-accent-rest);
+    background: var(--color-accent, var(--accent-fill-rest));
+    color: var(--color-text-on-accent, var(--foreground-on-accent-rest));
 }

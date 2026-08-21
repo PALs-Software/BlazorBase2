@@ -17,6 +17,7 @@
 :root {
     --color-bg-surface: #F7F8F8;
     --color-bg-elevated: #FFFFFF;
+    --color-bg-subtle: #E9ECEC;
     --color-bg-hover: #EFF1F1;
     --color-bg-selected: #0F766E14;
 
@@ -60,6 +61,7 @@
     :root:not([data-theme="light"]) {
         --color-bg-surface: #111414;
         --color-bg-elevated: #1A1E1E;
+        --color-bg-subtle: #181C1C;
         --color-bg-hover: #222827;
         --color-bg-selected: #2DD4BF20;
 
@@ -87,6 +89,7 @@
 :root[data-theme="dark"] {
     --color-bg-surface: #111414;
     --color-bg-elevated: #1A1E1E;
+    --color-bg-subtle: #181C1C;
     --color-bg-hover: #222827;
     --color-bg-selected: #2DD4BF20;
 

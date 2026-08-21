@@ -1,13 +1,13 @@
 .file-tree {
     font-size: 13px;
     font-family: var(--font-base, inherit);
-    color: var(--neutral-foreground-rest);
+    color: var(--color-text-primary, var(--neutral-foreground-rest));
     overflow-y: auto;
     user-select: none;
 }
 
 .file-tree__empty {
     padding: 12px 16px;
-    color: var(--neutral-foreground-hint);
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
     font-style: italic;
 }

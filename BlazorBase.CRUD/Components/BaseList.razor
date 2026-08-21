@@ -147,7 +147,12 @@
         <div class="context-menu-overlay"
              @onclick="CloseContextMenu"
              @oncontextmenu="CloseContextMenu" @oncontextmenu:preventDefault></div>
-        <nav class="context-menu" style="left: @(ContextMenuX)px; top: @(ContextMenuY)px;">
+        <nav class="context-menu"
+             role="menu"
+             tabindex="-1"
+             @ref="ContextMenuElement"
+             @onkeydown="OnContextMenuKeyDown"
+             style="left: @(ContextMenuX)px; top: @(ContextMenuY)px;">
             @if (CanEdit && ContextMenuItem is not null)
             {
                 <div role="menuitem" @onclick="OnContextMenuEditAsync">

@@ -5,10 +5,10 @@
 }
 
 .filter-group-nested {
-    border: 1px solid var(--neutral-stroke-rest);
-    border-radius: 8px;
+    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border-radius: var(--radius-sm, 8px);
     padding: 10px;
-    background: var(--neutral-layer-1);
+    background: var(--color-bg-surface, var(--neutral-layer-1));
 }
 
 .filter-group-header {
@@ -22,7 +22,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--neutral-foreground-hint);
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
 }
 
 .filter-group-body {
@@ -31,7 +31,7 @@
 }
 
 .filter-group-hint {
-    color: var(--neutral-foreground-hint);
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
     font-size: 13px;
     padding: 4px 2px;
 }
@@ -48,33 +48,46 @@
     content: "";
     flex: 1;
     height: 1px;
-    background: var(--neutral-stroke-divider-rest);
+    background: var(--color-border, var(--neutral-stroke-divider-rest));
 }
 
 .filter-connector-chip {
     border: none;
-    border-radius: 999px;
+    border-radius: var(--radius-pill, 999px);
     padding: 3px 14px;
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #ffffff;
     cursor: pointer;
     user-select: none;
-    transition: filter 0.1s ease-in-out;
+    transition: filter 0.1s ease-in-out, background 0.1s ease-in-out;
 }
 
+/*
+   Filled means AND, outlined means OR - the two connectors differ in fill, not only in hue, so the
+   distinction survives both a colour-blind reader and a palette that swaps the accent. The amber the
+   OR chip used to be filled with carried white text at 3.5:1 and got worse in any warmer palette,
+   because no token pairs a text colour with the warning colour the way --color-text-on-accent does
+   with the accent.
+*/
 .filter-connector-chip.and {
-    background: var(--accent-fill-rest);
+    background: var(--color-accent, var(--accent-fill-rest));
+    color: var(--color-text-on-accent, #ffffff);
 }
 
 .filter-connector-chip.or {
-    background: #c77700;
+    background: var(--color-bg-elevated, var(--neutral-layer-floating));
+    color: var(--color-accent, var(--accent-fill-rest));
+    box-shadow: inset 0 0 0 1px var(--color-accent, var(--accent-fill-rest));
 }
 
-.filter-connector-chip:hover {
+.filter-connector-chip.and:hover {
     filter: brightness(1.12);
+}
+
+.filter-connector-chip.or:hover {
+    background: var(--color-bg-hover, var(--neutral-fill-stealth-hover));
 }
 
 .filter-group-actions {

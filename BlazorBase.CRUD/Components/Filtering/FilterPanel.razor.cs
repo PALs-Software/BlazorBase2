@@ -1,5 +1,6 @@
 using BlazorBase.CRUD.Filtering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Localization;
 
 namespace BlazorBase.CRUD.Components.Filtering;
@@ -23,6 +24,36 @@ public partial class FilterPanel
 
     [Parameter]
     public EventCallback OnClose { get; set; }
+
+    private ElementReference PanelElement;
+
+    /// <summary>
+    /// Moves focus into the panel when it opens, so the keyboard follows the slide-over instead of
+    /// staying behind it on the list.
+    /// </summary>
+    /// <remarks>
+    /// The panel covers the list behind an overlay and announces itself as <c>aria-modal</c>. Without
+    /// this the promise is false: a reader is told the rest of the page is inert while the keyboard is
+    /// still standing in it, and the first Tab walks through the covered list rather than the filter.
+    /// </remarks>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        await PanelElement.FocusAsync(preventScroll: true);
+    }
+
+    /// <summary>
+    /// Escape closes the panel, the way every other modal surface behaves.
+    /// </summary>
+    private async Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key != "Escape")
+            return;
+
+        await OnClose.InvokeAsync();
+    }
 
     private async Task ApplyAsync() => await OnApply.InvokeAsync(Root);
 

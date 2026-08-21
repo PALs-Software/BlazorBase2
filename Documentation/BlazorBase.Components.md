@@ -15,11 +15,17 @@ Two default themes ship as one stylesheet of CSS custom properties. Link it once
 <link rel="stylesheet" href="_content/BlazorBase.Components/css/blazorbase.css" />
 ```
 
-The shell reads these tokens: `BaseLayout`, both navigation components and the CRUD `BaseList`.
-Everything else still styles itself from FluentUI's own design tokens, so linking this file themes the
-frame around the content, not yet every control inside it — migrating a stylesheet means replacing a
-`var(--neutral-layer-1)` with `var(--color-bg-surface, var(--neutral-layer-1))`, which keeps the
-FluentUI value as the fallback. Application code that uses these names stays in step automatically.
+Every BlazorBase component stylesheet that paints a colour reads them — the shell, both navigation
+components, the whole CRUD layer, the editors, the file components. Each declaration keeps the FluentUI
+value it replaced as its fallback (`var(--color-bg-surface, var(--neutral-layer-1))`), so an application
+that never links this file looks exactly as it did. Application code that uses the same names stays in
+step automatically.
+
+What the tokens do **not** reach is the inside of FluentUI's own controls — a `FluentButton`, a
+`FluentTextField`, a dialog chrome paint from FluentUI's design system, not from here. `BaseLayout`
+bridges the gap by reading the resolved `--color-accent` and handing it to `FluentDesignTheme` as its
+`CustomColor`, which pulls FluentUI's accent ramp onto the same brand colour. Its neutrals stay
+FluentUI's.
 
 ### Applying and switching
 
@@ -44,6 +50,12 @@ then on, which is also what makes it survive a reload. Only `SetThemeAsync` writ
 persisting the choice to the profile is the host's call, which `UserPreferencesPanel` in
 `BlazorBase.User` does.
 
+While the preference is `System`, a `matchMedia` listener watches the operating system and re-reads the
+tokens when it flips. The stylesheet repaints on its own — what needs the listener is everything derived
+from the tokens on the managed side: the accent handed to FluentUI and the `theme-color` meta tag, which
+would otherwise keep the values of the theme that just went away. An explicit choice stamps the root
+element and is unaffected.
+
 ### The three states
 
 An explicit choice stamps `data-theme="light"` or `data-theme="dark"` on the root element. The default
@@ -58,6 +70,7 @@ behind the stamp.
 |---|---|
 | `--color-bg-surface` | Page background |
 | `--color-bg-elevated` | Cards, dialogs, the data-grid surface, the mobile overflow sheet |
+| `--color-bg-subtle` | A surface recessed against the one it sits on: toolbars, code blocks, the diff gutter |
 | `--color-bg-hover` | Hover on rows and menu entries |
 | `--color-bg-selected` | Selected row, active mobile tab |
 | `--color-border` | Borders, dividers, grid lines |

@@ -35,3 +35,32 @@ export function stored() {
 export function readToken(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
+
+let systemQuery = null;
+let systemHandler = null;
+
+// While the preference is "System" nothing is stamped on the root element, so a change of the
+// operating system's own setting repaints the page through prefers-color-scheme alone - without .NET
+// ever noticing. Anything derived from the tokens on the managed side (the accent handed to FluentUI,
+// the theme-color meta) would keep the values of the theme that just went away.
+export function watchSystem(dotNetReference) {
+    unwatchSystem();
+
+    if (!window.matchMedia) {
+        return;
+    }
+
+    systemQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    systemHandler = () => dotNetReference.invokeMethodAsync('OnSystemThemeChangedAsync');
+    systemQuery.addEventListener('change', systemHandler);
+}
+
+export function unwatchSystem() {
+    if (systemQuery === null) {
+        return;
+    }
+
+    systemQuery.removeEventListener('change', systemHandler);
+    systemQuery = null;
+    systemHandler = null;
+}

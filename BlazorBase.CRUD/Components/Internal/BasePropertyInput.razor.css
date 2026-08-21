@@ -27,9 +27,9 @@
 
 .base-browse-panel {
     position: relative;
-    border: 1px solid var(--neutral-stroke-rest);
-    border-radius: var(--control-corner-radius);
-    background: var(--neutral-layer-floating);
+    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
+    background: var(--color-bg-elevated, var(--neutral-layer-floating));
     padding: 8px;
     margin-top: 4px;
     z-index: 10;
@@ -44,14 +44,14 @@
 .base-browse-item {
     padding: 8px 12px;
     cursor: pointer;
-    border-radius: var(--control-corner-radius);
+    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
 }
 
 .base-browse-item:hover {
-    background: var(--neutral-fill-stealth-hover);
+    background: var(--color-bg-hover, var(--neutral-fill-stealth-hover));
 }
 
 .base-browse-item.selected {
-    background: var(--accent-fill-rest);
-    color: var(--foreground-on-accent-rest);
+    background: var(--color-accent, var(--accent-fill-rest));
+    color: var(--color-text-on-accent, var(--foreground-on-accent-rest));
 }

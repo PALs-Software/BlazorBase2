@@ -9,23 +9,23 @@
     gap: 4px;
     padding: 2px 8px;
     cursor: pointer;
-    border-radius: var(--control-corner-radius);
+    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .ftnode__row:hover {
-    background: var(--neutral-fill-stealth-hover);
+    background: var(--color-bg-hover, var(--neutral-fill-stealth-hover));
 }
 
 .ftnode--selected > .ftnode__row {
-    background: var(--accent-fill-rest);
-    color: var(--foreground-on-accent-rest);
+    background: var(--color-accent, var(--accent-fill-rest));
+    color: var(--color-text-on-accent, var(--foreground-on-accent-rest));
 }
 
 .ftnode__row:focus-visible {
-    outline: 2px solid var(--accent-stroke-control-rest);
+    outline: 2px solid var(--color-border-focus, var(--accent-stroke-control-rest));
     outline-offset: -2px;
 }
 
@@ -35,11 +35,11 @@
     line-height: 1;
     width: 14px;
     text-align: center;
-    color: var(--neutral-foreground-hint);
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
 }
 
 .ftnode--selected > .ftnode__row .ftnode__icon {
-    color: var(--foreground-on-accent-rest);
+    color: var(--color-text-on-accent, var(--foreground-on-accent-rest));
 }
 
 .ftnode__name {

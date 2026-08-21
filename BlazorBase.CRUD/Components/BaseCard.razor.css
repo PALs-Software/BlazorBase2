@@ -53,7 +53,7 @@
     justify-content: flex-end;
     gap: 8px;
     padding-top: 16px;
-    border-top: 1px solid var(--neutral-stroke-divider-rest);
+    border-top: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
 }
 
 @media (min-width: 640px) {

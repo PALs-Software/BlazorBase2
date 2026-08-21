@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.Localization;
@@ -12,11 +13,14 @@ namespace BlazorBase.Components.Layout.Navigation;
 /// groups and actions) moves into a slide-up "More" sheet. Groups drill down to their children with a
 /// back step. Drive it from the same list as <see cref="BaseSideNavigation"/> so both stay in sync.
 /// </summary>
-public partial class BaseBottomNavigation(IStringLocalizer<BaseBottomNavigation> localizer) : ComponentBase
+public partial class BaseBottomNavigation(
+    IStringLocalizer<BaseBottomNavigation> localizer,
+    NavigationManager navigationManager) : ComponentBase, IDisposable
 {
     #region Injects
 
     private readonly IStringLocalizer<BaseBottomNavigation> Localizer = localizer;
+    private readonly NavigationManager NavigationManager = navigationManager;
 
     #endregion
 
@@ -50,6 +54,23 @@ public partial class BaseBottomNavigation(IStringLocalizer<BaseBottomNavigation>
     private static readonly Icon ChevronLeftIcon = new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ChevronLeft();
 
     private bool HasMore => MoreItems.Count > 0 || MoreSheetContent is not null;
+
+    /// <summary>
+    /// Marks the tab or sheet entry that leads to the page currently shown.
+    /// </summary>
+    /// <remarks>
+    /// <c>NavLink</c> only ever sets its active CSS class, which is invisible to a screen reader —
+    /// without <c>aria-current</c> the bar announces five equal links and never says where the user is.
+    /// The state has to be recomputed on navigation, hence the subscription below.
+    /// </remarks>
+    private string? AriaCurrent(NavigationItem item) => NavigationActivation.AriaCurrent(NavigationManager, item);
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args) => InvokeAsync(StateHasChanged);
 
     /// <summary>
     /// Rebuilds the two lists and keeps the opened group open across a re-render.
@@ -141,5 +162,10 @@ public partial class BaseBottomNavigation(IStringLocalizer<BaseBottomNavigation>
             return;
 
         await item.OnClick();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }

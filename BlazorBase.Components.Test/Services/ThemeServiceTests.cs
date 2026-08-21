@@ -117,11 +117,80 @@ public class ThemeServiceTests : BunitContext
         Assert.Equal(true, applyHandler.Invocations.Last().Arguments[1]);
     }
 
+    /// <summary>
+    /// Nothing is stamped on the root element while the preference is System, so the operating system
+    /// changing its own setting repaints the page without .NET noticing — and everything derived from
+    /// the tokens on the managed side would keep the values of the theme that just went away.
+    /// </summary>
+    [Fact]
+    public async Task SystemThemeChange_ReReadsTheTokens_WhileThePreferenceFollowsTheSystem()
+    {
+        var module = SetupModule(stored: null);
+        var applyHandler = module.SetupVoid("apply", _ => true);
+        applyHandler.SetVoidResult();
+        var service = CreateService(claim: null);
+        await service.InitializeAsync();
+        await service.ApplyAsync();
+        var raised = 0;
+        service.ThemeChanged += () => raised++;
+
+        await service.OnSystemThemeChangedAsync();
+
+        Assert.Equal(1, raised);
+        Assert.Equal(2, applyHandler.Invocations.Count);
+        Assert.Equal("System", applyHandler.Invocations.Last().Arguments[0]);
+    }
+
+    /// <summary>
+    /// An explicit choice stamps the root element and outranks the operating system, so it must not
+    /// move when the system does.
+    /// </summary>
+    [Fact]
+    public async Task SystemThemeChange_IsIgnored_WhenTheUserHasChosenExplicitly()
+    {
+        var module = SetupModule(stored: "Light");
+        var applyHandler = module.SetupVoid("apply", _ => true);
+        applyHandler.SetVoidResult();
+        var service = CreateService(claim: null);
+        await service.InitializeAsync();
+        await service.ApplyAsync();
+        var raised = 0;
+        service.ThemeChanged += () => raised++;
+
+        await service.OnSystemThemeChangedAsync();
+
+        Assert.Equal(0, raised);
+        Assert.Single(applyHandler.Invocations);
+    }
+
+    /// <summary>
+    /// The watcher holds a reference back into managed code; registering it once per service keeps the
+    /// browser from accumulating listeners on every render that touches the theme.
+    /// </summary>
+    [Fact]
+    public async Task Apply_RegistersTheSystemWatcher_OnlyOnce()
+    {
+        var module = SetupModule(stored: null);
+        var applyHandler = module.SetupVoid("apply", _ => true);
+        applyHandler.SetVoidResult();
+        var watchHandler = module.SetupVoid("watchSystem", _ => true);
+        watchHandler.SetVoidResult();
+        var service = CreateService(claim: null);
+
+        await service.InitializeAsync();
+        await service.ApplyAsync();
+        await service.ApplyAsync();
+
+        Assert.Single(watchHandler.Invocations);
+    }
+
     private BunitJSModuleInterop SetupModule(string? stored)
     {
         var module = JSInterop.SetupModule(ModulePath);
         module.Setup<string?>("stored").SetResult(stored);
         module.Setup<string?>("readToken", _ => true).SetResult("#0F766E");
+        module.SetupVoid("watchSystem", _ => true).SetVoidResult();
+        module.SetupVoid("unwatchSystem").SetVoidResult();
         return module;
     }
 

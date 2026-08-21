@@ -11,14 +11,14 @@
     justify-content: center;
     gap: 0.25rem;
     padding: 1rem;
-    border: 2px dashed var(--neutral-stroke-rest);
-    border-radius: var(--control-corner-radius);
+    border: 2px dashed var(--color-border-strong, var(--neutral-stroke-rest));
+    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
     cursor: pointer;
     text-align: center;
 }
 
 .upload-area:hover {
-    border-color: var(--accent-fill-rest);
+    border-color: var(--color-accent, var(--accent-fill-rest));
 }
 
 .gallery {
@@ -39,8 +39,8 @@
     width: 100px;
     height: 100px;
     object-fit: cover;
-    border-radius: var(--control-corner-radius);
-    border: 1px solid var(--neutral-stroke-rest);
+    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
+    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
 }
 
 .gallery-file-icon {
@@ -50,11 +50,11 @@
     justify-content: center;
     width: 100px;
     height: 100px;
-    border: 1px solid var(--neutral-stroke-rest);
-    border-radius: var(--control-corner-radius);
+    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
     gap: 0.25rem;
     font-size: var(--type-ramp-minus-1-font-size);
-    color: var(--neutral-foreground-rest);
+    color: var(--color-text-primary, var(--neutral-foreground-rest));
     text-align: center;
     padding: 0.25rem;
     overflow: hidden;

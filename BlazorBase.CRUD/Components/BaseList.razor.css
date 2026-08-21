@@ -93,19 +93,19 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    border: 2px solid var(--neutral-stroke-rest);
+    border: 2px solid var(--color-border-strong, var(--neutral-stroke-rest));
     cursor: pointer;
     transition: all 0.15s ease;
     margin: 0 auto;
 }
 
 .select-circle.selected {
-    background-color: var(--accent-fill-rest);
-    border-color: var(--accent-fill-rest);
+    background-color: var(--color-accent, var(--accent-fill-rest));
+    border-color: var(--color-accent, var(--accent-fill-rest));
 }
 
 .select-circle:hover {
-    border-color: var(--accent-fill-hover);
+    border-color: var(--color-accent, var(--accent-fill-hover));
 }
 
 .selection-count {
@@ -123,7 +123,7 @@
     display: flex;
     justify-content: center;
     padding: 24px;
-    color: var(--neutral-foreground-hint);
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
 }
 
 .context-menu-overlay {
@@ -135,9 +135,9 @@
 .context-menu {
     position: fixed;
     z-index: 10000;
-    background: var(--neutral-layer-floating);
-    border: 1px solid var(--neutral-stroke-rest);
-    border-radius: calc(var(--layer-corner-radius) * 1px);
+    background: var(--color-bg-elevated, var(--neutral-layer-floating));
+    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px));
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.14);
     padding: 4px 0;
     min-width: 180px;
@@ -149,7 +149,7 @@
     gap: 8px;
     padding: 8px 12px;
     cursor: pointer;
-    color: var(--neutral-foreground-rest);
+    color: var(--color-text-primary, var(--neutral-foreground-rest));
     font-size: 14px;
     border: none;
     background: none;
@@ -159,11 +159,11 @@
 }
 
 .context-menu ::deep [role="menuitem"]:hover {
-    background: var(--neutral-fill-stealth-hover);
+    background: var(--color-bg-hover, var(--neutral-fill-stealth-hover));
 }
 
 .context-menu-divider {
     height: 1px;
-    background: var(--neutral-stroke-divider-rest);
+    background: var(--color-border, var(--neutral-stroke-divider-rest));
     margin: 4px 0;
 }

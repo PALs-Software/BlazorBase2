@@ -4,9 +4,9 @@
     align-items: center;
     gap: 6px;
     padding: 10px;
-    border: 1px solid var(--neutral-stroke-divider-rest);
-    border-radius: 8px;
-    background: var(--neutral-layer-1);
+    border: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+    border-radius: var(--radius-sm, 8px);
+    background: var(--color-bg-surface, var(--neutral-layer-1));
 }
 
 .filter-condition-field {

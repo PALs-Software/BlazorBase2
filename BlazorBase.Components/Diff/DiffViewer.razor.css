@@ -3,47 +3,47 @@
     font-size: 13px;
     line-height: 1.5;
     overflow-x: auto;
-    background: var(--neutral-layer-1);
-    border: 1px solid var(--neutral-stroke-rest);
-    border-radius: var(--control-corner-radius);
+    background: var(--color-bg-surface, var(--neutral-layer-1));
+    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
 }
 
 .diff-mode-switch {
     display: flex;
     gap: 4px;
     padding: 6px 8px;
-    background: var(--neutral-layer-2);
-    border-bottom: 1px solid var(--neutral-stroke-rest);
+    background: var(--color-bg-subtle, var(--neutral-layer-2));
+    border-bottom: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
 }
 
 .diff-mode-btn {
     padding: 3px 10px;
     background: transparent;
-    border: 1px solid var(--neutral-stroke-rest);
-    border-radius: var(--control-corner-radius);
-    color: var(--neutral-foreground-rest);
+    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
+    color: var(--color-text-primary, var(--neutral-foreground-rest));
     cursor: pointer;
     font-size: 12px;
     transition: background 0.1s;
 }
 
 .diff-mode-btn:hover {
-    background: var(--neutral-fill-stealth-hover);
+    background: var(--color-bg-hover, var(--neutral-fill-stealth-hover));
 }
 
 .diff-mode-btn--active {
-    background: var(--accent-fill-rest);
-    color: var(--foreground-on-accent-rest);
-    border-color: var(--accent-fill-rest);
+    background: var(--color-accent, var(--accent-fill-rest));
+    color: var(--color-text-on-accent, var(--foreground-on-accent-rest));
+    border-color: var(--color-accent, var(--accent-fill-rest));
 }
 
 .diff-mode-btn--active:hover {
-    background: var(--accent-fill-hover);
+    background: var(--color-accent, var(--accent-fill-hover));
 }
 
 .diff-notice {
     padding: 16px;
-    color: var(--neutral-foreground-hint);
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
     font-family: var(--font-base, inherit);
     font-size: 13px;
 }
@@ -64,10 +64,10 @@
     min-width: 52px;
     padding: 0 8px;
     text-align: right;
-    color: var(--neutral-foreground-hint);
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
     user-select: none;
-    background: var(--neutral-layer-2);
-    border-right: 1px solid var(--neutral-stroke-divider-rest);
+    background: var(--color-bg-subtle, var(--neutral-layer-2));
+    border-right: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
     vertical-align: top;
 }
 
@@ -85,20 +85,20 @@
 }
 
 .diff-hunk-header {
-    background: var(--neutral-layer-3, #1e2a3b);
-    color: var(--neutral-foreground-hint);
+    background: var(--color-bg-subtle, var(--neutral-layer-3, #1e2a3b));
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
     font-style: italic;
     padding: 2px 8px;
 }
 
 .diff-row--added,
 .diff-row--added .diff-col-num {
-    background: color-mix(in srgb, #28a745 12%, transparent);
+    background: color-mix(in srgb, var(--color-success, #28a745) 12%, transparent);
 }
 
 .diff-row--removed,
 .diff-row--removed .diff-col-num {
-    background: color-mix(in srgb, #d73a49 12%, transparent);
+    background: color-mix(in srgb, var(--color-danger, #d73a49) 12%, transparent);
 }
 
 .diff-row--context,
@@ -107,15 +107,15 @@
 }
 
 .diff-cell--added {
-    background: color-mix(in srgb, #28a745 12%, transparent);
+    background: color-mix(in srgb, var(--color-success, #28a745) 12%, transparent);
 }
 
 .diff-cell--removed {
-    background: color-mix(in srgb, #d73a49 12%, transparent);
+    background: color-mix(in srgb, var(--color-danger, #d73a49) 12%, transparent);
 }
 
 .diff-cell--empty {
-    background: var(--neutral-layer-2);
+    background: var(--color-bg-subtle, var(--neutral-layer-2));
 }
 
 .diff-table--side-by-side .diff-col-content {
@@ -127,8 +127,8 @@
     min-width: 28px;
     padding: 0 2px;
     text-align: center;
-    background: var(--neutral-layer-2);
-    border-right: 1px solid var(--neutral-stroke-divider-rest);
+    background: var(--color-bg-subtle, var(--neutral-layer-2));
+    border-right: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
     vertical-align: top;
 }
 
@@ -138,10 +138,10 @@
     height: 20px;
     padding: 0;
     margin: 1px auto;
-    background: var(--neutral-fill-stealth-rest);
-    border: 1px solid var(--neutral-stroke-rest);
-    border-radius: var(--control-corner-radius);
-    color: var(--neutral-foreground-rest);
+    background: var(--color-bg-elevated, var(--neutral-fill-stealth-rest));
+    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
+    color: var(--color-text-primary, var(--neutral-foreground-rest));
     cursor: pointer;
     font-size: 14px;
     line-height: 1;
@@ -154,21 +154,21 @@
 }
 
 .diff-add-comment-btn:hover {
-    background: var(--accent-fill-rest);
-    color: var(--foreground-on-accent-rest);
-    border-color: var(--accent-fill-rest);
+    background: var(--color-accent, var(--accent-fill-rest));
+    color: var(--color-text-on-accent, var(--foreground-on-accent-rest));
+    border-color: var(--color-accent, var(--accent-fill-rest));
 }
 
 .diff-add-comment-btn:focus-visible {
     display: block;
-    outline: 2px solid var(--focus-stroke-outer);
+    outline: 2px solid var(--color-border-focus, var(--focus-stroke-outer));
     outline-offset: 1px;
 }
 
 .diff-comment-row .diff-comment-cell {
     padding: 0;
-    background: var(--neutral-layer-1);
-    border-top: 1px solid var(--neutral-stroke-divider-rest);
+    background: var(--color-bg-surface, var(--neutral-layer-1));
+    border-top: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
 }
 
 .diff-comment-row:empty,

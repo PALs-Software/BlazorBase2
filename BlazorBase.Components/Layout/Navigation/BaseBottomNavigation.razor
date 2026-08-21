@@ -7,7 +7,7 @@
                  Match="@(item.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)"
                  class="base-bottom-tab"
                  ActiveClass="active"
-                 aria-current="@(item.MatchAll ? "page" : null)">
+                 aria-current="@AriaCurrent(item)">
             <span class="base-bottom-tab-icon">
                 @if (item.Icon is not null)
                 {
@@ -87,7 +87,7 @@
                     }
                     else
                     {
-                        <NavLink href="@item.Href" Match="@(item.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)" class="base-more-item" @onclick="CloseMoreSheet">
+                        <NavLink href="@item.Href" Match="@(item.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)" class="base-more-item" aria-current="@AriaCurrent(item)" @onclick="CloseMoreSheet">
                             <span class="base-more-item-icon">
                                 @if (item.Icon is not null)
                                 {
@@ -109,7 +109,7 @@
             <nav class="base-more-nav" aria-label="@OpenGroup.Label">
                 @foreach (var child in OpenGroup.Children)
                 {
-                    <NavLink href="@child.Href" Match="@(child.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)" class="base-more-item" @onclick="CloseMoreSheet">
+                    <NavLink href="@child.Href" Match="@(child.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)" class="base-more-item" aria-current="@AriaCurrent(child)" @onclick="CloseMoreSheet">
                         <span class="base-more-item-icon">
                             @if (child.Icon is not null)
                             {

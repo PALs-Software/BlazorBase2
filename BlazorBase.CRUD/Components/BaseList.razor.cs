@@ -194,6 +194,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     private double ContextMenuX { get; set; }
     private double ContextMenuY { get; set; }
     private bool ContextMenuOpen { get; set; }
+    private bool ShouldFocusContextMenu { get; set; }
+    private ElementReference ContextMenuElement { get; set; }
 
     #endregion
 
@@ -241,6 +243,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         if (!firstRender)
         {
             await RefreshGridForRenderedItemsAsync();
+            await FocusContextMenuIfJustOpenedAsync();
             return;
         }
 
@@ -257,6 +260,18 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             DeepLinkSubscribed = true;
             await SyncDeepLinkAsync();
         }
+    }
+
+    /// <summary>
+    /// Puts the keyboard on the menu that just opened, so Escape and the arrow keys reach it.
+    /// </summary>
+    private async Task FocusContextMenuIfJustOpenedAsync()
+    {
+        if (!ShouldFocusContextMenu)
+            return;
+
+        ShouldFocusContextMenu = false;
+        await ContextMenuElement.FocusAsync(preventScroll: true);
     }
 
     protected override async Task OnParametersSetAsync()
@@ -323,11 +338,22 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         ContextMenuX = e.ClientX;
         ContextMenuY = e.ClientY;
         ContextMenuOpen = true;
+        ShouldFocusContextMenu = true;
     }
 
     private void CloseContextMenu()
     {
         ContextMenuOpen = false;
+    }
+
+    /// <summary>
+    /// Escape closes the menu. It opens over an overlay that swallows every click outside it, so
+    /// without this the only way out was to hit that overlay with the mouse.
+    /// </summary>
+    private void OnContextMenuKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+            CloseContextMenu();
     }
 
     private async Task OnContextMenuEditAsync()

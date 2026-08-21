@@ -33,6 +33,50 @@ public class FilterPanelTests : BunitTestContextBase
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".filter-group")));
     }
 
+    /// <summary>
+    /// The panel covers the list behind an overlay that swallows every click outside it, so a keyboard
+    /// user who opened it had no way back out.
+    /// </summary>
+    [Fact]
+    public void EscapeClosesTheFilterPanel()
+    {
+        AuthorizeAdmin();
+        var provider = ProviderReturning(new TestProduct { Id = Guid.NewGuid(), Name = "Alpha", IsActive = true });
+        Services.AddSingleton(provider);
+
+        var cut = RenderListWithColumn(provider, p => p.Name);
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-list-filter-toggle")));
+        cut.Find(".base-list-filter-toggle").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".filter-panel")));
+
+        cut.Find(".filter-panel").KeyDown(Key.Escape);
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".filter-panel")));
+    }
+
+    /// <summary>
+    /// It announces itself as a modal, so the keyboard has to follow it instead of staying on the list
+    /// underneath.
+    /// </summary>
+    [Fact]
+    public void FilterPanel_IsAModalTheKeyboardCanReach()
+    {
+        AuthorizeAdmin();
+        var provider = ProviderReturning(new TestProduct { Id = Guid.NewGuid(), Name = "Alpha", IsActive = true });
+        Services.AddSingleton(provider);
+
+        var cut = RenderListWithColumn(provider, p => p.Name);
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-list-filter-toggle")));
+        cut.Find(".base-list-filter-toggle").Click();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".filter-panel")));
+        var panel = cut.Find(".filter-panel");
+
+        Assert.Equal("dialog", panel.GetAttribute("role"));
+        Assert.Equal("true", panel.GetAttribute("aria-modal"));
+        Assert.Equal("-1", panel.GetAttribute("tabindex"));
+    }
+
     [Fact]
     public void DisabledFiltering_HidesFilterToggle()
     {
