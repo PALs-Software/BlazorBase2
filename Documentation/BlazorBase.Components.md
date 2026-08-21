@@ -21,11 +21,24 @@ value it replaced as its fallback (`var(--color-bg-surface, var(--neutral-layer-
 that never links this file looks exactly as it did. Application code that uses the same names stays in
 step automatically.
 
-What the tokens do **not** reach is the inside of FluentUI's own controls — a `FluentButton`, a
-`FluentTextField`, a dialog chrome paint from FluentUI's design system, not from here. `BaseLayout`
-bridges the gap by reading the resolved `--color-accent` and handing it to `FluentDesignTheme` as its
-`CustomColor`, which pulls FluentUI's accent ramp onto the same brand colour. Its neutrals stay
-FluentUI's.
+FluentUI's own controls — a `FluentButton`, a `FluentTextField`, dialog chrome — do not read CSS
+custom properties at all. They paint from FluentUI's design system, which derives its ~170 tokens
+algorithmically from two seed colours. `BaseLayout` feeds it both: it reads the resolved
+`--color-accent` and `--color-neutral-base` after the first render and hands them to
+`FluentDesignTheme` as `CustomColor` and `NeutralBaseColor`, so FluentUI regenerates its accent **and**
+neutral ramps in the palette rather than in its default blue-grey.
+
+Only hue and saturation carry over from the neutral seed — FluentUI interpolates white to black
+through it and picks each layer by luminance, `Mode` deciding the direction. Keep the seed about as
+saturated as the palette's own greys: the light end amplifies chroma, and a seed with ten points of
+RGB spread turns the dialog background visibly mint.
+
+That covers the ramp, not individual values. An application that has to pin one exact FluentUI token
+can inject it — every one of them is a `DesignToken<T>` in
+`Microsoft.FluentUI.AspNetCore.Components.DesignTokens` with `WithDefault(value)` for the global
+default and `SetValueFor(element, value)` for a subtree. Reach for that sparingly: the hover and
+active values are derived from the rest ones by deltas, so pinning a single swatch and leaving its
+neighbours to the recipe is how a control ends up with a hover state that no longer matches it.
 
 ### Applying and switching
 
@@ -81,6 +94,7 @@ behind the stamp.
 | `--color-text-muted` | Placeholders, disabled state, empty state |
 | `--color-accent` | Primary button, active tab, links, selection |
 | `--color-text-on-accent` | Text on a filled accent surface |
+| `--color-neutral-base` | Seed FluentUI derives its own neutral ramp from — see above |
 | `--color-success` / `--color-warning` | Confirmations and warnings |
 | `--color-danger` / `--color-danger-bg` / `--color-text-on-danger` | Delete and validation errors |
 | `--space-1` … `--space-6` | Spacing scale, 4px to 32px |
@@ -90,19 +104,26 @@ behind the stamp.
 ### Customising
 
 Override the tokens in a stylesheet linked **after** the default one. Swapping the brand colour takes
-two of them; everything else is neutral scaffolding:
+three of them — the accent, its selection tint, and the neutral seed that takes FluentUI's own
+controls along:
 
 ```css
 :root {
     --color-accent: #6D28D9;
     --color-bg-selected: #6D28D914;
+    --color-neutral-base: #878289;
 }
 
 :root[data-theme="dark"], :root:not([data-theme="light"]) {
     --color-accent: #A78BFA;
     --color-bg-selected: #A78BFA22;
+    --color-neutral-base: #878289;
 }
 ```
+
+Everything else is neutral scaffolding. A palette whose light and dark sides sit in different hue
+families — a warm surface in light, a cool one in dark — needs a seed per theme; one value covers both
+when they share a family.
 
 ---
 

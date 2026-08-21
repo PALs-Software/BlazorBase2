@@ -33,6 +33,8 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
 
     public string? AccentColor { get; private set; }
 
+    public string? NeutralBaseColor { get; private set; }
+
     public event Action? ThemeChanged;
 
     public async Task InitializeAsync()
@@ -58,7 +60,7 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
         }
 
         await module.InvokeVoidAsync("apply", CurrentTheme.ToString(), false);
-        await ReadAccentAsync(module);
+        await ReadSeedColorsAsync(module);
         await WatchSystemAsync(module);
 
         if (adopted)
@@ -82,7 +84,7 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
 
         var module = await LoadModuleAsync();
         await module.InvokeVoidAsync("apply", CurrentTheme.ToString(), false);
-        await ReadAccentAsync(module);
+        await ReadSeedColorsAsync(module);
 
         ThemeChanged?.Invoke();
     }
@@ -102,15 +104,25 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
 
         var module = await LoadModuleAsync();
         await module.InvokeVoidAsync("apply", preference.ToString(), true);
-        await ReadAccentAsync(module);
+        await ReadSeedColorsAsync(module);
 
         ThemeChanged?.Invoke();
     }
 
-    private async Task ReadAccentAsync(IJSObjectReference module)
+    /// <summary>
+    /// Reads the two values FluentUI's own design system needs, so its controls end up in the same
+    /// palette as everything styled from the tokens directly.
+    /// </summary>
+    private async Task ReadSeedColorsAsync(IJSObjectReference module)
     {
-        var accent = await module.InvokeAsync<string?>("readToken", "--color-accent");
-        AccentColor = string.IsNullOrWhiteSpace(accent) ? null : accent;
+        AccentColor = await ReadColorAsync(module, "--color-accent");
+        NeutralBaseColor = await ReadColorAsync(module, "--color-neutral-base");
+    }
+
+    private static async Task<string?> ReadColorAsync(IJSObjectReference module, string token)
+    {
+        var value = await module.InvokeAsync<string?>("readToken", token);
+        return string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
     private async Task<IJSObjectReference> LoadModuleAsync()

@@ -32,6 +32,15 @@
     --color-accent: #0F766E;
     --color-text-on-accent: #FFFFFF;
 
+    /*
+       The seed FluentUI derives its own neutral ramp from. Its controls - buttons, inputs, dialog
+       chrome - paint from that ramp, not from the tokens here, so without a seed in the same hue they
+       render grey-blue on a palette that is not. One mid-tone swatch is enough: FluentUI interpolates
+       white to black through it and picks its layers by luminance, so only the hue and saturation of
+       this value carry over.
+    */
+    --color-neutral-base: #848686;
+
     --color-success: #116632;
     --color-warning: #8A5406;
     --color-danger: #B91C1C;
@@ -76,6 +85,8 @@
         --color-accent: #2DD4BF;
         --color-text-on-accent: #07100F;
 
+        --color-neutral-base: #848686;
+
         --color-success: #4ADE80;
         --color-warning: #FACC15;
         --color-danger: #F87171;
@@ -103,6 +114,8 @@
 
     --color-accent: #2DD4BF;
     --color-text-on-accent: #07100F;
+
+    --color-neutral-base: #848686;
 
     --color-success: #4ADE80;
     --color-warning: #FACC15;

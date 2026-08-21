@@ -11,6 +11,14 @@ public interface IThemeService
     /// </summary>
     string? AccentColor { get; }
 
+    /// <summary>
+    /// The seed FluentUI derives its neutral ramp from, read from <c>--color-neutral-base</c>. Its
+    /// controls paint their surfaces, borders and disabled text from that ramp rather than from the
+    /// tokens, so without it a button stays grey-blue on a palette that is not. Null until
+    /// <see cref="ApplyAsync"/> has run.
+    /// </summary>
+    string? NeutralBaseColor { get; }
+
     event Action? ThemeChanged;
 
     /// <summary>
