@@ -195,7 +195,9 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     private double ContextMenuY { get; set; }
     private bool ContextMenuOpen { get; set; }
     private bool ShouldFocusContextMenu { get; set; }
+    private string? ShouldRestoreFocusKey { get; set; }
     private ElementReference ContextMenuElement { get; set; }
+    private readonly string ContextMenuFocusKey = $"context-menu-{Guid.NewGuid()}";
 
     #endregion
 
@@ -244,6 +246,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         {
             await RefreshGridForRenderedItemsAsync();
             await FocusContextMenuIfJustOpenedAsync();
+            await RestoreFocusIfAnOverlayJustClosedAsync();
             return;
         }
 
@@ -272,6 +275,20 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         ShouldFocusContextMenu = false;
         await ContextMenuElement.FocusAsync(preventScroll: true);
+    }
+
+    /// <summary>
+    /// Puts the keyboard back where it stood before an overlay opened.
+    /// </summary>
+    private async Task RestoreFocusIfAnOverlayJustClosedAsync()
+    {
+        var key = ShouldRestoreFocusKey;
+
+        if (key is null || JsModule is null)
+            return;
+
+        ShouldRestoreFocusKey = null;
+        await JsModule.InvokeVoidAsync("restoreFocus", key);
     }
 
     protected override async Task OnParametersSetAsync()
@@ -335,6 +352,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
                 return;
         }
 
+        await RememberFocusAsync(ContextMenuFocusKey);
+
         ContextMenuX = e.ClientX;
         ContextMenuY = e.ClientY;
         ContextMenuOpen = true;
@@ -347,13 +366,47 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     }
 
     /// <summary>
+    /// Closes the menu without acting on it, and puts the keyboard back on the cell it came from.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="CloseContextMenu"/> because every other entry closes the menu on its
+    /// way into something else — an edit dialog, a delete confirmation — and those manage their own
+    /// focus. Pulling it back onto the grid underneath them would fight them for it.
+    /// </remarks>
+    private void DismissContextMenu()
+    {
+        if (!ContextMenuOpen)
+            return;
+
+        ContextMenuOpen = false;
+        ShouldRestoreFocusKey = ContextMenuFocusKey;
+    }
+
+    /// <summary>
     /// Escape closes the menu. It opens over an overlay that swallows every click outside it, so
     /// without this the only way out was to hit that overlay with the mouse.
     /// </summary>
     private void OnContextMenuKeyDown(KeyboardEventArgs args)
     {
         if (args.Key == "Escape")
-            CloseContextMenu();
+            DismissContextMenu();
+    }
+
+    /// <summary>
+    /// Notes where the keyboard stood before an overlay takes focus, so closing it can put the caret
+    /// back rather than dropping it at the top of the document.
+    /// </summary>
+    /// <remarks>
+    /// The browser remembers the element, not Blazor: what the keyboard came from is a data-grid cell
+    /// or a Fluent UI button, and neither hands out an <see cref="ElementReference"/> to focus back
+    /// onto.
+    /// </remarks>
+    private async Task RememberFocusAsync(string key)
+    {
+        if (JsModule is null)
+            return;
+
+        await JsModule.InvokeVoidAsync("rememberFocus", key);
     }
 
     private async Task OnContextMenuEditAsync()
@@ -527,6 +580,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     private FilterGroupModel ActiveFilterModel { get; set; } = new();
     private FilterGroupModel? WorkingFilterModel { get; set; }
     private bool FilterPanelOpen { get; set; }
+    private readonly string FilterPanelFocusKey = $"filter-panel-{Guid.NewGuid()}";
 
     private FilterConfiguration<TModel> ResolvedFilterConfig =>
         Configuration?.Filter ?? CollectedFilterConfigComponent?.BuildConfiguration() ?? new FilterConfiguration<TModel>();
@@ -540,16 +594,22 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         FilterFields = FilterFieldResolver.Resolve(ResolvedFilterConfig, CurrentUser, ResolvedLocalizer);
     }
 
-    private void OpenFilterPanel()
+    private async Task OpenFilterPanelAsync()
     {
+        await RememberFocusAsync(FilterPanelFocusKey);
+
         WorkingFilterModel = ActiveFilterModel.Clone();
         FilterPanelOpen = true;
     }
 
     private void CloseFilterPanel()
     {
+        if (!FilterPanelOpen)
+            return;
+
         FilterPanelOpen = false;
         WorkingFilterModel = null;
+        ShouldRestoreFocusKey = FilterPanelFocusKey;
     }
 
     private async Task OnFilterApplyAsync(FilterGroupModel root)
@@ -561,6 +621,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         FilterPanelOpen = false;
         WorkingFilterModel = null;
+        ShouldRestoreFocusKey = FilterPanelFocusKey;
         await LoadDataAsync();
     }
 

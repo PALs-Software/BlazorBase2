@@ -14,7 +14,7 @@
         {
             <FluentButton Appearance="Appearance.Stealth"
                           Class="base-list-filter-toggle"
-                          OnClick="@OpenFilterPanel"
+                          OnClick="@OpenFilterPanelAsync"
                           IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Filter())">
                 @FrameworkLocalizer["Filter"]
                 @if (ActiveFilterCount > 0)
@@ -145,8 +145,8 @@
     @if (ContextMenuOpen)
     {
         <div class="context-menu-overlay"
-             @onclick="CloseContextMenu"
-             @oncontextmenu="CloseContextMenu" @oncontextmenu:preventDefault></div>
+             @onclick="DismissContextMenu"
+             @oncontextmenu="DismissContextMenu" @oncontextmenu:preventDefault></div>
         <nav class="context-menu"
              role="menu"
              tabindex="-1"

@@ -52,6 +52,7 @@ public class FilterPanelTests : BunitTestContextBase
         cut.Find(".filter-panel").KeyDown(Key.Escape);
 
         cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".filter-panel")));
+        cut.WaitForAssertion(() => Assert.Contains(JSInterop.Invocations, i => i.Identifier == "restoreFocus"));
     }
 
     /// <summary>

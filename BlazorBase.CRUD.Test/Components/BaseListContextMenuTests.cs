@@ -42,6 +42,28 @@ public class BaseListContextMenuTests : BunitTestContextBase
         Assert.Equal("-1", menu.GetAttribute("tabindex"));
     }
 
+    /// <summary>
+    /// Dismissing puts the keyboard back where it came from; acting on an entry does not, because the
+    /// dialog or confirmation it opens manages its own focus.
+    /// </summary>
+    [Fact]
+    public void DismissingTheMenuRestoresFocus_ActingOnItDoesNot()
+    {
+        var cut = RenderListWithOpenContextMenu();
+
+        cut.Find(".context-menu").KeyDown(Key.Escape);
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".context-menu")));
+        var afterDismiss = JSInterop.Invocations.Count(i => i.Identifier == "restoreFocus");
+        Assert.Equal(1, afterDismiss);
+
+        cut.Find(".base-list-grid").ContextMenu(new MouseEventArgs { ClientX = 40, ClientY = 40 });
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".context-menu")));
+        cut.FindAll(".context-menu [role=\"menuitem\"]").Last().Click();
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".context-menu")));
+
+        Assert.Equal(afterDismiss, JSInterop.Invocations.Count(i => i.Identifier == "restoreFocus"));
+    }
+
     private IRenderedComponent<BaseList<TestProduct>> RenderListWithOpenContextMenu()
     {
         var authorization = this.AddAuthorization();
@@ -50,6 +72,8 @@ public class BaseListContextMenuTests : BunitTestContextBase
 
         var module = JSInterop.SetupModule(InteropModulePath);
         module.Setup<bool>("isPointOnDataRow", _ => true).SetResult(true);
+        module.SetupVoid("rememberFocus", _ => true).SetVoidResult();
+        module.SetupVoid("restoreFocus", _ => true).SetVoidResult();
 
         var provider = Substitute.For<IBaseDataProvider<TestProduct>>();
         provider.GetListAsync(Arg.Any<BaseQuery>(), Arg.Any<Expression<Func<TestProduct, bool>>>(), Arg.Any<CancellationToken>())
