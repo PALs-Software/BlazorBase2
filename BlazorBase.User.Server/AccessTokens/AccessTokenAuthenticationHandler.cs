@@ -45,10 +45,18 @@ public class AccessTokenAuthenticationHandler(
         await BruteForceDelayService.GetDelayAsync(clientKey, Context.RequestAborted);
 
         ValidatedAccessToken? validated;
+        var additionalClaims = new List<Claim>();
         await using (var scope = ScopeFactory.CreateAsyncScope())
         {
             var accessTokenService = scope.ServiceProvider.GetRequiredService<IAccessTokenService>();
             validated = await accessTokenService.ValidateAsync(rawToken, Context.RequestAborted);
+
+            if (validated is not null)
+            {
+                var claimsAugmentors = scope.ServiceProvider.GetServices<IAccessTokenClaimsAugmentor>();
+                foreach (var claimsAugmentor in claimsAugmentors)
+                    additionalClaims.AddRange(await claimsAugmentor.GetAdditionalClaimsAsync(validated));
+            }
         }
 
         if (validated is null)
@@ -69,6 +77,8 @@ public class AccessTokenAuthenticationHandler(
 
         if (validated.UserId is not null)
             claims.Add(new Claim(ClaimTypes.NameIdentifier, validated.UserId));
+
+        claims.AddRange(additionalClaims);
 
         var identity = new ClaimsIdentity(claims, Scheme.Name);
         var principal = new ClaimsPrincipal(identity);

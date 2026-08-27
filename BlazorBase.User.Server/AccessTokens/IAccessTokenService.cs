@@ -1,3 +1,5 @@
+using BlazorBase.User.Server.Entities;
+
 namespace BlazorBase.User.Server.AccessTokens;
 
 /// <summary>
@@ -18,6 +20,19 @@ public interface IAccessTokenService
     /// one-time plain-text secret.
     /// </summary>
     Task<CreatedAccessToken> CreateAsync(string name, DateTime? expiresAt, string? userId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates a new access token of a host-defined TPH-derived <see cref="AccessToken"/> type,
+    /// letting <paramref name="configure"/> set the derived columns before the same single insert
+    /// that persists the base ones. Returns its identity together with the one-time plain-text
+    /// secret; the derived type is otherwise transparent to the caller.
+    /// </summary>
+    /// <typeparam name="TToken">
+    /// A TPH-derived <see cref="AccessToken"/> type carrying application-specific bindings (e.g. a
+    /// tenant or a set of scopes). Must be part of the host's EF Core model.
+    /// </typeparam>
+    Task<CreatedAccessToken> CreateAsync<TToken>(string name, DateTime? expiresAt, Action<TToken> configure, string? userId = null, CancellationToken cancellationToken = default)
+        where TToken : AccessToken, new();
 
     /// <summary>
     /// Validates a raw secret, checking expiry and revocation against current database state.
