@@ -31,12 +31,21 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
     /// (PermitLimit, WindowSeconds) are read from "JwtSettings:RateLimit". The host must call
     /// <c>app.UseRateLimiter()</c> for the policy to take effect.
     /// </summary>
+    /// <param name="configureOptions">
+    /// Optionally overrides the JWT scheme name and whether it becomes the authentication default -
+    /// see <see cref="BlazorBaseUserServerOptions"/>. Leave <see langword="null"/> to keep today's
+    /// behavior: scheme name "Bearer", claiming the default.
+    /// </param>
     public static IServiceCollection AddBlazorBaseUserServer<TUser, TContext>(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        Action<BlazorBaseUserServerOptions>? configureOptions = null)
         where TUser : BaseUser, new()
         where TContext : BaseUserDbContext<TUser>
     {
+        var schemeOptions = new BlazorBaseUserServerOptions();
+        configureOptions?.Invoke(schemeOptions);
+
         services.AddHttpContextAccessor();
 
         services.AddIdentityCore<TUser>(options =>
@@ -58,12 +67,15 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
         if (Encoding.UTF8.GetByteCount(jwtSecret) < 32)
             throw new InvalidOperationException("JwtSettings:Secret must be at least 32 bytes (256 bits) to safely sign HMAC-SHA256 tokens.");
 
-        services.AddAuthentication(options =>
+        services.AddAuthentication(authOptions =>
             {
-                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                if (!schemeOptions.ClaimDefaultScheme)
+                    return;
+
+                authOptions.DefaultAuthenticateScheme = schemeOptions.SchemeName;
+                authOptions.DefaultChallengeScheme = schemeOptions.SchemeName;
             })
-            .AddJwtBearer(options =>
+            .AddJwtBearer(schemeOptions.SchemeName, options =>
             {
                 options.TokenValidationParameters = new TokenValidationParameters
                 {

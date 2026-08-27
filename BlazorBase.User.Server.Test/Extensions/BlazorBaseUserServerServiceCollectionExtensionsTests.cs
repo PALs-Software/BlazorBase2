@@ -2,9 +2,12 @@ using System.Collections;
 using System.Reflection;
 using BlazorBase.CRUD.Core;
 using BlazorBase.User.Models;
+using BlazorBase.User.Server.Configuration;
 using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -155,6 +158,64 @@ public class BlazorBaseUserServerServiceCollectionExtensionsTests
         var login = Assert.IsType<LoginResponse>(ok.Value);
 
         Assert.InRange(login.ExpiresAt, before.AddMinutes(14), before.AddMinutes(16));
+    }
+
+    [Fact]
+    public async Task AddBlazorBaseUserServer_RegistersDefaultBearerScheme_AsAuthenticationDefault_WhenNotConfigured()
+    {
+        using var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+
+        var configuration = BuildConfiguration();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDataProtection();
+        services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(connection));
+        services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var authOptions = provider.GetRequiredService<IOptions<AuthenticationOptions>>().Value;
+        Assert.Equal(JwtBearerDefaults.AuthenticationScheme, authOptions.DefaultAuthenticateScheme);
+        Assert.Equal(JwtBearerDefaults.AuthenticationScheme, authOptions.DefaultChallengeScheme);
+
+        var schemeProvider = provider.GetRequiredService<IAuthenticationSchemeProvider>();
+        var scheme = await schemeProvider.GetSchemeAsync(JwtBearerDefaults.AuthenticationScheme);
+        Assert.NotNull(scheme);
+    }
+
+    [Fact]
+    public async Task AddBlazorBaseUserServer_RegistersUnderCustomSchemeName_WithoutClaimingTheDefault_WhenConfigured()
+    {
+        using var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+
+        var configuration = BuildConfiguration();
+        const string customSchemeName = "BlazorBaseJwt";
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDataProtection();
+        services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(connection));
+        services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration, options =>
+        {
+            options.SchemeName = customSchemeName;
+            options.ClaimDefaultScheme = false;
+        });
+
+        using var provider = services.BuildServiceProvider();
+
+        var authOptions = provider.GetRequiredService<IOptions<AuthenticationOptions>>().Value;
+        Assert.NotEqual(customSchemeName, authOptions.DefaultAuthenticateScheme);
+        Assert.NotEqual(customSchemeName, authOptions.DefaultChallengeScheme);
+
+        var schemeProvider = provider.GetRequiredService<IAuthenticationSchemeProvider>();
+        var scheme = await schemeProvider.GetSchemeAsync(customSchemeName);
+        Assert.NotNull(scheme);
+
+        var defaultNamedScheme = await schemeProvider.GetSchemeAsync(JwtBearerDefaults.AuthenticationScheme);
+        Assert.Null(defaultNamedScheme);
     }
 
     private static IConfiguration BuildConfiguration(string secret = "blazorbase-test-signing-secret-key-0123456789-abcdef")
