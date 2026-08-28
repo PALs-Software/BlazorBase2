@@ -1,0 +1,43 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
+namespace BlazorBase.User.Server.ExternalAuth;
+
+/// <summary>
+/// Extension methods that register external-token (OIDC) validation for the exchange endpoint
+/// mapped by <c>MapBlazorBaseExternalAuthEndpoints</c>.
+/// </summary>
+public static class BlazorBaseExternalAuthServiceCollectionExtensions
+{
+    /// <summary>
+    /// Registers <see cref="IExternalTokenValidator"/>. Settings are bound from the
+    /// "ExternalAuthSettings" configuration section and then, if given, overridden by
+    /// <paramref name="configureOptions"/> - useful for a host that derives its authority/audience
+    /// from other configuration (e.g. an existing <c>AzureAd:ClientId</c> key) instead of a static
+    /// value in <c>appsettings.json</c>.
+    /// </summary>
+    /// <remarks>
+    /// The host must additionally register its own <see cref="IExternalUserResolver{TUser}"/> and
+    /// call <c>MapBlazorBaseExternalAuthEndpoints</c> - there is no default resolver and no
+    /// endpoint is mapped by this call alone, so an application that does not opt into all three
+    /// sees no change at all.
+    /// </remarks>
+    public static IServiceCollection AddBlazorBaseExternalAuth(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        Action<ExternalAuthSettings>? configureOptions = null)
+    {
+        services.Configure<ExternalAuthSettings>(configuration.GetSection(ExternalAuthSettings.SectionName));
+
+        if (configureOptions is not null)
+            services.Configure(configureOptions);
+
+        services.AddSingleton<IValidateOptions<ExternalAuthSettings>, ExternalAuthSettingsValidator>();
+        services.AddOptions<ExternalAuthSettings>().ValidateOnStart();
+
+        services.AddSingleton<IExternalTokenValidator, OidcExternalTokenValidator>();
+
+        return services;
+    }
+}

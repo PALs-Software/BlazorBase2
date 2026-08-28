@@ -2,6 +2,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using BlazorBase.User.Models;
+using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -67,6 +69,50 @@ public class TokenService<TUser>(IConfiguration configuration, IEnumerable<IClai
     {
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(token));
         return Convert.ToHexString(hash);
+    }
+
+    /// <summary>
+    /// Issues an access/refresh token pair for <paramref name="user"/> and persists the refresh
+    /// token, exactly as <c>AuthControllerBase.GenerateTokenResponse</c> does for the interactive
+    /// login/setup/refresh endpoints - shared here so every caller that mints a framework token
+    /// pair (the auth controller and the external-token exchange endpoint alike) goes through one
+    /// implementation instead of two that could drift apart.
+    /// </summary>
+    /// <param name="familyId">
+    /// The refresh-token family to continue, or <see langword="null"/>/<see cref="Guid.Empty"/> to
+    /// start a new one - see <c>RefreshToken.FamilyId</c>.
+    /// </param>
+    public async Task<LoginResponse> IssueTokenPairAsync(
+        TUser user,
+        IList<string> roles,
+        BaseUserDbContext<TUser> dbContext,
+        Guid? familyId = null)
+    {
+        var accessToken = await GenerateAccessToken(user, roles);
+        var refreshTokenValue = GenerateRefreshToken();
+
+        var refreshExpirationDays = Configuration.GetValue("JwtSettings:RefreshExpirationDays", JwtSettingsDefaults.RefreshTokenExpirationDays);
+
+        var refreshToken = new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            Token = HashRefreshToken(refreshTokenValue),
+            UserId = user.Id,
+            FamilyId = familyId is null || familyId.Value == Guid.Empty ? Guid.NewGuid() : familyId.Value,
+            ExpiresAt = DateTime.UtcNow.AddDays(refreshExpirationDays),
+        };
+
+        dbContext.RefreshTokens.Add(refreshToken);
+        await dbContext.SaveChangesAsync();
+
+        var expirationMinutes = Configuration.GetValue("JwtSettings:ExpirationMinutes", JwtSettingsDefaults.AccessTokenExpirationMinutes);
+
+        return new LoginResponse
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshTokenValue,
+            ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes),
+        };
     }
 
     public ClaimsPrincipal? ValidateAccessToken(string token)

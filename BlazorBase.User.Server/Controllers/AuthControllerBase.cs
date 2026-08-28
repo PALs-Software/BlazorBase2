@@ -283,31 +283,7 @@ public abstract class AuthControllerBase<TUser>(
     protected async Task<LoginResponse> GenerateTokenResponse(TUser user, Guid? familyId = null)
     {
         var roles = await UserManager.GetRolesAsync(user);
-        var accessToken = await TokenService.GenerateAccessToken(user, roles);
-        var refreshTokenValue = TokenService.GenerateRefreshToken();
-
-        var refreshExpirationDays = Configuration.GetValue("JwtSettings:RefreshExpirationDays", JwtSettingsDefaults.RefreshTokenExpirationDays);
-
-        var refreshToken = new RefreshToken
-        {
-            Id = Guid.NewGuid(),
-            Token = TokenService.HashRefreshToken(refreshTokenValue),
-            UserId = user.Id,
-            FamilyId = familyId is null || familyId.Value == Guid.Empty ? Guid.NewGuid() : familyId.Value,
-            ExpiresAt = DateTime.UtcNow.AddDays(refreshExpirationDays),
-        };
-
-        DbContext.RefreshTokens.Add(refreshToken);
-        await DbContext.SaveChangesAsync();
-
-        var expirationMinutes = Configuration.GetValue("JwtSettings:ExpirationMinutes", JwtSettingsDefaults.AccessTokenExpirationMinutes);
-
-        return new LoginResponse
-        {
-            AccessToken = accessToken,
-            RefreshToken = refreshTokenValue,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes),
-        };
+        return await TokenService.IssueTokenPairAsync(user, roles, DbContext, familyId);
     }
 
     private async Task EnsureRolesExist()
