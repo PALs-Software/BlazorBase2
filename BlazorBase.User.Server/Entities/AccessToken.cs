@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using BlazorBase.CRUD.Attributes;
 using BlazorBase.CRUD.Core;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,11 +36,18 @@ public class AccessToken : AuditModel
     /// leading characters of the secret body. Narrows a validation to a handful of candidate rows
     /// without the secret itself ever reaching a query.
     /// </summary>
+    /// <remarks>
+    /// Excluded from every generated endpoint. It is not the secret, but it is a fixed-length slice
+    /// of it, so handing it out narrows a guess for anyone who obtains the hash.
+    /// </remarks>
+    [CrudAccess("*", "")]
     [Required]
     [MaxLength(32)]
     public string Prefix { get; set; } = string.Empty;
 
     /// <summary>The SHA-512 hash of the full secret, Base64-encoded.</summary>
+    /// <remarks>Excluded from every generated endpoint: hashed or not, it is credential material.</remarks>
+    [CrudAccess("*", "")]
     [Required]
     [MaxLength(128)]
     public string TokenHash { get; set; } = string.Empty;
