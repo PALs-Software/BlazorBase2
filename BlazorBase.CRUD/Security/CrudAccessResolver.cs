@@ -23,6 +23,15 @@ public static class CrudAccessResolver
 {
     public const string WildcardRole = "*";
 
+    /// <summary>
+    /// When <c>true</c>, an entity or property with no <see cref="CrudAccessAttribute"/> at all
+    /// grants <see cref="CrudRights.None"/> instead of <see cref="CrudRights.All"/>. Off by
+    /// default so existing consumers are unaffected; a host opts in via
+    /// <see cref="Extensions.BaseServiceCollectionExtensions.AddCrudAccessStrictMode"/>. This is a
+    /// process-wide switch — set it once at startup, before any request is served.
+    /// </summary>
+    public static bool StrictMode { get; set; }
+
     private static readonly ConcurrentDictionary<Type, TypeAccessInfo> Cache = new();
 
     public static IReadOnlyList<CrudAccessRule> GetClassRules(Type entityType) =>
@@ -61,7 +70,8 @@ public static class CrudAccessResolver
 
     /// <summary>
     /// Effective class-level rights for the principal. Returns <see cref="CrudRights.All"/>
-    /// when the entity has no <see cref="CrudAccessAttribute"/> at all.
+    /// when the entity has no <see cref="CrudAccessAttribute"/> at all — or <see cref="CrudRights.None"/>
+    /// when <see cref="StrictMode"/> is on.
     /// </summary>
     public static CrudRights EvaluateClass(Type entityType, ClaimsPrincipal user)
     {
@@ -71,7 +81,8 @@ public static class CrudAccessResolver
 
     /// <summary>
     /// Effective rights for a single property — intersected with the class-level rights.
-    /// Returns <see cref="CrudRights.All"/> when neither class nor property is annotated.
+    /// Returns <see cref="CrudRights.All"/> when neither class nor property is annotated — or
+    /// <see cref="CrudRights.None"/> for the unannotated side when <see cref="StrictMode"/> is on.
     /// </summary>
     public static CrudRights EvaluateProperty(Type entityType, string propertyName, ClaimsPrincipal user)
     {
@@ -155,7 +166,7 @@ public static class CrudAccessResolver
     private static CrudRights EvaluateRules(IReadOnlyList<CrudAccessRule> rules, ClaimsPrincipal user)
     {
         if (rules.Count == 0)
-            return CrudRights.All;
+            return StrictMode ? CrudRights.None : CrudRights.All;
 
         var effective = CrudRights.None;
 

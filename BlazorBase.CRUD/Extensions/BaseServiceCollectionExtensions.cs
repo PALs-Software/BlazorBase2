@@ -80,6 +80,34 @@ public static class BaseServiceCollectionExtensions
     }
 
     /// <summary>
+    /// Switches <see cref="CrudAccessResolver.StrictMode"/> on: an entity carrying [BaseCrud] but no
+    /// class-level [CrudAccess] then grants <see cref="Security.CrudRights.None"/> instead of
+    /// <see cref="Security.CrudRights.All"/>. Off by default — call this to opt in; every existing
+    /// consumer that never calls it keeps today's permissive behavior.
+    /// </summary>
+    /// <param name="assembly">Assembly to scan for [BaseCrud] entities when <paramref name="validateAtStartup"/>
+    /// is true. Defaults to the calling assembly.</param>
+    /// <param name="validateAtStartup">When true (the default), also registers
+    /// <see cref="CrudAccessAnnotationValidator"/>, which refuses to start the application at all
+    /// if an entity carries [BaseCrud] without a class-level [CrudAccess] — catching the gap before
+    /// any request can reach it, rather than relying on every request being silently denied.</param>
+    public static IServiceCollection AddCrudAccessStrictMode(
+        this IServiceCollection services,
+        Assembly? assembly = null,
+        bool validateAtStartup = true)
+    {
+        CrudAccessResolver.StrictMode = true;
+
+        if (validateAtStartup)
+        {
+            var scanAssembly = assembly ?? Assembly.GetCallingAssembly();
+            services.AddSingleton<IHostedService>(new CrudAccessAnnotationValidator(scanAssembly));
+        }
+
+        return services;
+    }
+
+    /// <summary>
     /// Scans the given assembly (or calling assembly) for entity types decorated with
     /// [BaseCrud] and registers a DbContextBaseDataProvider for each.
     /// </summary>

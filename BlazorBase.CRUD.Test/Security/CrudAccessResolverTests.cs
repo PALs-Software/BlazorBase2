@@ -6,6 +6,7 @@ using Xunit;
 
 namespace BlazorBase.CRUD.Test.Security;
 
+[Collection(CrudAccessResolverCollection.Name)]
 public class CrudAccessResolverTests
 {
     [Fact]

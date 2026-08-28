@@ -178,7 +178,7 @@ public class DbContextBaseDataProvider<TEntity>(
         foreach (var interceptor in Interceptors)
             interceptedFields = await interceptor.OnBeforePatchAsync(id, interceptedFields, cancellationToken);
 
-        var entity = await DbContext.Set<TEntity>().FindAsync([id], cancellationToken)
+        var entity = await FindByKeyAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"Entity of type {typeof(TEntity).Name} with id '{id}' not found.");
 
         if (concurrencyStamp is not null)
@@ -204,7 +204,7 @@ public class DbContextBaseDataProvider<TEntity>(
 
     public async Task DeleteAsync(object id, CancellationToken cancellationToken = default)
     {
-        var entity = await DbContext.Set<TEntity>().FindAsync([id], cancellationToken)
+        var entity = await FindByKeyAsync(id, cancellationToken)
             ?? throw new InvalidOperationException($"Entity of type {typeof(TEntity).Name} with id '{id}' not found.");
 
         foreach (var interceptor in Interceptors)
@@ -485,6 +485,18 @@ public class DbContextBaseDataProvider<TEntity>(
         var idConstant = Expression.Constant(ConvertId(id, keyProperty.PropertyType));
         var equality = Expression.Equal(keyAccess, idConstant);
         return Expression.Lambda<Func<TEntity, bool>>(equality, parameter);
+    }
+
+    /// <summary>
+    /// Looks up a tracked entity by primary key, converting the id to the key's declared type first.
+    /// A route always yields a string, and <c>DbSet.Find</c> rejects one for a <c>Guid</c> key with an
+    /// <see cref="ArgumentException"/> rather than coercing it - so the write paths have to convert
+    /// exactly as <see cref="BuildKeyPredicate"/> does for the read paths.
+    /// </summary>
+    private async Task<TEntity?> FindByKeyAsync(object id, CancellationToken cancellationToken)
+    {
+        var keyProperty = GetKeyProperty(DbContext);
+        return await DbContext.Set<TEntity>().FindAsync([ConvertId(id, keyProperty.PropertyType)], cancellationToken);
     }
 
     #endregion
