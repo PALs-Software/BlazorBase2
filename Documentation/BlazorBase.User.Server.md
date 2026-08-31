@@ -4,6 +4,12 @@ The server-side companion to [`BlazorBase.User`](BlazorBase.User.md). Bundles AS
 
 > Target framework: `net10.0` · References `BlazorBase.User` and `BlazorBase.CRUD`.
 
+> **Choosing how tokens reach the client:** the token pair can travel in the response body (bearer,
+> the default) or in `HttpOnly` cookies (backend-for-frontend). The choice matters for security and
+> is the application's to make — see
+> [Authentication token transports](BlazorBase.User.Server.AuthTransports.md), which also covers CSRF
+> and both external sign-in entry points.
+
 ---
 
 ## Table of Contents

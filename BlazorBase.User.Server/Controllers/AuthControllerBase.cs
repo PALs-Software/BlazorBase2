@@ -2,6 +2,7 @@ using BlazorBase.User.Models;
 using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Services;
+using BlazorBase.User.Server.Tokens;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -143,10 +144,12 @@ public abstract class AuthControllerBase<TUser>(
     [EnableRateLimiting("BlazorBaseAuth")]
     public async Task<ActionResult<LoginResponse>> Refresh([FromBody] RefreshTokenRequest request)
     {
-        if (!ModelState.IsValid)
+        var presentedToken = await ResolveRefreshTokenAsync(request);
+
+        if (presentedToken is null)
             return ValidationProblem(ModelState);
 
-        var tokenHash = TokenService.HashRefreshToken(request.RefreshToken);
+        var tokenHash = TokenService.HashRefreshToken(presentedToken);
 
         var storedToken = await DbContext.RefreshTokens
             .FirstOrDefaultAsync(r => r.Token == tokenHash);
@@ -220,10 +223,17 @@ public abstract class AuthControllerBase<TUser>(
     [AllowAnonymous]
     public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
     {
-        if (!ModelState.IsValid)
-            return ValidationProblem(ModelState);
+        var presentedToken = await ResolveRefreshTokenAsync(request);
 
-        var tokenHash = TokenService.HashRefreshToken(request.RefreshToken);
+        if (HttpContext is not null)
+            await ResolveTokenTransport().ClearAsync(HttpContext);
+
+        // Nothing presented is the same outcome as an unknown token: logout is idempotent, and
+        // answering differently would turn the endpoint into an existence oracle.
+        if (presentedToken is null)
+            return NoContent();
+
+        var tokenHash = TokenService.HashRefreshToken(presentedToken);
 
         var token = await DbContext.RefreshTokens
             .FirstOrDefaultAsync(r => r.Token == tokenHash && !r.IsRevoked);
@@ -283,7 +293,37 @@ public abstract class AuthControllerBase<TUser>(
     protected async Task<LoginResponse> GenerateTokenResponse(TUser user, Guid? familyId = null)
     {
         var roles = await UserManager.GetRolesAsync(user);
-        return await TokenService.IssueTokenPairAsync(user, roles, DbContext, familyId);
+        var tokens = await TokenService.IssueTokenPairAsync(user, roles, DbContext, familyId);
+
+        if (HttpContext is null)
+            return tokens;
+
+        return await ResolveTokenTransport().WriteAsync(HttpContext, tokens);
+    }
+
+    /// <summary>
+    /// Resolved per request rather than through the constructor, so a host that already derives from
+    /// this controller picks the feature up without changing its own constructor signature. Falls back
+    /// to the body transport when nothing is registered, which keeps a host that predates this seam —
+    /// or a test host that composes services by hand — working exactly as before.
+    /// </summary>
+    private IAuthTokenTransport ResolveTokenTransport()
+        => HttpContext?.RequestServices?.GetService<IAuthTokenTransport>() ?? new BodyAuthTokenTransport();
+
+    /// <summary>
+    /// The refresh token as the active transport sees it. A cookie-based transport ignores the body
+    /// entirely, so the request model's <c>[Required]</c> cannot be validated before this runs.
+    /// </summary>
+    private async Task<string?> ResolveRefreshTokenAsync(RefreshTokenRequest? request)
+    {
+        var fromBody = string.IsNullOrEmpty(request?.RefreshToken) ? null : request.RefreshToken;
+
+        if (HttpContext is null)
+            return fromBody;
+
+        var resolved = await ResolveTokenTransport().ReadRefreshTokenAsync(HttpContext, fromBody);
+
+        return string.IsNullOrEmpty(resolved) ? null : resolved;
     }
 
     private async Task EnsureRolesExist()

@@ -1,5 +1,7 @@
+using BlazorBase.User.Server.Tokens;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace BlazorBase.User.Server.ExternalAuth;
@@ -37,6 +39,10 @@ public static class BlazorBaseExternalAuthServiceCollectionExtensions
         services.AddOptions<ExternalAuthSettings>().ValidateOnStart();
 
         services.AddSingleton<IExternalTokenValidator, OidcExternalTokenValidator>();
+
+        // The endpoints take a transport from DI; default it here so mapping them without calling
+        // AddBlazorBaseUserServer first still resolves.
+        services.TryAddScoped<IAuthTokenTransport, BodyAuthTokenTransport>();
 
         return services;
     }

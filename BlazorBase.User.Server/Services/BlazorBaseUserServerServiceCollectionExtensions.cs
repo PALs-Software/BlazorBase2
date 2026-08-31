@@ -8,6 +8,7 @@ using BlazorBase.User.Models;
 using BlazorBase.User.Server.Configuration;
 using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Entities;
+using BlazorBase.User.Server.Tokens;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -16,6 +17,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Tokens;
 
@@ -45,6 +47,11 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
     {
         var schemeOptions = new BlazorBaseUserServerOptions();
         configureOptions?.Invoke(schemeOptions);
+
+        // Registered so later opt-ins - the cookie token transport in particular - can target the
+        // scheme name this call actually used instead of assuming the default.
+        services.AddSingleton(schemeOptions);
+        services.TryAddScoped<IAuthTokenTransport, BodyAuthTokenTransport>();
 
         services.AddHttpContextAccessor();
 
