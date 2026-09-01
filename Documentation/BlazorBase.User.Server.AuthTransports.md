@@ -142,22 +142,47 @@ Safe methods (`GET`, `HEAD`, `OPTIONS`, `TRACE`) pass through untouched.
 > A `GET /api/orders/{id}/cancel` is reachable cross-site whatever else you configure. Keep `GET`
 > free of side effects.
 
-### Client side
+### Client side — not shipped yet, you write this
 
-Read the cookie and echo it. The token is URL-safe, so no decoding is needed:
+> **Status:** the server half of pattern 1 is complete. The browser half is **not** in the framework
+> yet: `AuthTokenHandler`, `BlazorBaseUserAuthStateProvider` and `ITokenStorage` in
+> `BlazorBase.User` / `BlazorBase.User.Wasm` all still assume the client holds a token. Until that
+> lands, a browser application on pattern 1 supplies the three pieces below itself.
+
+The client has to do three things: send cookies, echo the CSRF token, and stop trying to manage a
+token it no longer has.
+
+**1. Read the cookie.** There is no framework helper for this. Add a JS module:
+
+```javascript
+// wwwroot/js/cookies.js
+export function readCookie(name) {
+    const match = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]*)'));
+    return match ? match[2] : null;
+}
+```
+
+The token is URL-safe, so no decoding is needed.
+
+**2. Attach the header on every write.**
 
 ```csharp
 public sealed class CsrfHeaderHandler(IJSRuntime js) : DelegatingHandler
 {
+    private IJSObjectReference? _module;
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        if (!HttpMethods.IsGet(request.Method.Method))
+        if (!HttpMethods.IsGet(request.Method.Method) && !HttpMethods.IsHead(request.Method.Method))
         {
-            var token = await js.InvokeAsync<string?>("blazorBase.readCookie", cancellationToken, "XSRF-TOKEN");
+            _module ??= await js.InvokeAsync<IJSObjectReference>("import", cancellationToken, "./js/cookies.js");
+            var token = await _module.InvokeAsync<string?>("readCookie", cancellationToken, "XSRF-TOKEN");
 
             if (!string.IsNullOrEmpty(token))
                 request.Headers.Add("X-CSRF-TOKEN", token);
         }
+
+        request.SetBrowserRequestCredentials(BrowserRequestCredentials.Include);
 
         return await base.SendAsync(request, cancellationToken);
     }
@@ -168,11 +193,11 @@ Register it on the API `HttpClient` once. Do not leave it to individual call sit
 call is one endpoint that rejects every write, and it will be found in production rather than in
 review.
 
-The WebAssembly client must also send cookies:
-
-```csharp
-request.SetBrowserRequestCredentials(BrowserRequestCredentials.Include);
-```
+**3. Do not register `AuthTokenHandler` or `BrowserTokenStorage`.** Both exist to manage a token the
+client holds. In cookie mode there is nothing to store, nothing to attach, and nothing to refresh
+proactively — the browser sends the cookie by itself and `POST /api/auth/refresh` with an empty body
+`{}` rotates it. Supply an `AuthenticationStateProvider` that derives its state from
+`GET /api/user/me` instead of from a stored token.
 
 ### Do not undo it with CORS
 
@@ -283,9 +308,22 @@ them straight back to the script the transport exists to keep them from.
 - [ ] `RequireBlazorBaseCsrf()` on every state-changing endpoint
 - [ ] `GET` endpoints have no side effects
 - [ ] The API `HttpClient` sends the CSRF header and includes credentials
+- [ ] `AuthTokenHandler` and `BrowserTokenStorage` are **not** registered
+- [ ] An `AuthenticationStateProvider` that reads `GET /api/user/me` rather than a stored token
 - [ ] `SecureOnly` left on outside local development
 - [ ] `SameSite` left at `Lax`
 - [ ] `RefreshCookiePath` matches where the auth endpoints are mapped
 - [ ] No permissive CORS policy
 - [ ] The external resolver keys on the subject id, not the email
 - [ ] The external resolver's answer for an unknown subject is a deliberate decision
+
+## What is not in the framework yet
+
+Pattern 1 is complete on the server and unfinished on the client. Missing, and worth contributing
+back rather than solving per application:
+
+- A cookie-mode `ITokenStorage` that stores nothing
+- An `AuthenticationStateProvider` backed by `GET /api/user/me`
+- The CSRF `DelegatingHandler` and its cookie-reading JS module
+- A registration extension that wires those three together, mirroring
+  `AddBlazorBaseCookieAuthTokens` on the server
