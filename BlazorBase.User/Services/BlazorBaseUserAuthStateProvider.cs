@@ -5,29 +5,44 @@ using BlazorBase.User.Models;
 
 namespace BlazorBase.User.Services;
 
+/// <summary>
+/// Derives the authentication state from the token the client holds.
+/// </summary>
+/// <remarks>
+/// Claim resolution is a single overridable step so a transport where the client holds no readable
+/// token can supply its own — see <c>CookieAuthStateProvider</c>. The type itself stays the one the
+/// UI components depend on, because replacing it with a sibling class would leave every one of them
+/// unresolvable in that mode.
+/// </remarks>
 public class BlazorBaseUserAuthStateProvider(ITokenStorage tokenStorage) : AuthenticationStateProvider
 {
     #region Injects
     private readonly ITokenStorage TokenStorage = tokenStorage;
     #endregion
 
-    private ClaimsPrincipal CurrentUser = new(new ClaimsIdentity());
+    protected ClaimsPrincipal CurrentUser = new(new ClaimsIdentity());
 
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
-        var tokens = await TokenStorage.GetTokensAsync();
-        if (tokens is null || string.IsNullOrEmpty(tokens.AccessToken))
-            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
-
-        var claims = ParseClaimsFromJwt(tokens.AccessToken);
-        if (claims is null)
-            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
-
-        CurrentUser = new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt"));
+        CurrentUser = await ResolvePrincipalAsync();
         return new AuthenticationState(CurrentUser);
     }
 
-    public async Task MarkUserAsAuthenticated(LoginResponse tokens)
+    /// <summary>Builds the principal for the current session. Override to read it from elsewhere.</summary>
+    protected virtual async Task<ClaimsPrincipal> ResolvePrincipalAsync()
+    {
+        var tokens = await TokenStorage.GetTokensAsync();
+        if (tokens is null || string.IsNullOrEmpty(tokens.AccessToken))
+            return new ClaimsPrincipal(new ClaimsIdentity());
+
+        var claims = ParseClaimsFromJwt(tokens.AccessToken);
+        if (claims is null)
+            return new ClaimsPrincipal(new ClaimsIdentity());
+
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt"));
+    }
+
+    public virtual async Task MarkUserAsAuthenticated(LoginResponse tokens)
     {
         await TokenStorage.SaveTokensAsync(tokens);
 
@@ -37,14 +52,17 @@ public class BlazorBaseUserAuthStateProvider(ITokenStorage tokenStorage) : Authe
         NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(CurrentUser)));
     }
 
-    public async Task MarkUserAsLoggedOut()
+    public virtual async Task MarkUserAsLoggedOut()
     {
         await TokenStorage.ClearTokensAsync();
         CurrentUser = new ClaimsPrincipal(new ClaimsIdentity());
         NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(CurrentUser)));
     }
 
-    private static List<Claim>? ParseClaimsFromJwt(string jwt)
+    protected void NotifyCurrentUserChanged() =>
+        NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(CurrentUser)));
+
+    protected static List<Claim>? ParseClaimsFromJwt(string jwt)
     {
         try
         {

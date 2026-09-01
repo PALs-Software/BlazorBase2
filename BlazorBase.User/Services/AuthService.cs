@@ -18,6 +18,29 @@ public class AuthService(HttpClient httpClient) : IAuthService
             ?? new AuthStatusResponse();
     }
 
+    /// <summary>
+    /// A failure here means "not signed in", never an exception: this is called on every render of a
+    /// guarded page, and throwing would turn a transient network blip into a broken application
+    /// rather than a login prompt.
+    /// </summary>
+    public async Task<AuthSessionResponse> GetSessionAsync()
+    {
+        try
+        {
+            var response = await HttpClient.GetAsync("api/auth/session");
+
+            if (!response.IsSuccessStatusCode)
+                return new AuthSessionResponse();
+
+            return await response.Content.ReadFromJsonAsync<AuthSessionResponse>()
+                ?? new AuthSessionResponse();
+        }
+        catch (HttpRequestException)
+        {
+            return new AuthSessionResponse();
+        }
+    }
+
     public async Task<LoginResponse> SetupAsync(SetupRequest request)
     {
         var response = await HttpClient.PostAsJsonAsync("api/auth/setup", request);

@@ -15,4 +15,10 @@ public interface IAuthService
     /// does not offer that path, which is the case in every environment but Development.
     /// </summary>
     Task<LoginResponse?> DevelopmentLoginAsync();
+
+    /// <summary>
+    /// Asks the server who the caller currently is. The only way to obtain the claims under the
+    /// cookie transport, where the access token is deliberately unreadable by script.
+    /// </summary>
+    Task<AuthSessionResponse> GetSessionAsync();
 }

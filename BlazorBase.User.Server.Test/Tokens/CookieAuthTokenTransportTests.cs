@@ -109,6 +109,7 @@ public sealed class CookieAuthTokenTransportTests
                     app.UseEndpoints(endpoints =>
                     {
                         endpoints.MapBlazorBaseExternalAuthEndpoints<TestUser>();
+                        endpoints.MapBlazorBaseAuthSessionEndpoint();
                         endpoints.MapGet("/protected", (HttpContext context) => context.User.Identity?.Name ?? "anonymous")
                                  .RequireAuthorization();
                         endpoints.MapPost("/guarded", () => Results.Ok("written"))
@@ -310,5 +311,44 @@ public sealed class CookieAuthTokenTransportTests
 
         // Unauthorized rather than Forbidden: the CSRF filter let it through, authentication did not.
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// The client cannot decode an <c>HttpOnly</c> token, so the session endpoint is its only way to
+    /// learn its own claims. This walks the whole chain: cookie in, JWT read from it, claims out.
+    /// </summary>
+    [Fact]
+    public async Task The_session_endpoint_reports_the_claims_behind_the_cookie()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true);
+        using var _host = host;
+
+        var cookies = ReadCookies(await ExchangeAsync(host));
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/auth/session");
+        request.Headers.Add("Cookie", $"{AccessCookie}={cookies[AccessCookie]}");
+
+        var response = await host.GetTestClient().SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var session = await response.Content.ReadFromJsonAsync<AuthSessionResponse>();
+        Assert.NotNull(session);
+        Assert.True(session.IsAuthenticated);
+        Assert.Contains(session.Claims, claim => claim.Value == "known-subject@example.test");
+    }
+
+    [Fact]
+    public async Task The_session_endpoint_answers_an_anonymous_caller_instead_of_challenging_it()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true);
+        using var _host = host;
+
+        var response = await host.GetTestClient().GetAsync("/api/auth/session");
+        response.EnsureSuccessStatusCode();
+
+        var session = await response.Content.ReadFromJsonAsync<AuthSessionResponse>();
+        Assert.NotNull(session);
+        Assert.False(session.IsAuthenticated);
+        Assert.Empty(session.Claims);
     }
 }
