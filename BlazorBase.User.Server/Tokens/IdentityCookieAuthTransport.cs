@@ -29,8 +29,9 @@ namespace BlazorBase.User.Server.Tokens;
 /// caller obtains it from <c>SignInManager&lt;TUser&gt;.CreateUserPrincipalAsync</c> before calling
 /// <see cref="WriteAsync"/>.
 ///
-/// Cookies bring back CSRF, which bearer tokens do not have. Pair this transport with
-/// <c>RequireBlazorBaseCsrf()</c> on every state-changing endpoint.
+/// Cookies bring back CSRF, which bearer tokens do not have. <c>AddBlazorBaseCookieAuthTokens</c>
+/// requires the host to call <c>app.UseBlazorBaseCsrf()</c> for exactly that reason — see
+/// <see cref="BlazorBaseCsrfMiddleware"/>.
 /// </remarks>
 public sealed class IdentityCookieAuthTransport(IAntiforgery antiforgery) : IAuthTokenTransport
 {
@@ -67,7 +68,7 @@ public sealed class IdentityCookieAuthTransport(IAntiforgery antiforgery) : IAut
     /// </summary>
     public async Task<bool> IsRequestIntentionalAsync(HttpContext httpContext, CancellationToken cancellationToken = default)
     {
-        if (!BlazorBaseCsrfEndpointFilter.IsSameOriginRequest(httpContext))
+        if (!BlazorBaseCsrfChecks.IsSameOriginRequest(httpContext))
             return false;
 
         return await Antiforgery.IsRequestValidAsync(httpContext);

@@ -23,6 +23,12 @@ public static class ExternalAuthEndpointMapper
     /// <see cref="IExternalUserResolver{TUser}"/>, and returns the same <c>LoginResponse</c> shape
     /// the interactive login/setup/refresh endpoints return.
     /// </summary>
+    /// <remarks>
+    /// Exempt from the CSRF middleware. The request carries its own credential in the body, and a
+    /// cross-site page cannot obtain a provider token for the visitor to put there. Requiring an
+    /// antiforgery token instead would lock out the native clients this endpoint exists for, which
+    /// have no session to have fetched one from.
+    /// </remarks>
     public static IEndpointRouteBuilder MapBlazorBaseExternalAuthEndpoints<TUser>(
         this IEndpointRouteBuilder endpoints,
         string path = "api/auth/external")
@@ -56,6 +62,7 @@ public static class ExternalAuthEndpointMapper
                 return Results.Ok(response);
             })
             .AllowAnonymous()
+            .AllowBlazorBaseCsrf()
             .RequireRateLimiting("BlazorBaseAuth");
 
         return endpoints;

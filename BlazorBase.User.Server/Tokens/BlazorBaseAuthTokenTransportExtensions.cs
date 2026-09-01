@@ -2,6 +2,7 @@ using BlazorBase.User.Server.Configuration;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
@@ -11,7 +12,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace BlazorBase.User.Server.Tokens;
 
 /// <summary>
-/// Opt-in registration for the cookie (backend-for-frontend) token transport and its CSRF filter.
+/// Opt-in registration for the cookie (backend-for-frontend) token transport, its antiforgery
+/// service, and the CSRF middleware that guards it.
 /// </summary>
 public static class BlazorBaseAuthTokenTransportExtensions
 {
@@ -39,8 +41,9 @@ public static class BlazorBaseAuthTokenTransportExtensions
     /// always wins over the cookie, so a native client can keep using the exchange endpoint against a
     /// server configured this way.
     ///
-    /// Cookies reintroduce CSRF. Apply <see cref="RequireBlazorBaseCsrf{TBuilder}"/> to every
-    /// state-changing endpoint, and keep <c>GET</c> free of side effects.
+    /// Cookies reintroduce CSRF. Call <see cref="UseBlazorBaseCsrf"/> on the pipeline, after
+    /// <c>app.UseAuthentication()</c>, and keep <c>GET</c> free of side effects. Forgetting the call is
+    /// not silent — see <see cref="BlazorBaseCsrfStartupGuardFilter"/>.
     /// </remarks>
     /// <param name="bearerSchemeName">
     /// The JWT scheme a bearer request is forwarded to. Leave <see langword="null"/> to reuse the name
@@ -72,7 +75,11 @@ public static class BlazorBaseAuthTokenTransportExtensions
         // after AddBlazorBaseUserServer registered the body default.
         services.RemoveAll<IAuthTokenTransport>();
         services.AddScoped<IAuthTokenTransport, IdentityCookieAuthTransport>();
-        services.AddScoped<BlazorBaseCsrfEndpointFilter>();
+
+        // Flipped by UseBlazorBaseCsrf() and read by the startup guard below, so a host that forgets
+        // the call fails loudly instead of quietly shipping an unprotected cookie transport.
+        services.TryAddSingleton<BlazorBaseCsrfMiddlewareRegistration>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseCsrfStartupGuardFilter>());
 
         var cookieOptions = new AuthCookieOptions();
         configuration.GetSection(AuthCookieOptions.SectionName).Bind(cookieOptions);
@@ -141,18 +148,47 @@ public static class BlazorBaseAuthTokenTransportExtensions
     }
 
     /// <summary>
-    /// Requires a matching CSRF token and a same-origin fetch for state-changing verbs. A no-op for
-    /// <c>GET</c>, <c>HEAD</c>, <c>OPTIONS</c> and <c>TRACE</c>.
+    /// No longer needed: CSRF protection is applied globally by <see cref="UseBlazorBaseCsrf"/> once
+    /// the middleware is wired into the pipeline, and that also covers the MVC controller actions this
+    /// per-endpoint opt-in could never reach. Kept as a no-op, rather than removed outright, so a host
+    /// that still calls it does not fail to build.
     /// </summary>
+    [Obsolete("CSRF protection is now applied by the app.UseBlazorBaseCsrf() middleware for every state-changing request, including MVC controller actions. This call is a no-op and can be removed.")]
     public static TBuilder RequireBlazorBaseCsrf<TBuilder>(this TBuilder builder)
+        where TBuilder : IEndpointConventionBuilder =>
+        builder;
+
+    /// <summary>
+    /// Enforces <see cref="BlazorBaseCsrfMiddleware"/> for every state-changing request from this
+    /// point in the pipeline onward. Place it after <c>app.UseAuthentication()</c> — the antiforgery
+    /// token is bound to the caller's identity, so it can only be validated once that identity has
+    /// been resolved — and before <c>app.UseAuthorization()</c> and whatever maps controllers or
+    /// minimal API endpoints.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// <see cref="AddBlazorBaseCookieAuthTokens"/> was never called — this middleware has nothing to
+    /// protect without the cookie transport's antiforgery registration.
+    /// </exception>
+    public static IApplicationBuilder UseBlazorBaseCsrf(this IApplicationBuilder app)
+    {
+        var registration = app.ApplicationServices.GetService<BlazorBaseCsrfMiddlewareRegistration>()
+            ?? throw new InvalidOperationException(
+                "app.UseBlazorBaseCsrf() requires AddBlazorBaseCookieAuthTokens() to have been called first.");
+
+        registration.WasRegistered = true;
+
+        return app.UseMiddleware<BlazorBaseCsrfMiddleware>();
+    }
+
+    /// <summary>
+    /// Opts an endpoint out of <see cref="BlazorBaseCsrfMiddleware"/> — see
+    /// <see cref="AllowBlazorBaseCsrfAttribute"/> for when that is warranted. Apply to nothing by
+    /// default.
+    /// </summary>
+    public static TBuilder AllowBlazorBaseCsrf<TBuilder>(this TBuilder builder)
         where TBuilder : IEndpointConventionBuilder
     {
-        builder.Add(endpointBuilder => endpointBuilder.FilterFactories.Add((_, next) => async invocationContext =>
-        {
-            var filter = invocationContext.HttpContext.RequestServices.GetRequiredService<BlazorBaseCsrfEndpointFilter>();
-            return await filter.InvokeAsync(invocationContext, next);
-        }));
-
+        builder.WithMetadata(new AllowBlazorBaseCsrfAttribute());
         return builder;
     }
 }

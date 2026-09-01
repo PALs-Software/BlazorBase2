@@ -78,7 +78,9 @@ public sealed class CookieAuthTokenTransportTests
         bool useCookies,
         TimeProvider? timeProvider = null,
         TimeSpan? securityStampValidationInterval = null,
-        TimeSpan? cookieExpireTimeSpan = null)
+        TimeSpan? cookieExpireTimeSpan = null,
+        bool useCsrfMiddleware = true,
+        bool useControllers = false)
     {
         var connection = new SqliteConnection("DataSource=:memory:");
         connection.Open();
@@ -125,26 +127,39 @@ public sealed class CookieAuthTokenTransportTests
                     services.RemoveAll(typeof(IExternalTokenValidator));
                     services.AddSingleton<IExternalTokenValidator>(validator);
                     services.AddScoped<IExternalUserResolver<TestUser>, StubExternalUserResolver>();
+
+                    if (useControllers)
+                        services.AddControllers().AddApplicationPart(typeof(TestUserController).Assembly);
                 });
                 webHost.Configure(app =>
                 {
                     app.UseRouting();
                     app.UseRateLimiter();
                     app.UseAuthentication();
+
+                    if (useCookies && useCsrfMiddleware)
+                        app.UseBlazorBaseCsrf();
+
                     app.UseAuthorization();
                     app.UseEndpoints(endpoints =>
                     {
-                        endpoints.MapBlazorBaseExternalAuthEndpoints<TestUser>();
+                        // The exchange is a credential-bearing login, not a CSRF target - no session
+                        // exists yet for a cross-site page to ride along on.
+                        endpoints.MapGroup(string.Empty).AllowBlazorBaseCsrf().MapBlazorBaseExternalAuthEndpoints<TestUser>();
                         endpoints.MapBlazorBaseAuthSessionEndpoint();
                         endpoints.MapGet("/protected", (HttpContext context) => context.User.Identity?.Name ?? "anonymous")
                                  .RequireAuthorization();
-                        endpoints.MapPost("/guarded", () => Results.Ok("written"))
-                                 .RequireBlazorBaseCsrf();
+                        endpoints.MapPost("/guarded", () => Results.Ok("written"));
+                        endpoints.MapPost("/allowed", () => Results.Ok("written"))
+                                 .AllowBlazorBaseCsrf();
                         endpoints.MapPost("/logout", async (HttpContext context, IAuthTokenTransport transport) =>
                         {
                             await transport.ClearAsync(context);
                             return Results.NoContent();
                         });
+
+                        if (useControllers)
+                            endpoints.MapControllers();
                     });
                 });
             })
@@ -437,10 +452,12 @@ public sealed class CookieAuthTokenTransportTests
         var (host, _) = await StartHostAsync(useCookies: true);
         using var _host = host;
 
-        var cookies = ReadCookies(await ExchangeAsync(host));
+        var sessionCookie = ReadCookies(await ExchangeAsync(host))[SessionCookie];
+        var (token, cookieHeader) = await GetCsrfAsync(host, $"{SessionCookie}={sessionCookie}");
 
         var request = new HttpRequestMessage(HttpMethod.Post, "/logout");
-        request.Headers.Add("Cookie", $"{SessionCookie}={cookies[SessionCookie]}");
+        request.Headers.Add("Cookie", cookieHeader);
+        request.Headers.Add(CsrfHeader, token);
 
         var response = await host.GetTestClient().SendAsync(request);
         response.EnsureSuccessStatusCode();
@@ -452,6 +469,7 @@ public sealed class CookieAuthTokenTransportTests
         var setCookieHeader = response.Headers.GetValues("Set-Cookie").Single(c => c.StartsWith($"{SessionCookie}=", StringComparison.Ordinal));
         Assert.Contains("expires=", setCookieHeader, StringComparison.OrdinalIgnoreCase);
     }
+
 
     /// <summary>
     /// The exact failure mode of finding #1: the old JWT-in-a-cookie transport had no refresh path, so
@@ -522,5 +540,93 @@ public sealed class CookieAuthTokenTransportTests
 
         var response = await client.SendAsync(afterRotation);
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// This is the exact hole closed by moving CSRF enforcement into a middleware:
+    /// <c>UserControllerBase.UpdateSettings</c> is an MVC controller action, which an endpoint filter
+    /// can never reach, so it stayed unprotected under the old per-endpoint opt-in.
+    /// </summary>
+    [Fact]
+    public async Task Put_user_settings_without_a_csrf_token_is_refused()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true, useControllers: true);
+        using var _host = host;
+
+        var sessionCookie = ReadCookies(await ExchangeAsync(host))[SessionCookie];
+
+        var request = new HttpRequestMessage(HttpMethod.Put, "/api/user/me/settings")
+        {
+            Content = JsonContent.Create(new UpdateUserSettingsRequest { ThemePreference = "Dark", Language = "de" }),
+        };
+        request.Headers.Add("Cookie", $"{SessionCookie}={sessionCookie}");
+
+        var response = await host.GetTestClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Put_user_settings_with_a_valid_csrf_token_succeeds()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true, useControllers: true);
+        using var _host = host;
+
+        var sessionCookie = ReadCookies(await ExchangeAsync(host))[SessionCookie];
+        var (token, cookieHeader) = await GetCsrfAsync(host, $"{SessionCookie}={sessionCookie}");
+
+        var request = new HttpRequestMessage(HttpMethod.Put, "/api/user/me/settings")
+        {
+            Content = JsonContent.Create(new UpdateUserSettingsRequest { ThemePreference = "Dark", Language = "de" }),
+        };
+        request.Headers.Add("Cookie", cookieHeader);
+        request.Headers.Add(CsrfHeader, token);
+
+        var response = await host.GetTestClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    /// <summary>
+    /// A bearer header is attached deliberately by the caller, which is the proof of intent a cookie
+    /// cannot give - so it bypasses the check outright rather than needing a token of its own.
+    /// </summary>
+    [Fact]
+    public async Task A_request_carrying_a_bearer_header_bypasses_the_csrf_check()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true);
+        using var _host = host;
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/guarded");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "not-a-valid-token");
+
+        var response = await host.GetTestClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_endpoint_marked_AllowBlazorBaseCsrf_is_not_checked()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true);
+        using var _host = host;
+
+        var response = await host.GetTestClient().PostAsync("/allowed", content: null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    /// <summary>
+    /// A security control that silently does nothing is worse than one that is absent: a host that
+    /// registers the cookie transport but forgets <c>app.UseBlazorBaseCsrf()</c> must find out on the
+    /// very first request rather than shipping every write forgeable cross-site.
+    /// </summary>
+    [Fact]
+    public async Task A_host_that_registers_the_cookie_transport_and_forgets_the_middleware_fails_loudly()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true, useCsrfMiddleware: false);
+        using var _host = host;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => host.GetTestClient().GetAsync("/protected"));
     }
 }
