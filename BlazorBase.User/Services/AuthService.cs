@@ -76,7 +76,22 @@ public class AuthService(HttpClient httpClient) : IAuthService
             return AuthServiceLoginOutcome.TwoFactorRequired(pending.PendingToken);
         }
 
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            try
+            {
+                using var doc = JsonDocument.Parse(body);
+                if (doc.RootElement.TryGetProperty("errors", out var errors))
+                    throw new HttpRequestException(string.Join(" ", errors.EnumerateArray().Select(e => e.GetString())));
+                if (doc.RootElement.TryGetProperty("message", out var message))
+                    throw new HttpRequestException(message.GetString());
+            }
+            catch (JsonException) { }
+
+            response.EnsureSuccessStatusCode();
+        }
+
         var tokens = await response.Content.ReadFromJsonAsync<LoginResponse>()
             ?? throw new InvalidOperationException("Invalid login response.");
 

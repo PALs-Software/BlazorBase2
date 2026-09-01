@@ -61,6 +61,7 @@ public class LoginAutocompleteTests : UserBunitTestContextBase
         var tokenStorage = Substitute.For<ITokenStorage>();
         tokenStorage.GetTokensAsync().Returns(Task.FromResult<LoginResponse?>(null));
         Services.AddSingleton(tokenStorage);
+        Services.AddSingleton<CsrfTokenProvider>();
         Services.AddSingleton<BlazorBaseUserAuthStateProvider>();
 
         // Login consults this after a successful sign-in, to decide whether the destination has to

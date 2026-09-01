@@ -74,12 +74,12 @@ public class UserManagementViewTests : UserBunitTestContextBase
     }
 
     [Fact]
-    public void UserCard_RendersUserModel_WithRegisteredInputs()
+    public async Task UserCard_RendersUserModel_WithRegisteredInputs()
     {
         var provider = SetupServices(
             new UserModel { Id = "1", DisplayName = "Ada Lovelace", Email = "ada@example.com", Role = "Admin", IsActive = true });
 
-        var editModel = provider.GetByIdAsync("1").GetAwaiter().GetResult()!;
+        var editModel = (await provider.GetByIdAsync("1"))!;
 
         var card = Render<BlazorBase.User.Components.UserCard>(parameters => parameters
             .Add(p => p.Model, editModel));
