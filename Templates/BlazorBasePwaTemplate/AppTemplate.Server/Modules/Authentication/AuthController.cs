@@ -14,11 +14,12 @@ namespace AppTemplate.Server.Modules.Authentication;
 [ApiController]
 public class AuthController(
     UserManager<AppUser> users,
+    SignInManager<AppUser> signIn,
     RoleManager<IdentityRole> roles,
     TokenService<AppUser> tokens,
     AppTemplateDbContext dbContext,
     IConfiguration configuration)
-    : AuthControllerBase<AppUser>(users, roles, tokens, dbContext, configuration)
+    : AuthControllerBase<AppUser>(users, signIn, roles, tokens, dbContext, configuration)
 {
     protected override IReadOnlyList<string> RolesToSeed => RoleConstants.All;
 }

@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.Entities;
@@ -75,6 +76,20 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         var tokens = await ReadRefreshTokensAsync();
         Assert.Single(tokens);
         Assert.False(tokens[0].IsRevoked);
+    }
+
+    [Fact]
+    public async Task Login_IncludesSecurityStampClaim_InIssuedToken()
+    {
+        var user = await SeedUserAsync("ada@example.com", "Ada");
+
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(login.AccessToken);
+        var securityStampClaim = jwt.Claims.SingleOrDefault(c => c.Type == "AspNet.Identity.SecurityStamp");
+
+        Assert.NotNull(securityStampClaim);
+        Assert.Equal(user.SecurityStamp, securityStampClaim!.Value);
     }
 
     [Fact]

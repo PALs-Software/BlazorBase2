@@ -2,15 +2,18 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Services;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Xunit;
-using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Server.Test.Services;
 
 /// <summary>
 /// Unit tests for <see cref="TokenService{TUser}"/> — the security-critical JWT issuing and
-/// validation logic. No database is involved; everything is driven through <see cref="IConfiguration"/>.
+/// validation logic. No database is involved: <see cref="IUserClaimsPrincipalFactory{TUser}"/> is a
+/// hand-written fake rather than the real <see cref="BlazorBaseUserClaimsPrincipalFactory{TUser}"/>,
+/// which is instead exercised end-to-end (real Identity stack, real store) by
+/// <c>AuthControllerTests</c> and <c>ExternalAuthExchangeEndpointTests</c>.
 /// </summary>
 public sealed class TokenServiceTests
 {
@@ -41,8 +44,9 @@ public sealed class TokenServiceTests
         string? secret = Secret,
         string issuer = Issuer,
         string audience = Audience,
-        int expirationMinutes = 60)
-        => new(BuildConfiguration(secret, issuer, audience, expirationMinutes), []);
+        int expirationMinutes = 60,
+        IList<string>? roles = null)
+        => new(BuildConfiguration(secret, issuer, audience, expirationMinutes), new FakeClaimsPrincipalFactory(roles ?? []));
 
     private static BaseUser SampleUser() => new()
     {
@@ -51,6 +55,7 @@ public sealed class TokenServiceTests
         DisplayName = "Ada Lovelace",
         ThemePreference = "Dark",
         Language = "de",
+        SecurityStamp = "stamp-abc123",
     };
 
     [Fact]
@@ -68,6 +73,16 @@ public sealed class TokenServiceTests
     }
 
     [Fact]
+    public async Task GenerateAccessToken_IncludesSecurityStampClaim()
+    {
+        var token = await CreateService().GenerateAccessToken(SampleUser(), []);
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+
+        Assert.Equal("stamp-abc123", jwt.Claims.Single(c => c.Type == "AspNet.Identity.SecurityStamp").Value);
+    }
+
+    [Fact]
     public async Task GenerateAccessToken_IncludesIssuerAndAudience()
     {
         var token = await CreateService().GenerateAccessToken(SampleUser(), []);
@@ -81,7 +96,7 @@ public sealed class TokenServiceTests
     [Fact]
     public async Task GenerateAccessToken_EmitsOneRoleClaimPerRole()
     {
-        var token = await CreateService().GenerateAccessToken(SampleUser(), ["Admin", "User"]);
+        var token = await CreateService(roles: ["Admin", "User"]).GenerateAccessToken(SampleUser(), []);
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
         var roles = jwt.Claims.Where(c => c.Type == ClaimTypes.Role).Select(c => c.Value).ToList();
@@ -124,8 +139,8 @@ public sealed class TokenServiceTests
     [Fact]
     public async Task ValidateAccessToken_RoundTripsAValidToken()
     {
-        var service = CreateService();
-        var token = await service.GenerateAccessToken(SampleUser(), ["Admin"]);
+        var service = CreateService(roles: ["Admin"]);
+        var token = await service.GenerateAccessToken(SampleUser(), []);
 
         var principal = service.ValidateAccessToken(token);
 
@@ -189,29 +204,35 @@ public sealed class TokenServiceTests
         Assert.Null(principal);
     }
 
-    [Fact]
-    public async Task GenerateAccessToken_AppendsClaimsFromAugmentors()
-    {
-        var augmentor = new StubClaimsAugmentor([new Claim("tenant_id", "house-42")]);
-        var service = new TokenService<BaseUser>(
-            BuildConfiguration(),
-            [augmentor]);
-
-        var token = await service.GenerateAccessToken(SampleUser(), []);
-
-        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
-        var tenantClaim = jwt.Claims.SingleOrDefault(c => c.Type == "tenant_id");
-        Assert.NotNull(tenantClaim);
-        Assert.Equal("house-42", tenantClaim!.Value);
-    }
-
-    private sealed class StubClaimsAugmentor(IEnumerable<Claim> claims) : IClaimsAugmentor<BaseUser>
+    /// <summary>
+    /// Stands in for <see cref="BlazorBaseUserClaimsPrincipalFactory{TUser}"/>, which needs a real
+    /// <see cref="UserManager{TUser}"/>-backed store to run and is therefore exercised separately -
+    /// see the type-level remarks. Reproduces the same claim set so <see cref="TokenService{TUser}"/>
+    /// can be tested as a pure claims-to-JWT step.
+    /// </summary>
+    private sealed class FakeClaimsPrincipalFactory(IList<string> roles) : IUserClaimsPrincipalFactory<BaseUser>
     {
         #region Injects
-        private readonly IEnumerable<Claim> Claims = claims;
+        private readonly IList<string> Roles = roles;
         #endregion
 
-        public Task<IEnumerable<Claim>> GetAdditionalClaimsAsync(BaseUser user, IList<string> roles)
-            => Task.FromResult(Claims);
+        public Task<ClaimsPrincipal> CreateAsync(BaseUser user)
+        {
+            var identity = new ClaimsIdentity("Test", ClaimTypes.Name, ClaimTypes.Role);
+
+            identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, user.Id));
+            identity.AddClaim(new Claim(ClaimTypes.Email, user.Email ?? string.Empty));
+            identity.AddClaim(new Claim("displayName", user.DisplayName));
+            identity.AddClaim(new Claim("themePreference", user.ThemePreference));
+            identity.AddClaim(new Claim("language", user.Language));
+
+            if (!string.IsNullOrEmpty(user.SecurityStamp))
+                identity.AddClaim(new Claim("AspNet.Identity.SecurityStamp", user.SecurityStamp));
+
+            foreach (var role in Roles)
+                identity.AddClaim(new Claim(ClaimTypes.Role, role));
+
+            return Task.FromResult(new ClaimsPrincipal(identity));
+        }
     }
 }

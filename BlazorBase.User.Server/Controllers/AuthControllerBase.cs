@@ -19,6 +19,7 @@ namespace BlazorBase.User.Server.Controllers;
 [Route("api/auth")]
 public abstract class AuthControllerBase<TUser>(
     UserManager<TUser> userManager,
+    SignInManager<TUser> signInManager,
     RoleManager<IdentityRole> roleManager,
     TokenService<TUser> tokenService,
     BaseUserDbContext<TUser> dbContext,
@@ -27,6 +28,7 @@ public abstract class AuthControllerBase<TUser>(
 {
     #region Injects
     private readonly UserManager<TUser> UserManager = userManager;
+    private readonly SignInManager<TUser> SignInManager = signInManager;
     private readonly RoleManager<IdentityRole> RoleManager = roleManager;
     private readonly TokenService<TUser> TokenService = tokenService;
     private readonly BaseUserDbContext<TUser> DbContext = dbContext;
@@ -92,8 +94,20 @@ public abstract class AuthControllerBase<TUser>(
     /// Authenticates a user and returns JWT tokens. Honors the lockout policy configured on
     /// <see cref="Microsoft.AspNetCore.Identity.IdentityOptions.Lockout"/>: failed attempts increment
     /// the user's lockout counter, locked-out accounts are rejected before the password is checked,
-    /// and a successful login resets the counter.
+    /// and a successful login resets the counter. A two-factor-enabled account also answers the same
+    /// generic failure below for now - a later step turns that case into a distinct response.
     /// </summary>
+    /// <remarks>
+    /// Uses <see cref="SignInManager{TUser}.CheckPasswordSignInAsync"/> rather than
+    /// <c>PasswordSignInAsync</c>: the latter signs the caller into a scheme and writes a cookie,
+    /// which would change this endpoint's contract from "returns a JWT" to "returns a JWT and sets a
+    /// cookie". <c>CheckPasswordSignInAsync</c> runs the same password check, lockout bookkeeping and
+    /// two-factor detection without touching the response.
+    ///
+    /// <c>IsActive</c> is this framework's own flag and unknown to Identity, so it is checked
+    /// separately - but folded into the same generic answer, because a distinguishable response
+    /// would tell an unauthenticated caller that the account exists.
+    /// </remarks>
     [HttpPost("login")]
     [AllowAnonymous]
     [EnableRateLimiting("BlazorBaseAuth")]
@@ -109,22 +123,15 @@ public abstract class AuthControllerBase<TUser>(
             return Unauthorized(new { message = "Invalid email or password." });
         }
 
-        if (await UserManager.IsLockedOutAsync(user))
-        {
+        var signInResult = await SignInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
+
+        // Lockout and not-allowed short-circuit before any password hash, so normalise them too.
+        if (signInResult.IsLockedOut || signInResult.IsNotAllowed)
             NormalizeLoginTimingWithDummyHash(request.Password);
+
+        if (!signInResult.Succeeded || !user.IsActive)
             return Unauthorized(new { message = "Invalid email or password." });
-        }
 
-        if (!await UserManager.CheckPasswordAsync(user, request.Password))
-        {
-            await UserManager.AccessFailedAsync(user);
-            return Unauthorized(new { message = "Invalid email or password." });
-        }
-
-        if (!user.IsActive)
-            return Unauthorized(new { message = "Account is deactivated." });
-
-        await UserManager.ResetAccessFailedCountAsync(user);
         return Ok(await GenerateTokenResponse(user));
     }
 

@@ -138,6 +138,7 @@ public class BlazorBaseUserServerServiceCollectionExtensionsTests
 
         var controller = new TestAuthController(
             scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>(),
+            scope.ServiceProvider.GetRequiredService<SignInManager<TestUser>>(),
             scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>(),
             scope.ServiceProvider.GetRequiredService<TokenService<TestUser>>(),
             scope.ServiceProvider.GetRequiredService<BaseUserDbContext<TestUser>>(),

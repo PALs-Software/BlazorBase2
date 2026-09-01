@@ -12,8 +12,9 @@ namespace BlazorBase.User.Server.Test.Infrastructure;
 /// </summary>
 public sealed class TestAuthController(
     UserManager<TestUser> userManager,
+    SignInManager<TestUser> signInManager,
     RoleManager<IdentityRole> roleManager,
     TokenService<TestUser> tokenService,
     BaseUserDbContext<TestUser> dbContext,
     IConfiguration configuration)
-    : AuthControllerBase<TestUser>(userManager, roleManager, tokenService, dbContext, configuration);
+    : AuthControllerBase<TestUser>(userManager, signInManager, roleManager, tokenService, dbContext, configuration);

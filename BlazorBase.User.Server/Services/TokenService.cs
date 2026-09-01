@@ -5,19 +5,24 @@ using System.Text;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Server.Services;
 
-public class TokenService<TUser>(IConfiguration configuration, IEnumerable<IClaimsAugmentor<TUser>> claimsAugmentors) where TUser : BaseUser
+public class TokenService<TUser>(IConfiguration configuration, IUserClaimsPrincipalFactory<TUser> claimsPrincipalFactory) where TUser : BaseUser
 {
     #region Injects
     private readonly IConfiguration Configuration = configuration;
-    private readonly IEnumerable<IClaimsAugmentor<TUser>> ClaimsAugmentors = claimsAugmentors;
+    private readonly IUserClaimsPrincipalFactory<TUser> ClaimsPrincipalFactory = claimsPrincipalFactory;
     #endregion
 
+    /// <param name="roles">
+    /// Unused by this method: the claims principal factory reads the user's roles from the store
+    /// itself. Kept so callers built for the previous claim-building code keep compiling unchanged.
+    /// </param>
     public async Task<string> GenerateAccessToken(TUser user, IList<string> roles)
     {
         var secret = Configuration["JwtSettings:Secret"]
@@ -26,23 +31,8 @@ public class TokenService<TUser>(IConfiguration configuration, IEnumerable<IClai
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.NameIdentifier, user.Id),
-            new(ClaimTypes.Email, user.Email ?? string.Empty),
-            new("displayName", user.DisplayName),
-            new("themePreference", user.ThemePreference),
-            new("language", user.Language),
-        };
-
-        foreach (var role in roles)
-            claims.Add(new Claim(ClaimTypes.Role, role));
-
-        foreach (var augmentor in ClaimsAugmentors)
-        {
-            var additionalClaims = await augmentor.GetAdditionalClaimsAsync(user, roles).ConfigureAwait(false);
-            claims.AddRange(additionalClaims);
-        }
+        var principal = await ClaimsPrincipalFactory.CreateAsync(user);
+        var claims = principal.Claims.ToList();
 
         var expirationMinutes = Configuration.GetValue("JwtSettings:ExpirationMinutes", JwtSettingsDefaults.AccessTokenExpirationMinutes);
 

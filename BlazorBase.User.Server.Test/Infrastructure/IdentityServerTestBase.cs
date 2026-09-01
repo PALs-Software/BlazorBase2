@@ -60,6 +60,7 @@ public abstract class IdentityServerTestBase : IDisposable
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddDataProtection();
+        services.AddAuthentication();
         services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
         services.AddSingleton(Configuration);
         services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(Connection));
@@ -75,7 +76,9 @@ public abstract class IdentityServerTestBase : IDisposable
             })
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<TestUserDbContext>()
-            .AddDefaultTokenProviders();
+            .AddDefaultTokenProviders()
+            .AddSignInManager()
+            .AddClaimsPrincipalFactory<BlazorBaseUserClaimsPrincipalFactory<TestUser>>();
 
         services.AddScoped<TokenService<TestUser>>();
 
@@ -103,6 +106,7 @@ public abstract class IdentityServerTestBase : IDisposable
         var provider = scope.ServiceProvider;
         var controller = new TestAuthController(
             provider.GetRequiredService<UserManager<TestUser>>(),
+            provider.GetRequiredService<SignInManager<TestUser>>(),
             provider.GetRequiredService<RoleManager<IdentityRole>>(),
             provider.GetRequiredService<TokenService<TestUser>>(),
             provider.GetRequiredService<TestUserDbContext>(),

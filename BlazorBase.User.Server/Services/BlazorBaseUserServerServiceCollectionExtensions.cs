@@ -26,12 +26,14 @@ namespace BlazorBase.User.Server.Services;
 public static class BlazorBaseUserServerServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers Identity, JWT bearer authentication, authorization, the "BlazorBaseAuth" rate-limiter
-    /// policy, the TokenService, the IBaseDataProvider&lt;UserModel&gt; for admin user management, and
-    /// IHttpContextAccessor. JWT settings (Secret, Issuer, Audience, ExpirationMinutes,
-    /// RefreshExpirationDays) are read from configuration under "JwtSettings"; rate-limit settings
-    /// (PermitLimit, WindowSeconds) are read from "JwtSettings:RateLimit". The host must call
-    /// <c>app.UseRateLimiter()</c> for the policy to take effect.
+    /// Registers Identity (including <see cref="SignInManager{TUser}"/> and the claims-principal
+    /// factory that builds every issued token's claims), JWT bearer authentication, authorization,
+    /// the "BlazorBaseAuth" rate-limiter policy, the TokenService, the
+    /// IBaseDataProvider&lt;UserModel&gt; for admin user management, and IHttpContextAccessor. JWT
+    /// settings (Secret, Issuer, Audience, ExpirationMinutes, RefreshExpirationDays) are read from
+    /// configuration under "JwtSettings"; rate-limit settings (PermitLimit, WindowSeconds) are read
+    /// from "JwtSettings:RateLimit". The host must call <c>app.UseRateLimiter()</c> for the policy to
+    /// take effect.
     /// </summary>
     /// <param name="configureOptions">
     /// Optionally overrides the JWT scheme name and whether it becomes the authentication default -
@@ -66,7 +68,17 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
             })
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<TContext>()
-            .AddDefaultTokenProviders();
+            .AddDefaultTokenProviders()
+            // AddIdentityCore omits SignInManager, but lockout and two-factor detection live there.
+            .AddSignInManager()
+            // One claim set for today's JWT and any later cookie sign-in alike.
+            .AddClaimsPrincipalFactory<BlazorBaseUserClaimsPrincipalFactory<TUser>>();
+
+        // Set deliberately rather than left at the default; it only bites once a cookie transport exists.
+        services.Configure<SecurityStampValidatorOptions>(options =>
+        {
+            options.ValidationInterval = TimeSpan.FromMinutes(5);
+        });
 
         var jwtSecret = configuration["JwtSettings:Secret"]
             ?? throw new InvalidOperationException("JwtSettings:Secret must be configured.");
