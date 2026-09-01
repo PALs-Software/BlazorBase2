@@ -66,7 +66,7 @@ public sealed class UserDataProviderRoundTripTests : IDisposable
             Email = "ada@example.com",
             Role = "Admin",
             IsActive = true,
-            Password = "Secret123",
+            Password = "Secret123456",
         });
 
         Assert.False(string.IsNullOrEmpty(created.Id));
@@ -94,7 +94,7 @@ public sealed class UserDataProviderRoundTripTests : IDisposable
             Email = "grace@example.com",
             Role = "User",
             IsActive = true,
-            Password = "Secret123",
+            Password = "Secret123456",
         });
 
         var patched = await provider.PatchAsync(created.Id, new Dictionary<string, object?>

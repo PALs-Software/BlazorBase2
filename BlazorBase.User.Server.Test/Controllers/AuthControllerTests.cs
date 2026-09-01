@@ -34,7 +34,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         {
             Email = "admin@example.com",
             DisplayName = "Admin",
-            Password = "Secret123",
+            Password = "Secret123456",
         });
 
         var login = AssertOkLogin(result);
@@ -57,10 +57,35 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         {
             Email = "second@example.com",
             DisplayName = "Second",
-            Password = "Secret123",
+            Password = "Secret123456",
         });
 
         Assert.IsType<ConflictObjectResult>(result.Result);
+    }
+
+    /// <summary>
+    /// Regression test for #17: <c>UserManager.Users.AnyAsync()</c> alone lets two concurrent requests
+    /// both observe no users and both create an admin. The database-enforced marker row must stop one
+    /// of them regardless of how the two race, so this fires both through <see cref="Task.WhenAll"/>
+    /// rather than asserting on a single hand-simulated ordering.
+    /// </summary>
+    [Fact]
+    public async Task Setup_CreatesExactlyOneAdmin_WhenCalledConcurrently()
+    {
+        var firstRequest = new SetupRequest { Email = "first@example.com", DisplayName = "First", Password = "Secret123456" };
+        var secondRequest = new SetupRequest { Email = "second@example.com", DisplayName = "Second", Password = "Secret123456" };
+
+        var results = await Task.WhenAll(SetupAsync(firstRequest), SetupAsync(secondRequest));
+
+        var succeeded = results.Count(result => result.Result is OkObjectResult);
+        var conflicted = results.Count(result => result.Result is ConflictObjectResult);
+
+        Assert.Equal(1, succeeded);
+        Assert.Equal(1, conflicted);
+
+        using var verifyScope = CreateScope();
+        var userManager = verifyScope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
+        Assert.Single(await userManager.GetUsersInRoleAsync("Admin"));
     }
 
     [Fact]
@@ -68,7 +93,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         await SeedUserAsync("ada@example.com", "Ada");
 
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
 
         Assert.False(string.IsNullOrEmpty(login.AccessToken));
         Assert.False(string.IsNullOrEmpty(login.RefreshToken));
@@ -80,7 +105,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         var user = await SeedUserAsync("ada@example.com", "Ada");
 
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
 
         var principal = UnprotectAccessToken(login.AccessToken);
         var securityStampClaim = principal.FindFirst("AspNet.Identity.SecurityStamp");
@@ -92,7 +117,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     [Fact]
     public async Task Login_ReturnsUnauthorized_OnUnknownEmail()
     {
-        var result = await LoginAsync("nobody@example.com", "Secret123");
+        var result = await LoginAsync("nobody@example.com", "Secret123456");
 
         Assert.IsType<UnauthorizedObjectResult>(result.Result);
     }
@@ -125,7 +150,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         await LoginAsync("ada@example.com", "WrongPass1");
         Assert.Equal(1, await GetAccessFailedCountAsync(user.Id));
 
-        await LoginAsync("ada@example.com", "Secret123");
+        await LoginAsync("ada@example.com", "Secret123456");
         Assert.Equal(0, await GetAccessFailedCountAsync(user.Id));
     }
 
@@ -134,7 +159,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         await SeedUserAsync("ada@example.com", "Ada", isActive: false);
 
-        var result = await LoginAsync("ada@example.com", "Secret123");
+        var result = await LoginAsync("ada@example.com", "Secret123456");
 
         Assert.IsType<UnauthorizedObjectResult>(result.Result);
     }
@@ -145,7 +170,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         var user = await SeedUserAsync("ada@example.com", "Ada");
         await LockOutAsync(user.Id);
 
-        var result = await LoginAsync("ada@example.com", "Secret123");
+        var result = await LoginAsync("ada@example.com", "Secret123456");
 
         Assert.IsType<UnauthorizedObjectResult>(result.Result);
     }
@@ -157,9 +182,9 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         var lockedOutUser = await SeedUserAsync("locked@example.com", "Locked");
         await LockOutAsync(lockedOutUser.Id);
 
-        var unknownEmailMessage = GetUnauthorizedMessage(await LoginAsync("nobody@example.com", "Secret123"));
+        var unknownEmailMessage = GetUnauthorizedMessage(await LoginAsync("nobody@example.com", "Secret123456"));
         var wrongPasswordMessage = GetUnauthorizedMessage(await LoginAsync("ada@example.com", "WrongPass1"));
-        var lockedOutMessage = GetUnauthorizedMessage(await LoginAsync("locked@example.com", "Secret123"));
+        var lockedOutMessage = GetUnauthorizedMessage(await LoginAsync("locked@example.com", "Secret123456"));
 
         Assert.Equal("Invalid email or password.", unknownEmailMessage);
         Assert.Equal(unknownEmailMessage, wrongPasswordMessage);
@@ -171,7 +196,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         var user = await SeedUserAsync("ada@example.com", "Ada");
 
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
         await LockOutAsync(user.Id);
 
         var result = await RefreshAsync(login.RefreshToken);
@@ -184,7 +209,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         await SeedUserAsync("ada@example.com", "Ada");
 
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
         var refresh = AssertOkLogin(await RefreshAsync(login.RefreshToken));
 
         Assert.NotEqual(login.RefreshToken, refresh.RefreshToken);
@@ -201,7 +226,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         await SeedUserAsync("ada@example.com", "Ada");
 
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
         AssertOkLogin(await RefreshAsync(login.RefreshToken));
 
         var replay = await RefreshAsync(login.RefreshToken);
@@ -220,8 +245,8 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         await SeedUserAsync("ada@example.com", "Ada");
 
-        var sessionA = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
-        var sessionB = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var sessionA = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
+        var sessionB = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
 
         AssertOkLogin(await RefreshAsync(sessionA.RefreshToken));
 
@@ -242,7 +267,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         var user = await SeedUserAsync("ada@example.com", "Ada");
         var stampBeforeRefresh = user.SecurityStamp;
 
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
         AssertOkLogin(await RefreshAsync(login.RefreshToken));
 
         using var scope = CreateScope();
@@ -261,7 +286,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         await SeedUserAsync("ada@example.com", "Ada");
 
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
         var rotated = AssertOkLogin(await RefreshAsync(login.RefreshToken));
 
         await RefreshAsync(login.RefreshToken);
@@ -276,7 +301,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         await SeedUserAsync("ada@example.com", "Ada");
 
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
         var secondToken = AssertOkLogin(await RefreshAsync(login.RefreshToken));
         var thirdToken = AssertOkLogin(await RefreshAsync(secondToken.RefreshToken));
 
@@ -289,7 +314,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         await SeedUserAsync("ada@example.com", "Ada");
 
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
         TimeProvider.Advance(TimeSpan.FromDays(31));
 
         var result = await RefreshAsync(login.RefreshToken);
@@ -312,7 +337,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         var user = await SeedUserAsync("ada@example.com", "Ada");
 
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
         await SetUserActiveAsync(user.Id, false);
 
         var result = await RefreshAsync(login.RefreshToken);
@@ -330,7 +355,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         var user = await SeedUserAsync("ada@example.com", "Ada");
 
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
 
         using (var scope = CreateScope())
         {
@@ -362,7 +387,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         await SeedUserAsync("ada@example.com", "Ada");
 
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
         await LogoutAsync(login.RefreshToken);
 
         var result = await RefreshAsync(login.RefreshToken);
@@ -379,8 +404,8 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     {
         await SeedUserAsync("ada@example.com", "Ada");
 
-        var sessionA = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
-        var sessionB = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var sessionA = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
+        var sessionB = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
 
         await LogoutAsync(sessionA.RefreshToken);
 
@@ -397,7 +422,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     public async Task PasswordReset_InvalidatesAnOutstandingRefreshToken()
     {
         var user = await SeedUserAsync("ada@example.com", "Ada");
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
 
         using (var scope = CreateScope())
         {

@@ -58,4 +58,21 @@ public class AuthCookieOptions
     /// the same window the old refresh cookie used.
     /// </summary>
     public TimeSpan ExpireTimeSpan { get; set; } = TimeSpan.FromDays(AuthTokenDefaults.RefreshTokenExpirationDays);
+
+    /// <summary>
+    /// Whether a request whose <c>Sec-Fetch-Site</c> header reads <c>same-site</c> — a different
+    /// subdomain of the same registrable domain, such as <c>app.example.com</c> calling
+    /// <c>api.example.com</c> — is treated as same-origin for CSRF purposes.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to <see langword="false"/>: the cookie transport's default posture requires the
+    /// caller to be the exact origin the cookie was issued to, and a hostile or merely compromised
+    /// sibling subdomain is "same-site" too, so accepting it widens who can ride the session cookie.
+    /// A host that deliberately splits its browser app and API across subdomains of one registrable
+    /// domain — the <c>app.</c> / <c>api.</c> split documented for the WASM client — sets this to
+    /// <see langword="true"/> to make that deployment work; doing so relies on the antiforgery token
+    /// check alone to stop a cross-site request, since <c>Sec-Fetch-Site</c> no longer distinguishes
+    /// the two. Only turn this on when the split-origin deployment is the one actually in use.
+    /// </remarks>
+    public bool AllowSameSiteRequests { get; set; }
 }

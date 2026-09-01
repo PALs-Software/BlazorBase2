@@ -149,18 +149,17 @@ public class BlazorBaseUserServerServiceCollectionExtensionsTests
             scope.ServiceProvider.GetRequiredService<SignInManager<TestUser>>(),
             scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>(),
             scope.ServiceProvider.GetRequiredService<AuthTokenIssuer<TestUser>>(),
-            scope.ServiceProvider.GetRequiredService<TwoFactorPendingTokenService<TestUser>>(),
-            configuration)
+            scope.ServiceProvider.GetRequiredService<TwoFactorPendingTokenService<TestUser>>())
         {
-            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { RequestServices = scope.ServiceProvider } },
         };
 
-        var before = DateTime.UtcNow;
+        var before = DateTimeOffset.UtcNow;
         var result = await controller.Setup(new SetupRequest
         {
             Email = "admin@example.com",
             DisplayName = "Admin",
-            Password = "Secret123",
+            Password = "Secret123456",
         });
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);

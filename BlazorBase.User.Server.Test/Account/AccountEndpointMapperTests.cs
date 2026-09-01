@@ -73,7 +73,7 @@ public sealed class AccountEndpointMapperTests
         return host;
     }
 
-    private static async Task<TestUser> SeedUserAsync(IHost host, string email, string password = "Secret123")
+    private static async Task<TestUser> SeedUserAsync(IHost host, string email, string password = "Secret123456")
     {
         using var scope = host.Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();

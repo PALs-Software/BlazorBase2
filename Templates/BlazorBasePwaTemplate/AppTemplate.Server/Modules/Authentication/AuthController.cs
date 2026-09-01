@@ -16,8 +16,8 @@ public class AuthController(
     SignInManager<AppUser> signIn,
     RoleManager<IdentityRole> roles,
     AuthTokenIssuer<AppUser> tokenIssuer,
-    IConfiguration configuration)
-    : AuthControllerBase<AppUser>(users, signIn, roles, tokenIssuer, configuration)
+    TwoFactorPendingTokenService<AppUser> pendingTokens)
+    : AuthControllerBase<AppUser>(users, signIn, roles, tokenIssuer, pendingTokens)
 {
     protected override IReadOnlyList<string> RolesToSeed => RoleConstants.All;
 }

@@ -21,6 +21,13 @@ public abstract class BaseUserDbContext<TUser>(DbContextOptions options) : Ident
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     /// <summary>
+    /// Backs the race-safe check in <see cref="Controllers.AuthControllerBase{TUser}.Setup"/> - see
+    /// <see cref="SetupCompletionMarker"/> for why a single-row table, not the users table itself,
+    /// is what closes the race.
+    /// </summary>
+    public DbSet<SetupCompletionMarker> SetupCompletionMarkers => Set<SetupCompletionMarker>();
+
+    /// <summary>
     /// A real foreign key with cascade delete, so a deleted user cannot leave orphaned refresh-token
     /// rows behind - the deleted table's original defect.
     /// </summary>

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 
 namespace BlazorBase.User.Server.Tokens;
 
@@ -33,10 +34,11 @@ namespace BlazorBase.User.Server.Tokens;
 /// requires the host to call <c>app.UseBlazorBaseCsrf()</c> for exactly that reason — see
 /// <see cref="BlazorBaseCsrfMiddleware"/>.
 /// </remarks>
-public sealed class IdentityCookieAuthTransport(IAntiforgery antiforgery) : IAuthTokenTransport
+public sealed class IdentityCookieAuthTransport(IAntiforgery antiforgery, IOptionsMonitor<AuthCookieOptions> cookieOptions) : IAuthTokenTransport
 {
     #region Injects
     private readonly IAntiforgery Antiforgery = antiforgery;
+    private readonly IOptionsMonitor<AuthCookieOptions> CookieOptions = cookieOptions;
     #endregion
 
     public async Task<LoginResponse> WriteAsync(HttpContext httpContext, LoginResponse tokens, ClaimsPrincipal principal, CancellationToken cancellationToken = default)
@@ -68,7 +70,7 @@ public sealed class IdentityCookieAuthTransport(IAntiforgery antiforgery) : IAut
     /// </summary>
     public async Task<bool> IsRequestIntentionalAsync(HttpContext httpContext, CancellationToken cancellationToken = default)
     {
-        if (!BlazorBaseCsrfChecks.IsSameOriginRequest(httpContext))
+        if (!BlazorBaseCsrfChecks.IsSameOriginRequest(httpContext, CookieOptions.CurrentValue.AllowSameSiteRequests))
             return false;
 
         return await Antiforgery.IsRequestValidAsync(httpContext);

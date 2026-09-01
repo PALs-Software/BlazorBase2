@@ -164,7 +164,7 @@ public class AuthTokenIssuer<TUser>(
         {
             AccessToken = Options.BearerTokenProtector.Protect(CreateTicket(principal, accessExpiresUtc)),
             RefreshToken = refreshTokenValue,
-            ExpiresAt = accessExpiresUtc.UtcDateTime,
+            ExpiresAt = accessExpiresUtc,
         };
     }
 

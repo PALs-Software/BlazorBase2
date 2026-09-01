@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 
 namespace BlazorBase.User.Server.Tokens;
 
@@ -16,7 +17,9 @@ namespace BlazorBase.User.Server.Tokens;
 /// <c>Sec-Fetch-Site</c> is set by the browser and cannot be forged by page script. It also catches
 /// the case <c>SameSite</c> misses: "same site" is registrable-domain scoped, so a hostile or
 /// compromised sibling subdomain counts as same-site and its requests carry the session cookie. It is
-/// absent on older clients, which is why it cannot be the only check.
+/// absent on older clients, which is why it cannot be the only check. A same-site request only passes
+/// this half of the check when <see cref="AuthCookieOptions.AllowSameSiteRequests"/> opts into it -
+/// see that option for why the default keeps rejecting it.
 ///
 /// <see cref="IAntiforgery"/> does the token half. Its request token is data-protected and bound to
 /// the caller's identity, so a token minted for someone else does not validate. A bare random value
@@ -31,11 +34,12 @@ namespace BlazorBase.User.Server.Tokens;
 /// Safe methods pass through untouched. That is only sound while <c>GET</c> has no side effects — a
 /// rule the application owns, since no middleware can tell a reading <c>GET</c> from a writing one.
 /// </remarks>
-public sealed class BlazorBaseCsrfMiddleware(RequestDelegate next, IAntiforgery antiforgery)
+public sealed class BlazorBaseCsrfMiddleware(RequestDelegate next, IAntiforgery antiforgery, IOptionsMonitor<AuthCookieOptions> cookieOptions)
 {
     #region Injects
     private readonly RequestDelegate Next = next;
     private readonly IAntiforgery Antiforgery = antiforgery;
+    private readonly IOptionsMonitor<AuthCookieOptions> CookieOptions = cookieOptions;
     #endregion
 
     private static readonly string[] SafeMethods = [HttpMethods.Get, HttpMethods.Head, HttpMethods.Options, HttpMethods.Trace];
@@ -60,7 +64,7 @@ public sealed class BlazorBaseCsrfMiddleware(RequestDelegate next, IAntiforgery 
             return;
         }
 
-        if (!BlazorBaseCsrfChecks.IsSameOriginRequest(httpContext))
+        if (!BlazorBaseCsrfChecks.IsSameOriginRequest(httpContext, CookieOptions.CurrentValue.AllowSameSiteRequests))
         {
             httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
             return;

@@ -9,7 +9,9 @@ using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Tokens;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
@@ -37,10 +39,19 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
     /// see <see cref="BlazorBaseUserServerOptions"/>. Leave <see langword="null"/> to keep today's
     /// behavior: scheme name <see cref="IdentityConstants.BearerScheme"/>, claiming the default.
     /// </param>
+    /// <param name="configurePassword">
+    /// Applied after the framework's own password-policy defaults, inside the same
+    /// <c>AddIdentityCore</c> configuration delegate - so a host's choice always wins regardless of
+    /// whether <c>services.Configure&lt;IdentityOptions&gt;</c> is called before or after this method,
+    /// which a second, independently-ordered <c>Configure</c> call could not guarantee. Leave
+    /// <see langword="null"/> to keep the framework's own policy: length 12, a digit, a lowercase and
+    /// an uppercase letter, no symbol required.
+    /// </param>
     public static IServiceCollection AddBlazorBaseUserServer<TUser, TContext>(
         this IServiceCollection services,
         IConfiguration configuration,
-        Action<BlazorBaseUserServerOptions>? configureOptions = null)
+        Action<BlazorBaseUserServerOptions>? configureOptions = null,
+        Action<PasswordOptions>? configurePassword = null)
         where TUser : BaseUser, new()
         where TContext : BaseUserDbContext<TUser>
     {
@@ -64,8 +75,15 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
                 options.Password.RequireLowercase = true;
                 options.Password.RequireUppercase = true;
                 options.Password.RequireNonAlphanumeric = false;
-                options.Password.RequiredLength = 8;
+
+                // 12, not the ASP.NET Core default of 6: length is what actually resists guessing,
+                // and a longer minimum costs an attacker far more than another composition rule -
+                // see NIST SP 800-63B. Existing stored hashes are unaffected; this only changes what
+                // a *new* password must satisfy.
+                options.Password.RequiredLength = 12;
                 options.User.RequireUniqueEmail = true;
+
+                configurePassword?.Invoke(options.Password);
             })
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<TContext>()
@@ -123,6 +141,15 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         });
 
+        // Always registered: the rate limiter above is unconditional, so a host that never calls
+        // AddBlazorBaseForwardedHeaders is warned rather than left silently partitioning every
+        // client behind its proxy into one bucket - see BlazorBaseForwardedHeadersStartupGuardFilter.
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseForwardedHeadersStartupGuardFilter>());
+
+        // Every api/auth/* response carries a bearer token, a refresh token, or account state that
+        // must not be replayed from a shared cache or a browser back-button history entry.
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseAuthNoStoreStartupFilter>());
+
         services.AddScoped<AuthTokenIssuer<TUser>>();
         services.TryAddSingleton(typeof(TwoFactorPendingTokenService<>));
         services.TryAddScoped(typeof(IEmailSender<>), typeof(NoOpEmailSender<>));
@@ -160,6 +187,79 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
             addressBytes[byteIndex] = 0;
 
         return new IPAddress(addressBytes).ToString();
+    }
+
+    /// <summary>
+    /// Configures <see cref="ForwardedHeadersOptions"/> from <c>ForwardedHeaders:KnownProxies</c> and
+    /// <c>ForwardedHeaders:KnownNetworks</c>, and records that the choice was made so
+    /// <see cref="BlazorBaseForwardedHeadersStartupGuardFilter"/> stops warning about it. Call
+    /// before <c>app.UseForwardedHeaders()</c> whenever this app sits behind a reverse proxy - the
+    /// "BlazorBaseAuth" rate limiter and <see cref="AccessTokens.BruteForce.BruteForceDelayService"/>
+    /// both key on <c>HttpContext.Connection.RemoteIpAddress</c>, which is the proxy's own address,
+    /// identical for every client, until forwarded headers are processed.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately does not fall back to an unrestricted <see cref="ForwardedHeadersOptions.KnownIPNetworks"/>
+    /// or <see cref="ForwardedHeadersOptions.KnownProxies"/> entry when configuration supplies neither:
+    /// an unrestricted trust list lets any caller supply its own <c>X-Forwarded-For</c> value and pick
+    /// its own rate-limit partition, which is worse than today's single shared bucket, because the
+    /// attacker - not the network topology - would then choose the key. With nothing configured, this
+    /// method still registers <see cref="ForwardedHeadersOptions"/>, but with no trusted proxy or
+    /// network, so <see cref="ForwardedHeadersMiddleware"/> forwards nothing and
+    /// <c>RemoteIpAddress</c> stays exactly what it was before this method existed.
+    /// </remarks>
+    public static IServiceCollection AddBlazorBaseForwardedHeaders(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        var section = configuration.GetSection("ForwardedHeaders");
+        var knownProxies = section.GetSection("KnownProxies").Get<string[]>() ?? [];
+        var knownNetworks = section.GetSection("KnownNetworks").Get<string[]>() ?? [];
+
+        services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+            foreach (var proxy in knownProxies)
+            {
+                if (IPAddress.TryParse(proxy, out var address))
+                    options.KnownProxies.Add(address);
+            }
+
+            foreach (var network in knownNetworks)
+            {
+                if (System.Net.IPNetwork.TryParse(network, out var ipNetwork))
+                    options.KnownIPNetworks.Add(ipNetwork);
+            }
+        });
+
+        // A plain Add, not TryAdd: this must win regardless of whether it runs before or after
+        // AddBlazorBaseUserServer, and the last registration of a singleton type is the one
+        // GetService resolves.
+        services.AddSingleton(new ForwardedHeadersConfigurationMarker(knownProxies.Length > 0 || knownNetworks.Length > 0));
+
+        return services;
+    }
+
+
+    private static bool TryParseNetwork(string value, out IPAddress prefix, out int prefixLength)
+    {
+        prefix = IPAddress.None;
+        prefixLength = 0;
+
+        var parts = value.Split('/', 2);
+        if (parts.Length != 2)
+            return false;
+
+        if (!IPAddress.TryParse(parts[0], out var address))
+            return false;
+
+        if (!int.TryParse(parts[1], out var length))
+            return false;
+
+        prefix = address;
+        prefixLength = length;
+        return true;
     }
 
     /// <summary>

@@ -24,7 +24,7 @@ public sealed class TwoFactorLoginTests : IdentityServerTestBase
         var user = await SeedUserAsync("ada@example.com", "Ada");
         await EnableAuthenticatorTwoFactorAsync(user.Id);
 
-        var result = await LoginAsync("ada@example.com", "Secret123");
+        var result = await LoginAsync("ada@example.com", "Secret123456");
 
         var accepted = Assert.IsType<AcceptedResult>(result.Result);
         var body = Assert.IsType<TwoFactorRequiredResponse>(accepted.Value);
@@ -37,7 +37,7 @@ public sealed class TwoFactorLoginTests : IdentityServerTestBase
         var user = await SeedUserAsync("ada@example.com", "Ada");
         var key = await EnableAuthenticatorTwoFactorAsync(user.Id);
 
-        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123");
+        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123456");
         var code = TotpTestHelper.GenerateCode(key, DateTimeOffset.UtcNow);
 
         var result = await LoginTwoFactorAsync(pendingToken, code);
@@ -53,7 +53,7 @@ public sealed class TwoFactorLoginTests : IdentityServerTestBase
         var user = await SeedUserAsync("ada@example.com", "Ada");
         await EnableAuthenticatorTwoFactorAsync(user.Id);
 
-        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123");
+        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123456");
 
         var result = await LoginTwoFactorAsync(pendingToken, "000000");
 
@@ -66,7 +66,7 @@ public sealed class TwoFactorLoginTests : IdentityServerTestBase
         var user = await SeedUserAsync("ada@example.com", "Ada");
         await EnableAuthenticatorTwoFactorAsync(user.Id);
 
-        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123");
+        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123456");
 
         for (var attempt = 0; attempt < 5; attempt++)
             await LoginTwoFactorAsync(pendingToken, "000000");
@@ -82,7 +82,7 @@ public sealed class TwoFactorLoginTests : IdentityServerTestBase
         var user = await SeedUserAsync("ada@example.com", "Ada");
         var key = await EnableAuthenticatorTwoFactorAsync(user.Id);
 
-        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123");
+        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123456");
         var code = TotpTestHelper.GenerateCode(key, DateTimeOffset.UtcNow);
 
         TimeProvider.Advance(TimeSpan.FromMinutes(6));
@@ -107,10 +107,10 @@ public sealed class TwoFactorLoginTests : IdentityServerTestBase
             recoveryCode = codes!.First();
         }
 
-        var firstPendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123");
+        var firstPendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123456");
         AssertOkLogin(await LoginTwoFactorAsync(firstPendingToken, recoveryCode, isRecoveryCode: true));
 
-        var secondPendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123");
+        var secondPendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123456");
         var secondAttempt = await LoginTwoFactorAsync(secondPendingToken, recoveryCode, isRecoveryCode: true);
 
         Assert.IsType<UnauthorizedObjectResult>(secondAttempt.Result);
@@ -127,7 +127,7 @@ public sealed class TwoFactorLoginTests : IdentityServerTestBase
         var user = await SeedUserAsync("ada@example.com", "Ada");
         await EnableAuthenticatorTwoFactorAsync(user.Id);
 
-        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123");
+        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123456");
 
         using var scope = CreateScope();
         var bearerTokenOptions = scope.ServiceProvider
@@ -144,7 +144,7 @@ public sealed class TwoFactorLoginTests : IdentityServerTestBase
     public async Task AccessToken_DoesNotUnprotectAsAPendingToken()
     {
         await SeedUserAsync("ada@example.com", "Ada");
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123456"));
 
         using var scope = CreateScope();
         var pendingTokenService = scope.ServiceProvider.GetRequiredService<TwoFactorPendingTokenService<TestUser>>();
@@ -162,7 +162,7 @@ public sealed class TwoFactorLoginTests : IdentityServerTestBase
         var user = await SeedUserAsync("ada@example.com", "Ada");
         await EnableAuthenticatorTwoFactorAsync(user.Id);
 
-        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123");
+        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123456");
 
         using var scope = CreateScope();
         var result = await CreateAuthController(scope).Refresh(new RefreshTokenRequest { RefreshToken = pendingToken });

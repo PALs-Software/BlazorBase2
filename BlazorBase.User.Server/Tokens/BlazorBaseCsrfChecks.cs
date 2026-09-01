@@ -13,15 +13,22 @@ internal static class BlazorBaseCsrfChecks
     /// <summary>
     /// <c>none</c> covers a request the user initiated directly (typing a URL, a bookmark), which no
     /// other site can cause. An absent header means a client that does not send fetch metadata, and
-    /// is left to the antiforgery token check rather than blocked outright.
+    /// is left to the antiforgery token check rather than blocked outright. <c>same-site</c> — a
+    /// different subdomain of the same registrable domain — only passes when
+    /// <paramref name="allowSameSiteRequests"/> opts into it; see
+    /// <see cref="AuthCookieOptions.AllowSameSiteRequests"/> for why that is not the default.
     /// </summary>
-    public static bool IsSameOriginRequest(HttpContext httpContext)
+    public static bool IsSameOriginRequest(HttpContext httpContext, bool allowSameSiteRequests)
     {
         var fetchSite = httpContext.Request.Headers["Sec-Fetch-Site"].ToString();
 
         if (string.IsNullOrEmpty(fetchSite))
             return true;
 
-        return fetchSite is "same-origin" or "none";
+        if (fetchSite is "same-origin" or "none")
+            return true;
+
+        return allowSameSiteRequests && fetchSite == "same-site";
     }
 }
+

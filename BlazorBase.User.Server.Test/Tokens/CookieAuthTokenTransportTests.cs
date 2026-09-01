@@ -80,7 +80,9 @@ public sealed class CookieAuthTokenTransportTests
         TimeSpan? securityStampValidationInterval = null,
         TimeSpan? cookieExpireTimeSpan = null,
         bool useCsrfMiddleware = true,
-        bool useControllers = false)
+        bool useControllers = false,
+        bool allowSameSiteRequests = false,
+        bool claimDefaultScheme = true)
     {
         var connection = new SqliteConnection("DataSource=:memory:");
         connection.Open();
@@ -92,6 +94,7 @@ public sealed class CookieAuthTokenTransportTests
                 ["ExternalAuthSettings:Audiences:0"]    = "example-audience",
                 // The test server speaks plain HTTP, so a Secure cookie would never come back.
                 ["AuthCookies:SecureOnly"]              = "false",
+                ["AuthCookies:AllowSameSiteRequests"]   = allowSameSiteRequests ? "true" : "false",
             })
             .Build();
 
@@ -106,7 +109,10 @@ public sealed class CookieAuthTokenTransportTests
                     services.AddRouting();
                     services.AddSingleton<IConfiguration>(configuration);
                     services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(connection));
-                    services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration);
+                    services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration, options =>
+                    {
+                        options.ClaimDefaultScheme = claimDefaultScheme;
+                    });
                     services.AddBlazorBaseExternalAuth(configuration);
 
                     if (timeProvider is not null)
@@ -367,6 +373,88 @@ public sealed class CookieAuthTokenTransportTests
         request.Headers.Add("Cookie", cookieHeader);
         request.Headers.Add(CsrfHeader, token);
         request.Headers.Add("Sec-Fetch-Site", "cross-site");
+
+        var response = await host.GetTestClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// The default posture: a split-origin deployment (<c>app.</c> / <c>api.</c>) is same-site, not
+    /// same-origin, and is refused unless the host explicitly opts in - see
+    /// <see cref="AuthCookieOptions.AllowSameSiteRequests"/>.
+    /// </summary>
+    [Fact]
+    public async Task A_same_site_request_is_refused_by_default()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true, allowSameSiteRequests: false);
+        using var _host = host;
+
+        var (token, cookieHeader) = await GetCsrfAsync(host, string.Empty);
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/guarded");
+        request.Headers.Add("Cookie", cookieHeader);
+        request.Headers.Add(CsrfHeader, token);
+        request.Headers.Add("Sec-Fetch-Site", "same-site");
+
+        var response = await host.GetTestClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// With the split-origin deployment explicitly opted into, a same-site request with a valid
+    /// antiforgery token passes - the token check is what still stands guard.
+    /// </summary>
+    [Fact]
+    public async Task A_same_site_request_passes_when_explicitly_allowed()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true, allowSameSiteRequests: true);
+        using var _host = host;
+
+        var (token, cookieHeader) = await GetCsrfAsync(host, string.Empty);
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/guarded");
+        request.Headers.Add("Cookie", cookieHeader);
+        request.Headers.Add(CsrfHeader, token);
+        request.Headers.Add("Sec-Fetch-Site", "same-site");
+
+        var response = await host.GetTestClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Reproduces the defect exactly: a host that sets <c>ClaimDefaultScheme = false</c> and
+    /// registers no <c>DefaultForbidScheme</c> - the PlatformSubscriptions configuration - used to
+    /// get an <see cref="InvalidOperationException"/> out of <c>Forbid()</c> instead of a response,
+    /// because a scheme-less <c>Forbid()</c> has to ask the authentication middleware which scheme to
+    /// challenge and there is no default to ask for. The controller now answers the status code
+    /// directly instead of asking authentication to pick a scheme.
+    /// </summary>
+    /// <remarks>
+    /// The request carries a bearer header so <see cref="BlazorBaseCsrfMiddleware"/> - which exempts
+    /// any request carrying <c>Authorization</c> - lets it through to the controller. Without one, the
+    /// middleware itself would answer 403 first and the controller's own
+    /// <c>IsRequestIntentionalAsync</c> check - the one that used to call <c>Forbid()</c> - would
+    /// never run. <see cref="IdentityCookieAuthTransport.IsRequestIntentionalAsync"/> does not carry
+    /// that same exemption, so it still answers <see langword="false"/> for a request with no
+    /// antiforgery proof, exactly reproducing the path that used to throw.
+    /// </remarks>
+    [Fact]
+    public async Task Logout_without_proof_of_intent_answers_403_instead_of_throwing_when_no_forbid_scheme_is_configured()
+    {
+        var (host, _) = await StartHostAsync(
+            useCookies: true,
+            useControllers: true,
+            claimDefaultScheme: false);
+        using var _host = host;
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/logout")
+        {
+            Content = JsonContent.Create(new RefreshTokenRequest { RefreshToken = "irrelevant" }),
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "not-a-valid-token");
 
         var response = await host.GetTestClient().SendAsync(request);
 

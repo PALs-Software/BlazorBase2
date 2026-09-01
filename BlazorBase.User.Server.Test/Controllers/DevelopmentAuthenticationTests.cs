@@ -138,7 +138,7 @@ public sealed class DevelopmentAuthenticationTests : IdentityServerTestBase
             var login = await CreateAuthController(loginScope).Login(new LoginRequest
             {
                 Email = "someone.else@example.com",
-                Password = "Secret123",
+                Password = "Secret123456",
             });
 
             otherUsersLogin = AssertOkLogin(login);
@@ -217,7 +217,7 @@ public sealed class DevelopmentAuthenticationTests : IdentityServerTestBase
         var userManager = verifyScope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
         var user = await userManager.FindByEmailAsync(DevelopmentEmail);
 
-        Assert.False(await userManager.CheckPasswordAsync(user!, "Secret123"));
+        Assert.False(await userManager.CheckPasswordAsync(user!, "Secret123456"));
         Assert.False(await userManager.CheckPasswordAsync(user!, DevelopmentEmail));
         Assert.False(await userManager.CheckPasswordAsync(user!, "developer"));
     }

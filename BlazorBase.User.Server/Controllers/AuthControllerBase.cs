@@ -1,4 +1,5 @@
 using BlazorBase.User.Models;
+using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Tokens;
@@ -20,8 +21,7 @@ public abstract class AuthControllerBase<TUser>(
     SignInManager<TUser> signInManager,
     RoleManager<IdentityRole> roleManager,
     AuthTokenIssuer<TUser> tokenIssuer,
-    TwoFactorPendingTokenService<TUser> pendingTokenService,
-    IConfiguration configuration) : ControllerBase
+    TwoFactorPendingTokenService<TUser> pendingTokenService) : ControllerBase
     where TUser : BaseUser, new()
 {
     #region Injects
@@ -30,7 +30,6 @@ public abstract class AuthControllerBase<TUser>(
     private readonly RoleManager<IdentityRole> RoleManager = roleManager;
     private readonly AuthTokenIssuer<TUser> TokenIssuer = tokenIssuer;
     private readonly TwoFactorPendingTokenService<TUser> PendingTokenService = pendingTokenService;
-    private readonly IConfiguration Configuration = configuration;
     #endregion
 
 
@@ -59,6 +58,14 @@ public abstract class AuthControllerBase<TUser>(
     /// <summary>
     /// Creates the first admin user. Only works when no users exist.
     /// </summary>
+    /// <remarks>
+    /// <c>UserManager.Users.AnyAsync()</c> below is a cheap early exit, not the race guard: two
+    /// concurrent requests can both observe no users and both reach <see cref="UserManager{TUser}.CreateAsync(TUser, string)"/>.
+    /// The guard is <see cref="SetupCompletionMarker"/>'s primary key - inserted in the same
+    /// transaction as the new user, so a losing request fails on a constraint violation before it
+    /// ever creates an account, and wins under any number of application instances because the
+    /// database enforces it, not this process.
+    /// </remarks>
     [HttpPost("setup")]
     [AllowAnonymous]
     [EnableRateLimiting("BlazorBaseAuth")]
@@ -70,6 +77,19 @@ public abstract class AuthControllerBase<TUser>(
         if (await UserManager.Users.AnyAsync())
             return Conflict(new { message = "System is already set up." });
 
+        var dbContext = HttpContext.RequestServices.GetRequiredService<BaseUserDbContext<TUser>>();
+        await using var transaction = await dbContext.Database.BeginTransactionAsync();
+
+        dbContext.SetupCompletionMarkers.Add(new SetupCompletionMarker());
+        try
+        {
+            await dbContext.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            return Conflict(new { message = "System is already set up." });
+        }
+
         var user = new TUser
         {
             UserName = request.Email,
@@ -79,12 +99,17 @@ public abstract class AuthControllerBase<TUser>(
 
         var result = await UserManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)
+        {
+            await transaction.RollbackAsync();
             return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+        }
 
         await EnsureRolesExist();
         await UserManager.AddToRoleAsync(user, "Admin");
 
         await OnAfterUserCreatedAsync(user, request);
+
+        await transaction.CommitAsync();
 
         return Ok(await GenerateTokenResponse(user));
     }
@@ -220,7 +245,7 @@ public abstract class AuthControllerBase<TUser>(
     public async Task<ActionResult<LoginResponse>> Refresh([FromBody] RefreshTokenRequest request)
     {
         if (HttpContext is not null && !await ResolveTokenTransport().IsRequestIntentionalAsync(HttpContext))
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
 
         var presentedToken = await ResolveRefreshTokenAsync(request);
 
@@ -278,10 +303,11 @@ public abstract class AuthControllerBase<TUser>(
     /// </remarks>
     [HttpPost("logout")]
     [AllowAnonymous]
+    [EnableRateLimiting("BlazorBaseAuth")]
     public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
     {
         if (HttpContext is not null && !await ResolveTokenTransport().IsRequestIntentionalAsync(HttpContext))
-            return Forbid();
+            return StatusCode(StatusCodes.Status403Forbidden);
 
         var presentedToken = await ResolveRefreshTokenAsync(request);
 

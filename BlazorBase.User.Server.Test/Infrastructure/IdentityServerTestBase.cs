@@ -122,8 +122,7 @@ public abstract class IdentityServerTestBase : IDisposable
             provider.GetRequiredService<SignInManager<TestUser>>(),
             provider.GetRequiredService<RoleManager<IdentityRole>>(),
             provider.GetRequiredService<AuthTokenIssuer<TestUser>>(),
-            provider.GetRequiredService<TwoFactorPendingTokenService<TestUser>>(),
-            Configuration);
+            provider.GetRequiredService<TwoFactorPendingTokenService<TestUser>>());
 
         // RequestServices, because the controller resolves optional services (the development
         // session, the logger) from the request rather than its constructor.
@@ -152,7 +151,7 @@ public abstract class IdentityServerTestBase : IDisposable
         string displayName,
         string role = "User",
         bool isActive = true,
-        string password = "Secret123")
+        string password = "Secret123456")
     {
         using var scope = CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();

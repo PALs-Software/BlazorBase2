@@ -95,6 +95,17 @@ namespace AppTemplate.Server.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "SetupCompletionMarkers",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SetupCompletionMarkers", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "RefreshTokens",
                 columns: table => new
                 {
@@ -313,6 +324,9 @@ namespace AppTemplate.Server.Migrations
 
             migrationBuilder.DropTable(
                 name: "Notes");
+
+            migrationBuilder.DropTable(
+                name: "SetupCompletionMarkers");
 
             migrationBuilder.DropTable(
                 name: "RefreshTokens");

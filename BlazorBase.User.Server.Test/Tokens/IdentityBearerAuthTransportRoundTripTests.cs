@@ -87,7 +87,7 @@ public sealed class IdentityBearerAuthTransportRoundTripTests
         var tokenIssuer = scope.ServiceProvider.GetRequiredService<AuthTokenIssuer<TestUser>>();
 
         var user = new TestUser { UserName = "round-trip@example.test", Email = "round-trip@example.test" };
-        var creationResult = await userManager.CreateAsync(user, "Secret123");
+        var creationResult = await userManager.CreateAsync(user, "Secret123456");
         Assert.True(creationResult.Succeeded, string.Join("; ", creationResult.Errors.Select(e => e.Description)));
 
         var principal = await signInManager.CreateUserPrincipalAsync(user);
