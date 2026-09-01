@@ -63,6 +63,7 @@ public static class ExternalAuthRedirectEndpointMapper
                 string? returnUrl,
                 IExternalUserResolver<TUser> userResolver,
                 UserManager<TUser> userManager,
+                SignInManager<TUser> signInManager,
                 TokenService<TUser> tokenService,
                 BaseUserDbContext<TUser> dbContext,
                 IAuthTokenTransport tokenTransport,
@@ -83,8 +84,9 @@ public static class ExternalAuthRedirectEndpointMapper
 
                 var roles  = await userManager.GetRolesAsync(resolution.User);
                 var tokens = await tokenService.IssueTokenPairAsync(resolution.User, roles, dbContext);
+                var principal = await signInManager.CreateUserPrincipalAsync(resolution.User);
 
-                await tokenTransport.WriteAsync(httpContext, tokens, cancellationToken);
+                await tokenTransport.WriteAsync(httpContext, tokens, principal, cancellationToken);
 
                 // The external session has done its job; leaving it behind means two overlapping
                 // sessions with different lifetimes and only one of them revocable.

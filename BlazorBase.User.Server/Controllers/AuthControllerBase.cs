@@ -311,7 +311,8 @@ public abstract class AuthControllerBase<TUser>(
         if (HttpContext is null)
             return tokens;
 
-        return await ResolveTokenTransport().WriteAsync(HttpContext, tokens);
+        var principal = await SignInManager.CreateUserPrincipalAsync(user);
+        return await ResolveTokenTransport().WriteAsync(HttpContext, tokens, principal);
     }
 
     /// <summary>

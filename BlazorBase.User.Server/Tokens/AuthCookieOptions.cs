@@ -1,19 +1,31 @@
+using BlazorBase.User.Server.Services;
 using Microsoft.AspNetCore.Http;
 
 namespace BlazorBase.User.Server.Tokens;
 
 /// <summary>
-/// Cookie names, lifetimes and attributes used by <see cref="CookieAuthTokenTransport"/>.
+/// Cookie name, lifetime and attributes for the Identity application-session cookie set by
+/// <see cref="IdentityCookieAuthTransport"/>.
 /// </summary>
 public class AuthCookieOptions
 {
     public const string SectionName = "AuthCookies";
 
-    /// <summary>Cookie carrying the access token. Read by the JWT handler when no bearer header is present.</summary>
-    public string AccessTokenCookieName { get; set; } = "bb_access";
+    /// <summary>
+    /// Name of the session cookie. Leave unset to fall back to the default described on
+    /// <see cref="EffectiveCookieName"/>.
+    /// </summary>
+    public string? CookieName { get; set; }
 
-    /// <summary>Cookie carrying the refresh token.</summary>
-    public string RefreshTokenCookieName { get; set; } = "bb_refresh";
+    /// <summary>
+    /// The cookie name actually applied: <see cref="CookieName"/> when set, otherwise
+    /// <c>__Host-bb_session</c> when <see cref="SecureOnly"/> is on or <c>bb_session</c> otherwise.
+    /// The <c>__Host-</c> prefix requires <c>Secure</c>, <c>Path=/</c> and no <c>Domain</c>, so it must
+    /// not be applied on plain-HTTP local development.
+    /// </summary>
+    public string EffectiveCookieName => string.IsNullOrEmpty(CookieName)
+        ? (SecureOnly ? "__Host-bb_session" : "bb_session")
+        : CookieName;
 
     /// <summary>
     /// Header the client sends the antiforgery request token in. Obtained from
@@ -23,20 +35,14 @@ public class AuthCookieOptions
     public string CsrfHeaderName { get; set; } = "X-CSRF-TOKEN";
 
     /// <summary>
-    /// Path the refresh cookie is scoped to, so it is not attached to every API call. Must match the
-    /// route the refresh endpoint is actually mapped at.
-    /// </summary>
-    public string RefreshCookiePath { get; set; } = "/api/auth";
-
-    /// <summary>
-    /// Whether cookies are marked <c>Secure</c>. Leave <see langword="true"/>; the only reason to turn
-    /// it off is plain-HTTP local development, and doing so in a deployed environment sends the
+    /// Whether the cookie is marked <c>Secure</c>. Leave <see langword="true"/>; the only reason to
+    /// turn it off is plain-HTTP local development, and doing so in a deployed environment sends the
     /// session over the wire in clear.
     /// </summary>
     public bool SecureOnly { get; set; } = true;
 
     /// <summary>
-    /// <c>SameSite</c> mode for the session cookies.
+    /// <c>SameSite</c> mode for the session cookie.
     /// </summary>
     /// <remarks>
     /// <see cref="SameSiteMode.Lax"/> on purpose, and <see cref="SameSiteMode.Strict"/> is the wrong
@@ -47,9 +53,9 @@ public class AuthCookieOptions
     public SameSiteMode SameSite { get; set; } = SameSiteMode.Lax;
 
     /// <summary>
-    /// How long the refresh cookie survives in the browser. Defaults to the configured refresh-token
-    /// lifetime; the server-side token remains the authority either way, so a stale cookie only ever
-    /// results in a rejected rotation, never in extended access.
+    /// How long the session survives without activity, refreshed on every request via sliding
+    /// expiration — the mechanism the old JWT-in-a-cookie transport had no equivalent for. Defaults to
+    /// the same window the old refresh cookie used.
     /// </summary>
-    public int? RefreshCookieDays { get; set; }
+    public TimeSpan ExpireTimeSpan { get; set; } = TimeSpan.FromDays(JwtSettingsDefaults.RefreshTokenExpirationDays);
 }

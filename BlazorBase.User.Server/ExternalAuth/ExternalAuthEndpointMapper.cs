@@ -35,6 +35,7 @@ public static class ExternalAuthEndpointMapper
                 IExternalTokenValidator tokenValidator,
                 IExternalUserResolver<TUser> userResolver,
                 UserManager<TUser> userManager,
+                SignInManager<TUser> signInManager,
                 TokenService<TUser> tokenService,
                 BaseUserDbContext<TUser> dbContext,
                 IAuthTokenTransport tokenTransport,
@@ -53,7 +54,8 @@ public static class ExternalAuthEndpointMapper
 
                 var roles = await userManager.GetRolesAsync(resolution.User);
                 var tokens = await tokenService.IssueTokenPairAsync(resolution.User, roles, dbContext);
-                var response = await tokenTransport.WriteAsync(httpContext, tokens, cancellationToken);
+                var principal = await signInManager.CreateUserPrincipalAsync(resolution.User);
+                var response = await tokenTransport.WriteAsync(httpContext, tokens, principal, cancellationToken);
 
                 return Results.Ok(response);
             })

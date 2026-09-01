@@ -23,16 +23,30 @@ using Xunit;
 namespace BlazorBase.User.Server.Test.Tokens;
 
 /// <summary>
-/// End-to-end coverage for the cookie (backend-for-frontend) token transport: the token pair leaves
-/// as <c>HttpOnly</c> cookies and not in the body, the access cookie authenticates a later request, a
-/// presented bearer header still wins so a native client is unaffected, and the CSRF filter refuses a
-/// state-changing request that cannot prove it came from the application itself.
+/// End-to-end coverage for the Identity cookie (backend-for-frontend) token transport: the token pair
+/// leaves as an <c>HttpOnly</c> session cookie and not in the body, the session cookie authenticates a
+/// later request, a presented bearer header still wins so a native client is unaffected, the CSRF
+/// filter refuses a state-changing request that cannot prove it came from the application itself, the
+/// session survives past the old 15-minute access-token lifetime through sliding expiration, and a
+/// rotated security stamp invalidates an existing session.
 /// </summary>
 public sealed class CookieAuthTokenTransportTests
 {
-    private const string AccessCookie  = "bb_access";
-    private const string RefreshCookie = "bb_refresh";
+    private const string SessionCookie = "bb_session";
     private const string CsrfHeader    = "X-CSRF-TOKEN";
+
+    /// <summary>
+    /// A <see cref="TimeProvider"/> a test advances by hand, so the two time-dependent findings this
+    /// transport closes can be proven without a real wall-clock wait.
+    /// </summary>
+    private sealed class ManualTimeProvider : TimeProvider
+    {
+        private DateTimeOffset _utcNow = DateTimeOffset.UtcNow;
+
+        public override DateTimeOffset GetUtcNow() => _utcNow;
+
+        public void Advance(TimeSpan delta) => _utcNow += delta;
+    }
 
     private sealed class StubExternalTokenValidator : IExternalTokenValidator
     {
@@ -60,7 +74,11 @@ public sealed class CookieAuthTokenTransportTests
         }
     }
 
-    private static async Task<(IHost Host, StubExternalTokenValidator Validator)> StartHostAsync(bool useCookies)
+    private static async Task<(IHost Host, StubExternalTokenValidator Validator)> StartHostAsync(
+        bool useCookies,
+        TimeProvider? timeProvider = null,
+        TimeSpan? securityStampValidationInterval = null,
+        TimeSpan? cookieExpireTimeSpan = null)
     {
         var connection = new SqliteConnection("DataSource=:memory:");
         connection.Open();
@@ -92,8 +110,20 @@ public sealed class CookieAuthTokenTransportTests
                     services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration);
                     services.AddBlazorBaseExternalAuth(configuration);
 
+                    if (timeProvider is not null)
+                        services.AddSingleton(timeProvider);
+
                     if (useCookies)
-                        services.AddBlazorBaseCookieAuthTokens(configuration);
+                    {
+                        services.AddBlazorBaseCookieAuthTokens(configuration, configureOptions: options =>
+                        {
+                            if (cookieExpireTimeSpan is not null)
+                                options.ExpireTimeSpan = cookieExpireTimeSpan.Value;
+                        });
+                    }
+
+                    if (securityStampValidationInterval is not null)
+                        services.PostConfigure<SecurityStampValidatorOptions>(o => o.ValidationInterval = securityStampValidationInterval.Value);
 
                     services.RemoveAll(typeof(IExternalTokenValidator));
                     services.AddSingleton<IExternalTokenValidator>(validator);
@@ -113,6 +143,11 @@ public sealed class CookieAuthTokenTransportTests
                                  .RequireAuthorization();
                         endpoints.MapPost("/guarded", () => Results.Ok("written"))
                                  .RequireBlazorBaseCsrf();
+                        endpoints.MapPost("/logout", async (HttpContext context, IAuthTokenTransport transport) =>
+                        {
+                            await transport.ClearAsync(context);
+                            return Results.NoContent();
+                        });
                     });
                 });
             })
@@ -157,7 +192,7 @@ public sealed class CookieAuthTokenTransportTests
     }
 
     [Fact]
-    public async Task The_token_pair_leaves_as_cookies_and_not_in_the_body()
+    public async Task The_token_pair_leaves_as_a_session_cookie_and_not_in_the_body()
     {
         var (host, _) = await StartHostAsync(useCookies: true);
         using var _host = host;
@@ -171,13 +206,12 @@ public sealed class CookieAuthTokenTransportTests
         Assert.Empty(body.RefreshToken);
         Assert.NotEqual(default, body.ExpiresAt);
 
-        var cookies = ReadCookies(await ExchangeAsync(host));
-        Assert.True(cookies.ContainsKey(AccessCookie));
-        Assert.True(cookies.ContainsKey(RefreshCookie));
+        var cookies = ReadCookies(response);
+        Assert.True(cookies.ContainsKey(SessionCookie));
     }
 
     [Fact]
-    public async Task The_session_cookies_are_marked_HttpOnly()
+    public async Task The_session_cookie_is_marked_HttpOnly()
     {
         var (host, _) = await StartHostAsync(useCookies: true);
         using var _host = host;
@@ -185,15 +219,14 @@ public sealed class CookieAuthTokenTransportTests
         var response = await ExchangeAsync(host);
         var setCookies = response.Headers.GetValues("Set-Cookie").ToList();
 
-        Assert.Contains(setCookies, c => c.StartsWith($"{AccessCookie}=", StringComparison.Ordinal) && c.Contains("httponly", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(setCookies, c => c.StartsWith($"{RefreshCookie}=", StringComparison.Ordinal) && c.Contains("httponly", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(setCookies, c => c.StartsWith($"{SessionCookie}=", StringComparison.Ordinal) && c.Contains("httponly", StringComparison.OrdinalIgnoreCase));
 
         // The antiforgery token travels in the session response body, so no readable cookie is set.
         Assert.DoesNotContain(setCookies, c => c.StartsWith("XSRF-TOKEN=", StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task The_access_cookie_authenticates_a_later_request()
+    public async Task The_session_cookie_authenticates_a_later_request()
     {
         var (host, _) = await StartHostAsync(useCookies: true);
         using var _host = host;
@@ -202,7 +235,7 @@ public sealed class CookieAuthTokenTransportTests
 
         var client = host.GetTestClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "/protected");
-        request.Headers.Add("Cookie", $"{AccessCookie}={cookies[AccessCookie]}");
+        request.Headers.Add("Cookie", $"{SessionCookie}={cookies[SessionCookie]}");
 
         var response = await client.SendAsync(request);
 
@@ -223,7 +256,7 @@ public sealed class CookieAuthTokenTransportTests
 
         var client = host.GetTestClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "/protected");
-        request.Headers.Add("Cookie", $"{AccessCookie}={cookies[AccessCookie]}");
+        request.Headers.Add("Cookie", $"{SessionCookie}={cookies[SessionCookie]}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "not-a-valid-token");
 
         var response = await client.SendAsync(request);
@@ -363,8 +396,9 @@ public sealed class CookieAuthTokenTransportTests
     }
 
     /// <summary>
-    /// The client cannot decode an <c>HttpOnly</c> token, so the session endpoint is its only way to
-    /// learn its own claims. This walks the whole chain: cookie in, JWT read from it, claims out.
+    /// The client cannot decode an <c>HttpOnly</c> session cookie, so the session endpoint is its only
+    /// way to learn its own claims. This walks the whole chain: cookie in, principal read from it,
+    /// claims out.
     /// </summary>
     [Fact]
     public async Task The_session_endpoint_reports_the_claims_behind_the_cookie()
@@ -375,7 +409,7 @@ public sealed class CookieAuthTokenTransportTests
         var cookies = ReadCookies(await ExchangeAsync(host));
 
         var request = new HttpRequestMessage(HttpMethod.Get, "/api/auth/session");
-        request.Headers.Add("Cookie", $"{AccessCookie}={cookies[AccessCookie]}");
+        request.Headers.Add("Cookie", $"{SessionCookie}={cookies[SessionCookie]}");
 
         var response = await host.GetTestClient().SendAsync(request);
         response.EnsureSuccessStatusCode();
@@ -398,6 +432,98 @@ public sealed class CookieAuthTokenTransportTests
         var session = await response.Content.ReadFromJsonAsync<AuthSessionResponse>();
         Assert.NotNull(session);
         Assert.False(session.IsAuthenticated);
-        Assert.Empty(session.Claims);
+    }
+
+    [Fact]
+    public async Task Logout_clears_the_session_cookie()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true);
+        using var _host = host;
+
+        var cookies = ReadCookies(await ExchangeAsync(host));
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/logout");
+        request.Headers.Add("Cookie", $"{SessionCookie}={cookies[SessionCookie]}");
+
+        var response = await host.GetTestClient().SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var clearedCookies = ReadCookies(response);
+        Assert.True(clearedCookies.ContainsKey(SessionCookie));
+        Assert.Empty(clearedCookies[SessionCookie]);
+
+        var setCookieHeader = response.Headers.GetValues("Set-Cookie").Single(c => c.StartsWith($"{SessionCookie}=", StringComparison.Ordinal));
+        Assert.Contains("expires=", setCookieHeader, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The exact failure mode of finding #1: the old JWT-in-a-cookie transport had no refresh path, so
+    /// every request 401'd once 15 minutes had passed since login, no matter how active the caller
+    /// was. Sliding expiration renews the cookie on every request instead, so a caller who keeps
+    /// visiting every 10 minutes is still signed in at the 20-minute mark that used to be unreachable —
+    /// driven by a controllable clock rather than a real wall-clock wait.
+    /// </summary>
+    [Fact]
+    public async Task The_session_survives_past_the_old_15_minute_access_token_lifetime_through_sliding_expiration()
+    {
+        var clock = new ManualTimeProvider();
+
+        var (host, _) = await StartHostAsync(useCookies: true, timeProvider: clock, cookieExpireTimeSpan: TimeSpan.FromMinutes(15));
+        using var _host = host;
+
+        var sessionCookie = ReadCookies(await ExchangeAsync(host))[SessionCookie];
+        var client = host.GetTestClient();
+
+        for (var minute = 0; minute < 3; minute++)
+        {
+            clock.Advance(TimeSpan.FromMinutes(10));
+
+            var request = new HttpRequestMessage(HttpMethod.Get, "/protected");
+            request.Headers.Add("Cookie", $"{SessionCookie}={sessionCookie}");
+
+            var response = await client.SendAsync(request);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+            // Sliding expiration only reissues the cookie once past half its lifetime; keep whichever
+            // value is current so the next iteration authenticates with a cookie that is still fresh.
+            if (ReadCookies(response).TryGetValue(SessionCookie, out var renewed))
+                sessionCookie = renewed;
+        }
+    }
+
+    /// <summary>
+    /// The exact failure mode of finding #2: the old transport carried no security stamp, so
+    /// deactivating a user or rotating a role had no effect until the token expired on its own.
+    /// <see cref="SecurityStampValidatorOptions.ValidationInterval"/> at zero validates on every
+    /// request, so the rotated stamp is caught on the very next call — deterministic, no wall-clock
+    /// wait required.
+    /// </summary>
+    [Fact]
+    public async Task Rotating_the_users_security_stamp_invalidates_an_existing_session()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true, securityStampValidationInterval: TimeSpan.Zero);
+        using var _host = host;
+
+        var sessionCookie = ReadCookies(await ExchangeAsync(host))[SessionCookie];
+        var client = host.GetTestClient();
+
+        var beforeRotation = new HttpRequestMessage(HttpMethod.Get, "/protected");
+        beforeRotation.Headers.Add("Cookie", $"{SessionCookie}={sessionCookie}");
+        Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(beforeRotation)).StatusCode);
+
+        using (var scope = host.Services.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
+            var user = await userManager.FindByNameAsync("known-subject");
+            Assert.NotNull(user);
+            var rotation = await userManager.UpdateSecurityStampAsync(user!);
+            Assert.True(rotation.Succeeded);
+        }
+
+        var afterRotation = new HttpRequestMessage(HttpMethod.Get, "/protected");
+        afterRotation.Headers.Add("Cookie", $"{SessionCookie}={sessionCookie}");
+
+        var response = await client.SendAsync(afterRotation);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 }

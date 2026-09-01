@@ -6,6 +6,7 @@ using BlazorBase.User.Server.Configuration;
 using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
+using BlazorBase.User.Server.Tokens;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
@@ -23,6 +24,69 @@ namespace BlazorBase.User.Server.Test.Extensions;
 
 public class BlazorBaseUserServerServiceCollectionExtensionsTests
 {
+    /// <summary>
+    /// A host that dispatches with its own policy scheme sets <c>ClaimDefaultScheme = false</c>
+    /// precisely so nothing else takes the default. Opting into cookies must respect that, or the
+    /// host's scheme stops being consulted and every request authenticates against the wrong one.
+    /// </summary>
+    [Fact]
+    public void AddBlazorBaseCookieAuthTokens_LeavesTheDefaultScheme_WhenTheHostKeptItsOwn()
+    {
+        using var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+
+        var configuration = MinimalJwtConfiguration();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDataProtection();
+        services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(connection));
+        services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration, options =>
+        {
+            options.SchemeName = "HostJwt";
+            options.ClaimDefaultScheme = false;
+        });
+        services.AddBlazorBaseCookieAuthTokens(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var authenticationOptions = provider.GetRequiredService<IOptions<AuthenticationOptions>>().Value;
+
+        Assert.Null(authenticationOptions.DefaultAuthenticateScheme);
+        Assert.Null(authenticationOptions.DefaultChallengeScheme);
+    }
+
+    [Fact]
+    public void AddBlazorBaseCookieAuthTokens_ClaimsTheDefaultScheme_WhenTheHostDidNotOptOut()
+    {
+        using var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+
+        var configuration = MinimalJwtConfiguration();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDataProtection();
+        services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(connection));
+        services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration);
+        services.AddBlazorBaseCookieAuthTokens(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var authenticationOptions = provider.GetRequiredService<IOptions<AuthenticationOptions>>().Value;
+
+        Assert.Equal(BlazorBaseAuthTokenTransportExtensions.BearerOrCookieScheme, authenticationOptions.DefaultAuthenticateScheme);
+        Assert.Equal(BlazorBaseAuthTokenTransportExtensions.BearerOrCookieScheme, authenticationOptions.DefaultChallengeScheme);
+    }
+
+    private static IConfiguration MinimalJwtConfiguration() =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["JwtSettings:Secret"] = "blazorbase-test-signing-secret-key-0123456789-abcdef",
+                ["JwtSettings:Issuer"] = "BlazorBase.User.Server.Test",
+                ["JwtSettings:Audience"] = "BlazorBase.User.Server.Test.Audience",
+            })
+            .Build();
+
     [Fact]
     public void AddBlazorBaseUserServer_ResolvesUserModelDataProvider_WithBridgedDbContext()
     {

@@ -74,6 +74,12 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
             // One claim set for today's JWT and any later cookie sign-in alike.
             .AddClaimsPrincipalFactory<BlazorBaseUserClaimsPrincipalFactory<TUser>>();
 
+        // AddIdentityCore().AddSignInManager() does not register these - only the full
+        // AddIdentity<TUser, TRole>() does. Without them, AddIdentityCookies()'s OnValidatePrincipal
+        // event throws the first time an authenticated request resolves ISecurityStampValidator from DI.
+        services.TryAddScoped<ISecurityStampValidator, SecurityStampValidator<TUser>>();
+        services.TryAddScoped<ITwoFactorSecurityStampValidator, TwoFactorSecurityStampValidator<TUser>>();
+
         // Set deliberately rather than left at the default; it only bites once a cookie transport exists.
         services.Configure<SecurityStampValidatorOptions>(options =>
         {

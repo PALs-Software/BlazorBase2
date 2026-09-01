@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using BlazorBase.User.Models;
 using Microsoft.AspNetCore.Http;
 
@@ -10,12 +11,12 @@ namespace BlazorBase.User.Server.Tokens;
 /// </summary>
 /// <remarks>
 /// Appropriate for clients that are not a browser — a MAUI app, a CLI, another service. In a browser
-/// it means the token is reachable from script; see <see cref="CookieAuthTokenTransport"/> for why
-/// that is worth avoiding when the client is a browser served from the same origin.
+/// it means the token is reachable from script; see <see cref="IdentityCookieAuthTransport"/> for the
+/// alternative used when the client is a browser served from the same origin.
 /// </remarks>
 public sealed class BodyAuthTokenTransport : IAuthTokenTransport
 {
-    public Task<LoginResponse> WriteAsync(HttpContext httpContext, LoginResponse tokens, CancellationToken cancellationToken = default) =>
+    public Task<LoginResponse> WriteAsync(HttpContext httpContext, LoginResponse tokens, ClaimsPrincipal principal, CancellationToken cancellationToken = default) =>
         Task.FromResult(tokens);
 
     public Task<string?> ReadRefreshTokenAsync(HttpContext httpContext, string? fromRequestBody, CancellationToken cancellationToken = default) =>
