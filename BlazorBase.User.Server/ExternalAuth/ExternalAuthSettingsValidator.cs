@@ -17,6 +17,12 @@ public class ExternalAuthSettingsValidator : IValidateOptions<ExternalAuthSettin
         if (options.Audiences.Count == 0)
             return ValidateOptionsResult.Fail("ExternalAuthSettings.Audiences must contain at least one audience.");
 
+        if (ExternalAuthSettings.IsMultiTenantAuthority(options.Authority) && options.AllowedTenantIds.Count == 0)
+            return ValidateOptionsResult.Fail(
+                "ExternalAuthSettings.AllowedTenantIds must contain at least one tenant ID when Authority is a " +
+                "multi-tenant endpoint (/common, /organizations or /consumers) - otherwise a token from any Entra " +
+                "tenant in existence passes issuer validation.");
+
         return ValidateOptionsResult.Success;
     }
 }
