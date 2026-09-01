@@ -1,12 +1,10 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
 using BlazorBase.User.Models;
-using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -15,7 +13,7 @@ namespace BlazorBase.User.Server.Test.Controllers;
 /// <summary>
 /// End-to-end tests for the auth endpoints in <see cref="BlazorBase.User.Server.Controllers.AuthControllerBase{TUser}"/>
 /// against a real Identity stack over in-memory SQLite, focusing on the first-user setup, the login
-/// lockout policy, and the security-critical refresh-token rotation/revocation flow.
+/// lockout policy, and the security-critical refresh-token rotation flow.
 /// </summary>
 public sealed class AuthControllerTests : IdentityServerTestBase
 {
@@ -66,44 +64,29 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     }
 
     [Fact]
-    public async Task Login_ReturnsTokens_OnValidCredentials()
+    public async Task Login_ReturnsDistinctAccessAndRefreshTokens_OnValidCredentials()
     {
         await SeedUserAsync("ada@example.com", "Ada");
 
         var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
-        Assert.False(string.IsNullOrEmpty(login.AccessToken));
 
-        var tokens = await ReadRefreshTokensAsync();
-        Assert.Single(tokens);
-        Assert.False(tokens[0].IsRevoked);
+        Assert.False(string.IsNullOrEmpty(login.AccessToken));
+        Assert.False(string.IsNullOrEmpty(login.RefreshToken));
+        Assert.NotEqual(login.AccessToken, login.RefreshToken);
     }
 
     [Fact]
-    public async Task Login_IncludesSecurityStampClaim_InIssuedToken()
+    public async Task Login_IncludesSecurityStampClaim_InIssuedAccessToken()
     {
         var user = await SeedUserAsync("ada@example.com", "Ada");
 
         var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
 
-        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(login.AccessToken);
-        var securityStampClaim = jwt.Claims.SingleOrDefault(c => c.Type == "AspNet.Identity.SecurityStamp");
+        var principal = UnprotectAccessToken(login.AccessToken);
+        var securityStampClaim = principal.FindFirst("AspNet.Identity.SecurityStamp");
 
         Assert.NotNull(securityStampClaim);
         Assert.Equal(user.SecurityStamp, securityStampClaim!.Value);
-    }
-
-    [Fact]
-    public async Task Login_StoresHashedRefreshToken_NotRawValue()
-    {
-        await SeedUserAsync("ada@example.com", "Ada");
-
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
-
-        var tokens = await ReadRefreshTokensAsync();
-        var storedToken = Assert.Single(tokens);
-
-        Assert.Equal(HashToken(login.RefreshToken), storedToken.Token);
-        Assert.NotEqual(login.RefreshToken, storedToken.Token);
     }
 
     [Fact]
@@ -197,7 +180,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
     }
 
     [Fact]
-    public async Task Refresh_RotatesRefreshToken_RevokingTheOldAndIssuingANew()
+    public async Task Refresh_IssuesADifferentRefreshToken_ThanThePresentedOne()
     {
         await SeedUserAsync("ada@example.com", "Ada");
 
@@ -205,48 +188,87 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         var refresh = AssertOkLogin(await RefreshAsync(login.RefreshToken));
 
         Assert.NotEqual(login.RefreshToken, refresh.RefreshToken);
-
-        var loginTokenHash = HashToken(login.RefreshToken);
-        var refreshTokenHash = HashToken(refresh.RefreshToken);
-
-        var tokens = await ReadRefreshTokensAsync();
-        Assert.Equal(2, tokens.Count);
-        Assert.True(tokens.Single(t => t.Token == loginTokenHash).IsRevoked);
-        Assert.False(tokens.Single(t => t.Token == refreshTokenHash).IsRevoked);
+        Assert.NotEqual(login.AccessToken, refresh.AccessToken);
     }
 
+    /// <summary>
+    /// A refresh token must not be replayable once it has already been used: the token is revoked in
+    /// the same transaction that issues its replacement, so presenting it again finds an already-
+    /// revoked row.
+    /// </summary>
     [Fact]
-    public async Task Refresh_ReturnsUnauthorized_WhenSameRawTokenIsReusedAfterRotation()
+    public async Task Refresh_ReturnsUnauthorized_WhenTheSameRefreshTokenIsPresentedTwice()
     {
         await SeedUserAsync("ada@example.com", "Ada");
 
         var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
         AssertOkLogin(await RefreshAsync(login.RefreshToken));
 
-        var reuse = await RefreshAsync(login.RefreshToken);
+        var replay = await RefreshAsync(login.RefreshToken);
 
-        Assert.IsType<UnauthorizedObjectResult>(reuse.Result);
+        Assert.IsType<UnauthorizedObjectResult>(replay.Result);
     }
 
+    /// <summary>
+    /// The regression this fix closes: rotating the security stamp on every refresh (to fake
+    /// single-use without a revocation table) signed every other session for the account out too.
+    /// Two independent logins for the same user represent two independent devices; refreshing one
+    /// must not disturb the other.
+    /// </summary>
     [Fact]
-    public async Task Refresh_ReplayingARotatedToken_RevokesTheEntireFamily_SoTheRotatedTokenCanNoLongerRefresh()
+    public async Task Refresh_OfOneSession_LeavesAnotherSessionsRefreshTokenUsable()
+    {
+        await SeedUserAsync("ada@example.com", "Ada");
+
+        var sessionA = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var sessionB = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+
+        AssertOkLogin(await RefreshAsync(sessionA.RefreshToken));
+
+        var resultB = await RefreshAsync(sessionB.RefreshToken);
+
+        AssertOkLogin(resultB);
+    }
+
+    /// <summary>
+    /// Same root cause as <see cref="Refresh_OfOneSession_LeavesAnotherSessionsRefreshTokenUsable"/>,
+    /// proven directly on the shared signal a cookie session and a bearer refresh both depend on: a
+    /// bearer refresh must not rotate the account's security stamp, or every cookie session for the
+    /// same user is signed out the moment a bearer client refreshes.
+    /// </summary>
+    [Fact]
+    public async Task Refresh_DoesNotRotateTheUsersSecurityStamp()
+    {
+        var user = await SeedUserAsync("ada@example.com", "Ada");
+        var stampBeforeRefresh = user.SecurityStamp;
+
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        AssertOkLogin(await RefreshAsync(login.RefreshToken));
+
+        using var scope = CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
+        var reloaded = await userManager.FindByIdAsync(user.Id);
+
+        Assert.Equal(stampBeforeRefresh, reloaded!.SecurityStamp);
+    }
+
+    /// <summary>
+    /// Replaying an already-rotated token is the theft signal the rotation scheme exists to catch:
+    /// it must revoke the whole family, taking the legitimately rotated sibling down with it too.
+    /// </summary>
+    [Fact]
+    public async Task Refresh_ReplayOfAnAlreadyRotatedToken_RevokesTheWholeFamily()
     {
         await SeedUserAsync("ada@example.com", "Ada");
 
         var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
-        var afterFirstRotation = AssertOkLogin(await RefreshAsync(login.RefreshToken));
+        var rotated = AssertOkLogin(await RefreshAsync(login.RefreshToken));
 
-        var replay = await RefreshAsync(login.RefreshToken);
-        Assert.IsType<UnauthorizedObjectResult>(replay.Result);
+        await RefreshAsync(login.RefreshToken);
 
-        var tokens = await ReadRefreshTokensAsync();
-        var familyId = tokens.Single(t => t.Token == HashToken(login.RefreshToken)).FamilyId;
+        var result = await RefreshAsync(rotated.RefreshToken);
 
-        Assert.True(tokens.All(t => t.FamilyId == familyId));
-        Assert.True(tokens.All(t => t.IsRevoked));
-
-        var reuseOfRotatedToken = await RefreshAsync(afterFirstRotation.RefreshToken);
-        Assert.IsType<UnauthorizedObjectResult>(reuseOfRotatedToken.Result);
+        Assert.IsType<UnauthorizedObjectResult>(result.Result);
     }
 
     [Fact]
@@ -260,49 +282,6 @@ public sealed class AuthControllerTests : IdentityServerTestBase
 
         Assert.NotEqual(login.RefreshToken, secondToken.RefreshToken);
         Assert.NotEqual(secondToken.RefreshToken, thirdToken.RefreshToken);
-
-        var tokens = await ReadRefreshTokensAsync();
-        Assert.Equal(3, tokens.Count);
-
-        var thirdTokenHash = HashToken(thirdToken.RefreshToken);
-        Assert.False(tokens.Single(t => t.Token == thirdTokenHash).IsRevoked);
-        Assert.True(tokens.Where(t => t.Token != thirdTokenHash).All(t => t.IsRevoked));
-
-        var familyIds = tokens.Select(t => t.FamilyId).Distinct().ToList();
-        Assert.Single(familyIds);
-    }
-
-    [Fact]
-    public async Task Refresh_LegacyEmptyFamilyToken_DoesNotSweepAnotherUsersEmptyFamilyTokens()
-    {
-        var userA = await SeedUserAsync("usera@example.com", "UserA");
-        var userB = await SeedUserAsync("userb@example.com", "UserB");
-
-        var userARevokedToken = await SeedRefreshTokenAsync(userA.Id, Guid.Empty, isRevoked: true);
-        await SeedRefreshTokenAsync(userA.Id, Guid.Empty, isRevoked: false);
-        await SeedRefreshTokenAsync(userB.Id, Guid.Empty, isRevoked: true);
-        var userBValidToken = await SeedRefreshTokenAsync(userB.Id, Guid.Empty, isRevoked: false);
-
-        var replay = await RefreshAsync(userARevokedToken);
-
-        Assert.IsType<UnauthorizedObjectResult>(replay.Result);
-
-        var tokens = await ReadRefreshTokensAsync();
-        var userBValidTokenAfterReplay = tokens.Single(t => t.Token == HashToken(userBValidToken));
-        Assert.False(userBValidTokenAfterReplay.IsRevoked);
-    }
-
-    [Fact]
-    public async Task Refresh_ReturnsUnauthorized_OnRevokedToken()
-    {
-        await SeedUserAsync("ada@example.com", "Ada");
-
-        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
-        await MutateTokensAsync(token => token.IsRevoked = true);
-
-        var result = await RefreshAsync(login.RefreshToken);
-
-        Assert.IsType<UnauthorizedObjectResult>(result.Result);
     }
 
     [Fact]
@@ -311,9 +290,19 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         await SeedUserAsync("ada@example.com", "Ada");
 
         var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
-        await MutateTokensAsync(token => token.ExpiresAt = DateTime.UtcNow.AddDays(-1));
+        TimeProvider.Advance(TimeSpan.FromDays(31));
 
         var result = await RefreshAsync(login.RefreshToken);
+
+        Assert.IsType<UnauthorizedObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task Refresh_ReturnsUnauthorized_OnGarbageToken()
+    {
+        await SeedUserAsync("ada@example.com", "Ada");
+
+        var result = await RefreshAsync("not-a-real-token");
 
         Assert.IsType<UnauthorizedObjectResult>(result.Result);
     }
@@ -331,18 +320,28 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         Assert.IsType<UnauthorizedObjectResult>(result.Result);
     }
 
+    /// <summary>
+    /// Rotating a user's security stamp - by any means, not only through this controller - must
+    /// invalidate an outstanding refresh token, even though its database row is untouched by that
+    /// rotation: the stamp captured at issuance is re-checked against the live user on every refresh.
+    /// </summary>
     [Fact]
-    public async Task Logout_RevokesRefreshToken()
+    public async Task Refresh_ReturnsUnauthorized_AfterTheUsersSecurityStampIsRotatedDirectly()
     {
-        await SeedUserAsync("ada@example.com", "Ada");
+        var user = await SeedUserAsync("ada@example.com", "Ada");
 
         var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
-        var result = await LogoutAsync(login.RefreshToken);
 
-        Assert.IsType<NoContentResult>(result);
+        using (var scope = CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
+            var reloaded = await userManager.FindByIdAsync(user.Id);
+            await userManager.UpdateSecurityStampAsync(reloaded!);
+        }
 
-        var tokens = await ReadRefreshTokensAsync();
-        Assert.True(tokens.Single().IsRevoked);
+        var result = await RefreshAsync(login.RefreshToken);
+
+        Assert.IsType<UnauthorizedObjectResult>(result.Result);
     }
 
     [Fact]
@@ -353,6 +352,11 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         Assert.IsType<NoContentResult>(result);
     }
 
+    /// <summary>
+    /// Logout must make the previously issued refresh token unusable, not merely clear the transport.
+    /// Enforced by revoking the token's family - not by rotating the security stamp, which would also
+    /// sign out every other session for the account.
+    /// </summary>
     [Fact]
     public async Task Logout_ThenRefresh_ReturnsUnauthorized()
     {
@@ -360,6 +364,50 @@ public sealed class AuthControllerTests : IdentityServerTestBase
 
         var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
         await LogoutAsync(login.RefreshToken);
+
+        var result = await RefreshAsync(login.RefreshToken);
+
+        Assert.IsType<UnauthorizedObjectResult>(result.Result);
+    }
+
+    /// <summary>
+    /// Logging out of one device must not sign the user out everywhere: only the presented token's
+    /// family is revoked, so a second session for the same user keeps working.
+    /// </summary>
+    [Fact]
+    public async Task Logout_OfOneSession_LeavesAnotherSessionsRefreshTokenUsable()
+    {
+        await SeedUserAsync("ada@example.com", "Ada");
+
+        var sessionA = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+        var sessionB = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+
+        await LogoutAsync(sessionA.RefreshToken);
+
+        var resultB = await RefreshAsync(sessionB.RefreshToken);
+
+        AssertOkLogin(resultB);
+    }
+
+    /// <summary>
+    /// A password reset must still kill every outstanding session, including a refresh token minted
+    /// before it - the one case where invalidating every session for the account is correct.
+    /// </summary>
+    [Fact]
+    public async Task PasswordReset_InvalidatesAnOutstandingRefreshToken()
+    {
+        var user = await SeedUserAsync("ada@example.com", "Ada");
+        var login = AssertOkLogin(await LoginAsync("ada@example.com", "Secret123"));
+
+        using (var scope = CreateScope())
+        {
+            var dataProvider = new UserDataProvider<TestUser>(
+                scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>(),
+                scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>(),
+                scope.ServiceProvider.GetRequiredService<TestUserDbContext>());
+
+            await dataProvider.PatchAsync(user.Id, new Dictionary<string, object?> { ["Password"] = "NewSecret123" });
+        }
 
         var result = await RefreshAsync(login.RefreshToken);
 
@@ -403,51 +451,6 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         return (string)messageProperty.GetValue(unauthorized.Value)!;
     }
 
-    private async Task<List<RefreshToken>> ReadRefreshTokensAsync()
-    {
-        using var scope = CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<TestUserDbContext>();
-        return await context.RefreshTokens.AsNoTracking().ToListAsync();
-    }
-
-    private string HashToken(string rawToken)
-    {
-        using var scope = CreateScope();
-        var tokenService = scope.ServiceProvider.GetRequiredService<TokenService<TestUser>>();
-        return tokenService.HashRefreshToken(rawToken);
-    }
-
-    private async Task<string> SeedRefreshTokenAsync(string userId, Guid familyId, bool isRevoked)
-    {
-        using var scope = CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<TestUserDbContext>();
-        var tokenService = scope.ServiceProvider.GetRequiredService<TokenService<TestUser>>();
-
-        var rawToken = tokenService.GenerateRefreshToken();
-        context.RefreshTokens.Add(new RefreshToken
-        {
-            Id = Guid.NewGuid(),
-            Token = tokenService.HashRefreshToken(rawToken),
-            UserId = userId,
-            FamilyId = familyId,
-            ExpiresAt = DateTime.UtcNow.AddDays(30),
-            IsRevoked = isRevoked,
-        });
-        await context.SaveChangesAsync();
-
-        return rawToken;
-    }
-
-    private async Task MutateTokensAsync(Action<RefreshToken> mutate)
-    {
-        using var scope = CreateScope();
-        var context = scope.ServiceProvider.GetRequiredService<TestUserDbContext>();
-        var tokens = await context.RefreshTokens.ToListAsync();
-        foreach (var token in tokens)
-            mutate(token);
-        await context.SaveChangesAsync();
-    }
-
     private async Task SetUserActiveAsync(string userId, bool isActive)
     {
         using var scope = CreateScope();
@@ -462,8 +465,7 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         using var scope = CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
         var user = await userManager.FindByIdAsync(userId);
-        await userManager.SetLockoutEnabledAsync(user!, true);
-        await userManager.SetLockoutEndDateAsync(user!, DateTimeOffset.UtcNow.AddMinutes(10));
+        await userManager.SetLockoutEndDateAsync(user!, DateTimeOffset.UtcNow.AddYears(1));
     }
 
     private async Task<int> GetAccessFailedCountAsync(string userId)

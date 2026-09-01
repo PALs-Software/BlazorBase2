@@ -1,7 +1,6 @@
 using BlazorBase.User.Server.Configuration;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -36,7 +35,7 @@ public static class BlazorBaseAuthTokenTransportExtensions
     /// <remarks>
     /// Choose this when the client is a browser served from the same origin as the API. Leave it out
     /// for a native or service client, which needs the token in hand — see
-    /// <see cref="BodyAuthTokenTransport"/>. The two are not exclusive at runtime: a bearer header
+    /// <see cref="IdentityBearerAuthTransport"/>. The two are not exclusive at runtime: a bearer header
     /// always wins over the cookie, so a native client can keep using the exchange endpoint against a
     /// server configured this way.
     ///
@@ -62,7 +61,7 @@ public static class BlazorBaseAuthTokenTransportExtensions
 
         var resolvedBearerScheme = bearerSchemeName
             ?? serverOptions?.SchemeName
-            ?? JwtBearerDefaults.AuthenticationScheme;
+            ?? IdentityConstants.BearerScheme;
 
         services.Configure<AuthCookieOptions>(configuration.GetSection(AuthCookieOptions.SectionName));
 

@@ -1,4 +1,3 @@
-using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Tokens;
@@ -34,10 +33,8 @@ public static class ExternalAuthEndpointMapper
                 ExternalTokenExchangeRequest request,
                 IExternalTokenValidator tokenValidator,
                 IExternalUserResolver<TUser> userResolver,
-                UserManager<TUser> userManager,
                 SignInManager<TUser> signInManager,
-                TokenService<TUser> tokenService,
-                BaseUserDbContext<TUser> dbContext,
+                AuthTokenIssuer<TUser> tokenIssuer,
                 IAuthTokenTransport tokenTransport,
                 CancellationToken cancellationToken) =>
             {
@@ -52,9 +49,8 @@ public static class ExternalAuthEndpointMapper
                 if (!resolution.IsAccepted || resolution.User is null)
                     return Results.Unauthorized();
 
-                var roles = await userManager.GetRolesAsync(resolution.User);
-                var tokens = await tokenService.IssueTokenPairAsync(resolution.User, roles, dbContext);
                 var principal = await signInManager.CreateUserPrincipalAsync(resolution.User);
+                var tokens = await tokenIssuer.IssueTokenPairAsync(principal, cancellationToken: cancellationToken);
                 var response = await tokenTransport.WriteAsync(httpContext, tokens, principal, cancellationToken);
 
                 return Results.Ok(response);

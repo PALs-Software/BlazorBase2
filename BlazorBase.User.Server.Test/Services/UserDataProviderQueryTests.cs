@@ -1,6 +1,5 @@
 using BlazorBase.CRUD.Models;
 using BlazorBase.User.Models;
-using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using Microsoft.AspNetCore.Http;
@@ -204,22 +203,10 @@ public sealed class UserDataProviderQueryTests : IdentityServerTestBase
     }
 
     [Fact]
-    public async Task Patch_ResettingPassword_RevokesAllActiveRefreshTokens()
+    public async Task Patch_ResettingPassword_RotatesTheSecurityStamp()
     {
         var user = await SeedUserAsync("reset@example.com", "Reset");
-
-        using (var seedScope = CreateScope())
-        {
-            var context = seedScope.ServiceProvider.GetRequiredService<TestUserDbContext>();
-            context.RefreshTokens.Add(new RefreshToken
-            {
-                Id = Guid.NewGuid(),
-                Token = "seeded-token-hash",
-                UserId = user.Id,
-                ExpiresAt = DateTime.UtcNow.AddDays(30),
-            });
-            await context.SaveChangesAsync();
-        }
+        var stampBeforeReset = user.SecurityStamp;
 
         using (var patchScope = CreateScope())
         {
@@ -231,12 +218,12 @@ public sealed class UserDataProviderQueryTests : IdentityServerTestBase
         }
 
         using var verifyScope = CreateScope();
-        var verifyContext = verifyScope.ServiceProvider.GetRequiredService<TestUserDbContext>();
-        var tokens = await verifyContext.RefreshTokens.Where(r => r.UserId == user.Id).ToListAsync();
+        var userManager = verifyScope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
+        var reloaded = await userManager.FindByIdAsync(user.Id);
 
-        Assert.NotEmpty(tokens);
-        Assert.All(tokens, token => Assert.True(token.IsRevoked));
+        Assert.NotEqual(stampBeforeReset, reloaded!.SecurityStamp);
     }
+
 
     private async Task<BaseQueryResult<UserModel>> QueryAsync(BaseQuery query)
     {

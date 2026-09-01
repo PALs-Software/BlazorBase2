@@ -10,7 +10,7 @@ namespace BlazorBase.User.Server.Services;
 /// identifier, security stamp and per-role claims from the real store; this override adds the
 /// framework's own display name, theme, language and every registered
 /// <see cref="IClaimsAugmentor{TUser}"/>'s claims. Registered via <c>AddClaimsPrincipalFactory</c> so
-/// <see cref="TokenService{TUser}"/> and any future cookie sign-in share one claim set.
+/// the bearer token and any future cookie sign-in share one claim set.
 /// </summary>
 public class BlazorBaseUserClaimsPrincipalFactory<TUser>(
     UserManager<TUser> userManager,

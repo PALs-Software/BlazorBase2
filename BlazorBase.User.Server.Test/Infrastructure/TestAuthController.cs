@@ -1,5 +1,4 @@
 using BlazorBase.User.Server.Controllers;
-using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
@@ -14,7 +13,6 @@ public sealed class TestAuthController(
     UserManager<TestUser> userManager,
     SignInManager<TestUser> signInManager,
     RoleManager<IdentityRole> roleManager,
-    TokenService<TestUser> tokenService,
-    BaseUserDbContext<TestUser> dbContext,
+    AuthTokenIssuer<TestUser> tokenIssuer,
     IConfiguration configuration)
-    : AuthControllerBase<TestUser>(userManager, signInManager, roleManager, tokenService, dbContext, configuration);
+    : AuthControllerBase<TestUser>(userManager, signInManager, roleManager, tokenIssuer, configuration);

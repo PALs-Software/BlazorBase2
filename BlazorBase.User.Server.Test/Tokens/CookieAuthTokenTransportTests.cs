@@ -86,9 +86,6 @@ public sealed class CookieAuthTokenTransportTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["JwtSettings:Secret"]                  = "blazorbase-cookie-transport-test-signing-secret-0123456789",
-                ["JwtSettings:Issuer"]                  = "BlazorBase.User.Server.Test",
-                ["JwtSettings:Audience"]                = "BlazorBase.User.Server.Test.Audience",
                 ["ExternalAuthSettings:Authority"]      = "https://example-authority.test",
                 ["ExternalAuthSettings:Audiences:0"]    = "example-audience",
                 // The test server speaks plain HTTP, so a Secure cookie would never come back.

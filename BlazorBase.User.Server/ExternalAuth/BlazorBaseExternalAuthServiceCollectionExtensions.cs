@@ -42,7 +42,7 @@ public static class BlazorBaseExternalAuthServiceCollectionExtensions
 
         // The endpoints take a transport from DI; default it here so mapping them without calling
         // AddBlazorBaseUserServer first still resolves.
-        services.TryAddScoped<IAuthTokenTransport, BodyAuthTokenTransport>();
+        services.TryAddScoped<IAuthTokenTransport, IdentityBearerAuthTransport>();
 
         return services;
     }

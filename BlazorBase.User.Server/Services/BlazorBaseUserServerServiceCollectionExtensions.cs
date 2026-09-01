@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading.RateLimiting;
 using BlazorBase.CRUD.Core;
 using BlazorBase.CRUD.Endpoints;
@@ -9,7 +8,6 @@ using BlazorBase.User.Server.Configuration;
 using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Tokens;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -19,7 +17,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using Microsoft.IdentityModel.Tokens;
 
 namespace BlazorBase.User.Server.Services;
 
@@ -27,18 +24,18 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
 {
     /// <summary>
     /// Registers Identity (including <see cref="SignInManager{TUser}"/> and the claims-principal
-    /// factory that builds every issued token's claims), JWT bearer authentication, authorization,
-    /// the "BlazorBaseAuth" rate-limiter policy, the TokenService, the
-    /// IBaseDataProvider&lt;UserModel&gt; for admin user management, and IHttpContextAccessor. JWT
-    /// settings (Secret, Issuer, Audience, ExpirationMinutes, RefreshExpirationDays) are read from
-    /// configuration under "JwtSettings"; rate-limit settings (PermitLimit, WindowSeconds) are read
-    /// from "JwtSettings:RateLimit". The host must call <c>app.UseRateLimiter()</c> for the policy to
-    /// take effect.
+    /// factory that builds every issued token's claims), the Identity bearer-token scheme,
+    /// authorization, the "BlazorBaseAuth" rate-limiter policy, <see cref="AuthTokenIssuer{TUser}"/>, the
+    /// IBaseDataProvider&lt;UserModel&gt; for admin user management, and IHttpContextAccessor. Token
+    /// lifetimes (AccessTokenMinutes, RefreshTokenDays) are read from configuration under
+    /// "AuthTokens"; rate-limit settings (PermitLimit, WindowSeconds) are read from
+    /// "AuthTokens:RateLimit". The host must call <c>app.UseRateLimiter()</c> for the policy to take
+    /// effect.
     /// </summary>
     /// <param name="configureOptions">
-    /// Optionally overrides the JWT scheme name and whether it becomes the authentication default -
+    /// Optionally overrides the bearer scheme name and whether it becomes the authentication default -
     /// see <see cref="BlazorBaseUserServerOptions"/>. Leave <see langword="null"/> to keep today's
-    /// behavior: scheme name "Bearer", claiming the default.
+    /// behavior: scheme name <see cref="IdentityConstants.BearerScheme"/>, claiming the default.
     /// </param>
     public static IServiceCollection AddBlazorBaseUserServer<TUser, TContext>(
         this IServiceCollection services,
@@ -53,7 +50,11 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
         // Registered so later opt-ins - the cookie token transport in particular - can target the
         // scheme name this call actually used instead of assuming the default.
         services.AddSingleton(schemeOptions);
-        services.TryAddScoped<IAuthTokenTransport, BodyAuthTokenTransport>();
+        services.TryAddScoped<IAuthTokenTransport, IdentityBearerAuthTransport>();
+
+        // Resolved by AuthTokenIssuer rather than assumed system time, so a test can swap in a
+        // controllable clock without waiting on a real one.
+        services.TryAddSingleton(TimeProvider.System);
 
         services.AddHttpContextAccessor();
 
@@ -71,7 +72,7 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
             .AddDefaultTokenProviders()
             // AddIdentityCore omits SignInManager, but lockout and two-factor detection live there.
             .AddSignInManager()
-            // One claim set for today's JWT and any later cookie sign-in alike.
+            // One claim set for the bearer token and any later cookie sign-in alike.
             .AddClaimsPrincipalFactory<BlazorBaseUserClaimsPrincipalFactory<TUser>>();
 
         // AddIdentityCore().AddSignInManager() does not register these - only the full
@@ -86,11 +87,8 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
             options.ValidationInterval = TimeSpan.FromMinutes(5);
         });
 
-        var jwtSecret = configuration["JwtSettings:Secret"]
-            ?? throw new InvalidOperationException("JwtSettings:Secret must be configured.");
-
-        if (Encoding.UTF8.GetByteCount(jwtSecret) < 32)
-            throw new InvalidOperationException("JwtSettings:Secret must be at least 32 bytes (256 bits) to safely sign HMAC-SHA256 tokens.");
+        var accessTokenMinutes = configuration.GetValue("AuthTokens:AccessTokenMinutes", AuthTokenDefaults.AccessTokenExpirationMinutes);
+        var refreshTokenDays = configuration.GetValue("AuthTokens:RefreshTokenDays", AuthTokenDefaults.RefreshTokenExpirationDays);
 
         services.AddAuthentication(authOptions =>
             {
@@ -100,25 +98,16 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
                 authOptions.DefaultAuthenticateScheme = schemeOptions.SchemeName;
                 authOptions.DefaultChallengeScheme = schemeOptions.SchemeName;
             })
-            .AddJwtBearer(schemeOptions.SchemeName, options =>
+            .AddBearerToken(schemeOptions.SchemeName, options =>
             {
-                options.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
-                    ValidateIssuer = true,
-                    ValidIssuer = configuration["JwtSettings:Issuer"],
-                    ValidateAudience = true,
-                    ValidAudience = configuration["JwtSettings:Audience"],
-                    ValidateLifetime = true,
-                    ClockSkew = TimeSpan.FromSeconds(30),
-                };
+                options.BearerTokenExpiration = TimeSpan.FromMinutes(accessTokenMinutes);
+                options.RefreshTokenExpiration = TimeSpan.FromDays(refreshTokenDays);
             });
 
         services.AddAuthorization();
 
-        var rateLimitPermitLimit = configuration.GetValue("JwtSettings:RateLimit:PermitLimit", 10);
-        var rateLimitWindowSeconds = configuration.GetValue("JwtSettings:RateLimit:WindowSeconds", 60);
+        var rateLimitPermitLimit = configuration.GetValue("AuthTokens:RateLimit:PermitLimit", 10);
+        var rateLimitWindowSeconds = configuration.GetValue("AuthTokens:RateLimit:WindowSeconds", 60);
 
         services.AddRateLimiter(options =>
         {
@@ -134,9 +123,13 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
         });
 
-        services.AddScoped<TokenService<TUser>>();
+        services.AddScoped<AuthTokenIssuer<TUser>>();
         services.AddScoped<BaseUserDbContext<TUser>>(serviceProvider => serviceProvider.GetRequiredService<TContext>());
         services.AddScoped<IBaseDataProvider<UserModel>, UserDataProvider<TUser>>();
+
+        var cleanupIntervalHours = configuration.GetValue("AuthTokens:CleanupIntervalHours", AuthTokenDefaults.CleanupIntervalHours);
+        services.TryAddSingleton(new RefreshTokenCleanupOptions { Interval = TimeSpan.FromHours(cleanupIntervalHours) });
+        services.AddHostedService<RefreshTokenCleanupService<TUser>>();
 
         return services;
     }
@@ -205,7 +198,8 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
 
     /// <summary>
     /// Registers a scoped <see cref="IClaimsAugmentor{TUser}"/> implementation so
-    /// <see cref="TokenService{TUser}"/> appends its claims to every issued access token.
+    /// <see cref="BlazorBaseUserClaimsPrincipalFactory{TUser}"/> appends its claims to every issued
+    /// access token.
     /// Call once per augmentor type; multiple augmentors are applied in registration order.
     /// </summary>
     public static IServiceCollection AddClaimsAugmentor<TUser, TAugmentor>(this IServiceCollection services)

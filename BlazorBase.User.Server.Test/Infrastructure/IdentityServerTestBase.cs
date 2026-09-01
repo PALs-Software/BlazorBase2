@@ -1,6 +1,8 @@
 using System.Security.Claims;
+using BlazorBase.User.Server.Configuration;
 using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Services;
+using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +10,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace BlazorBase.User.Server.Test.Infrastructure;
 
@@ -25,7 +28,7 @@ public abstract class IdentityServerTestBase : IDisposable
     protected IConfiguration Configuration { get; }
 
     /// <summary>
-    /// Extra configuration entries a derived fixture needs, merged over the JWT defaults.
+    /// Extra configuration entries a derived fixture needs, merged over the auth-token defaults.
     /// </summary>
     protected virtual IDictionary<string, string?> AdditionalConfiguration => new Dictionary<string, string?>();
 
@@ -36,6 +39,12 @@ public abstract class IdentityServerTestBase : IDisposable
     {
     }
 
+    /// <summary>
+    /// A test-controllable clock, so refresh-token expiry can be proven without a real wall-clock
+    /// wait. Exposed for a derived fixture to advance.
+    /// </summary>
+    protected ManualTimeProvider TimeProvider { get; } = new();
+
     protected IdentityServerTestBase()
     {
         Connection = new SqliteConnection("DataSource=:memory:");
@@ -43,11 +52,8 @@ public abstract class IdentityServerTestBase : IDisposable
 
         var configurationEntries = new Dictionary<string, string?>
         {
-            ["JwtSettings:Secret"] = "blazorbase-test-signing-secret-key-0123456789-abcdef",
-            ["JwtSettings:Issuer"] = "BlazorBase.User.Server.Test",
-            ["JwtSettings:Audience"] = "BlazorBase.User.Server.Test.Audience",
-            ["JwtSettings:ExpirationMinutes"] = "60",
-            ["JwtSettings:RefreshExpirationDays"] = "30",
+            ["AuthTokens:AccessTokenMinutes"] = "60",
+            ["AuthTokens:RefreshTokenDays"] = "30",
         };
 
         foreach (var entry in AdditionalConfiguration)
@@ -60,7 +66,13 @@ public abstract class IdentityServerTestBase : IDisposable
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddDataProtection();
-        services.AddAuthentication();
+        services.AddAuthentication().AddBearerToken(IdentityConstants.BearerScheme, options =>
+        {
+            options.BearerTokenExpiration = TimeSpan.FromMinutes(Configuration.GetValue("AuthTokens:AccessTokenMinutes", 60));
+            options.RefreshTokenExpiration = TimeSpan.FromDays(Configuration.GetValue("AuthTokens:RefreshTokenDays", 30));
+        });
+        services.AddSingleton<TimeProvider>(TimeProvider);
+        services.AddSingleton(new BlazorBaseUserServerOptions());
         services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
         services.AddSingleton(Configuration);
         services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(Connection));
@@ -80,7 +92,7 @@ public abstract class IdentityServerTestBase : IDisposable
             .AddSignInManager()
             .AddClaimsPrincipalFactory<BlazorBaseUserClaimsPrincipalFactory<TestUser>>();
 
-        services.AddScoped<TokenService<TestUser>>();
+        services.AddScoped<AuthTokenIssuer<TestUser>>();
 
         // The same bridge AddBlazorBaseUserServer registers, so services that take the base
         // context resolve here as they do in a real host.
@@ -108,8 +120,7 @@ public abstract class IdentityServerTestBase : IDisposable
             provider.GetRequiredService<UserManager<TestUser>>(),
             provider.GetRequiredService<SignInManager<TestUser>>(),
             provider.GetRequiredService<RoleManager<IdentityRole>>(),
-            provider.GetRequiredService<TokenService<TestUser>>(),
-            provider.GetRequiredService<TestUserDbContext>(),
+            provider.GetRequiredService<AuthTokenIssuer<TestUser>>(),
             Configuration);
 
         // RequestServices, because the controller resolves optional services (the development
@@ -169,6 +180,20 @@ public abstract class IdentityServerTestBase : IDisposable
 
     protected static ClaimsPrincipal PrincipalFor(string userId)
         => new(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId)], "Test"));
+
+    /// <summary>
+    /// Unprotects an access token minted by <see cref="AuthTokenIssuer"/>, so a test can assert on
+    /// the claims it carries without a JWT library - the token is an opaque, data-protected blob.
+    /// </summary>
+    protected ClaimsPrincipal UnprotectAccessToken(string accessToken)
+    {
+        using var scope = CreateScope();
+        var bearerTokenOptions = scope.ServiceProvider
+            .GetRequiredService<IOptionsMonitor<BearerTokenOptions>>()
+            .Get(IdentityConstants.BearerScheme);
+
+        return bearerTokenOptions.BearerTokenProtector.Unprotect(accessToken)!.Principal;
+    }
 
     public void Dispose()
     {

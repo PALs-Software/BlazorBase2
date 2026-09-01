@@ -1,5 +1,4 @@
 using BlazorBase.User.Models;
-using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Tokens;
@@ -11,7 +10,6 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace BlazorBase.User.Server.Controllers;
 
@@ -21,8 +19,7 @@ public abstract class AuthControllerBase<TUser>(
     UserManager<TUser> userManager,
     SignInManager<TUser> signInManager,
     RoleManager<IdentityRole> roleManager,
-    TokenService<TUser> tokenService,
-    BaseUserDbContext<TUser> dbContext,
+    AuthTokenIssuer<TUser> tokenIssuer,
     IConfiguration configuration) : ControllerBase
     where TUser : BaseUser, new()
 {
@@ -30,10 +27,10 @@ public abstract class AuthControllerBase<TUser>(
     private readonly UserManager<TUser> UserManager = userManager;
     private readonly SignInManager<TUser> SignInManager = signInManager;
     private readonly RoleManager<IdentityRole> RoleManager = roleManager;
-    private readonly TokenService<TUser> TokenService = tokenService;
-    private readonly BaseUserDbContext<TUser> DbContext = dbContext;
+    private readonly AuthTokenIssuer<TUser> TokenIssuer = tokenIssuer;
     private readonly IConfiguration Configuration = configuration;
     #endregion
+
 
     /// <summary>
     /// The role names to ensure exist and offer during setup.
@@ -144,8 +141,19 @@ public abstract class AuthControllerBase<TUser>(
         UserManager.PasswordHasher.HashPassword(new TUser(), password);
 
     /// <summary>
-    /// Issues a new access token using a valid refresh token.
+    /// Issues a new access/refresh token pair using a valid refresh token.
     /// </summary>
+    /// <remarks>
+    /// The refresh token is an opaque value; only its hash lives in the database, alongside a
+    /// rotation family and the security stamp captured when it was minted. A presented token that is
+    /// unknown, already revoked, or expired is rejected outright - a revoked token being presented
+    /// again is a replay, so the entire family is revoked and the attempt logged, the reuse-detection
+    /// signal the rotation scheme exists to surface. A token that passes those checks is re-validated
+    /// against the live account (active, not locked out, security stamp unchanged since issuance)
+    /// before it is atomically revoked and replaced in the same family. Unlike the token itself, the
+    /// user's security stamp is never touched here - rotating a token must not sign the user out of
+    /// every other session, only replace the one token that was presented.
+    /// </remarks>
     [HttpPost("refresh")]
     [AllowAnonymous]
     [EnableRateLimiting("BlazorBaseAuth")]
@@ -159,66 +167,45 @@ public abstract class AuthControllerBase<TUser>(
         if (presentedToken is null)
             return ValidationProblem(ModelState);
 
-        var tokenHash = TokenService.HashRefreshToken(presentedToken);
-
-        var storedToken = await DbContext.RefreshTokens
-            .FirstOrDefaultAsync(r => r.Token == tokenHash);
-
-        if (storedToken is null)
+        var stored = await TokenIssuer.FindAsync(presentedToken);
+        if (stored is null)
             return Unauthorized(new { message = "Invalid or expired refresh token." });
 
-        if (storedToken.IsRevoked)
+        if (stored.IsRevoked)
         {
-            if (storedToken.FamilyId != Guid.Empty)
-            {
-                await DbContext.RefreshTokens
-                    .Where(r => r.FamilyId == storedToken.FamilyId && r.UserId == storedToken.UserId && !r.IsRevoked)
-                    .ExecuteUpdateAsync(setters => setters.SetProperty(r => r.IsRevoked, true));
-
-                var logger = HttpContext?.RequestServices?.GetService<ILogger<AuthControllerBase<TUser>>>();
-                logger?.LogWarning("Refresh-token reuse detected for user {UserId}; revoking token family {FamilyId}.", storedToken.UserId, storedToken.FamilyId);
-            }
-
+            await TokenIssuer.RevokeFamilyAfterReuseDetectedAsync(stored.UserId, stored.FamilyId);
             return Unauthorized(new { message = "Invalid or expired refresh token." });
         }
 
-        if (storedToken.ExpiresAt < DateTime.UtcNow)
+        if (TokenIssuer.IsExpired(stored))
             return Unauthorized(new { message = "Invalid or expired refresh token." });
 
-        var user = await UserManager.FindByIdAsync(storedToken.UserId);
-        if (user is null || !user.IsActive)
+        var user = await TokenIssuer.ValidateSecurityStampAsync(stored);
+        if (user is null)
+            return Unauthorized(new { message = "Invalid or expired refresh token." });
+
+        if (!user.IsActive)
             return Unauthorized(new { message = "Account is deactivated." });
 
         if (await UserManager.IsLockedOutAsync(user))
             return Unauthorized(new { message = "Invalid or expired refresh token." });
 
-        var strategy = DbContext.Database.CreateExecutionStrategy();
-        var response = await strategy.ExecuteAsync<LoginResponse?>(async () =>
-        {
-            await using var transaction = await DbContext.Database.BeginTransactionAsync();
-
-            var revoked = await DbContext.RefreshTokens
-                .Where(r => r.Id == storedToken.Id && !r.IsRevoked)
-                .ExecuteUpdateAsync(setters => setters.SetProperty(r => r.IsRevoked, true));
-
-            if (revoked == 0)
-                return null;
-
-            var tokenResponse = await GenerateTokenResponse(user, storedToken.FamilyId);
-            await transaction.CommitAsync();
-            return tokenResponse;
-        });
-
-        if (response is null)
+        var principal = await SignInManager.CreateUserPrincipalAsync(user);
+        var tokens = await TokenIssuer.RotateAsync(stored, principal);
+        if (tokens is null)
             return Unauthorized(new { message = "Invalid or expired refresh token." });
 
-        return Ok(response);
+        if (HttpContext is null)
+            return Ok(tokens);
+
+        return Ok(await ResolveTokenTransport().WriteAsync(HttpContext, tokens, principal));
     }
 
     /// <summary>
-    /// Revokes the provided refresh token (logout). Anonymous so it also succeeds when the
-    /// caller's access token has already expired — possession of the refresh token is the
-    /// authority to revoke it, and only that single token is revoked.
+    /// Revokes the presented refresh token's family (that device's session lineage) and clears the
+    /// transport. Anonymous so it also succeeds when the caller's access token has already expired —
+    /// possession of the refresh token is the authority to log out with. Never touches the user's
+    /// security stamp: logging out of one device must not sign the user out of every other one.
     /// </summary>
     /// <remarks>
     /// Anonymous, like <see cref="Refresh"/>: the presented refresh token is itself the
@@ -246,16 +233,11 @@ public abstract class AuthControllerBase<TUser>(
         if (presentedToken is null)
             return NoContent();
 
-        var tokenHash = TokenService.HashRefreshToken(presentedToken);
-
-        var token = await DbContext.RefreshTokens
-            .FirstOrDefaultAsync(r => r.Token == tokenHash && !r.IsRevoked);
-
-        if (token is null)
+        var stored = await TokenIssuer.FindAsync(presentedToken);
+        if (stored is null)
             return NoContent();
 
-        token.IsRevoked = true;
-        await DbContext.SaveChangesAsync();
+        await TokenIssuer.RevokeFamilyAsync(stored.UserId, stored.FamilyId);
 
         return NoContent();
     }
@@ -303,26 +285,25 @@ public abstract class AuthControllerBase<TUser>(
     /// <param name="request">The original setup request, including optional fields such as <see cref="SetupRequest.HouseholdName"/>.</param>
     protected virtual Task OnAfterUserCreatedAsync(TUser user, SetupRequest request) => Task.CompletedTask;
 
-    protected async Task<LoginResponse> GenerateTokenResponse(TUser user, Guid? familyId = null)
+    protected async Task<LoginResponse> GenerateTokenResponse(TUser user)
     {
-        var roles = await UserManager.GetRolesAsync(user);
-        var tokens = await TokenService.IssueTokenPairAsync(user, roles, DbContext, familyId);
+        var principal = await SignInManager.CreateUserPrincipalAsync(user);
+        var tokens = await TokenIssuer.IssueTokenPairAsync(principal);
 
         if (HttpContext is null)
             return tokens;
 
-        var principal = await SignInManager.CreateUserPrincipalAsync(user);
         return await ResolveTokenTransport().WriteAsync(HttpContext, tokens, principal);
     }
 
     /// <summary>
     /// Resolved per request rather than through the constructor, so a host that already derives from
     /// this controller picks the feature up without changing its own constructor signature. Falls back
-    /// to the body transport when nothing is registered, which keeps a host that predates this seam —
+    /// to the bearer transport when nothing is registered, which keeps a host that predates this seam —
     /// or a test host that composes services by hand — working exactly as before.
     /// </summary>
     private IAuthTokenTransport ResolveTokenTransport()
-        => HttpContext?.RequestServices?.GetService<IAuthTokenTransport>() ?? new BodyAuthTokenTransport();
+        => HttpContext?.RequestServices?.GetService<IAuthTokenTransport>() ?? new IdentityBearerAuthTransport();
 
     /// <summary>
     /// The refresh token as the active transport sees it. A cookie-based transport ignores the body

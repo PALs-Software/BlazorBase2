@@ -50,7 +50,7 @@ public class DevelopmentSessionService<TUser>(
         }
 
         await SynchronizeRolesAsync(user);
-        await DiscardPreviousRefreshTokensAsync(user, cancellationToken);
+        await InvalidatePreviousSessionAsync(user);
 
         Logger.LogWarning(
             "Development authentication signed in {Email} with roles {Roles}. This path exists only in the Development environment.",
@@ -61,21 +61,27 @@ public class DevelopmentSessionService<TUser>(
     }
 
     /// <summary>
-    /// Drops the development account's earlier refresh tokens, because a token is issued on every
-    /// app start — every reload, every server restart — and nothing would ever clean them up.
-    /// Without this the table collects a row per reload and grows into the hundreds over a day of
-    /// development.
+    /// Bumps the development account's security stamp, because a token is issued on every app start —
+    /// every reload, every server restart — which would otherwise leave a growing pile of tokens that
+    /// each stay valid for their own full lifetime with nothing to invalidate them early.
     /// </summary>
     /// <remarks>
-    /// Deleted rather than revoked: a throw-away development account has no session history worth
-    /// auditing. The trade-off is that a second browser session against the same server loses its
-    /// refresh token when the first one starts — in which case it signs in again on its next
-    /// reload, which is exactly what this feature does anyway.
+    /// Rotating the stamp rather than deleting rows: there is no revocation table left to delete from,
+    /// and rotating is strictly stronger anyway — it also invalidates a cookie session, which the old
+    /// per-row deletion never touched. The trade-off is the same as before: a second browser session
+    /// against the same server loses its own tokens when the first one starts, in which case it signs
+    /// in again on its next reload, which is exactly what this feature does anyway.
     /// </remarks>
-    private async Task DiscardPreviousRefreshTokensAsync(TUser user, CancellationToken cancellationToken)
-        => await DbContext.RefreshTokens
-            .Where(token => token.UserId == user.Id)
-            .ExecuteDeleteAsync(cancellationToken);
+    private async Task InvalidatePreviousSessionAsync(TUser user)
+    {
+        await UserManager.UpdateSecurityStampAsync(user);
+
+        // The stamp rotation above already makes every outstanding refresh token unusable;
+        // revoking the rows too keeps the table from holding dead ones.
+        await DbContext.RefreshTokens
+            .Where(token => token.UserId == user.Id && !token.IsRevoked)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(token => token.IsRevoked, true));
+    }
 
     private async Task<TUser?> CreateUserAsync()
     {

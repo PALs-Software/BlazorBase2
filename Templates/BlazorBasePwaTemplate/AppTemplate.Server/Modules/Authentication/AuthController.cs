@@ -1,4 +1,3 @@
-using AppTemplate.Server.Data;
 using AppTemplate.Server.Entities;
 using AppTemplate.Shared.Modules.Authentication;
 using BlazorBase.User.Server.Controllers;
@@ -16,10 +15,9 @@ public class AuthController(
     UserManager<AppUser> users,
     SignInManager<AppUser> signIn,
     RoleManager<IdentityRole> roles,
-    TokenService<AppUser> tokens,
-    AppTemplateDbContext dbContext,
+    AuthTokenIssuer<AppUser> tokenIssuer,
     IConfiguration configuration)
-    : AuthControllerBase<AppUser>(users, signIn, roles, tokens, dbContext, configuration)
+    : AuthControllerBase<AppUser>(users, signIn, roles, tokenIssuer, configuration)
 {
     protected override IReadOnlyList<string> RolesToSeed => RoleConstants.All;
 }

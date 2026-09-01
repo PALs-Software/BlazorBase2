@@ -1,4 +1,3 @@
-using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Tokens;
@@ -25,7 +24,7 @@ namespace BlazorBase.User.Server.ExternalAuth;
 /// to an application user through the same <see cref="IExternalUserResolver{TUser}"/> the token
 /// exchange uses, and hand the result to the configured <see cref="IAuthTokenTransport"/>.
 ///
-/// Pair with <c>AddBlazorBaseCookieAuthTokens</c>. With the default body transport these endpoints
+/// Pair with <c>AddBlazorBaseCookieAuthTokens</c>. With the default bearer transport these endpoints
 /// would put the token in a redirect response, which is not useful — see the guard in
 /// <c>Complete</c>.
 /// </remarks>
@@ -62,10 +61,8 @@ public static class ExternalAuthRedirectEndpointMapper
                 HttpContext httpContext,
                 string? returnUrl,
                 IExternalUserResolver<TUser> userResolver,
-                UserManager<TUser> userManager,
                 SignInManager<TUser> signInManager,
-                TokenService<TUser> tokenService,
-                BaseUserDbContext<TUser> dbContext,
+                AuthTokenIssuer<TUser> tokenIssuer,
                 IAuthTokenTransport tokenTransport,
                 CancellationToken cancellationToken) =>
             {
@@ -82,9 +79,8 @@ public static class ExternalAuthRedirectEndpointMapper
                     return Results.Unauthorized();
                 }
 
-                var roles  = await userManager.GetRolesAsync(resolution.User);
-                var tokens = await tokenService.IssueTokenPairAsync(resolution.User, roles, dbContext);
                 var principal = await signInManager.CreateUserPrincipalAsync(resolution.User);
+                var tokens = await tokenIssuer.IssueTokenPairAsync(principal, cancellationToken: cancellationToken);
 
                 await tokenTransport.WriteAsync(httpContext, tokens, principal, cancellationToken);
 

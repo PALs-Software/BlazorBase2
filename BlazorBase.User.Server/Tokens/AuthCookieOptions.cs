@@ -57,5 +57,5 @@ public class AuthCookieOptions
     /// expiration — the mechanism the old JWT-in-a-cookie transport had no equivalent for. Defaults to
     /// the same window the old refresh cookie used.
     /// </summary>
-    public TimeSpan ExpireTimeSpan { get; set; } = TimeSpan.FromDays(JwtSettingsDefaults.RefreshTokenExpirationDays);
+    public TimeSpan ExpireTimeSpan { get; set; } = TimeSpan.FromDays(AuthTokenDefaults.RefreshTokenExpirationDays);
 }

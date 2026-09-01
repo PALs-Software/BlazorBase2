@@ -7,12 +7,31 @@ namespace BlazorBase.User.Server.Data;
 public abstract class BaseUserDbContext<TUser>(DbContextOptions options) : IdentityDbContext<TUser>(options)
     where TUser : BaseUser
 {
-    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
-
     /// <summary>
     /// Long-lived, hashed credentials for programmatic access. Declaring the set here means every
     /// deriving context carries the table, so an application that later calls
     /// <c>AddBlazorBaseAccessTokens</c> needs no model change - only a migration.
     /// </summary>
     public DbSet<AccessToken> AccessTokens => Set<AccessToken>();
+
+    /// <summary>
+    /// Hashed refresh-token rotation records backing <see cref="Services.AuthTokenIssuer{TUser}"/>.
+    /// Declared here, not in a per-app context, for the same reason as <see cref="AccessTokens"/>.
+    /// </summary>
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
+    /// <summary>
+    /// A real foreign key with cascade delete, so a deleted user cannot leave orphaned refresh-token
+    /// rows behind - the deleted table's original defect.
+    /// </summary>
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<RefreshToken>()
+            .HasOne<TUser>()
+            .WithMany()
+            .HasForeignKey(token => token.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
 }

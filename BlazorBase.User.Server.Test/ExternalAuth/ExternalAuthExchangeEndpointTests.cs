@@ -1,10 +1,10 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.ExternalAuth;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
+using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -16,6 +16,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace BlazorBase.User.Server.Test.ExternalAuth;
@@ -71,9 +72,6 @@ public sealed class ExternalAuthExchangeEndpointTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["JwtSettings:Secret"] = "blazorbase-external-auth-test-signing-secret-0123456789",
-                ["JwtSettings:Issuer"] = "BlazorBase.User.Server.Test",
-                ["JwtSettings:Audience"] = "BlazorBase.User.Server.Test.Audience",
                 ["ExternalAuthSettings:Authority"] = "https://example-authority.test",
                 ["ExternalAuthSettings:Audiences:0"] = "example-audience",
             })
@@ -124,6 +122,20 @@ public sealed class ExternalAuthExchangeEndpointTests
 
         var result = await userManager.CreateAsync(new TestUser { UserName = userName, Email = $"{userName}@example.test" });
         Assert.True(result.Succeeded, string.Join("; ", result.Errors.Select(e => e.Description)));
+    }
+
+    /// <summary>
+    /// Unprotects an access token minted by <see cref="AuthTokenIssuer"/> so a test can assert on its
+    /// claims without a JWT library - the token is an opaque, data-protected blob.
+    /// </summary>
+    private static ClaimsPrincipal UnprotectAccessToken(IHost host, string accessToken)
+    {
+        using var scope = host.Services.CreateScope();
+        var bearerTokenOptions = scope.ServiceProvider
+            .GetRequiredService<IOptionsMonitor<BearerTokenOptions>>()
+            .Get(IdentityConstants.BearerScheme);
+
+        return bearerTokenOptions.BearerTokenProtector.Unprotect(accessToken)!.Principal;
     }
 
     [Fact]
@@ -184,7 +196,7 @@ public sealed class ExternalAuthExchangeEndpointTests
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<LoginResponse>();
 
-        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(body!.AccessToken);
-        Assert.Equal("tenant-42", jwt.Claims.Single(c => c.Type == "tenant").Value);
+        var principal = UnprotectAccessToken(host, body!.AccessToken);
+        Assert.Equal("tenant-42", principal.Claims.Single(c => c.Type == "tenant").Value);
     }
 }

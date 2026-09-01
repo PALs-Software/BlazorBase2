@@ -8,7 +8,6 @@ using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using BlazorBase.User.Server.Tokens;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -35,7 +34,7 @@ public class BlazorBaseUserServerServiceCollectionExtensionsTests
         using var connection = new SqliteConnection("DataSource=:memory:");
         connection.Open();
 
-        var configuration = MinimalJwtConfiguration();
+        var configuration = BuildConfiguration();
 
         var services = new ServiceCollection();
         services.AddLogging();
@@ -43,7 +42,7 @@ public class BlazorBaseUserServerServiceCollectionExtensionsTests
         services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(connection));
         services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration, options =>
         {
-            options.SchemeName = "HostJwt";
+            options.SchemeName = "HostBearer";
             options.ClaimDefaultScheme = false;
         });
         services.AddBlazorBaseCookieAuthTokens(configuration);
@@ -61,7 +60,7 @@ public class BlazorBaseUserServerServiceCollectionExtensionsTests
         using var connection = new SqliteConnection("DataSource=:memory:");
         connection.Open();
 
-        var configuration = MinimalJwtConfiguration();
+        var configuration = BuildConfiguration();
 
         var services = new ServiceCollection();
         services.AddLogging();
@@ -77,30 +76,13 @@ public class BlazorBaseUserServerServiceCollectionExtensionsTests
         Assert.Equal(BlazorBaseAuthTokenTransportExtensions.BearerOrCookieScheme, authenticationOptions.DefaultChallengeScheme);
     }
 
-    private static IConfiguration MinimalJwtConfiguration() =>
-        new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["JwtSettings:Secret"] = "blazorbase-test-signing-secret-key-0123456789-abcdef",
-                ["JwtSettings:Issuer"] = "BlazorBase.User.Server.Test",
-                ["JwtSettings:Audience"] = "BlazorBase.User.Server.Test.Audience",
-            })
-            .Build();
-
     [Fact]
     public void AddBlazorBaseUserServer_ResolvesUserModelDataProvider_WithBridgedDbContext()
     {
         using var connection = new SqliteConnection("DataSource=:memory:");
         connection.Open();
 
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["JwtSettings:Secret"] = "blazorbase-test-signing-secret-key-0123456789-abcdef",
-                ["JwtSettings:Issuer"] = "BlazorBase.User.Server.Test",
-                ["JwtSettings:Audience"] = "BlazorBase.User.Server.Test.Audience",
-            })
-            .Build();
+        var configuration = BuildConfiguration();
 
         var services = new ServiceCollection();
         services.AddLogging();
@@ -116,44 +98,6 @@ public class BlazorBaseUserServerServiceCollectionExtensionsTests
 
         Assert.NotNull(dataProvider);
         Assert.Same(scope.ServiceProvider.GetRequiredService<TestUserDbContext>(), bridgedContext);
-    }
-
-    [Fact]
-    public void AddBlazorBaseUserServer_Throws_WhenSecretIsShorterThan32Bytes()
-    {
-        using var connection = new SqliteConnection("DataSource=:memory:");
-        connection.Open();
-
-        var configuration = BuildConfiguration(secret: "too-short-secret");
-
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddDataProtection();
-        services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(connection));
-
-        var exception = Assert.Throws<InvalidOperationException>(
-            () => services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration));
-
-        Assert.Contains("32 bytes", exception.Message);
-    }
-
-    [Fact]
-    public void AddBlazorBaseUserServer_DoesNotThrow_WhenSecretIsAtLeast32Bytes()
-    {
-        using var connection = new SqliteConnection("DataSource=:memory:");
-        connection.Open();
-
-        var configuration = BuildConfiguration();
-
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddDataProtection();
-        services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(connection));
-
-        var exception = Record.Exception(
-            () => services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration));
-
-        Assert.Null(exception);
     }
 
     [Fact]
@@ -204,8 +148,7 @@ public class BlazorBaseUserServerServiceCollectionExtensionsTests
             scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>(),
             scope.ServiceProvider.GetRequiredService<SignInManager<TestUser>>(),
             scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>(),
-            scope.ServiceProvider.GetRequiredService<TokenService<TestUser>>(),
-            scope.ServiceProvider.GetRequiredService<BaseUserDbContext<TestUser>>(),
+            scope.ServiceProvider.GetRequiredService<AuthTokenIssuer<TestUser>>(),
             configuration)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
@@ -242,11 +185,11 @@ public class BlazorBaseUserServerServiceCollectionExtensionsTests
         using var provider = services.BuildServiceProvider();
 
         var authOptions = provider.GetRequiredService<IOptions<AuthenticationOptions>>().Value;
-        Assert.Equal(JwtBearerDefaults.AuthenticationScheme, authOptions.DefaultAuthenticateScheme);
-        Assert.Equal(JwtBearerDefaults.AuthenticationScheme, authOptions.DefaultChallengeScheme);
+        Assert.Equal(IdentityConstants.BearerScheme, authOptions.DefaultAuthenticateScheme);
+        Assert.Equal(IdentityConstants.BearerScheme, authOptions.DefaultChallengeScheme);
 
         var schemeProvider = provider.GetRequiredService<IAuthenticationSchemeProvider>();
-        var scheme = await schemeProvider.GetSchemeAsync(JwtBearerDefaults.AuthenticationScheme);
+        var scheme = await schemeProvider.GetSchemeAsync(IdentityConstants.BearerScheme);
         Assert.NotNull(scheme);
     }
 
@@ -257,7 +200,7 @@ public class BlazorBaseUserServerServiceCollectionExtensionsTests
         connection.Open();
 
         var configuration = BuildConfiguration();
-        const string customSchemeName = "BlazorBaseJwt";
+        const string customSchemeName = "BlazorBaseBearer";
 
         var services = new ServiceCollection();
         services.AddLogging();
@@ -279,17 +222,16 @@ public class BlazorBaseUserServerServiceCollectionExtensionsTests
         var scheme = await schemeProvider.GetSchemeAsync(customSchemeName);
         Assert.NotNull(scheme);
 
-        var defaultNamedScheme = await schemeProvider.GetSchemeAsync(JwtBearerDefaults.AuthenticationScheme);
+        var defaultNamedScheme = await schemeProvider.GetSchemeAsync(IdentityConstants.BearerScheme);
         Assert.Null(defaultNamedScheme);
     }
 
-    private static IConfiguration BuildConfiguration(string secret = "blazorbase-test-signing-secret-key-0123456789-abcdef")
+    private static IConfiguration BuildConfiguration()
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["JwtSettings:Secret"] = secret,
-                ["JwtSettings:Issuer"] = "BlazorBase.User.Server.Test",
-                ["JwtSettings:Audience"] = "BlazorBase.User.Server.Test.Audience",
+                ["AuthTokens:AccessTokenMinutes"] = "15",
+                ["AuthTokens:RefreshTokenDays"] = "30",
             })
             .Build();
 }

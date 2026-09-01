@@ -1,4 +1,3 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.Configuration;
@@ -108,29 +107,32 @@ public sealed class DevelopmentAuthenticationTests : IdentityServerTestBase
     }
 
     /// <summary>
-    /// A token is issued on every app start — every reload, every restart — so without cleanup the
-    /// table would collect a row per reload and reach the hundreds over a day of development.
+    /// A token is issued on every app start — every reload, every restart. Without invalidating the
+    /// previous one, a developer restarting mid-session would end up with several tokens each valid
+    /// for their own full lifetime and nothing to tell them apart.
     /// </summary>
     [Fact]
-    public async Task DevelopmentLogin_LeavesExactlyOneRefreshToken_HoweverOftenItIsCalled()
+    public async Task DevelopmentLogin_InvalidatesTheRefreshTokenFromThePreviousCall()
     {
-        for (var attempt = 0; attempt < 5; attempt++)
-        {
-            using var scope = CreateScope();
+        LoginResponse first;
+        using (var scope = CreateScope())
+            first = AssertOkLogin(await CreateAuthController(scope).DevelopmentLogin(CancellationToken.None));
+
+        using (var scope = CreateScope())
             await CreateAuthController(scope).DevelopmentLogin(CancellationToken.None);
-        }
 
-        using var verifyScope = CreateScope();
-        var dbContext = verifyScope.ServiceProvider.GetRequiredService<TestUserDbContext>();
+        using var refreshScope = CreateScope();
+        var result = await CreateAuthController(refreshScope).Refresh(new RefreshTokenRequest { RefreshToken = first.RefreshToken });
 
-        Assert.Single(dbContext.RefreshTokens);
+        Assert.IsType<UnauthorizedObjectResult>(result.Result);
     }
 
     [Fact]
-    public async Task DevelopmentLogin_LeavesAnotherUsersRefreshTokensAlone()
+    public async Task DevelopmentLogin_LeavesAnotherUsersRefreshTokenUsable()
     {
         var otherUser = await SeedUserAsync("someone.else@example.com", "Someone Else");
 
+        LoginResponse otherUsersLogin;
         using (var loginScope = CreateScope())
         {
             var login = await CreateAuthController(loginScope).Login(new LoginRequest
@@ -139,16 +141,17 @@ public sealed class DevelopmentAuthenticationTests : IdentityServerTestBase
                 Password = "Secret123",
             });
 
-            Assert.IsType<OkObjectResult>(login.Result);
+            otherUsersLogin = AssertOkLogin(login);
         }
 
         using (var developmentScope = CreateScope())
             await CreateAuthController(developmentScope).DevelopmentLogin(CancellationToken.None);
 
-        using var verifyScope = CreateScope();
-        var dbContext = verifyScope.ServiceProvider.GetRequiredService<TestUserDbContext>();
+        using var refreshScope = CreateScope();
+        var result = await CreateAuthController(refreshScope).Refresh(new RefreshTokenRequest { RefreshToken = otherUsersLogin.RefreshToken });
 
-        Assert.Contains(dbContext.RefreshTokens, token => token.UserId == otherUser.Id);
+        AssertOkLogin(result);
+        Assert.NotEqual(otherUser.Id, string.Empty);
     }
 
     [Fact]
@@ -219,9 +222,8 @@ public sealed class DevelopmentAuthenticationTests : IdentityServerTestBase
         Assert.False(await userManager.CheckPasswordAsync(user!, "developer"));
     }
 
-    private static IReadOnlyList<string> RolesInToken(string accessToken)
-        => new JwtSecurityTokenHandler()
-            .ReadJwtToken(accessToken)
+    private IReadOnlyList<string> RolesInToken(string accessToken)
+        => UnprotectAccessToken(accessToken)
             .Claims
             .Where(claim => claim.Type == ClaimTypes.Role)
             .Select(claim => claim.Value)
