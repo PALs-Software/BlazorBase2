@@ -13,11 +13,11 @@ a new application, and before changing it in an existing one.
 The IETF's guidance for browser-based applications describes three shapes. They differ in one thing —
 how much a successful cross-site-scripting attack walks away with.
 
-| | Refresh token in browser | Access token in browser | Revocation | CSRF risk |
-|---|---|---|---|---|
-| **1. Backend-for-frontend** | no | no | immediate | yes, must be handled |
-| **2. Token-mediating backend** | no | yes, short-lived | at expiry | no |
-| **3. Browser as OAuth client** | yes | yes | at expiry | no |
+| | Refresh token in browser | Access token in browser | What an XSS (Cross-Site-Scripting) walks away with | Revocation | CSRF (Cross-Site-Request-Forgery) risk |
+|---|---|---|---|---|---|
+| **1. Backend-for-frontend** | no | no | no token — but it can still act as the user for as long as the session lasts | immediate | yes, must be handled |
+| **2. Token-mediating backend** | no | yes, short-lived | the access token, usable until it expires | at expiry | no |
+| **3. Browser as OAuth client** | yes | yes | both tokens — access that outlives the session and the browser | at expiry | no |
 
 **Pick by asking one question: does a backend you control serve the client and own the API?**
 
