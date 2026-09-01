@@ -32,7 +32,6 @@ public sealed class CookieAuthTokenTransportTests
 {
     private const string AccessCookie  = "bb_access";
     private const string RefreshCookie = "bb_refresh";
-    private const string CsrfCookie    = "XSRF-TOKEN";
     private const string CsrfHeader    = "X-CSRF-TOKEN";
 
     private sealed class StubExternalTokenValidator : IExternalTokenValidator
@@ -172,14 +171,13 @@ public sealed class CookieAuthTokenTransportTests
         Assert.Empty(body.RefreshToken);
         Assert.NotEqual(default, body.ExpiresAt);
 
-        var cookies = ReadCookies(response);
+        var cookies = ReadCookies(await ExchangeAsync(host));
         Assert.True(cookies.ContainsKey(AccessCookie));
         Assert.True(cookies.ContainsKey(RefreshCookie));
-        Assert.NotEmpty(cookies[AccessCookie]);
     }
 
     [Fact]
-    public async Task The_session_cookies_are_marked_HttpOnly_and_the_csrf_cookie_is_not()
+    public async Task The_session_cookies_are_marked_HttpOnly()
     {
         var (host, _) = await StartHostAsync(useCookies: true);
         using var _host = host;
@@ -190,8 +188,8 @@ public sealed class CookieAuthTokenTransportTests
         Assert.Contains(setCookies, c => c.StartsWith($"{AccessCookie}=", StringComparison.Ordinal) && c.Contains("httponly", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(setCookies, c => c.StartsWith($"{RefreshCookie}=", StringComparison.Ordinal) && c.Contains("httponly", StringComparison.OrdinalIgnoreCase));
 
-        // Deliberately readable — the client has to echo it back in a header.
-        Assert.Contains(setCookies, c => c.StartsWith($"{CsrfCookie}=", StringComparison.Ordinal) && !c.Contains("httponly", StringComparison.OrdinalIgnoreCase));
+        // The antiforgery token travels in the session response body, so no readable cookie is set.
+        Assert.DoesNotContain(setCookies, c => c.StartsWith("XSRF-TOKEN=", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -250,16 +248,41 @@ public sealed class CookieAuthTokenTransportTests
         Assert.False(response.Headers.Contains("Set-Cookie"));
     }
 
+    /// <summary>
+    /// Obtains an antiforgery token together with the cookie half it is bound to, exactly as a client
+    /// does at startup.
+    /// </summary>
+    private static async Task<(string Token, string CookieHeader)> GetCsrfAsync(IHost host, string sessionCookieHeader)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/auth/session");
+
+        if (!string.IsNullOrEmpty(sessionCookieHeader))
+            request.Headers.Add("Cookie", sessionCookieHeader);
+
+        var response = await host.GetTestClient().SendAsync(request);
+        response.EnsureSuccessStatusCode();
+
+        var session = await response.Content.ReadFromJsonAsync<AuthSessionResponse>();
+        var antiforgeryCookies = ReadCookies(response)
+            .Select(entry => $"{entry.Key}={entry.Value}")
+            .ToList();
+
+        if (!string.IsNullOrEmpty(sessionCookieHeader))
+            antiforgeryCookies.Add(sessionCookieHeader);
+
+        return (session!.CsrfToken, string.Join("; ", antiforgeryCookies));
+    }
+
     [Fact]
     public async Task A_state_changing_request_without_a_csrf_token_is_refused()
     {
         var (host, _) = await StartHostAsync(useCookies: true);
         using var _host = host;
 
-        var cookies = ReadCookies(await ExchangeAsync(host));
+        var (_, cookieHeader) = await GetCsrfAsync(host, string.Empty);
 
         var request = new HttpRequestMessage(HttpMethod.Post, "/guarded");
-        request.Headers.Add("Cookie", $"{CsrfCookie}={cookies[CsrfCookie]}");
+        request.Headers.Add("Cookie", cookieHeader);
 
         var response = await host.GetTestClient().SendAsync(request);
 
@@ -272,29 +295,55 @@ public sealed class CookieAuthTokenTransportTests
         var (host, _) = await StartHostAsync(useCookies: true);
         using var _host = host;
 
-        var cookies = ReadCookies(await ExchangeAsync(host));
+        var (token, cookieHeader) = await GetCsrfAsync(host, string.Empty);
 
         var request = new HttpRequestMessage(HttpMethod.Post, "/guarded");
-        request.Headers.Add("Cookie", $"{CsrfCookie}={cookies[CsrfCookie]}");
-        request.Headers.Add(CsrfHeader, cookies[CsrfCookie]);
+        request.Headers.Add("Cookie", cookieHeader);
+        request.Headers.Add(CsrfHeader, token);
 
         var response = await host.GetTestClient().SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    /// <summary>
+    /// The token check alone would pass here. Fetch metadata is what closes the gap a sibling
+    /// subdomain leaves open, since "same site" is registrable-domain scoped.
+    /// </summary>
     [Fact]
     public async Task A_cross_site_request_is_refused_even_with_a_matching_csrf_token()
     {
         var (host, _) = await StartHostAsync(useCookies: true);
         using var _host = host;
 
-        var cookies = ReadCookies(await ExchangeAsync(host));
+        var (token, cookieHeader) = await GetCsrfAsync(host, string.Empty);
 
         var request = new HttpRequestMessage(HttpMethod.Post, "/guarded");
-        request.Headers.Add("Cookie", $"{CsrfCookie}={cookies[CsrfCookie]}");
-        request.Headers.Add(CsrfHeader, cookies[CsrfCookie]);
+        request.Headers.Add("Cookie", cookieHeader);
+        request.Headers.Add(CsrfHeader, token);
         request.Headers.Add("Sec-Fetch-Site", "cross-site");
+
+        var response = await host.GetTestClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    /// <summary>
+    /// A token minted for a different caller must not work. This is what a bare random value in a
+    /// readable cookie cannot give: anything able to write cookies could plant both halves of it.
+    /// </summary>
+    [Fact]
+    public async Task A_csrf_token_from_another_session_is_refused()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true);
+        using var _host = host;
+
+        var (_, ownCookies)    = await GetCsrfAsync(host, string.Empty);
+        var (foreignToken, _)  = await GetCsrfAsync(host, string.Empty);
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/guarded");
+        request.Headers.Add("Cookie", ownCookies);
+        request.Headers.Add(CsrfHeader, foreignToken);
 
         var response = await host.GetTestClient().SendAsync(request);
 

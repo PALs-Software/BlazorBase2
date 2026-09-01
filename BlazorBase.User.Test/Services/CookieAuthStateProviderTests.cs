@@ -45,7 +45,7 @@ public sealed class CookieAuthStateProviderTests
     [Fact]
     public async Task The_principal_is_built_from_the_servers_answer()
     {
-        var provider = new CookieAuthStateProvider(new StubAuthService(AuthenticatedSession()), new NoOpTokenStorage());
+        var provider = new CookieAuthStateProvider(new StubAuthService(AuthenticatedSession()), new NoOpTokenStorage(), new CsrfTokenProvider());
 
         var state = await provider.GetAuthenticationStateAsync();
 
@@ -60,7 +60,7 @@ public sealed class CookieAuthStateProviderTests
     [Fact]
     public async Task Every_role_survives_not_just_the_first()
     {
-        var provider = new CookieAuthStateProvider(new StubAuthService(AuthenticatedSession()), new NoOpTokenStorage());
+        var provider = new CookieAuthStateProvider(new StubAuthService(AuthenticatedSession()), new NoOpTokenStorage(), new CsrfTokenProvider());
 
         var state = await provider.GetAuthenticationStateAsync();
 
@@ -71,7 +71,7 @@ public sealed class CookieAuthStateProviderTests
     [Fact]
     public async Task An_unauthenticated_session_yields_an_anonymous_principal()
     {
-        var provider = new CookieAuthStateProvider(new StubAuthService(new AuthSessionResponse()), new NoOpTokenStorage());
+        var provider = new CookieAuthStateProvider(new StubAuthService(new AuthSessionResponse()), new NoOpTokenStorage(), new CsrfTokenProvider());
 
         var state = await provider.GetAuthenticationStateAsync();
 
@@ -82,7 +82,7 @@ public sealed class CookieAuthStateProviderTests
     public async Task The_server_is_asked_once_per_scope_not_once_per_render()
     {
         var authService = new StubAuthService(AuthenticatedSession());
-        var provider = new CookieAuthStateProvider(authService, new NoOpTokenStorage());
+        var provider = new CookieAuthStateProvider(authService, new NoOpTokenStorage(), new CsrfTokenProvider());
 
         await provider.GetAuthenticationStateAsync();
         await provider.GetAuthenticationStateAsync();
@@ -94,7 +94,7 @@ public sealed class CookieAuthStateProviderTests
     [Fact]
     public async Task Logging_out_drops_the_cached_principal()
     {
-        var provider = new CookieAuthStateProvider(new StubAuthService(AuthenticatedSession()), new NoOpTokenStorage());
+        var provider = new CookieAuthStateProvider(new StubAuthService(AuthenticatedSession()), new NoOpTokenStorage(), new CsrfTokenProvider());
         await provider.GetAuthenticationStateAsync();
 
         await provider.MarkUserAsLoggedOut();

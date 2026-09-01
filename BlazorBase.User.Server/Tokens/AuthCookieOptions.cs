@@ -16,12 +16,10 @@ public class AuthCookieOptions
     public string RefreshTokenCookieName { get; set; } = "bb_refresh";
 
     /// <summary>
-    /// Readable (deliberately <em>not</em> <c>HttpOnly</c>) cookie holding the CSRF token the client
-    /// echoes back in <see cref="CsrfHeaderName"/>.
+    /// Header the client sends the antiforgery request token in. Obtained from
+    /// <c>GET /api/auth/session</c>; there is no readable cookie to read it from, because the token is
+    /// bound to the caller's identity and must not be plantable by anything that can write cookies.
     /// </summary>
-    public string CsrfCookieName { get; set; } = "XSRF-TOKEN";
-
-    /// <summary>Header the client sends the CSRF token in.</summary>
     public string CsrfHeaderName { get; set; } = "X-CSRF-TOKEN";
 
     /// <summary>

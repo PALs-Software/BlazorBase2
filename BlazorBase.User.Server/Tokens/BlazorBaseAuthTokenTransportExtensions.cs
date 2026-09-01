@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -47,6 +48,19 @@ public static class BlazorBaseAuthTokenTransportExtensions
         services.RemoveAll<IAuthTokenTransport>();
         services.AddScoped<IAuthTokenTransport, CookieAuthTokenTransport>();
         services.AddScoped<BlazorBaseCsrfEndpointFilter>();
+
+        var cookieOptions = new AuthCookieOptions();
+        configuration.GetSection(AuthCookieOptions.SectionName).Bind(cookieOptions);
+        configureOptions?.Invoke(cookieOptions);
+
+        services.AddAntiforgery(antiforgeryOptions =>
+        {
+            antiforgeryOptions.HeaderName = cookieOptions.CsrfHeaderName;
+            antiforgeryOptions.Cookie.SecurePolicy = cookieOptions.SecureOnly
+                ? CookieSecurePolicy.Always
+                : CookieSecurePolicy.None;
+            antiforgeryOptions.Cookie.SameSite = cookieOptions.SameSite;
+        });
 
         ReadAccessTokenFromCookie(services, schemeName);
 

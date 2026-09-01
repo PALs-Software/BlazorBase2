@@ -33,4 +33,16 @@ public interface IAuthTokenTransport
 
     /// <summary>Removes anything <see cref="WriteAsync"/> left on the client. Called on logout.</summary>
     Task ClearAsync(HttpContext httpContext, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Whether a state-changing request was actually intended by the user.
+    /// </summary>
+    /// <remarks>
+    /// Lives here because the answer depends entirely on how the session travels. A bearer token is
+    /// attached by the caller and therefore proves intent by itself; a cookie is attached by the
+    /// browser whoever asked, so it does not. The transport that introduces the ambiguity is the one
+    /// that has to resolve it — and it covers the controller endpoints, which an endpoint filter
+    /// cannot reach.
+    /// </remarks>
+    Task<bool> IsRequestIntentionalAsync(HttpContext httpContext, CancellationToken cancellationToken = default);
 }

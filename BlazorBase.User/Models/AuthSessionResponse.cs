@@ -14,6 +14,14 @@ public class AuthSessionResponse
 {
     public bool IsAuthenticated { get; set; }
 
+    /// <summary>
+    /// The antiforgery request token to send back in the configured header on every write. Delivered
+    /// in the body rather than a readable cookie: the token is bound to this caller's identity, so
+    /// one obtained elsewhere — or planted by a sibling subdomain that can write cookies — does not
+    /// validate.
+    /// </summary>
+    public string CsrfToken { get; set; } = string.Empty;
+
     public List<AuthSessionClaim> Claims { get; set; } = [];
 }
 

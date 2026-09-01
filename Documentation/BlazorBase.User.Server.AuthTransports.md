@@ -98,8 +98,7 @@ Bound from the `AuthCookies` section, overridable in code.
 |---|---|---|
 | `AccessTokenCookieName` | `bb_access` | |
 | `RefreshTokenCookieName` | `bb_refresh` | |
-| `CsrfCookieName` | `XSRF-TOKEN` | Deliberately readable by script |
-| `CsrfHeaderName` | `X-CSRF-TOKEN` | |
+| `CsrfHeaderName` | `X-CSRF-TOKEN` | Header the antiforgery request token is sent in |
 | `RefreshCookiePath` | `/api/auth` | Must match where the auth endpoints are mapped |
 | `SecureOnly` | `true` | Only turn off for plain-HTTP local development |
 | `SameSite` | `Lax` | See below — `Strict` breaks OIDC sign-in |
@@ -132,9 +131,23 @@ a header on one would break it.
 1. **`Sec-Fetch-Site`** must be `same-origin` or `none`. The browser sets this and page script cannot
    forge it. It also covers the gap `SameSite` leaves: "same site" is registrable-domain scoped, so a
    hostile or compromised sibling subdomain counts as same-site and its requests carry your cookie.
-2. **Double submit.** The readable `XSRF-TOKEN` cookie must match the `X-CSRF-TOKEN` header. A
-   cross-site attacker can make the browser send cookies but cannot set a custom header without a
-   CORS preflight, which a correctly configured server refuses.
+   It is absent on older clients, which is why it is not the only check.
+2. **ASP.NET Core's `IAntiforgery`.** The request token is data-protected and **bound to the caller's
+   identity**, so one minted for somebody else does not validate.
+
+> A plain random value echoed between a readable cookie and a header — the classic "double submit" —
+> looks equivalent and is not. Anything able to write a cookie for your domain, a sibling subdomain
+> included, can plant both halves of that pair and satisfy the check. An identity-bound token cannot
+> be forged that way. This is why the framework uses the platform service rather than its own.
+
+The client gets the token from `GET /api/auth/session`, in the **body**. There is deliberately no
+readable cookie to read it from.
+
+The two auth endpoints that act on a cookie alone — `POST /api/auth/refresh` and
+`POST /api/auth/logout` — are MVC controller actions that an endpoint filter cannot reach. The cookie
+transport checks them itself through `IAuthTokenTransport.IsRequestIntentionalAsync`, so a cross-site
+page cannot rotate or revoke a visitor's session. The body transport answers `true` there: a bearer
+token has to be attached deliberately, which is the proof of intent a cookie cannot give.
 
 Safe methods (`GET`, `HEAD`, `OPTIONS`, `TRACE`) pass through untouched.
 
@@ -161,8 +174,12 @@ That swaps three things for you:
 - The authentication state comes from `CookieAuthStateProvider`, which asks the server
   `GET /api/auth/session` instead of decoding a token it cannot read. It stays the same concrete
   type the UI components depend on, so nothing else has to change.
-- `CsrfHeaderHandler` attaches the CSRF header to every write and sets
+- `CsrfHeaderHandler` attaches the antiforgery token from `CsrfTokenProvider` to every write and sets
   `BrowserRequestCredentials.Include` so the browser sends the cookies.
+
+The antiforgery token is bound to the identity of the request that minted it, so the client must
+re-read the session after signing in. `CookieAuthStateProvider.MarkUserAsAuthenticated` does that for
+you — which is another reason not to skip calling it.
 
 Register the handler on **every** typed client that talks to the API. The framework cannot know which
 of a host's clients those are, and one that is missed rejects every write with a 403.
@@ -299,7 +316,7 @@ them straight back to the script the transport exists to keep them from.
 - [ ] `SecureOnly` left on outside local development
 - [ ] `SameSite` left at `Lax`
 - [ ] `RefreshCookiePath` matches where the auth endpoints are mapped
-- [ ] The CSRF cookie and header names match on both sides
+- [ ] The CSRF header name matches on both sides
 - [ ] No permissive CORS policy
 - [ ] The external resolver keys on the subject id, not the email
 - [ ] The external resolver's answer for an unknown subject is a deliberate decision

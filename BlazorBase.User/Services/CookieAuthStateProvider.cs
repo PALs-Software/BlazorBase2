@@ -15,11 +15,12 @@ namespace BlazorBase.User.Services;
 /// to render, which route to guard — and it is never the authorization decision: the server re-checks
 /// every request regardless of what the client believes about itself.
 /// </remarks>
-public class CookieAuthStateProvider(IAuthService authService, ITokenStorage tokenStorage)
+public class CookieAuthStateProvider(IAuthService authService, ITokenStorage tokenStorage, CsrfTokenProvider csrfTokenProvider)
     : BlazorBaseUserAuthStateProvider(tokenStorage)
 {
     #region Injects
     private readonly IAuthService AuthService = authService;
+    private readonly CsrfTokenProvider CsrfTokenProvider = csrfTokenProvider;
     #endregion
 
     private ClaimsPrincipal? _cachedPrincipal;
@@ -30,6 +31,10 @@ public class CookieAuthStateProvider(IAuthService authService, ITokenStorage tok
             return _cachedPrincipal;
 
         var session = await AuthService.GetSessionAsync();
+
+        // The token is bound to the identity this request carried, so it has to be refreshed together
+        // with the principal rather than fetched once at startup.
+        CsrfTokenProvider.Set(session.CsrfToken);
 
         _cachedPrincipal = session.IsAuthenticated
             ? new ClaimsPrincipal(new ClaimsIdentity(
@@ -61,6 +66,7 @@ public class CookieAuthStateProvider(IAuthService authService, ITokenStorage tok
         // a session the user just ended.
         _cachedPrincipal = new ClaimsPrincipal(new ClaimsIdentity());
         CurrentUser = _cachedPrincipal;
+        CsrfTokenProvider.Clear();
 
         NotifyCurrentUserChanged();
         return Task.CompletedTask;

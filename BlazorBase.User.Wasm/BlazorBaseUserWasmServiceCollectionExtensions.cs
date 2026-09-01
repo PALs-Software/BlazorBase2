@@ -53,6 +53,7 @@ public static class BlazorBaseUserWasmServiceCollectionExtensions
         services.AddScoped<IFormFactor, WasmFormFactor>();
 
         services.AddSingleton<ICsrfTokenOptions>(csrfOptions);
+        services.AddScoped<CsrfTokenProvider>();
         services.AddScoped<CsrfHeaderHandler>();
 
         // Replaces the token-parsing provider registered by AddBlazorBaseUserClient, whichever order

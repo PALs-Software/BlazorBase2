@@ -144,6 +144,9 @@ public abstract class AuthControllerBase<TUser>(
     [EnableRateLimiting("BlazorBaseAuth")]
     public async Task<ActionResult<LoginResponse>> Refresh([FromBody] RefreshTokenRequest request)
     {
+        if (HttpContext is not null && !await ResolveTokenTransport().IsRequestIntentionalAsync(HttpContext))
+            return Forbid();
+
         var presentedToken = await ResolveRefreshTokenAsync(request);
 
         if (presentedToken is null)
@@ -223,6 +226,9 @@ public abstract class AuthControllerBase<TUser>(
     [AllowAnonymous]
     public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
     {
+        if (HttpContext is not null && !await ResolveTokenTransport().IsRequestIntentionalAsync(HttpContext))
+            return Forbid();
+
         var presentedToken = await ResolveRefreshTokenAsync(request);
 
         if (HttpContext is not null)

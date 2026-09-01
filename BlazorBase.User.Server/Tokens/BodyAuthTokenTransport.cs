@@ -23,4 +23,11 @@ public sealed class BodyAuthTokenTransport : IAuthTokenTransport
 
     public Task ClearAsync(HttpContext httpContext, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;
+
+    /// <summary>
+    /// Always true. A bearer token has to be attached deliberately by the caller, so its presence is
+    /// the proof of intent that a cookie cannot give.
+    /// </summary>
+    public Task<bool> IsRequestIntentionalAsync(HttpContext httpContext, CancellationToken cancellationToken = default) =>
+        Task.FromResult(true);
 }
