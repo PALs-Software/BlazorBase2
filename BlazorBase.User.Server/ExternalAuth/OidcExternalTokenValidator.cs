@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -14,19 +15,21 @@ namespace BlazorBase.User.Server.ExternalAuth;
 /// cached and refreshed-on-signature-failure by a <see cref="BaseConfigurationManager"/>, never
 /// trusted from the token itself. Issuer validation is never disabled: a multi-tenant authority is
 /// checked with <see cref="AadIssuerValidator"/> against the tenant issuer template and the
-/// token's own <c>tid</c>, and that <c>tid</c> must additionally appear in
-/// <see cref="ExternalAuthSettings.AllowedTenantIds"/> - the issuer template alone accepts a token
-/// from any Entra tenant in existence. The token is never hand-parsed for its claims before its
-/// signature, audience and lifetime are checked.
+/// token's own <c>tid</c>, and that <c>tid</c> must additionally be allowed by
+/// <see cref="IExternalTenantAllowList"/> - the issuer template alone accepts a token from any
+/// Entra tenant in existence. The token is never hand-parsed for its claims before its signature,
+/// audience and lifetime are checked.
 /// </summary>
 public class OidcExternalTokenValidator(
     IOptions<ExternalAuthSettings> settings,
     ILogger<OidcExternalTokenValidator> logger,
+    IServiceScopeFactory serviceScopeFactory,
     BaseConfigurationManager? configurationManager = null) : IExternalTokenValidator
 {
     #region Injects
     private readonly ExternalAuthSettings Settings = settings.Value;
     private readonly ILogger<OidcExternalTokenValidator> Logger = logger;
+    private readonly IServiceScopeFactory ServiceScopeFactory = serviceScopeFactory;
     #endregion
 
     // Overridable so a test can substitute a StaticConfigurationManager<T> instead of one that
@@ -48,8 +51,9 @@ public class OidcExternalTokenValidator(
             }
 
             var identity = result.ClaimsIdentity;
+            var tenantId = identity.FindFirst("tid")?.Value;
 
-            if (!TenantIsAllowed(identity, out var tenantId))
+            if (tenantId is null || !await TenantIsAllowedAsync(tenantId, cancellationToken))
             {
                 Logger.LogWarning("External token rejected: tenant '{TenantId}' is not in the allowed tenant list.", tenantId);
                 return null;
@@ -102,16 +106,18 @@ public class OidcExternalTokenValidator(
     /// <summary>
     /// Checked in addition to - never instead of - <see cref="AadIssuerValidator"/>: the issuer
     /// template it validates against matches every Entra tenant, so without this a multi-tenant
-    /// authority accepts a token from any organization in the world.
+    /// authority accepts a token from any organization in the world. <see cref="IExternalTenantAllowList"/>
+    /// is resolved from a fresh scope per call rather than injected directly - a host-backed
+    /// implementation typically needs a scoped dependency such as a database context, and this
+    /// validator itself is registered as a singleton so its configuration manager cache survives
+    /// across requests.
     /// </summary>
-    private bool TenantIsAllowed(ClaimsIdentity identity, out string? tenantId)
+    private async Task<bool> TenantIsAllowedAsync(string tenantId, CancellationToken cancellationToken)
     {
-        tenantId = identity.FindFirst("tid")?.Value;
+        await using var scope = ServiceScopeFactory.CreateAsyncScope();
+        var allowList = scope.ServiceProvider.GetRequiredService<IExternalTenantAllowList>();
 
-        if (Settings.AllowedTenantIds.Count == 0)
-            return true;
-
-        return tenantId is not null && Settings.AllowedTenantIds.Contains(tenantId, StringComparer.OrdinalIgnoreCase);
+        return await allowList.IsAllowedAsync(tenantId, cancellationToken);
     }
 
     private bool HasRequiredScopeOrRole(ClaimsIdentity identity)

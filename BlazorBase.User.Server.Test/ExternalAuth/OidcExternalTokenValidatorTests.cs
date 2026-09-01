@@ -1,4 +1,5 @@
 using BlazorBase.User.Server.ExternalAuth;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
@@ -30,14 +31,27 @@ public sealed class OidcExternalTokenValidatorTests
 
     private static string Authority(string tenantId) => $"https://login.microsoftonline.com/{tenantId}/v2.0";
 
-    private static OidcExternalTokenValidator CreateValidator(ExternalAuthSettings settings)
+    private static OidcExternalTokenValidator CreateValidator(ExternalAuthSettings settings, IExternalTenantAllowList? allowList = null)
     {
         var configuration = new OpenIdConnectConfiguration { Issuer = settings.Authority };
         configuration.SigningKeys.Add(SigningKey);
 
         var configurationManager = new StaticConfigurationManager<OpenIdConnectConfiguration>(configuration);
+        var scopeFactory = BuildScopeFactory(allowList ?? new DefaultExternalTenantAllowList(Options.Create(settings)));
 
-        return new OidcExternalTokenValidator(Options.Create(settings), NullLogger<OidcExternalTokenValidator>.Instance, configurationManager);
+        return new OidcExternalTokenValidator(
+            Options.Create(settings),
+            NullLogger<OidcExternalTokenValidator>.Instance,
+            scopeFactory,
+            configurationManager);
+    }
+
+    private static IServiceScopeFactory BuildScopeFactory(IExternalTenantAllowList allowList)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(allowList);
+
+        return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
     }
 
     private static string CreateToken(string tenantId, string? scope = null, string? appRole = null)
@@ -125,14 +139,19 @@ public sealed class OidcExternalTokenValidatorTests
     }
 
     [Fact]
-    public void A_multi_tenant_authority_configured_with_an_empty_AllowedTenantIds_fails_at_startup()
+    public async Task A_token_whose_tid_is_outside_AllowedTenantIds_is_accepted_by_a_host_supplied_allow_list()
     {
         var settings = BuildMultiTenantSettings(allowedTenantIds: []);
-        var validator = new ExternalAuthSettingsValidator();
+        var validator = CreateValidator(settings, new StubExternalTenantAllowList(allowed: true));
+        var token = CreateToken(OtherTenantId, scope: "access_as_user");
 
-        var result = validator.Validate(null, settings);
+        var principal = await validator.ValidateAsync(token, CancellationToken.None);
 
-        Assert.True(result.Failed);
-        Assert.Contains("AllowedTenantIds", result.FailureMessage);
+        Assert.NotNull(principal);
+    }
+
+    private sealed class StubExternalTenantAllowList(bool allowed) : IExternalTenantAllowList
+    {
+        public Task<bool> IsAllowedAsync(string tenantId, CancellationToken cancellationToken) => Task.FromResult(allowed);
     }
 }

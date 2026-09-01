@@ -2,6 +2,8 @@
 
 `BlazorBase.User.Server` issues the same token pair no matter which client asks for it. What differs
 is **how that pair reaches the client**, and that choice is the application's, not the framework's.
+Both delivery mechanisms are ASP.NET Core Identity's own: there is no self-issued JWT anywhere in the
+framework.
 
 This document is the decision guide and the wiring reference. Read it before adding authentication to
 a new application, and before changing it in an existing one.
@@ -21,11 +23,11 @@ how much a successful cross-site-scripting attack walks away with.
 
 **Pick by asking one question: does a backend you control serve the client and own the API?**
 
-- **Yes, same origin** → pattern 1. Use `AddBlazorBaseCookieAuthTokens`. This is the right default for
-  a hosted Blazor WebAssembly application, where the ASP.NET Core host serves both the client and the
-  API.
+- **Yes, same origin (or a split `app.`/`api.` deployment on one registrable domain)** → pattern 1.
+  Use `AddBlazorBaseCookieAuthTokens`. This is the right default for a hosted Blazor WebAssembly
+  application, where the ASP.NET Core host serves both the client and the API.
 - **No — a native client, a MAUI app, another service, a third-party integration** → pattern 3. Use
-  the default body transport. There is no cookie jar worth relying on, and the client must hold the
+  the default bearer transport. There is no cookie jar worth relying on, and the client must hold the
   token.
 
 Both work in the same server process. A presented `Authorization` header always wins over a cookie,
@@ -41,16 +43,18 @@ other.
 
 ## Pattern 3 — bearer tokens (the default)
 
-Nothing to configure. `AddBlazorBaseUserServer` registers `BodyAuthTokenTransport`, the token pair
-comes back in the response body, and the client stores it and sends `Authorization: Bearer …`.
+Nothing to configure. `AddBlazorBaseUserServer` registers `IdentityBearerAuthTransport` over ASP.NET
+Core Identity's own bearer-token scheme (`AddBearerToken`, scheme name
+`IdentityConstants.BearerScheme` unless renamed). The token pair comes back in the response body, and
+the client stores it and sends `Authorization: Bearer …`.
 
 ```csharp
 builder.Services.AddBlazorBaseUserServer<AppUser, AppDbContext>(builder.Configuration);
 ```
 
-If the client is a browser, store the token **in memory**, never in `localStorage` or
-`sessionStorage`. Anything in browser storage survives a reload and is readable by any script that
-gets injected into the page.
+If the client is a browser, leave `AddBlazorBaseUserWasm`'s token storage at its default —
+`InMemoryTokenStorage` — rather than opting into `localStorage`. Anything in browser storage survives
+a reload and is readable by any script that gets injected into the page.
 
 ---
 
@@ -63,18 +67,26 @@ builder.Services.AddBlazorBaseCookieAuthTokens(builder.Configuration);
 
 That single extra call changes three things:
 
-1. The token pair is written to `HttpOnly` cookies and **blanked out of the response body**. The body
-   still carries `ExpiresAt` so a client can schedule a refresh.
-2. The JWT handler learns to read the access token from its cookie — but only when no
-   `Authorization` header was presented.
-3. The refresh endpoint reads the refresh token from its cookie and **ignores the request body**.
-   Honouring a body value would let a caller present a token the browser never held.
+1. Token delivery switches to `IdentityCookieAuthTransport`, which signs the caller into ASP.NET Core
+   Identity's own application cookie (`IdentityConstants.ApplicationScheme`) instead of handing back a
+   token pair, and blanks `AccessToken`/`RefreshToken` out of the response body. The body still
+   carries `ExpiresAt` so a client can schedule its next session check. The cookie handler brings
+   sliding expiration, `SecurityStampValidator` re-checks and automatic chunking of an oversized cookie
+   along with it — none of which a hand-rolled cookie would have had.
+2. The authentication default becomes a policy scheme that forwards a bearer request to the JWT
+   handler and a cookie request to Identity's application-cookie handler, so the same endpoints serve
+   both kinds of client without either being aware of the other.
+3. The refresh and logout endpoints act on the cookie alone and ignore any token in the request body —
+   honouring a body value would let a caller present a token the browser never held. There is no
+   separate refresh token under this transport: the session lives entirely in the Identity cookie,
+   renewed by sliding expiration on every request.
 
-### If you renamed the JWT scheme
+### If you renamed the bearer scheme
 
-`AddBlazorBaseUserServer` lets a host choose the scheme name. If you used that, pass the same name
-here, or the cookie fallback is attached to a handler nobody uses and every request comes back
-unauthenticated with nothing in the log to explain it:
+`AddBlazorBaseUserServer` lets a host choose the scheme name via
+`BlazorBaseUserServerOptions.SchemeName`. `AddBlazorBaseCookieAuthTokens` reads that choice back out
+of the already-registered options instance, so it normally needs no help — but a host that also wants
+to name the fallback scheme explicitly can still pass it:
 
 ```csharp
 builder.Services.AddBlazorBaseUserServer<AppUser, AppDbContext>(builder.Configuration, options =>
@@ -82,7 +94,7 @@ builder.Services.AddBlazorBaseUserServer<AppUser, AppDbContext>(builder.Configur
     options.SchemeName         = "AppJwt";
     options.ClaimDefaultScheme = false;
 });
-builder.Services.AddBlazorBaseCookieAuthTokens(builder.Configuration, schemeName: "AppJwt");
+builder.Services.AddBlazorBaseCookieAuthTokens(builder.Configuration, bearerSchemeName: "AppJwt");
 ```
 
 ### Registration order does not matter
@@ -96,13 +108,12 @@ Bound from the `AuthCookies` section, overridable in code.
 
 | Key | Default | Notes |
 |---|---|---|
-| `AccessTokenCookieName` | `bb_access` | |
-| `RefreshTokenCookieName` | `bb_refresh` | |
+| `CookieName` | `__Host-bb_session` (or `bb_session` when `SecureOnly` is off) | |
 | `CsrfHeaderName` | `X-CSRF-TOKEN` | Header the antiforgery request token is sent in |
-| `RefreshCookiePath` | `/api/auth` | Must match where the auth endpoints are mapped |
 | `SecureOnly` | `true` | Only turn off for plain-HTTP local development |
 | `SameSite` | `Lax` | See below — `Strict` breaks OIDC sign-in |
-| `RefreshCookieDays` | falls back to `JwtSettings:RefreshExpirationDays` | |
+| `ExpireTimeSpan` | the framework's refresh-token window | Sliding expiration; renewed on every request |
+| `AllowSameSiteRequests` | `false` | See [split-origin deployment](#split-origin-appapi-deployment) below |
 
 > **Do not set `SameSite=Strict`.** An OIDC provider returns the user with a cross-site `form_post`,
 > and a strict cookie is not sent on that request. The user lands back on your application logged
@@ -117,43 +128,64 @@ authenticated. Bearer tokens do not have this problem; cookies bring it back, an
 close it.
 
 ```csharp
-app.MapPost("/api/orders", CreateOrder).RequireBlazorBaseCsrf();
-
-// or for a whole group
-var group = app.MapGroup("/api/orders").RequireBlazorBaseCsrf();
+app.UseAuthentication();
+app.UseBlazorBaseCsrf();
+app.UseAuthorization();
 ```
 
-The filter is **not** applied automatically. A bearer-only application does not need it, and forcing
-a header on one would break it.
+`UseBlazorBaseCsrf()` enforces `BlazorBaseCsrfMiddleware` for every state-changing request from that
+point in the pipeline onward — including MVC controller actions, which a per-endpoint filter could
+never reach. It must run **after** `app.UseAuthentication()`: the antiforgery token is bound to the
+caller's identity, so it can only be validated once that identity has been resolved. Calling
+`AddBlazorBaseCookieAuthTokens` without ever calling `UseBlazorBaseCsrf()` fails at startup rather than
+silently shipping an unprotected cookie transport — see `BlazorBaseCsrfStartupGuardFilter`.
 
-### What the filter checks
+An endpoint that genuinely needs to opt out (an anonymous webhook, for example) calls
+`.AllowBlazorBaseCsrf()` on its route registration. Apply this to nothing by default.
 
-1. **`Sec-Fetch-Site`** must be `same-origin` or `none`. The browser sets this and page script cannot
-   forge it. It also covers the gap `SameSite` leaves: "same site" is registrable-domain scoped, so a
-   hostile or compromised sibling subdomain counts as same-site and its requests carry your cookie.
-   It is absent on older clients, which is why it is not the only check.
+### What the middleware checks
+
+1. **`Sec-Fetch-Site`** must be `same-origin` or `none` (or `same-site` when
+   `AuthCookieOptions.AllowSameSiteRequests` is explicitly turned on, see below). The browser sets this
+   and page script cannot forge it. It also covers the gap `SameSite` leaves: "same site" is
+   registrable-domain scoped, so a hostile or compromised sibling subdomain counts as same-site and its
+   requests carry your cookie. It is absent on older clients, which is why it is not the only check.
 2. **ASP.NET Core's `IAntiforgery`.** The request token is data-protected and **bound to the caller's
    identity**, so one minted for somebody else does not validate.
 
 > A plain random value echoed between a readable cookie and a header — the classic "double submit" —
 > looks equivalent and is not. Anything able to write a cookie for your domain, a sibling subdomain
 > included, can plant both halves of that pair and satisfy the check. An identity-bound token cannot
-> be forged that way. This is why the framework uses the platform service rather than its own.
+> be forged that way. This is why the framework uses the platform's own antiforgery service rather
+> than a hand-rolled one.
 
 The client gets the token from `GET /api/auth/session`, in the **body**. There is deliberately no
 readable cookie to read it from.
 
 The two auth endpoints that act on a cookie alone — `POST /api/auth/refresh` and
-`POST /api/auth/logout` — are MVC controller actions that an endpoint filter cannot reach. The cookie
-transport checks them itself through `IAuthTokenTransport.IsRequestIntentionalAsync`, so a cross-site
-page cannot rotate or revoke a visitor's session. The body transport answers `true` there: a bearer
-token has to be attached deliberately, which is the proof of intent a cookie cannot give.
+`POST /api/auth/logout` — are covered the same way as every other endpoint, because
+`BlazorBaseCsrfMiddleware` runs for the whole pipeline rather than being attached per-endpoint. The
+cookie transport additionally answers `IAuthTokenTransport.IsRequestIntentionalAsync` through the same
+checks, so a cross-site page cannot rotate or revoke a visitor's session. The bearer transport answers
+`true` there unconditionally: a bearer token has to be attached deliberately, which is the proof of
+intent a cookie cannot give.
 
 Safe methods (`GET`, `HEAD`, `OPTIONS`, `TRACE`) pass through untouched.
 
-> **This makes `GET` your responsibility.** The filter cannot tell a reading `GET` from a writing one.
-> A `GET /api/orders/{id}/cancel` is reachable cross-site whatever else you configure. Keep `GET`
+> **This makes `GET` your responsibility.** The middleware cannot tell a reading `GET` from a writing
+> one. A `GET /api/orders/{id}/cancel` is reachable cross-site whatever else you configure. Keep `GET`
 > free of side effects.
+
+### Split-origin `app.`/`api.` deployment
+
+A deployment that serves the client at `app.example.com` and the API at `api.example.com` — two
+subdomains of one registrable domain — is "same-site" but not "same-origin". `Sec-Fetch-Site` reads
+`same-site` there, which the default posture above rejects. Set
+`AuthCookies:AllowSameSiteRequests = true` to accept it once that split-origin deployment is the one
+actually in use; doing so relies on the antiforgery token check alone to stop a cross-site request,
+since `Sec-Fetch-Site` no longer distinguishes the two. See
+[BlazorBase.User.Wasm](BlazorBase.User.Wasm.md#split-origin-deployment-with-the-cookie-transport) for
+the client-side half of this deployment shape.
 
 ### Client side
 
@@ -171,15 +203,13 @@ builder.Services
 That swaps three things for you:
 
 - `ITokenStorage` becomes `NoOpTokenStorage` — there is no token to hold.
-- The authentication state comes from `CookieAuthStateProvider`, which asks the server
-  `GET /api/auth/session` instead of decoding a token it cannot read. It stays the same concrete
-  type the UI components depend on, so nothing else has to change.
+- The authentication state comes from asking the server `GET /api/auth/session` instead of decoding a
+  token it cannot read.
 - `CsrfHeaderHandler` attaches the antiforgery token from `CsrfTokenProvider` to every write and sets
   `BrowserRequestCredentials.Include` so the browser sends the cookies.
 
 The antiforgery token is bound to the identity of the request that minted it, so the client must
-re-read the session after signing in. `CookieAuthStateProvider.MarkUserAsAuthenticated` does that for
-you — which is another reason not to skip calling it.
+re-read the session after signing in.
 
 Register the handler on **every** typed client that talks to the API. The framework cannot know which
 of a host's clients those are, and one that is missed rejects every write with a 403.
@@ -211,10 +241,46 @@ configuration is not to add one.
 
 ---
 
+## Behind a reverse proxy — forwarded headers
+
+Register `AddBlazorBaseForwardedHeaders(configuration)` before `app.UseForwardedHeaders()` whenever
+the host sits behind a reverse proxy or load balancer:
+
+```csharp
+builder.Services.AddBlazorBaseForwardedHeaders(builder.Configuration);
+// ...
+app.UseForwardedHeaders();
+```
+
+```json
+{
+  "ForwardedHeaders": {
+    "KnownProxies": ["10.0.0.4"],
+    "KnownNetworks": ["10.0.0.0/24"]
+  }
+}
+```
+
+This matters because the framework's `"BlazorBaseAuth"` rate-limiter policy and the brute-force delay
+service both key on `HttpContext.Connection.RemoteIpAddress` — which, behind a proxy, is the proxy's
+own address, identical for every client, until forwarded headers are processed. Without this call
+every client is rate-limited as if it were one caller, and a single abusive client can exhaust the
+shared bucket for everyone behind the same proxy.
+
+The registration deliberately does **not** fall back to an unrestricted trust list when
+`KnownProxies`/`KnownNetworks` is left empty: an unrestricted trust list would let any caller supply
+its own `X-Forwarded-For` value and pick its own rate-limit partition, handing the attacker — not the
+network topology — the choice of key. With nothing configured, forwarded headers middleware still
+runs but forwards nothing, so `RemoteIpAddress` stays exactly what it was before. A host that forgets
+to call this at all behind a real proxy is warned at startup rather than left silently partitioning
+every client into the same bucket.
+
+---
+
 ## External sign-in: two entry points, one resolver
 
 Both paths resolve the user through the same `IExternalUserResolver<TUser>` and mint through the same
-`TokenService`. Only the way the external identity arrives differs.
+`AuthTokenIssuer<TUser>`. Only the way the external identity arrives differs.
 
 ### Redirect (for pattern 1)
 
@@ -261,6 +327,15 @@ app.MapBlazorBaseExternalAuthEndpoints<AppUser>();
 
 `POST /api/auth/external/exchange` with `{ "externalToken": "…" }`.
 
+The external token itself is validated by `OidcExternalTokenValidator` against the configured
+authority's published signing keys — issuer validation is never optional, and the framework does not
+expose a way to turn it off. For a multi-tenant authority (`/common`, `/organizations`, `/consumers`)
+the token's tenant is additionally checked against `IExternalTenantAllowList`; the default
+implementation answers from a static `ExternalAuthSettings.AllowedTenantIds` list, and a host whose
+acceptable tenants are rows in its own database registers its own implementation instead. See
+`BlazorBase.User.Server`'s XML documentation on `ExternalAuthSettings`,
+`ExternalAuthSettingsValidator` and `IExternalTenantAllowList` for the full contract.
+
 ### Writing the resolver
 
 Rejection is a return value, not an exception:
@@ -306,18 +381,19 @@ them straight back to the script the transport exists to keep them from.
 
 ## Checklist for a browser application
 
-- [ ] `AddBlazorBaseCookieAuthTokens` called, with the right scheme name if you renamed it
+- [ ] `AddBlazorBaseCookieAuthTokens` called, with the right bearer scheme name if you renamed it
 - [ ] `MapBlazorBaseAuthSessionEndpoint()` mapped
 - [ ] `AddBlazorBaseUserWasmCookieAuth` used instead of `AddBlazorBaseUserWasm`
 - [ ] `CsrfHeaderHandler` added to every typed client that talks to the API
 - [ ] `AuthTokenHandler` **not** registered
-- [ ] `RequireBlazorBaseCsrf()` on every state-changing endpoint
+- [ ] `app.UseBlazorBaseCsrf()` called, after `app.UseAuthentication()` and before `app.UseAuthorization()`
 - [ ] `GET` endpoints have no side effects
 - [ ] `SecureOnly` left on outside local development
 - [ ] `SameSite` left at `Lax`
-- [ ] `RefreshCookiePath` matches where the auth endpoints are mapped
 - [ ] The CSRF header name matches on both sides
+- [ ] `AllowSameSiteRequests` only turned on for an actual split-origin `app.`/`api.` deployment
 - [ ] No permissive CORS policy
+- [ ] `AddBlazorBaseForwardedHeaders` called when the host sits behind a reverse proxy
 - [ ] The external resolver keys on the subject id, not the email
 - [ ] The external resolver's answer for an unknown subject is a deliberate decision
 
@@ -326,3 +402,4 @@ them straight back to the script the transport exists to keep them from.
 - A MAUI counterpart to `AddBlazorBaseUserWasmCookieAuth`. There is deliberately none: a native client
   cannot use a browser cookie session, so pattern 1 does not apply to it. MAUI stays on the bearer
   path, which is the correct answer rather than a gap.
+

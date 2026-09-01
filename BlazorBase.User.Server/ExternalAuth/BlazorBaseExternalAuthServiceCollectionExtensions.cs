@@ -23,7 +23,11 @@ public static class BlazorBaseExternalAuthServiceCollectionExtensions
     /// The host must additionally register its own <see cref="IExternalUserResolver{TUser}"/> and
     /// call <c>MapBlazorBaseExternalAuthEndpoints</c> - there is no default resolver and no
     /// endpoint is mapped by this call alone, so an application that does not opt into all three
-    /// sees no change at all.
+    /// sees no change at all. A host that needs its allowed tenants to come from a database
+    /// rather than the static <see cref="ExternalAuthSettings.AllowedTenantIds"/> list must
+    /// register its own <see cref="IExternalTenantAllowList"/> before calling this method, since
+    /// the default registration below uses <c>TryAdd…</c> and only applies when nothing else has
+    /// claimed the service yet.
     /// </remarks>
     public static IServiceCollection AddBlazorBaseExternalAuth(
         this IServiceCollection services,
@@ -35,6 +39,7 @@ public static class BlazorBaseExternalAuthServiceCollectionExtensions
         if (configureOptions is not null)
             services.Configure(configureOptions);
 
+        services.TryAddSingleton<IExternalTenantAllowList, DefaultExternalTenantAllowList>();
         services.AddSingleton<IValidateOptions<ExternalAuthSettings>, ExternalAuthSettingsValidator>();
         services.AddOptions<ExternalAuthSettings>().ValidateOnStart();
 

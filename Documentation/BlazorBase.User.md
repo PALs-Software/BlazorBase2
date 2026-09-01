@@ -219,7 +219,8 @@ throws without the dialog provider. See
 |---|---|---|---|
 | `GetStatusAsync()` | GET `api/auth/status` | `AuthStatusResponse` | First-run probe (`HasUsers`) and whether the server offers development authentication |
 | `SetupAsync(SetupRequest)` | POST `api/auth/setup` | `LoginResponse` | Creates first admin and logs in |
-| `LoginAsync(LoginRequest)` | POST `api/auth/login` | `LoginResponse` | |
+| `LoginAsync(LoginRequest)` | POST `api/auth/login` | `AuthServiceLoginOutcome` | A completed login (`Tokens`) or, when the account has two-factor authentication enabled, a pending token (`PendingToken`) to complete with `LoginTwoFactorAsync` — the server answers `202 Accepted` rather than a token pair, so the caller never receives half-authenticated tokens by mistake |
+| `LoginTwoFactorAsync(TwoFactorLoginRequest)` | POST `api/auth/login/two-factor` | `LoginResponse` | Completes a login `LoginAsync` reported as `RequiresTwoFactor` |
 | `RefreshAsync(refreshToken)` | POST `api/auth/refresh` | `LoginResponse` | Single-use rotation — the server revokes the presented token atomically; a replayed/already-used token returns `401` |
 | `LogoutAsync(refreshToken)` | POST `api/auth/logout` | — | Revokes the refresh token by its hash; anonymous endpoint, so it succeeds even if the access token has already expired |
 | `DevelopmentLoginAsync()` | POST `api/auth/development-login` | `LoginResponse?` | Signs in as the server's development account; `null` when the server does not offer it, which is every environment but Development |
@@ -242,7 +243,10 @@ public interface ITokenStorage
 }
 ```
 
-Implemented by `BrowserTokenStorage` (WASM, localStorage) and `SecureTokenStorage` (MAUI, `SecureStorage`).
+Implemented by `InMemoryTokenStorage` — the WASM default, since anything in `localStorage` survives a
+reload and is readable by any script that gets injected into the page — `BrowserTokenStorage` (WASM,
+`localStorage`, an explicit opt-in set with `AddBlazorBaseUserWasm(..., persistTokensInBrowserStorage: true)`
+for a host that has decided that trade-off is acceptable) and `SecureTokenStorage` (MAUI, `SecureStorage`).
 
 ### `IAppConfigService`
 

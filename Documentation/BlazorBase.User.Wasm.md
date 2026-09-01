@@ -2,7 +2,7 @@
 
 The Blazor WebAssembly platform implementation of the host-specific seams defined in [`BlazorBase.User`](BlazorBase.User.md). It provides:
 
-- `BrowserTokenStorage` → `ITokenStorage` backed by `localStorage`
+- `InMemoryTokenStorage` → `ITokenStorage`, the default; `BrowserTokenStorage` → `ITokenStorage` backed by `localStorage`, an explicit opt-in
 - `WasmAppConfigService` → `IAppConfigService` that returns the host's same-origin base address (no user configuration needed)
 
 > Target framework: `net10.0` · References `BlazorBase.User` and `Microsoft.AspNetCore.Components.WebAssembly`.
@@ -28,15 +28,18 @@ The Blazor WebAssembly platform implementation of the host-specific seams define
 │                     │                                      │
 │  ┌──────────────────┴───────────────────────────────────┐  │
 │  │ BlazorBase.User.Wasm                                 │  │
-│  │  BrowserTokenStorage     localStorage                │  │
+│  │  InMemoryTokenStorage    default (no persistence)    │  │
+│  │  BrowserTokenStorage     localStorage, opt-in        │  │
 │  │  WasmAppConfigService    host.BaseAddress            │  │
 │  │                                                      │  │
-│  │  AddBlazorBaseUserWasm(hostBaseAddress)              │  │
+│  │  AddBlazorBaseUserWasm(hostBaseAddress,               │  │
+│  │                        persistTokensInBrowserStorage) │  │
 │  └──────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────┘
 ```
 
-**Storage key:** `blazorbase_auth_tokens` (in `localStorage`).
+**Storage key:** `blazorbase_auth_tokens` (in `localStorage`, only when `persistTokensInBrowserStorage`
+is set).
 
 WASM hosts always serve the API at the same origin as the WebAssembly bundle, so `IAppConfigService` is effectively a constant — `GetServerUrlAsync()` returns the configured base address, and `IsConfiguredAsync()` always returns `true`.
 
@@ -59,7 +62,14 @@ builder.Services.AddBlazorBaseUserClient();
 builder.Services.AddBlazorBaseUserWasm(builder.HostEnvironment.BaseAddress);
 ```
 
-`builder.HostEnvironment.BaseAddress` is the URL the WASM app was served from. `AddBlazorBaseUserWasm` registers `ITokenStorage`, `IAppConfigService` and `IFormFactor` as **scoped** services.
+`builder.HostEnvironment.BaseAddress` is the URL the WASM app was served from. `AddBlazorBaseUserWasm`
+registers `ITokenStorage`, `IAppConfigService` and `IFormFactor` as **scoped** services.
+`ITokenStorage` defaults to `InMemoryTokenStorage` — a browser reload signs a bearer-mode user out,
+which is the correct trade-off for a browser; pass `persistTokensInBrowserStorage: true` to keep the
+token pair in `localStorage` across a reload instead, accepting that it becomes readable by any script
+that gets injected into the page. The cookie transport
+(`AddBlazorBaseUserWasmCookieAuth`, see [BlazorBase.User.Server.AuthTransports](BlazorBase.User.Server.AuthTransports.md))
+is the recommended mode for a browser host precisely because it avoids this trade-off altogether.
 
 ### 3. Wire HTTP clients with the token handler
 
@@ -98,7 +108,9 @@ builder.Services.AddBlazorBaseCrudClient(c => c.BaseAddress = new Uri(apiBase, "
 
 ### `BrowserTokenStorage : ITokenStorage`
 
-Stores the `LoginResponse` (access token, refresh token, `ExpiresAt`) as JSON in `localStorage` under `blazorbase_auth_tokens`.
+An explicit opt-in (`AddBlazorBaseUserWasm(hostBaseAddress, persistTokensInBrowserStorage: true)`) over
+the `InMemoryTokenStorage` default. Stores the `LoginResponse` (access token, refresh token,
+`ExpiresAt`) as JSON in `localStorage` under `blazorbase_auth_tokens`.
 
 ```csharp
 public async Task<LoginResponse?> GetTokensAsync()
@@ -131,12 +143,19 @@ public class WasmAppConfigService(string baseAddress) : IAppConfigService
 
 `SaveServerUrlAsync` is intentionally a no-op — a WASM bundle can't change its serving origin.
 
-### `AddBlazorBaseUserWasm(hostBaseAddress)`
+### `AddBlazorBaseUserWasm(hostBaseAddress, persistTokensInBrowserStorage)`
 
 ```csharp
-public static IServiceCollection AddBlazorBaseUserWasm(this IServiceCollection services, string hostBaseAddress)
+public static IServiceCollection AddBlazorBaseUserWasm(
+    this IServiceCollection services,
+    string hostBaseAddress,
+    bool persistTokensInBrowserStorage = false)
 {
-    services.AddScoped<ITokenStorage, BrowserTokenStorage>();
+    if (persistTokensInBrowserStorage)
+        services.AddScoped<ITokenStorage, BrowserTokenStorage>();
+    else
+        services.AddScoped<ITokenStorage, InMemoryTokenStorage>();
+
     services.AddScoped<IAppConfigService>(_ => new WasmAppConfigService(hostBaseAddress));
     return services;
 }
@@ -218,6 +237,26 @@ If the API is hosted on a different origin than the WASM bundle (e.g. `https://a
 var apiBase = new Uri("https://api.example.com/");
 
 builder.Services.AddBlazorBaseUserWasm(apiBase.ToString());
-
-builder.Services.AddHttpClient<IAuthService, AuthService>(c => c.BaseAddress = apiBase);
 ```
+
+### Split-origin deployment with the cookie transport
+
+A deployment that puts the WASM bundle at `https://app.example.com` and the API at
+`https://api.example.com` — two subdomains of one registrable domain — is "same-site" but not
+"same-origin". `AddBlazorBaseUserWasmCookieAuth` still works there, because the Identity application
+cookie is scoped to the registrable domain rather than the exact origin, but the server-side CSRF
+check defaults to rejecting it: `Sec-Fetch-Site` reads `same-site` rather than `same-origin`, and
+`AuthCookieOptions.AllowSameSiteRequests` defaults to `false` for exactly that reason — a hostile or
+merely compromised sibling subdomain is "same-site" too. Set it explicitly once the split-origin
+deployment is the one actually in use:
+
+```json
+{
+  "AuthCookies": {
+    "AllowSameSiteRequests": true
+  }
+}
+```
+
+Doing so relies on the antiforgery token check alone to stop a cross-site request, since
+`Sec-Fetch-Site` no longer distinguishes the split-origin deployment from an actual cross-site one.
