@@ -124,6 +124,9 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
         });
 
         services.AddScoped<AuthTokenIssuer<TUser>>();
+        services.TryAddSingleton(typeof(TwoFactorPendingTokenService<>));
+        services.TryAddScoped(typeof(IEmailSender<>), typeof(NoOpEmailSender<>));
+        services.Configure<AccountManagementOptions>(configuration.GetSection(AccountManagementOptions.SectionName));
         services.AddScoped<BaseUserDbContext<TUser>>(serviceProvider => serviceProvider.GetRequiredService<TContext>());
         services.AddScoped<IBaseDataProvider<UserModel>, UserDataProvider<TUser>>();
 
@@ -221,5 +224,19 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
     {
         endpoints.MapBaseEndpoints<UserModel>(path, options => options.Roles = roles);
         return endpoints;
+    }
+
+    /// <summary>
+    /// Replaces the default <see cref="NoOpEmailSender{TUser}"/> with an adapter onto
+    /// <see cref="BlazorBase.Mailing.Services.IEmailSender"/>, so account-management email travels
+    /// through the framework's existing mail path instead of a second one. Requires
+    /// <c>AddBlazorBaseMailing</c> (or an equivalent <c>IEmailSender</c> registration) to already be
+    /// registered.
+    /// </summary>
+    public static IServiceCollection AddBlazorBaseMailingEmailSender<TUser>(this IServiceCollection services)
+        where TUser : BaseUser
+    {
+        services.Replace(ServiceDescriptor.Scoped<IEmailSender<TUser>, MailingEmailSender<TUser>>());
+        return services;
     }
 }

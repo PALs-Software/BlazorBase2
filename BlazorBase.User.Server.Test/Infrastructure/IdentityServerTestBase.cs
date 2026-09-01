@@ -93,6 +93,7 @@ public abstract class IdentityServerTestBase : IDisposable
             .AddClaimsPrincipalFactory<BlazorBaseUserClaimsPrincipalFactory<TestUser>>();
 
         services.AddScoped<AuthTokenIssuer<TestUser>>();
+        services.AddSingleton(typeof(TwoFactorPendingTokenService<>));
 
         // The same bridge AddBlazorBaseUserServer registers, so services that take the base
         // context resolve here as they do in a real host.
@@ -121,6 +122,7 @@ public abstract class IdentityServerTestBase : IDisposable
             provider.GetRequiredService<SignInManager<TestUser>>(),
             provider.GetRequiredService<RoleManager<IdentityRole>>(),
             provider.GetRequiredService<AuthTokenIssuer<TestUser>>(),
+            provider.GetRequiredService<TwoFactorPendingTokenService<TestUser>>(),
             Configuration);
 
         // RequestServices, because the controller resolves optional services (the development

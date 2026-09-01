@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\BlazorBase.User\BlazorBase.User.csproj" />
     <ProjectReference Include="..\BlazorBase.CRUD\BlazorBase.CRUD.csproj" />
+    <ProjectReference Include="..\BlazorBase.Mailing\BlazorBase.Mailing.csproj" />
   </ItemGroup>
 
 </Project>

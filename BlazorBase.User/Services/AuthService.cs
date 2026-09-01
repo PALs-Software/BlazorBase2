@@ -65,12 +65,30 @@ public class AuthService(HttpClient httpClient) : IAuthService
             ?? throw new InvalidOperationException("Invalid setup response.");
     }
 
-    public async Task<LoginResponse> LoginAsync(LoginRequest request)
+    public async Task<AuthServiceLoginOutcome> LoginAsync(LoginRequest request)
     {
         var response = await HttpClient.PostAsJsonAsync("api/auth/login", request);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
+        {
+            var pending = await response.Content.ReadFromJsonAsync<TwoFactorRequiredResponse>()
+                ?? throw new InvalidOperationException("Invalid two-factor response.");
+            return AuthServiceLoginOutcome.TwoFactorRequired(pending.PendingToken);
+        }
+
+        response.EnsureSuccessStatusCode();
+        var tokens = await response.Content.ReadFromJsonAsync<LoginResponse>()
+            ?? throw new InvalidOperationException("Invalid login response.");
+
+        return AuthServiceLoginOutcome.Completed(tokens);
+    }
+
+    public async Task<LoginResponse> LoginTwoFactorAsync(TwoFactorLoginRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/login/2fa", request);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<LoginResponse>()
-            ?? throw new InvalidOperationException("Invalid login response.");
+            ?? throw new InvalidOperationException("Invalid two-factor login response.");
     }
 
     public async Task<LoginResponse> RefreshAsync(string refreshToken)
@@ -96,5 +114,59 @@ public class AuthService(HttpClient httpClient) : IAuthService
             return null;
 
         return await response.Content.ReadFromJsonAsync<LoginResponse>();
+    }
+
+    public async Task ConfirmEmailAsync(ConfirmEmailRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/confirm-email", request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task ResendConfirmationAsync(ResendConfirmationRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/resend-confirmation", request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/forgot-password", request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/reset-password", request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<TwoFactorStatusResponse> GetTwoFactorStatusAsync()
+    {
+        var response = await HttpClient.GetAsync("api/auth/manage/2fa");
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<TwoFactorStatusResponse>()
+            ?? throw new InvalidOperationException("Invalid two-factor status response.");
+    }
+
+    public async Task<TwoFactorRecoveryCodesResponse> EnableTwoFactorAsync(TwoFactorEnableRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/2fa/enable", request);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<TwoFactorRecoveryCodesResponse>()
+            ?? throw new InvalidOperationException("Invalid two-factor enable response.");
+    }
+
+    public async Task DisableTwoFactorAsync()
+    {
+        var response = await HttpClient.PostAsync("api/auth/manage/2fa/disable", content: null);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<TwoFactorRecoveryCodesResponse> RegenerateRecoveryCodesAsync()
+    {
+        var response = await HttpClient.PostAsync("api/auth/manage/2fa/recovery-codes", content: null);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<TwoFactorRecoveryCodesResponse>()
+            ?? throw new InvalidOperationException("Invalid recovery-codes response.");
     }
 }

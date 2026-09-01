@@ -6,7 +6,18 @@ public interface IAuthService
 {
     Task<AuthStatusResponse> GetStatusAsync();
     Task<LoginResponse> SetupAsync(SetupRequest request);
-    Task<LoginResponse> LoginAsync(LoginRequest request);
+
+    /// <summary>
+    /// Returns a full token pair for a login that needs no second factor, or the pending token to
+    /// complete with <see cref="LoginTwoFactorAsync"/> when the account requires one.
+    /// </summary>
+    Task<AuthServiceLoginOutcome> LoginAsync(LoginRequest request);
+
+    /// <summary>
+    /// Completes a login that <see cref="LoginAsync"/> answered with a pending token.
+    /// </summary>
+    Task<LoginResponse> LoginTwoFactorAsync(TwoFactorLoginRequest request);
+
     Task<LoginResponse> RefreshAsync(string refreshToken);
     Task LogoutAsync(string refreshToken);
 
@@ -21,4 +32,29 @@ public interface IAuthService
     /// cookie transport, where the access token is deliberately unreadable by script.
     /// </summary>
     Task<AuthSessionResponse> GetSessionAsync();
+
+    Task ConfirmEmailAsync(ConfirmEmailRequest request);
+    Task ResendConfirmationAsync(ResendConfirmationRequest request);
+    Task ForgotPasswordAsync(ForgotPasswordRequest request);
+    Task ResetPasswordAsync(ResetPasswordRequest request);
+
+    Task<TwoFactorStatusResponse> GetTwoFactorStatusAsync();
+    Task<TwoFactorRecoveryCodesResponse> EnableTwoFactorAsync(TwoFactorEnableRequest request);
+    Task DisableTwoFactorAsync();
+    Task<TwoFactorRecoveryCodesResponse> RegenerateRecoveryCodesAsync();
+}
+
+/// <summary>
+/// Either a completed login (<see cref="Tokens"/>) or a second factor requirement
+/// (<see cref="PendingToken"/>) - never both.
+/// </summary>
+public sealed class AuthServiceLoginOutcome
+{
+    public LoginResponse? Tokens { get; init; }
+    public string? PendingToken { get; init; }
+
+    public bool RequiresTwoFactor => PendingToken is not null;
+
+    public static AuthServiceLoginOutcome Completed(LoginResponse tokens) => new() { Tokens = tokens };
+    public static AuthServiceLoginOutcome TwoFactorRequired(string pendingToken) => new() { PendingToken = pendingToken };
 }

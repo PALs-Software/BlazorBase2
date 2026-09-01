@@ -24,10 +24,19 @@ public sealed class CookieAuthStateProviderTests
 
         public Task<AuthStatusResponse> GetStatusAsync() => throw new NotSupportedException();
         public Task<LoginResponse> SetupAsync(SetupRequest request) => throw new NotSupportedException();
-        public Task<LoginResponse> LoginAsync(LoginRequest request) => throw new NotSupportedException();
+        public Task<AuthServiceLoginOutcome> LoginAsync(LoginRequest request) => throw new NotSupportedException();
+        public Task<LoginResponse> LoginTwoFactorAsync(TwoFactorLoginRequest request) => throw new NotSupportedException();
         public Task<LoginResponse> RefreshAsync(string refreshToken) => throw new NotSupportedException();
         public Task LogoutAsync(string refreshToken) => throw new NotSupportedException();
         public Task<LoginResponse?> DevelopmentLoginAsync() => throw new NotSupportedException();
+        public Task ConfirmEmailAsync(ConfirmEmailRequest request) => throw new NotSupportedException();
+        public Task ResendConfirmationAsync(ResendConfirmationRequest request) => throw new NotSupportedException();
+        public Task ForgotPasswordAsync(ForgotPasswordRequest request) => throw new NotSupportedException();
+        public Task ResetPasswordAsync(ResetPasswordRequest request) => throw new NotSupportedException();
+        public Task<TwoFactorStatusResponse> GetTwoFactorStatusAsync() => throw new NotSupportedException();
+        public Task<TwoFactorRecoveryCodesResponse> EnableTwoFactorAsync(TwoFactorEnableRequest request) => throw new NotSupportedException();
+        public Task DisableTwoFactorAsync() => throw new NotSupportedException();
+        public Task<TwoFactorRecoveryCodesResponse> RegenerateRecoveryCodesAsync() => throw new NotSupportedException();
     }
 
     private static AuthSessionResponse AuthenticatedSession() => new()

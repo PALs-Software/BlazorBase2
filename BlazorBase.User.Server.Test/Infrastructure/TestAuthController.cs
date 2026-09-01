@@ -14,5 +14,6 @@ public sealed class TestAuthController(
     SignInManager<TestUser> signInManager,
     RoleManager<IdentityRole> roleManager,
     AuthTokenIssuer<TestUser> tokenIssuer,
+    TwoFactorPendingTokenService<TestUser> pendingTokenService,
     IConfiguration configuration)
-    : AuthControllerBase<TestUser>(userManager, signInManager, roleManager, tokenIssuer, configuration);
+    : AuthControllerBase<TestUser>(userManager, signInManager, roleManager, tokenIssuer, pendingTokenService, configuration);

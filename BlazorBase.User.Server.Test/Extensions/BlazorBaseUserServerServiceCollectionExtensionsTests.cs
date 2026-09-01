@@ -149,6 +149,7 @@ public class BlazorBaseUserServerServiceCollectionExtensionsTests
             scope.ServiceProvider.GetRequiredService<SignInManager<TestUser>>(),
             scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>(),
             scope.ServiceProvider.GetRequiredService<AuthTokenIssuer<TestUser>>(),
+            scope.ServiceProvider.GetRequiredService<TwoFactorPendingTokenService<TestUser>>(),
             configuration)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },

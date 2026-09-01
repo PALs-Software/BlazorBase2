@@ -109,4 +109,22 @@
   <data name="HouseholdName" xml:space="preserve">
     <value>Haushaltsname</value>
   </data>
+  <data name="TwoFactorTitle" xml:space="preserve">
+    <value>Zwei-Faktor-Verifizierung</value>
+  </data>
+  <data name="TwoFactorDescription" xml:space="preserve">
+    <value>Geben Sie den Code aus Ihrer Authenticator-App oder einen Ihrer Wiederherstellungscodes ein.</value>
+  </data>
+  <data name="TwoFactorCode" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="TwoFactorUseRecoveryCode" xml:space="preserve">
+    <value>Dies ist ein Wiederherstellungscode</value>
+  </data>
+  <data name="TwoFactorSubmit" xml:space="preserve">
+    <value>Bestätigen</value>
+  </data>
+  <data name="InvalidTwoFactorCode" xml:space="preserve">
+    <value>Ungültiger Code.</value>
+  </data>
 </root>

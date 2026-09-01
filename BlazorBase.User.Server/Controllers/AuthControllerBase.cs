@@ -20,6 +20,7 @@ public abstract class AuthControllerBase<TUser>(
     SignInManager<TUser> signInManager,
     RoleManager<IdentityRole> roleManager,
     AuthTokenIssuer<TUser> tokenIssuer,
+    TwoFactorPendingTokenService<TUser> pendingTokenService,
     IConfiguration configuration) : ControllerBase
     where TUser : BaseUser, new()
 {
@@ -28,6 +29,7 @@ public abstract class AuthControllerBase<TUser>(
     private readonly SignInManager<TUser> SignInManager = signInManager;
     private readonly RoleManager<IdentityRole> RoleManager = roleManager;
     private readonly AuthTokenIssuer<TUser> TokenIssuer = tokenIssuer;
+    private readonly TwoFactorPendingTokenService<TUser> PendingTokenService = pendingTokenService;
     private readonly IConfiguration Configuration = configuration;
     #endregion
 
@@ -91,15 +93,17 @@ public abstract class AuthControllerBase<TUser>(
     /// Authenticates a user and returns JWT tokens. Honors the lockout policy configured on
     /// <see cref="Microsoft.AspNetCore.Identity.IdentityOptions.Lockout"/>: failed attempts increment
     /// the user's lockout counter, locked-out accounts are rejected before the password is checked,
-    /// and a successful login resets the counter. A two-factor-enabled account also answers the same
-    /// generic failure below for now - a later step turns that case into a distinct response.
+    /// and a successful login resets the counter. A two-factor-enabled account instead answers
+    /// <see cref="StatusCodes.Status202Accepted"/> with a pending token; see <see cref="LoginTwoFactor"/>.
     /// </summary>
     /// <remarks>
     /// Uses <see cref="SignInManager{TUser}.CheckPasswordSignInAsync"/> rather than
     /// <c>PasswordSignInAsync</c>: the latter signs the caller into a scheme and writes a cookie,
     /// which would change this endpoint's contract from "returns a JWT" to "returns a JWT and sets a
-    /// cookie". <c>CheckPasswordSignInAsync</c> runs the same password check, lockout bookkeeping and
-    /// two-factor detection without touching the response.
+    /// cookie". <c>CheckPasswordSignInAsync</c> runs the same password check and lockout bookkeeping
+    /// without touching the response; the two-factor requirement is detected separately below through
+    /// public <c>UserManager</c> calls, so nothing here ever writes
+    /// <see cref="Microsoft.AspNetCore.Identity.IdentityConstants.TwoFactorUserIdScheme"/>'s cookie.
     ///
     /// <c>IsActive</c> is this framework's own flag and unknown to Identity, so it is checked
     /// separately - but folded into the same generic answer, because a distinguishable response
@@ -129,7 +133,63 @@ public abstract class AuthControllerBase<TUser>(
         if (!signInResult.Succeeded || !user.IsActive)
             return Unauthorized(new { message = "Invalid email or password." });
 
+        if (await RequiresTwoFactorAsync(user))
+            return Accepted(new TwoFactorRequiredResponse { PendingToken = PendingTokenService.Protect(user) });
+
         return Ok(await GenerateTokenResponse(user));
+    }
+
+    /// <summary>
+    /// Completes a login that <see cref="Login"/> answered with <see cref="StatusCodes.Status202Accepted"/>
+    /// because the account requires a second factor. Re-checks <see cref="BaseUser.IsActive"/> and
+    /// lockout exactly like <see cref="Login"/>: the pending token only proves the password was correct
+    /// a few minutes ago, not that the account is still eligible to sign in now.
+    /// </summary>
+    /// <remarks>
+    /// A wrong code counts toward the same lockout as a wrong password, through
+    /// <see cref="UserManager{TUser}.AccessFailedAsync"/>, so the pending token cannot be used to
+    /// brute-force the code without limit.
+    /// </remarks>
+    [HttpPost("login/2fa")]
+    [AllowAnonymous]
+    [EnableRateLimiting("BlazorBaseAuth")]
+    public async Task<ActionResult<LoginResponse>> LoginTwoFactor([FromBody] TwoFactorLoginRequest request)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        var userId = PendingTokenService.Unprotect(request.PendingToken);
+        if (userId is null)
+            return Unauthorized(new { message = "Invalid or expired two-factor session." });
+
+        var user = await UserManager.FindByIdAsync(userId);
+        if (user is null || !user.IsActive || await UserManager.IsLockedOutAsync(user))
+            return Unauthorized(new { message = "Invalid or expired two-factor session." });
+
+        var verified = request.IsRecoveryCode
+            ? (await UserManager.RedeemTwoFactorRecoveryCodeAsync(user, request.Code)).Succeeded
+            : await UserManager.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultAuthenticatorProvider, request.Code);
+
+        if (!verified)
+        {
+            await UserManager.AccessFailedAsync(user);
+            return Unauthorized(new { message = "Invalid code." });
+        }
+
+        return Ok(await GenerateTokenResponse(user));
+    }
+
+    /// <summary>
+    /// Mirrors the check <c>SignInManager.SignInOrTwoFactorAsync</c> makes internally, without its side
+    /// effect of writing <see cref="Microsoft.AspNetCore.Identity.IdentityConstants.TwoFactorUserIdScheme"/>'s
+    /// cookie - see the class remarks on <see cref="Login"/> for why that cookie is avoided here.
+    /// </summary>
+    private async Task<bool> RequiresTwoFactorAsync(TUser user)
+    {
+        if (!UserManager.SupportsUserTwoFactor || !await UserManager.GetTwoFactorEnabledAsync(user))
+            return false;
+
+        return (await UserManager.GetValidTwoFactorProvidersAsync(user)).Count > 0;
     }
 
     /// <summary>
