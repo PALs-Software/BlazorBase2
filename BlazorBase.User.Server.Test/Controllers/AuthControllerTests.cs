@@ -1,10 +1,13 @@
 using System.Reflection;
 using BlazorBase.User.Models;
+using BlazorBase.User.Server.Data;
+using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -86,6 +89,25 @@ public sealed class AuthControllerTests : IdentityServerTestBase
         using var verifyScope = CreateScope();
         var userManager = verifyScope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
         Assert.Single(await userManager.GetUsersInRoleAsync("Admin"));
+    }
+
+    /// <summary>
+    /// The concurrency test above cannot see this, because it runs on SQLite. On SQL Server an int
+    /// key becomes IDENTITY by convention, the database assigns the value, the fixed
+    /// <see cref="SetupCompletionMarker.SingletonId"/> is ignored, and a second row inserts happily -
+    /// leaving the race guard doing nothing at all. Asserted on the model, so it holds for every provider.
+    /// </summary>
+    [Fact]
+    public void SetupCompletionMarker_KeyIsNeverDatabaseGenerated()
+    {
+        using var scope = CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<BaseUserDbContext<TestUser>>();
+
+        var keyProperty = dbContext.Model
+            .FindEntityType(typeof(SetupCompletionMarker))!
+            .FindProperty(nameof(SetupCompletionMarker.Id))!;
+
+        Assert.Equal(ValueGenerated.Never, keyProperty.ValueGenerated);
     }
 
     [Fact]

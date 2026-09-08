@@ -40,5 +40,11 @@ public abstract class BaseUserDbContext<TUser>(DbContextOptions options) : Ident
             .WithMany()
             .HasForeignKey(token => token.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Without this an int key becomes IDENTITY by convention, the database picks the value,
+        // and the fixed key that makes the row a singleton - the whole setup race guard - is silently ignored.
+        modelBuilder.Entity<SetupCompletionMarker>()
+            .Property(marker => marker.Id)
+            .ValueGeneratedNever();
     }
 }
