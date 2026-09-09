@@ -340,6 +340,7 @@ public abstract class AuthControllerBase<TUser>(
     /// </remarks>
     [HttpPost("development-login")]
     [AllowAnonymous]
+    [EnableRateLimiting("BlazorBaseAuth")]
     public async Task<ActionResult<LoginResponse>> DevelopmentLogin(CancellationToken cancellationToken)
     {
         var developmentSession = ResolveDevelopmentSession();
