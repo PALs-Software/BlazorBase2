@@ -18,7 +18,8 @@ builder.Services.AddBlazorBaseMailing(builder.Configuration, sectionName: "Email
 ```
 
 `AddBlazorBaseMailing` binds `SmtpSettings` (options pattern), registers `IEmailSender` →
-`SmtpEmailSender` and `IEmailTemplateRenderer`.
+`SmtpEmailSender` and `IEmailTemplateRenderer`, and registers an `IEmailDispatcher` selected by the
+`dispatchMode` parameter — see [Dispatch: keeping the send off the request path](#dispatch-keeping-the-send-off-the-request-path).
 
 ```json
 // appsettings.json
@@ -106,3 +107,57 @@ public class WelcomeService(IEmailSender emailSender)
 The `SmtpClient` connect/authenticate/send path is created inline per send; there is no injectable client
 seam, so those network calls are not unit-testable — the TLS-mode resolution, MIME building, and log
 content are covered by unit tests instead.
+
+---
+
+## Dispatch: keeping the send off the request path
+
+Awaiting `IEmailSender.SendAsync` inside a request handler ties the response to the transport twice
+over: the response time follows the send, and a transport failure becomes the response. In an
+anti-enumeration endpoint such as `forgot-password` both are oracles — the branch that sends mail is
+the branch that found an account, so either signal tells a caller which addresses are registered.
+
+`IEmailDispatcher` is the seam that breaks that coupling. Its contract is *hand-off, not delivery*: a
+completed `DispatchAsync` means the message was accepted for sending, never that it arrived. Callers
+that need delivery confirmation must not use it.
+
+```csharp
+public class WelcomeService(IEmailDispatcher emailDispatcher)
+{
+    private readonly IEmailDispatcher EmailDispatcher = emailDispatcher;
+
+    public ValueTask SendWelcomeAsync(string toAddress, string html, CancellationToken cancellationToken) =>
+        EmailDispatcher.DispatchAsync(new EmailMessage
+        {
+            To = { toAddress },
+            Subject = "Welcome",
+            HtmlBody = html,
+        }, cancellationToken);
+}
+```
+
+| `EmailDispatchMode` | Behaviour |
+|---|---|
+| `Background` (default) | `BackgroundEmailDispatcher` writes the message to a bounded channel. `BackgroundEmailSenderService`, a hosted service, drains it and performs the send from a fresh DI scope, logging failures at `Error` and continuing with the next message. |
+| `Inline` | `InlineEmailDispatcher` awaits `IEmailSender.SendAsync` directly and propagates its exception — the pre-dispatcher behaviour, for a host that needs a send failure to surface in the response. |
+
+```csharp
+builder.Services.AddBlazorBaseMailing(builder.Configuration, dispatchMode: EmailDispatchMode.Inline);
+```
+
+Background is the default because the safe behaviour should not require the host to know it has to ask
+for it.
+
+The queue is bounded (`BackgroundEmailDispatchOptions.QueueCapacity`, default `1000`, bound from the
+`"EmailDispatch"` configuration section) so a stuck transport cannot exhaust memory, and it uses
+`BoundedChannelFullMode.Wait` rather than a drop mode: silently discarding a password-reset mail is
+worse than back-pressure, and a full queue is a saturation condition that affects every caller
+equally rather than a signal about any one address.
+
+Two consequences a host has to accept in exchange:
+
+- **A send failure never reaches the caller.** It is logged; nothing else surfaces it. Monitor the
+  `BackgroundEmailSenderService` log category.
+- **Messages still queued at shutdown are lost.** The queue is in-process and not persisted. A host
+  that cannot lose a message needs a durable outbox, not this queue.
+

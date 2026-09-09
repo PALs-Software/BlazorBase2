@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.Account;
+using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -34,9 +35,14 @@ public sealed class AccountEndpointMapperTests
     /// <summary>
     /// The timing floor defaults to <c>0</c> (disabled) so the suite stays fast; tests that exercise
     /// the floor itself pass a small non-zero value instead of the production default, which would
-    /// make every one of them take at least three quarters of a second.
+    /// make every one of them take at least three quarters of a second. <paramref name="emailSenderThrows"/>
+    /// swaps the stub sender for one that always throws, so a test can prove the account endpoints
+    /// stay indistinguishable from the unknown-address case even when the send behind them fails.
     /// </summary>
-    private static async Task<IHost> StartHostAsync(int timingFloorMinimumMilliseconds, int timingFloorMaximumMilliseconds)
+    private static async Task<IHost> StartHostAsync(
+        int timingFloorMinimumMilliseconds,
+        int timingFloorMaximumMilliseconds,
+        bool emailSenderThrows = false)
     {
         var connection = new SqliteConnection("DataSource=:memory:");
         connection.Open();
@@ -67,8 +73,15 @@ public sealed class AccountEndpointMapperTests
                     });
 
                     services.RemoveAll<IEmailSender<TestUser>>();
-                    services.AddSingleton<FakeEmailSender<TestUser>>();
-                    services.AddSingleton<IEmailSender<TestUser>>(provider => provider.GetRequiredService<FakeEmailSender<TestUser>>());
+                    if (emailSenderThrows)
+                    {
+                        services.AddSingleton<IEmailSender<TestUser>>(new ThrowingEmailSender<TestUser>());
+                    }
+                    else
+                    {
+                        services.AddSingleton<FakeEmailSender<TestUser>>();
+                        services.AddSingleton<IEmailSender<TestUser>>(provider => provider.GetRequiredService<FakeEmailSender<TestUser>>());
+                    }
                 });
                 webHost.Configure(app =>
                 {
@@ -88,6 +101,24 @@ public sealed class AccountEndpointMapperTests
         return host;
     }
 
+    /// <summary>
+    /// Simulates a failing mail transport without a second host builder: registered instead of
+    /// <see cref="FakeEmailSender{TUser}"/> when a test needs the send behind an account endpoint to
+    /// fail.
+    /// </summary>
+    private sealed class ThrowingEmailSender<TUser> : IEmailSender<TUser>
+        where TUser : BaseUser
+    {
+        public Task SendConfirmationLinkAsync(TUser user, string email, string confirmationLink) =>
+            throw new InvalidOperationException("Simulated mail transport failure.");
+
+        public Task SendPasswordResetLinkAsync(TUser user, string email, string resetLink) =>
+            throw new InvalidOperationException("Simulated mail transport failure.");
+
+        public Task SendPasswordResetCodeAsync(TUser user, string email, string resetCode) =>
+            throw new InvalidOperationException("Simulated mail transport failure.");
+    }
+
     private static async Task<TestUser> SeedUserAsync(IHost host, string email, string password = "Secret123456")
     {
         using var scope = host.Services.CreateScope();
@@ -104,6 +135,45 @@ public sealed class AccountEndpointMapperTests
     public async Task ForgotPassword_AnswersByteIdentically_ForAKnownAndAnUnknownAddress()
     {
         using var host = await StartHostAsync();
+        await SeedUserAsync(host, "known@example.test");
+
+        using var client = host.GetTestClient();
+
+        var knownResponse = await client.PostAsJsonAsync("/api/auth/manage/forgot-password", new ForgotPasswordRequest { Email = "known@example.test" });
+        var unknownResponse = await client.PostAsJsonAsync("/api/auth/manage/forgot-password", new ForgotPasswordRequest { Email = "unknown@example.test" });
+
+        Assert.Equal(knownResponse.StatusCode, unknownResponse.StatusCode);
+        Assert.Equal(await knownResponse.Content.ReadAsByteArrayAsync(), await unknownResponse.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task ForgotPassword_ReturnsAccepted_WhenTheEmailSenderThrows()
+    {
+        using var host = await StartHostAsync(timingFloorMinimumMilliseconds: 0, timingFloorMaximumMilliseconds: 0, emailSenderThrows: true);
+        await SeedUserAsync(host, "known@example.test");
+
+        using var client = host.GetTestClient();
+        var response = await client.PostAsJsonAsync("/api/auth/manage/forgot-password", new ForgotPasswordRequest { Email = "known@example.test" });
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ResendConfirmation_ReturnsAccepted_WhenTheEmailSenderThrows()
+    {
+        using var host = await StartHostAsync(timingFloorMinimumMilliseconds: 0, timingFloorMaximumMilliseconds: 0, emailSenderThrows: true);
+        await SeedUserAsync(host, "known@example.test");
+
+        using var client = host.GetTestClient();
+        var response = await client.PostAsJsonAsync("/api/auth/manage/resend-confirmation", new ResendConfirmationRequest { Email = "known@example.test" });
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_AnswersByteIdentically_ForAKnownAddressWhoseSendThrowsAndAnUnknownAddress()
+    {
+        using var host = await StartHostAsync(timingFloorMinimumMilliseconds: 0, timingFloorMaximumMilliseconds: 0, emailSenderThrows: true);
         await SeedUserAsync(host, "known@example.test");
 
         using var client = host.GetTestClient();

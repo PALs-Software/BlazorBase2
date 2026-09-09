@@ -540,18 +540,24 @@ See [REST API Reference](#account-management--apiauthmanage) for every route. A 
 calling out explicitly:
 
 - **`resend-confirmation` and `forgot-password` are anti-enumeration by construction:** both answer
-  `202 Accepted` identically whether the address is known, already confirmed, or neither — a
-  distinguishable response would let a caller enumerate registered emails one probe at a time. An
-  identical body is not enough on its own, though: only the known-address branch generates a token
-  and sends mail, and that network round trip is measurably slower than the branch that does
+  `202 Accepted` identically whether the address is known, already confirmed, neither, or the send
+  behind it failed outright - a distinguishable response, in body, status code or latency, would let
+  a caller enumerate registered emails one probe at a time. Both handlers wrap the user lookup, token
+  generation and dispatch in a `try`/`catch` that logs and swallows any exception, so a failing mail
+  transport cannot turn the known-address branch into a `500` while the unknown-address branch still
+  returns `202`. An identical body is not enough on its own, though: only the known-address branch
+  does the extra lookup and token work, and that is measurably slower than the branch that does
   nothing. Both handlers pad the response up to a randomised floor
   (`AccountManagementOptions.TimingFloorMinimumMilliseconds`/`TimingFloorMaximumMilliseconds`,
   default 750–1250 ms) so the *observed* duration is the floor either way, with the real work
   disappearing underneath it. The target is drawn per-request from `RandomNumberGenerator`, not
   `Random.Shared`, so there is no fixed constant an attacker could calibrate against by averaging
   many requests. Set both values to `0` to disable the padding, which is what an automated test host
-  should do to stay fast. A mail send slower than the drawn floor still shows through it - the fix
-  is to raise the floor to comfortably exceed the host's own SMTP latency, not to remove the padding.
+  should do to stay fast. With the default background mail dispatch (see
+  [`BlazorBase.Mailing`](BlazorBase.Mailing.md)'s `EmailDispatchMode`), the send itself is off the
+  response path entirely - the floor only needs to cover the user lookup and token generation that
+  remain on it. A host that switches to `EmailDispatchMode.Inline` puts the send back on the response
+  path and must raise the floor to cover its own SMTP latency again.
 - **`reset-password` is the one endpoint in this group that reports failure honestly.** The reset
   token *is* the credential at that point, so saying it is invalid or expired tells the caller only
   something about a token already in their hands, not about the account. Staying silent instead, as

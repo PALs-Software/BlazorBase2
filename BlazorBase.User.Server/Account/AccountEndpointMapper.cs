@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace BlazorBase.User.Server.Account;
@@ -20,6 +21,12 @@ namespace BlazorBase.User.Server.Account;
 /// </summary>
 public static class AccountEndpointMapper
 {
+    /// <summary>
+    /// Log category for the handlers below. Spelled out because a static class cannot be used as the
+    /// type argument of <c>ILogger&lt;T&gt;</c>, and the user entity would be a misleading category.
+    /// </summary>
+    private const string LogCategory = "BlazorBase.User.Server.Account.AccountEndpointMapper";
+
     /// <summary>
     /// Maps every account-management endpoint under <paramref name="path"/>, all rate-limited by the
     /// "BlazorBaseAuth" policy registered by <c>AddBlazorBaseUserServer</c>. <c>confirm-email</c>,
@@ -62,22 +69,33 @@ public static class AccountEndpointMapper
         ResendConfirmationRequest request,
         UserManager<TUser> userManager,
         IEmailSender<TUser> emailSender,
-        IOptions<AccountManagementOptions> options)
+        IOptions<AccountManagementOptions> options,
+        ILoggerFactory loggerFactory)
         where TUser : BaseUser
     {
         var startTimestamp = Stopwatch.GetTimestamp();
 
-        var user = await userManager.FindByEmailAsync(request.Email);
-        if (user is not null && !await userManager.IsEmailConfirmedAsync(user))
+        try
         {
-            var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
-            var link = BuildLink(options.Value.ClientBaseUrl, "confirm-email", ("userId", user.Id), ("token", token));
-            await emailSender.SendConfirmationLinkAsync(user, request.Email, link);
+            var user = await userManager.FindByEmailAsync(request.Email);
+            if (user is not null && !await userManager.IsEmailConfirmedAsync(user))
+            {
+                var token = await userManager.GenerateEmailConfirmationTokenAsync(user);
+                var link = BuildLink(options.Value.ClientBaseUrl, "confirm-email", ("userId", user.Id), ("token", token));
+                await emailSender.SendConfirmationLinkAsync(user, request.Email, link);
+            }
+        }
+        catch (Exception exception)
+        {
+            // The address is deliberately not logged: it is unauthenticated caller input, and an
+            // enumeration attempt would otherwise write every probed address into the log.
+            loggerFactory.CreateLogger(LogCategory).LogError(exception, "resend-confirmation failed behind the response.");
         }
 
-        // Identical regardless of whether the address is known or already confirmed - anything else
-        // is an account-enumeration oracle. The timing floor below closes the same oracle for latency:
-        // only the branch above sends mail, and a network round trip is otherwise measurable.
+        // Identical regardless of whether the address is known, already confirmed or the send behind
+        // it failed - anything else is an account-enumeration oracle. The timing floor below closes
+        // the same oracle for latency: only the branch above sends mail, and a network round trip is
+        // otherwise measurable.
         await PadResponseToTimingFloorAsync(startTimestamp, options.Value);
 
         return Results.Accepted();
@@ -87,22 +105,33 @@ public static class AccountEndpointMapper
         ForgotPasswordRequest request,
         UserManager<TUser> userManager,
         IEmailSender<TUser> emailSender,
-        IOptions<AccountManagementOptions> options)
+        IOptions<AccountManagementOptions> options,
+        ILoggerFactory loggerFactory)
         where TUser : BaseUser
     {
         var startTimestamp = Stopwatch.GetTimestamp();
 
-        var user = await userManager.FindByEmailAsync(request.Email);
-        if (user is not null)
+        try
         {
-            var token = await userManager.GeneratePasswordResetTokenAsync(user);
-            var link = BuildLink(options.Value.ClientBaseUrl, "reset-password", ("email", request.Email), ("token", token));
-            await emailSender.SendPasswordResetLinkAsync(user, request.Email, link);
+            var user = await userManager.FindByEmailAsync(request.Email);
+            if (user is not null)
+            {
+                var token = await userManager.GeneratePasswordResetTokenAsync(user);
+                var link = BuildLink(options.Value.ClientBaseUrl, "reset-password", ("email", request.Email), ("token", token));
+                await emailSender.SendPasswordResetLinkAsync(user, request.Email, link);
+            }
+        }
+        catch (Exception exception)
+        {
+            // The address is deliberately not logged: it is unauthenticated caller input, and an
+            // enumeration attempt would otherwise write every probed address into the log.
+            loggerFactory.CreateLogger(LogCategory).LogError(exception, "forgot-password failed behind the response.");
         }
 
-        // Identical regardless of whether the address is known - a distinguishable response would be
-        // an account-enumeration oracle. The timing floor below closes the same oracle for latency:
-        // only the branch above sends mail, and a network round trip is otherwise measurable.
+        // Identical regardless of whether the address is known or the send behind it failed - a
+        // distinguishable response would be an account-enumeration oracle. The timing floor below
+        // closes the same oracle for latency: only the branch above sends mail, and a network round
+        // trip is otherwise measurable.
         await PadResponseToTimingFloorAsync(startTimestamp, options.Value);
 
         return Results.Accepted();
@@ -117,9 +146,11 @@ public static class AccountEndpointMapper
     /// <see cref="RandomNumberGenerator"/> rather than <see cref="Random.Shared"/> because a
     /// predictable pad could be averaged out and subtracted back by an attacker sampling many
     /// requests. A configured maximum below the minimum clamps up to the minimum instead of throwing,
-    /// so a bad configuration value degrades to a fixed floor rather than crashing the endpoint. A
-    /// mail send slower than the drawn floor still shows through it - the remedy is for the host to
-    /// raise these values, not to close this gap in code.
+    /// so a bad configuration value degrades to a fixed floor rather than crashing the endpoint. With
+    /// the default background mail dispatch the send itself never runs on this path, so the floor only
+    /// needs to cover the user lookup and token generation that remain here; a host that switches to
+    /// <see cref="BlazorBase.Mailing.Models.EmailDispatchMode.Inline"/> puts the send back on the
+    /// response path and must raise these values to cover it again.
     /// </summary>
     private static async Task PadResponseToTimingFloorAsync(long startTimestamp, AccountManagementOptions options)
     {

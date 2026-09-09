@@ -25,12 +25,14 @@ public class AccountManagementOptions
 
     /// <summary>
     /// Lower bound, in milliseconds, of the randomised response-time floor <c>forgot-password</c> and
-    /// <c>resend-confirmation</c> pad up to, so that generating a token and sending mail on the
+    /// <c>resend-confirmation</c> pad up to, so that looking up the user and generating a token on the
     /// existing-address path does not leak through response latency what the identical response body
     /// already hides. Set both this and <see cref="TimingFloorMaximumMilliseconds"/> to <c>0</c> to
-    /// disable the padding entirely, which is what the test host does. Must comfortably exceed the
-    /// host's own mail-send latency - a slower SMTP path still shows through the floor, and raising
-    /// these values is the fix.
+    /// disable the padding entirely, which is what the test host does. With the default background
+    /// mail dispatch, the send itself is off the response path and does not need to be covered by this
+    /// floor; a host that switches to <see cref="BlazorBase.Mailing.Models.EmailDispatchMode.Inline"/>
+    /// puts the send back on the response path and must raise this value to cover its own mail-send
+    /// latency again.
     /// </summary>
     public int TimingFloorMinimumMilliseconds { get; set; } = 750;
 
