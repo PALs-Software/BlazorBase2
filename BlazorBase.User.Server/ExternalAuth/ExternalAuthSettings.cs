@@ -26,11 +26,13 @@ public class ExternalAuthSettings
     /// Tenant IDs (the token's <c>tid</c> claim) allowed to exchange a token, enforced in addition
     /// to - never instead of - issuer validation. Empty means single-tenant: the authority's own
     /// published issuer is the only thing that decides which tenant is trusted, and there is
-    /// nothing left to allow-list. Required, non-empty, when <see cref="Authority"/> is a
-    /// multi-tenant endpoint (<c>/common</c>, <c>/organizations</c>, <c>/consumers</c>) - there the
-    /// issuer template alone accepts a token from any Entra tenant in existence, so this is the
-    /// only thing standing between "any organization in the world" and the tenants the application
-    /// actually serves.
+    /// nothing left to allow-list - unless the discovered issuer turns out to be tenant-templated
+    /// regardless, which <see cref="OidcExternalTokenValidator"/> rejects at runtime since a fixed
+    /// authority URL is no proof the issuer it publishes is fixed too. Required, non-empty, when
+    /// <see cref="Authority"/> is a multi-tenant endpoint (<c>/common</c>, <c>/organizations</c>,
+    /// <c>/consumers</c>) - there the issuer template alone accepts a token from any Entra tenant
+    /// in existence, so this is the only thing standing between "any organization in the world"
+    /// and the tenants the application actually serves.
     /// </summary>
     public IList<string> AllowedTenantIds { get; set; } = [];
 

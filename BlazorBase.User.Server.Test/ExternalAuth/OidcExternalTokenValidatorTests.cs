@@ -54,7 +54,10 @@ public sealed class OidcExternalTokenValidatorTests
         return services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
     }
 
-    private static string CreateToken(string tenantId, string? scope = null, string? appRole = null)
+    private static string CreateToken(string tenantId, string? scope = null, string? appRole = null) =>
+        CreateTokenWithIssuer(tenantId, Authority(tenantId), scope, appRole);
+
+    private static string CreateTokenWithIssuer(string tenantId, string issuer, string? scope = null, string? appRole = null)
     {
         var claims = new Dictionary<string, object> { ["tid"] = tenantId };
 
@@ -66,7 +69,7 @@ public sealed class OidcExternalTokenValidatorTests
 
         var descriptor = new SecurityTokenDescriptor
         {
-            Issuer = Authority(tenantId),
+            Issuer = issuer,
             Audience = Audience,
             Claims = claims,
             SigningCredentials = SigningCredentials,
@@ -87,6 +90,16 @@ public sealed class OidcExternalTokenValidatorTests
             AllowedTenantIds = allowedTenantIds ?? [AllowedTenantId],
             RequiredScopes = requiredScopes ?? ["access_as_user"],
             RequiredAppRoles = requiredAppRoles ?? [],
+        };
+
+    private static ExternalAuthSettings BuildSettings(string authority, IList<string> allowedTenantIds) =>
+        new()
+        {
+            Authority = authority,
+            Audiences = [Audience],
+            AllowedTenantIds = allowedTenantIds,
+            RequiredScopes = [],
+            RequiredAppRoles = [],
         };
 
     [Fact]
@@ -144,6 +157,45 @@ public sealed class OidcExternalTokenValidatorTests
         var settings = BuildMultiTenantSettings(allowedTenantIds: []);
         var validator = CreateValidator(settings, new StubExternalTenantAllowList(allowed: true));
         var token = CreateToken(OtherTenantId, scope: "access_as_user");
+
+        var principal = await validator.ValidateAsync(token, CancellationToken.None);
+
+        Assert.NotNull(principal);
+    }
+
+    [Fact]
+    public async Task A_tenant_templated_issuer_with_an_empty_AllowedTenantIds_is_rejected()
+    {
+        const string templatedAuthority = "https://contoso.b2clogin.com/{tenantid}/v2.0";
+        var settings = BuildSettings(templatedAuthority, allowedTenantIds: []);
+        var validator = CreateValidator(settings);
+        var token = CreateTokenWithIssuer(AllowedTenantId, templatedAuthority);
+
+        var principal = await validator.ValidateAsync(token, CancellationToken.None);
+
+        Assert.Null(principal);
+    }
+
+    [Fact]
+    public async Task A_tenant_templated_issuer_is_accepted_once_the_tid_is_in_a_non_empty_AllowedTenantIds()
+    {
+        const string templatedAuthority = "https://contoso.b2clogin.com/{tenantid}/v2.0";
+        var settings = BuildSettings(templatedAuthority, allowedTenantIds: [AllowedTenantId]);
+        var validator = CreateValidator(settings);
+        var token = CreateTokenWithIssuer(AllowedTenantId, templatedAuthority);
+
+        var principal = await validator.ValidateAsync(token, CancellationToken.None);
+
+        Assert.NotNull(principal);
+    }
+
+    [Fact]
+    public async Task A_fixed_non_templated_issuer_with_an_empty_AllowedTenantIds_is_still_accepted()
+    {
+        var fixedAuthority = Authority(AllowedTenantId);
+        var settings = BuildSettings(fixedAuthority, allowedTenantIds: []);
+        var validator = CreateValidator(settings);
+        var token = CreateTokenWithIssuer(AllowedTenantId, fixedAuthority);
 
         var principal = await validator.ValidateAsync(token, CancellationToken.None);
 

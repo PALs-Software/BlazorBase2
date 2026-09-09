@@ -17,8 +17,11 @@ namespace BlazorBase.User.Server.ExternalAuth;
 /// checked with <see cref="AadIssuerValidator"/> against the tenant issuer template and the
 /// token's own <c>tid</c>, and that <c>tid</c> must additionally be allowed by
 /// <see cref="IExternalTenantAllowList"/> - the issuer template alone accepts a token from any
-/// Entra tenant in existence. The token is never hand-parsed for its claims before its signature,
-/// audience and lifetime are checked.
+/// Entra tenant in existence. An <see cref="ExternalAuthSettings.AllowedTenantIds"/> left empty is
+/// rejected outright when the discovered issuer turns out to be tenant-templated regardless, since
+/// <see cref="ExternalAuthSettings.IsMultiTenantAuthority"/> cannot see that from the authority URL
+/// alone. The token is never hand-parsed for its claims before its signature, audience and lifetime
+/// are checked.
 /// </summary>
 public class OidcExternalTokenValidator(
     IOptions<ExternalAuthSettings> settings,
@@ -47,6 +50,13 @@ public class OidcExternalTokenValidator(
             if (!result.IsValid)
             {
                 Logger.LogWarning(result.Exception, "External token validation failed.");
+                return null;
+            }
+
+            if (await AllowListIsMissingForATenantTemplatedIssuerAsync(cancellationToken))
+            {
+                Logger.LogWarning(
+                    "External token rejected: the authority's discovered issuer is tenant-templated but AllowedTenantIds is empty. Configure AllowedTenantIds to the tenants this application actually serves.");
                 return null;
             }
 
@@ -118,6 +128,24 @@ public class OidcExternalTokenValidator(
         var allowList = scope.ServiceProvider.GetRequiredService<IExternalTenantAllowList>();
 
         return await allowList.IsAllowedAsync(tenantId, cancellationToken);
+    }
+
+    /// <summary>
+    /// <see cref="ExternalAuthSettings.IsMultiTenantAuthority"/> only catches the well-known Entra
+    /// endpoints; an Azure AD B2C custom domain or a gateway authority can be tenant-templated
+    /// without matching that substring check, and would otherwise accept a token from any tenant
+    /// once <see cref="ExternalAuthSettings.AllowedTenantIds"/> is left empty. The discovery
+    /// document already carries the answer, and <see cref="OidcConfigurationManager"/> caches it,
+    /// so resolving it here costs nothing per request.
+    /// </summary>
+    private async Task<bool> AllowListIsMissingForATenantTemplatedIssuerAsync(CancellationToken cancellationToken)
+    {
+        if (Settings.AllowedTenantIds.Count > 0)
+            return false;
+
+        var configuration = await OidcConfigurationManager.GetBaseConfigurationAsync(cancellationToken);
+
+        return configuration.Issuer.Contains("{tenantid}", StringComparison.OrdinalIgnoreCase);
     }
 
     private bool HasRequiredScopeOrRole(ClaimsIdentity identity)
