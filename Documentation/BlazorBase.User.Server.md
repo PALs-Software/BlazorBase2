@@ -177,6 +177,13 @@ Protection key ring, which the host already has as soon as it calls `AddDataProt
 most hosting models) and which rotates itself. Everything under `AuthTokens` is optional and defaults
 to a working configuration:
 
+> **But do decide where that key ring lives.** The default is the local machine or user profile, which
+> a container discards on every redeploy — signing every user out — and which two instances do not
+> share, so they reject each other's tokens as sporadic 401s. For a single durable host,
+> `PersistKeysToFileSystem` with a stable `SetApplicationName` is enough; for several instances or for
+> encryption at rest, see
+> [BlazorBase.DataProtection.AzureKeyVault.md](BlazorBase.DataProtection.AzureKeyVault.md).
+
 ```json
 {
   "AuthTokens": {

@@ -224,6 +224,10 @@ On the server, map the session endpoint alongside the rest:
 app.MapBlazorBaseAuthSessionEndpoint();
 ```
 
+Calling `AddBlazorBaseCookieAuthTokens` without ever mapping this endpoint fails at startup rather
+than silently shipping a client that can never read its own claims or obtain an antiforgery token —
+see `BlazorBaseAuthSessionEndpointStartupGuardFilter`.
+
 It echoes the caller's own claims and answers an anonymous caller with `IsAuthenticated: false`
 rather than a challenge — a client has to be able to ask "am I signed in?" without being redirected
 for asking. It grants nothing: the server re-checks every request regardless of what the client
@@ -274,6 +278,44 @@ network topology — the choice of key. With nothing configured, forwarded heade
 runs but forwards nothing, so `RemoteIpAddress` stays exactly what it was before. A host that forgets
 to call this at all behind a real proxy is warned at startup rather than left silently partitioning
 every client into the same bucket.
+
+---
+
+## Key management — the key ring is your session store
+
+Whichever transport you pick, the thing that actually holds your sessions together is the ASP.NET
+Core Data Protection key ring. This framework signs nothing of its own: the bearer access and refresh
+tokens, the application cookie, the antiforgery token and the two-factor pending ticket are all
+protected through it. There is no secret in configuration to get wrong, and no secret to leak — but
+the key ring is now an authentication concern rather than a background detail.
+
+Two failure modes follow, and neither announces itself:
+
+- **Keys that do not survive a restart sign everyone out.** ASP.NET Core's default key location is
+  the local machine or user profile. In a container that is gone on every redeploy, so every
+  deployment logs out every user.
+- **Keys that are not shared make instances reject each other.** Two instances with their own key
+  rings cannot read each other's cookies or tokens. This does not fail cleanly — it looks like
+  sporadic 401s that follow the load balancer rather than the user.
+
+So decide key management deliberately, at the same time as the transport:
+
+| Situation | What to do |
+|---|---|
+| Local development, single machine | Nothing. The default is fine. |
+| One instance, durable and backed-up storage | `PersistKeysToFileSystem(…)` plus `SetApplicationName(…)` |
+| Several instances, or keys must be encrypted at rest | [BlazorBase.DataProtection.AzureKeyVault](BlazorBase.DataProtection.AzureKeyVault.md) |
+
+`SetApplicationName` must be stable and identical on every instance in all of the last two rows —
+left unset it is derived from the content-root path, so two instances deployed to different paths
+silently do not share keys even when they share a store.
+
+Note that a `ProtectKeysWith*` call only **encrypts** the key ring; it does not store it. Encryption
+at rest never replaces a `PersistKeysTo*` call. See
+[BlazorBase.DataProtection.md](BlazorBase.DataProtection.md) for the base library and
+[BlazorBase.DataProtection.AzureKeyVault.md](BlazorBase.DataProtection.AzureKeyVault.md) for the
+Azure option, including what it costs — a start-up dependency on Key Vault, and a vault key whose
+loss is permanent.
 
 ---
 
@@ -396,6 +438,7 @@ them straight back to the script the transport exists to keep them from.
 - [ ] `AddBlazorBaseForwardedHeaders` called when the host sits behind a reverse proxy
 - [ ] The external resolver keys on the subject id, not the email
 - [ ] The external resolver's answer for an unknown subject is a deliberate decision
+- [ ] Key management is decided, not defaulted — the keys survive a restart and every instance shares them
 
 ## What is not in the framework yet
 
