@@ -180,15 +180,15 @@ public class AuthService(HttpClient httpClient) : IAuthService
             ?? throw new InvalidOperationException("Invalid two-factor enable response.");
     }
 
-    public async Task DisableTwoFactorAsync()
+    public async Task DisableTwoFactorAsync(TwoFactorVerificationRequest request)
     {
-        var response = await HttpClient.PostAsync("api/auth/manage/2fa/disable", content: null);
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/2fa/disable", request);
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<TwoFactorRecoveryCodesResponse> RegenerateRecoveryCodesAsync()
+    public async Task<TwoFactorRecoveryCodesResponse> RegenerateRecoveryCodesAsync(TwoFactorVerificationRequest request)
     {
-        var response = await HttpClient.PostAsync("api/auth/manage/2fa/recovery-codes", content: null);
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/2fa/recovery-codes", request);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<TwoFactorRecoveryCodesResponse>()
             ?? throw new InvalidOperationException("Invalid recovery-codes response.");

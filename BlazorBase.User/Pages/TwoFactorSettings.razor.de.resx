@@ -106,4 +106,10 @@
   <data name="RecoveryCodesDescription" xml:space="preserve">
     <value>Bewahren Sie diese sicher auf. Jeder Code funktioniert genau einmal und wird danach nicht erneut angezeigt.</value>
   </data>
+  <data name="VerificationCode" xml:space="preserve">
+    <value>Bestätigungscode</value>
+  </data>
+  <data name="VerificationCodeHint" xml:space="preserve">
+    <value>Geben Sie den Code aus Ihrer Authenticator-App ein, oder einen Ihrer Wiederherstellungscodes, falls Sie keinen Zugriff mehr darauf haben.</value>
+  </data>
 </root>

@@ -106,4 +106,10 @@
   <data name="RecoveryCodesDescription" xml:space="preserve">
     <value>Store these somewhere safe. Each one works exactly once and they will not be shown again.</value>
   </data>
+  <data name="VerificationCode" xml:space="preserve">
+    <value>Verification Code</value>
+  </data>
+  <data name="VerificationCodeHint" xml:space="preserve">
+    <value>Enter the code from your authenticator app, or one of your recovery codes if you no longer have access to it.</value>
+  </data>
 </root>

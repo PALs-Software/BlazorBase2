@@ -19,6 +19,7 @@ public partial class TwoFactorSettings(IAuthService authService, IStringLocalize
 
     private TwoFactorStatusResponse? Status { get; set; }
     private string EnableCode { get; set; } = string.Empty;
+    private string VerificationCode { get; set; } = string.Empty;
     private List<string>? RecoveryCodes { get; set; }
     private string? ErrorMessage { get; set; }
     private bool IsLoading { get; set; } = true;
@@ -73,7 +74,8 @@ public partial class TwoFactorSettings(IAuthService authService, IStringLocalize
 
         try
         {
-            await AuthService.DisableTwoFactorAsync();
+            await AuthService.DisableTwoFactorAsync(new TwoFactorVerificationRequest { Code = VerificationCode });
+            VerificationCode = string.Empty;
             RecoveryCodes = null;
             await ReloadStatusAsync();
         }
@@ -94,8 +96,9 @@ public partial class TwoFactorSettings(IAuthService authService, IStringLocalize
 
         try
         {
-            var result = await AuthService.RegenerateRecoveryCodesAsync();
+            var result = await AuthService.RegenerateRecoveryCodesAsync(new TwoFactorVerificationRequest { Code = VerificationCode });
             RecoveryCodes = result.RecoveryCodes;
+            VerificationCode = string.Empty;
             await ReloadStatusAsync();
         }
         catch (HttpRequestException)

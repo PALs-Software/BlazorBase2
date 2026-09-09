@@ -40,8 +40,8 @@ public interface IAuthService
 
     Task<TwoFactorStatusResponse> GetTwoFactorStatusAsync();
     Task<TwoFactorRecoveryCodesResponse> EnableTwoFactorAsync(TwoFactorEnableRequest request);
-    Task DisableTwoFactorAsync();
-    Task<TwoFactorRecoveryCodesResponse> RegenerateRecoveryCodesAsync();
+    Task DisableTwoFactorAsync(TwoFactorVerificationRequest request);
+    Task<TwoFactorRecoveryCodesResponse> RegenerateRecoveryCodesAsync(TwoFactorVerificationRequest request);
 }
 
 /// <summary>

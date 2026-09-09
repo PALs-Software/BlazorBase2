@@ -30,8 +30,8 @@ public sealed class SessionExpiryHandlerTests
         public Task ResetPasswordAsync(ResetPasswordRequest request) => throw new NotSupportedException();
         public Task<TwoFactorStatusResponse> GetTwoFactorStatusAsync() => throw new NotSupportedException();
         public Task<TwoFactorRecoveryCodesResponse> EnableTwoFactorAsync(TwoFactorEnableRequest request) => throw new NotSupportedException();
-        public Task DisableTwoFactorAsync() => throw new NotSupportedException();
-        public Task<TwoFactorRecoveryCodesResponse> RegenerateRecoveryCodesAsync() => throw new NotSupportedException();
+        public Task DisableTwoFactorAsync(TwoFactorVerificationRequest request) => throw new NotSupportedException();
+        public Task<TwoFactorRecoveryCodesResponse> RegenerateRecoveryCodesAsync(TwoFactorVerificationRequest request) => throw new NotSupportedException();
     }
 
     private sealed class StubHandler(HttpStatusCode statusCode) : HttpMessageHandler

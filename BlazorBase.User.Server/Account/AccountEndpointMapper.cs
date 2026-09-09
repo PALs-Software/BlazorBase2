@@ -157,20 +157,10 @@ public static class AccountEndpointMapper
         return Results.Ok(new TwoFactorRecoveryCodesResponse { RecoveryCodes = [.. recoveryCodes ?? []] });
     }
 
-    private static async Task<IResult> DisableTwoFactorAsync<TUser>(HttpContext httpContext, UserManager<TUser> userManager)
-        where TUser : BaseUser
-    {
-        var user = await ResolveCurrentUserAsync(httpContext, userManager);
-        if (user is null)
-            return Results.Unauthorized();
-
-        await userManager.SetTwoFactorEnabledAsync(user, false);
-        await userManager.ResetAuthenticatorKeyAsync(user);
-
-        return Results.NoContent();
-    }
-
-    private static async Task<IResult> RegenerateRecoveryCodesAsync<TUser>(HttpContext httpContext, UserManager<TUser> userManager)
+    private static async Task<IResult> DisableTwoFactorAsync<TUser>(
+        TwoFactorVerificationRequest request,
+        HttpContext httpContext,
+        UserManager<TUser> userManager)
         where TUser : BaseUser
     {
         var user = await ResolveCurrentUserAsync(httpContext, userManager);
@@ -180,9 +170,52 @@ public static class AccountEndpointMapper
         if (!await userManager.GetTwoFactorEnabledAsync(user))
             return Results.BadRequest(new { message = "Two-factor authentication is not enabled." });
 
+        if (!await VerifyTwoFactorProofAsync(user, request.Code, userManager))
+            return Results.BadRequest(new { message = "Invalid code." });
+
+        await userManager.SetTwoFactorEnabledAsync(user, false);
+        await userManager.ResetAuthenticatorKeyAsync(user);
+
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> RegenerateRecoveryCodesAsync<TUser>(
+        TwoFactorVerificationRequest request,
+        HttpContext httpContext,
+        UserManager<TUser> userManager)
+        where TUser : BaseUser
+    {
+        var user = await ResolveCurrentUserAsync(httpContext, userManager);
+        if (user is null)
+            return Results.Unauthorized();
+
+        if (!await userManager.GetTwoFactorEnabledAsync(user))
+            return Results.BadRequest(new { message = "Two-factor authentication is not enabled." });
+
+        if (!await VerifyTwoFactorProofAsync(user, request.Code, userManager))
+            return Results.BadRequest(new { message = "Invalid code." });
+
         var recoveryCodes = await userManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
 
         return Results.Ok(new TwoFactorRecoveryCodesResponse { RecoveryCodes = [.. recoveryCodes ?? []] });
+    }
+
+    /// <summary>
+    /// A TOTP check is non-destructive and tried first; falling back to a recovery code only on
+    /// failure means an account that has lost the authenticator can still prove possession, and the
+    /// code it spends to do so is consumed - it is the same single-use credential either way.
+    /// </summary>
+    private static async Task<bool> VerifyTwoFactorProofAsync<TUser>(TUser user, string code, UserManager<TUser> userManager)
+        where TUser : BaseUser
+    {
+        if (string.IsNullOrEmpty(code))
+            return false;
+
+        if (await userManager.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultAuthenticatorProvider, code))
+            return true;
+
+        var result = await userManager.RedeemTwoFactorRecoveryCodeAsync(user, code);
+        return result.Succeeded;
     }
 
     private static async Task<TUser?> ResolveCurrentUserAsync<TUser>(HttpContext httpContext, UserManager<TUser> userManager)

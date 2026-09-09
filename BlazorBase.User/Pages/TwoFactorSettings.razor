@@ -42,6 +42,14 @@
                 <p>@string.Format(Localizer["RecoveryCodesRemaining"], Status.RecoveryCodesRemaining)</p>
 
                 <FluentStack Orientation="Orientation.Vertical" Class="form-stack">
+                    <FluentTextField @bind-Value="VerificationCode"
+                                    Immediate="true"
+                                    Label="@Localizer["VerificationCode"]"
+                                    Required="true"
+                                    AutoComplete="one-time-code"
+                                    Class="full-width" />
+                    <p>@Localizer["VerificationCodeHint"]</p>
+
                     <FluentButton Appearance="Appearance.Accent"
                                   Loading="IsSubmitting"
                                   @onclick="HandleRegenerateRecoveryCodes">

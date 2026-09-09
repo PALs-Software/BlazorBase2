@@ -550,8 +550,10 @@ calling out explicitly:
   `GET 2fa` returns an `otpauth://` URI (only while two-factor is not yet enabled) for the client to
   render as a QR code, and `2fa/enable` requires the caller to prove they scanned it by submitting a
   currently-valid code before enrolment actually takes effect and recovery codes are issued. Disabling
-  two-factor (`2fa/disable`) also resets the authenticator key, so re-enabling always starts a fresh
-  enrolment rather than reusing a key the account may no longer control.
+  two-factor (`2fa/disable`) requires the same proof in reverse - a TOTP code or a recovery code - so
+  that a session obtained without the second factor cannot remove it; it also resets the authenticator
+  key on success, so re-enabling always starts a fresh enrolment rather than reusing a key the account
+  may no longer control. `2fa/recovery-codes` requires the same proof before minting a fresh batch.
 - **Email delivery goes through `IEmailSender<TUser>`**, registered as `NoOpEmailSender<TUser>` by
   default (logs a warning and sends nothing — a missing mail configuration must not stop the host from
   starting). Call `AddBlazorBaseMailingEmailSender<TUser>()` after `AddBlazorBaseMailing` (see
@@ -795,11 +797,11 @@ GET  /api/auth/manage/2fa                              (Authorization: Bearer ..
 POST /api/auth/manage/2fa/enable           { "code": "..." }
 200 OK   { "recoveryCodes": [ "...", "..." ] }   |   400 Bad Request   { "message": "Invalid code." }
 
-POST /api/auth/manage/2fa/disable
-204 No Content
+POST /api/auth/manage/2fa/disable          { "code": "..." }
+204 No Content   |   400 Bad Request   { "message": "Invalid code." }   |   400 Bad Request   { "message": "Two-factor authentication is not enabled." }
 
-POST /api/auth/manage/2fa/recovery-codes
-200 OK   { "recoveryCodes": [ "...", "..." ] }   |   400 Bad Request   { "message": "Two-factor authentication is not enabled." }
+POST /api/auth/manage/2fa/recovery-codes   { "code": "..." }
+200 OK   { "recoveryCodes": [ "...", "..." ] }   |   400 Bad Request   { "message": "Invalid code." }   |   400 Bad Request   { "message": "Two-factor authentication is not enabled." }
 ```
 
 ### Current user
