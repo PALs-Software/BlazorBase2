@@ -1,4 +1,5 @@
 using System.Security.Cryptography.X509Certificates;
+using BlazorBase.User.SecurityHarness.IdentityProvider;
 
 namespace BlazorBase.User.SecurityHarness.Hosting;
 
@@ -24,6 +25,16 @@ public sealed class HarnessHostOptions
     /// the fake identity provider's issuer.
     /// </summary>
     public string? ExternalAllowedTenantId { get; init; }
+
+    /// <summary>
+    /// The fake identity provider instance itself, registered into the <see cref="HarnessProfile.External"/>
+    /// host's own service collection so a probe can reach its <see cref="FakeIdentityProviderHost.KeyRegistry"/>
+    /// (to rotate or withhold signing keys) or flip it offline and back through
+    /// <see cref="FakeIdentityProviderHost.GoOffline"/>/<see cref="FakeIdentityProviderHost.GoOnline"/> -
+    /// resolved from <c>context.Services</c> rather than threaded through <see cref="Probes.ProbeContext"/>
+    /// directly, since it is only ever relevant to the <see cref="HarnessProfile.External"/> profile.
+    /// </summary>
+    public FakeIdentityProviderHost? IdentityProviderHost { get; init; }
 
     /// <summary>The self-signed certificate every HTTPS profile listens with.</summary>
     public required X509Certificate2 Certificate { get; init; }

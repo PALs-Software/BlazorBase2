@@ -92,6 +92,52 @@ of whether its host started - a normal, live one when it did, or a degenerate on
 failure message when it did not - so this probe still gets a `ProbeContext` to read a verdict from,
 without any of its other members (`BaseAddress`, `HttpClientFactory`, and so on) ever being called.
 
+## External token exchange probes (`Probes/ExternalExchange/`)
+
+24 probes against the `External` profile, attacking `POST api/auth/external/exchange` and the fake
+identity provider from step 2: signature and algorithm confusion, claim validation (audience,
+issuer, `tid` allow-listing including a casing/whitespace check, required scope), lifetime (expiry,
+the 30-second clock skew, not-yet-valid, missing `exp`), replay, an oversized token, a rate-limit
+flood, provider key rotation in both `BaseConfigurationManager` refresh modes, provider availability,
+and the two account-linking probes the harness's dual resolver switch exists for.
+
+`EXT-VALID` is the canary every other result in the category depends on. Every probe seeds a local
+user whose username is the token's own subject before exchanging it - `ExternalUserResolverSwitch`
+defaults to `StrictSubjectExternalUserResolver`, so without a matching local account, an *accepted*
+signature would still come back `401` for the wrong reason (no such user), silently hiding a real
+validator bypass behind an unrelated rejection. `ExternalExchangeSupport.EnsureResolvableSubjectAsync`
+is the one-line precondition every probe here calls for exactly that reason.
+
+Four probes report numbers rather than a verdict, per `ProbeResult.Inconclusive`:
+`EXT-EXPIRED-WITHIN-SKEW` (how long past `exp` a token stays usable), `EXT-REPLAY` (how many
+distinct local sessions one provider token can mint, bounded to five attempts), `EXT-KEY-ROTATION`
+(how many requests a rotated key takes to be accepted, measured once in the library's default
+fire-and-forget refresh mode and once with `PinnedThumbprintConfigurationManagerFactory.SetBlockingRefreshMode(true)`,
+each on its own isolated host so neither measurement starts from a warm `BaseConfigurationManager`
+cache), and `EXT-OFFLINE-THEN-ONLINE` (whether a request against a cold cache while the provider is
+down leaves any lock-out behind once it recovers). `EXT-PROVIDER-OFFLINE` is a related but
+pass/fail probe: it primes the cache with a successful exchange first, so the offline request that
+follows is testing cache survival specifically, not a cold start.
+
+Probes that rotate keys or flip the provider's availability restore that shared state in a
+`finally` block rather than starting a second identity-provider process - the fake provider is one
+Kestrel host, started once in `Program.cs` and shared by every isolated app host the `External`
+profile starts, so its `FakeSigningKeyRegistry` and online/offline switch are process-wide for the
+whole run. `HarnessHostOptions.IdentityProviderHost` and a singleton registration in
+`HarnessHostFactory.RegisterExternalAuth` are what let a probe reach that shared instance through
+`context.Services` instead of through `Program.cs` directly.
+
+The two account-linking probes (`EXT-UNVERIFIED-EMAIL-TAKEOVER`, `EXT-STRICT-RESOLVER-REJECTS`) send
+the same token - an unverified `email` claim matching an existing local account, from a subject no
+local account carries - against the naive and the strict resolver in turn. `HarnessHostFactory` maps
+one more harness-only endpoint for these two probes, `GET harness/whoami`, so a probe can confirm
+*whose* account a set of minted tokens actually belongs to instead of trusting a bare `200`.
+
+Every rejection probe attaches the token it sent - header and payload decoded back from base64url,
+never left opaque - alongside the response, as `ProbeEvidence`; `Program.cs`'s `FormatEvidence` folds
+that request/response pair into the rendered report next to each probe's one-line description, so a
+finding is legible directly from the report file without a debugger.
+
 ## Running it
 
 ```powershell

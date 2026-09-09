@@ -1,4 +1,5 @@
 using System.Net;
+using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
 using BlazorBase.User.SecurityHarness.IdentityProvider;
 using BlazorBase.User.Server.AccessTokens;
@@ -204,6 +205,11 @@ public static class HarnessHostFactory
     {
         app.MapGet("harness/protected-probe", () => Results.Ok()).RequireAuthorization();
 
+        app.MapGet("harness/whoami", (ClaimsPrincipal user) => Results.Ok(new HarnessWhoAmIResponse(
+                user.Identity?.Name,
+                user.FindFirst(ClaimTypes.Email)?.Value)))
+            .RequireAuthorization();
+
         MapHarnessWriteProbeEndpoints(app);
     }
 
@@ -244,6 +250,9 @@ public static class HarnessHostFactory
     {
         var configurationManager = PinnedThumbprintConfigurationManagerFactory.Create(options.ExternalAuthority!, options.Certificate);
         builder.Services.AddSingleton(configurationManager);
+
+        if (options.IdentityProviderHost is not null)
+            builder.Services.AddSingleton(options.IdentityProviderHost);
 
         builder.Services.AddBlazorBaseExternalAuth(builder.Configuration);
 
@@ -313,3 +322,11 @@ public static class HarnessHostFactory
         return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
     }
 }
+
+/// <summary>
+/// The authenticated caller's own identity, as reported by <c>harness/whoami</c> - the
+/// external-exchange account-linking probes need this to confirm which local user's tokens an
+/// exchange actually minted, since the exchange endpoint's own response carries only the token
+/// pair.
+/// </summary>
+public sealed record HarnessWhoAmIResponse(string? Name, string? Email);

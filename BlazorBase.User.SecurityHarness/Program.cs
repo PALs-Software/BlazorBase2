@@ -31,6 +31,7 @@ try
         TempDirectory = tempDirectory.FullName,
         ExternalAuthority = identityProvider.TenantAuthority(FakeIdentityProviderTenants.AllowedTenantId),
         ExternalAllowedTenantId = FakeIdentityProviderTenants.AllowedTenantId,
+        IdentityProviderHost = identityProvider,
         Certificate = certificate,
     };
 
@@ -180,6 +181,7 @@ static async Task<IsolatedProbeHost> StartIsolatedHostAsync(HarnessProfile profi
         TempDirectory = baseOptions.TempDirectory,
         ExternalAuthority = baseOptions.ExternalAuthority,
         ExternalAllowedTenantId = baseOptions.ExternalAllowedTenantId,
+        IdentityProviderHost = baseOptions.IdentityProviderHost,
         Certificate = baseOptions.Certificate,
         ConfigurationOverrides = overrides,
         DatabaseFileName = $"{profile}-{Guid.NewGuid():N}.db",
@@ -213,7 +215,25 @@ static ProbeReportEntry ToProbeEntry(IAuthProbe probe, ProbeResult result) => ne
     probe.SeverityIfFailed.ToString(),
     result.Outcome.ToString(),
     result.Summary,
-    [.. result.Evidence.Select(evidence => evidence.Description)]);
+    [.. result.Evidence.Select(FormatEvidence)]);
+
+/// <summary>
+/// Folds one <see cref="ProbeEvidence"/>'s request and response into its description, so a rendered
+/// report shows the exact token and response a probe sent and got back rather than only its
+/// one-line description - a rejection with no visible token is not usable in a review.
+/// </summary>
+static string FormatEvidence(ProbeEvidence evidence)
+{
+    var parts = new List<string> { evidence.Description };
+
+    if (evidence.Request is not null)
+        parts.Add($"Request: {evidence.Request}");
+
+    if (evidence.Response is not null)
+        parts.Add($"Response: {evidence.Response}");
+
+    return string.Join(" || ", parts);
+}
 
 static HarnessHostReportEntry ToHostEntry(HarnessHostResult result) => new(
     result.Profile.ToString(),
