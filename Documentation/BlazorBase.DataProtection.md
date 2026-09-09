@@ -80,9 +80,19 @@ another `ProtectKeysWith*` call:
 dataProtectionBuilder.ProtectKeysWithCertificate(myKeyEncryptionCertificate);
 ```
 
+For an Azure-hosted application there is a ready-made option that combines encryption at rest with a
+shared store: [BlazorBase.DataProtection.AzureKeyVault](BlazorBase.DataProtection.AzureKeyVault.md)
+persists the key ring in the application's own database and wraps it with a Key Vault key. Note that
+a `ProtectKeysWith*` call on its own only encrypts the keys — it does not store them anywhere, so it
+never replaces a `PersistKeysTo*` call.
+
 Omitting `configure` entirely uses ASP.NET Core's default key management — acceptable for local
 development and single-instance hosts with a durable filesystem, but **not safe** for containers
 (ephemeral keys) or multi-node farms (unshared keys per node).
+
+Under BlazorBase2 that is an authentication concern, not only a data one: the key ring protects the
+Identity bearer tokens, the application cookie, the antiforgery token and the two-factor pending
+ticket. Losing it signs everyone out; not sharing it makes instances reject each other's sessions.
 
 ---
 

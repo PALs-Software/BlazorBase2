@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BlazorBase.DataProtection\BlazorBase.DataProtection.csproj" />
+    <ProjectReference Include="..\BlazorBase.DataProtection.AzureKeyVault\BlazorBase.DataProtection.AzureKeyVault.csproj" />
   </ItemGroup>
 
   <ItemGroup>
