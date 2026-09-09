@@ -193,6 +193,10 @@ public sealed class ExternalAuthRedirectEndpointMapperTests
     [InlineData("https://evil.com")]
     [InlineData("/\t/evil.com")]
     [InlineData("/\u0007evil.com")]
+    [InlineData(" //evil.com")]
+    [InlineData("/dashboard ")]
+    [InlineData("\t/dashboard")]
+    [InlineData("/dashboard\n")]
     public async Task An_unsafe_returnUrl_falls_back_to_the_default(string returnUrl)
     {
         var (host, _) = await StartHostAsync(acceptResolution: true);
@@ -204,6 +208,20 @@ public sealed class ExternalAuthRedirectEndpointMapperTests
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal("/", response.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task A_local_returnUrl_is_honoured()
+    {
+        var (host, _) = await StartHostAsync(acceptResolution: true);
+        using var _ = host;
+        await SeedUserAsync(host);
+
+        using var client = host.GetTestClient();
+        var response = await client.GetAsync($"/api/auth/external/complete?returnUrl={Uri.EscapeDataString("/dashboard")}");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/dashboard", response.Headers.Location?.OriginalString);
     }
 
     [Fact]
