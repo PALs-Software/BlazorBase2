@@ -212,6 +212,117 @@ completes a second login with a freshly computed code after already minting one 
 `AuthTokens:MaxFailedAccessAttempts` override (new in `HarnessHostFactory`) so the lockout threshold
 is reached in a handful of requests instead of Identity's default five.
 
+## Account management, development login, disclosure and client pipeline probes (`Probes/AccountManagement/`, `Probes/Disclosure/`, `Probes/ClientPipeline/`)
+
+25 probes: 10 against `api/auth/manage/*` and 5 against `api/auth/development-login` (both under
+`Probes/AccountManagement/`, both on the `Bearer`/`DevelopmentLogin` profiles), 5 disclosure probes
+(`Probes/Disclosure/`, split across `Bearer` and `Cookie`), and 5 against the real client-side
+handler pipeline (`Probes/ClientPipeline/`, `Bearer`).
+
+**`ACCT-RESET-INVALIDATES-SESSIONS` is the probe this group exists for.** After a password reset, a
+refresh token issued beforehand is rejected immediately - `AuthControllerBase.Refresh` re-validates
+the presented token's captured security stamp against the user's current one
+(`AuthTokenIssuer.ValidateSecurityStampAsync`), and `UserManager.ResetPasswordAsync` rotates that
+stamp as part of the reset. An access token issued beforehand does **not** reject immediately,
+though - access tokens are never re-checked against the security stamp at all, the same shape as
+`TOKEN-STAMP-INVALIDATION` (step 3), but demonstrated here at the exact moment a reset is meant to
+matter: a password reset is what a user does after believing they are compromised, and the access
+token survives it. The probe reports this as a failure rather than rounding it to "safe", and also
+measures how long the access token keeps working by advancing `HarnessTimeProvider` past its natural
+expiry, exactly as `TOKEN-STAMP-INVALIDATION` does.
+
+Neither `ACCT-RESET-SINGLE-USE` nor `ACCT-CONFIRM-REUSE` special-case single-use logic that does not
+exist: Identity's `DataProtectorTokenProvider` carries no "used" flag of its own, so single-use, when
+it holds, is a side effect of whatever else the token's own operation changes. A password reset
+rotates the security stamp the token's validation is bound to, so a reset token *is* rejected on its
+second use; confirming an email does not rotate anything, so a confirmation token is *not*
+rejected on its second use - `ACCT-CONFIRM-REUSE` records this as `Inconclusive`, not a hard pass or
+fail, per its own doc comment: there was no a-priori reason to expect either direction.
+
+`ACCT-RESET-EXPIRY` needed a token lifespan Identity's default (one day) makes impractical to wait
+out. `AccountEndpointMapper` exposes no configuration seam for
+`DataProtectionTokenProviderOptions.TokenLifespan` at all, so `HarnessHostFactory` now binds it from
+`Tokens:DataProtection:TokenLifespan` - left unbound (and therefore unchanged) for every other
+profile. The probe then waits a real few seconds rather than advancing `HarnessTimeProvider`, because
+`DataProtectorTokenProvider` reads the real wall clock directly, never the DI `TimeProvider`.
+
+**Development login** (`DevelopmentLogin` and `ProductionWithDevelopmentLogin` profiles, both from
+step 1): `DEV-LOGIN-WORKS` is the canary. `DEV-LOGIN-ABSENT-IN-PRODUCTION` runs against the plain
+`Bearer` profile rather than `ProductionWithDevelopmentLogin` on purpose - that profile fails to
+start at all (`RegisterDevelopmentAuthentication` throws synchronously when the option is enabled
+outside Development, the startup guard `README`'s host-profile table already documents), which is a
+different and stronger claim than "the route answers 404 in a normal production deployment that
+never touches the setting". `DEV-LOGIN-STATUS-LEAK` and `INFO-STATUS-BEFORE-SETUP` both record a
+deliberate disclosure (`AuthStatusResponse.HasUsers` / `DevelopmentAuthenticationEnabled`, exposed to
+every anonymous caller) rather than treating it as a finding - the client needs exactly this
+information to decide whether to show a setup form or sign itself in without a login form.
+
+**Disclosure**: `INFO-SESSION-CLAIMS` is a real finding. `SignInManager.CreateUserPrincipalAsync`
+adds a security-stamp claim (`IdentityOptions.ClaimsIdentity.SecurityStampClaimType`, read from the
+host's own options rather than hardcoded) to the same principal that both mints the access token and
+answers `GET api/auth/session` - so the stamp value is embedded in the token and echoed back to the
+client verbatim. `INFO-RESPONSE-HEADERS` is a real, if minor, finding of a different kind: Kestrel's
+own default (`Server: Kestrel`) is present because nothing in this harness or the framework it hosts
+ever calls `KestrelServerOptions.AddServerHeader = false`. `INFO-ERROR-BODIES` sends malformed
+bodies, a wrong content type, an unsupported method, and malformed JSON across several auth routes
+and finds no stack trace, exception type, or framework identifier in any response body - ASP.NET
+Core's own `ProblemDetails` handling already covers every one of these cases.
+
+**Client pipeline** (`Probes/ClientPipeline/`): `ClientPipelineSupport.BuildClientStack` composes the
+real handlers - `AuthTokenHandler` chained ahead of `SessionExpiryHandler`
+(`authTokenHandler.InnerHandler = sessionExpiryHandler`), a real `BlazorBaseUserAuthStateProvider`,
+and `BlazorBase.User.Wasm`'s own `InMemoryTokenStorage` - exactly the way `BlazorBase.User.md`'s
+own client-registration section wires them, including a *separate*, un-augmented `HttpClient` for
+`IAuthService` (its own doc comment: attaching `AuthTokenHandler` to it would close a dependency
+cycle, and its endpoints are anonymous and need no bearer anyway). `CLIENT-REFRESH-ON-401`,
+`CLIENT-NO-RETRY-STORM` and `CLIENT-CONCURRENT-USERS` all force the token to expire on the *server*
+only, by advancing `HarnessTimeProvider` after login rather than before - the client's own
+`ExpiresAt` was read from the same, pre-advance clock, so it still looks fresh to the client's real
+wall clock, and only the wire produces the 401. This is the same clock-advance technique
+`TOKEN-STAMP-INVALIDATION` (step 3) already proved works for access-token expiry.
+
+`CLIENT-REFRESH-ON-401` is the canary, confirmed by a request-counting `DelegatingHandler`
+(`RefreshCallCountingHandler`) wired into `IAuthService`'s own client: exactly one call to
+`api/auth/refresh`, then the original request succeeds on retry. `CLIENT-NO-RETRY-STORM` revokes the
+refresh-token family directly (`AuthTokenIssuer.RevokeFamilyAsync`, resolved from the profile's own
+service provider) before the call, so the one refresh attempt is guaranteed to fail - and confirms
+`AuthTokenHandler` gives up after that one attempt rather than looping, and that
+`BlazorBaseUserAuthStateProvider.MarkUserAsLoggedOut()` actually clears the token storage.
+`CLIENT-CONCURRENT-USERS` is the reason this group exists: `AuthTokenHandler.RefreshGate` is a
+`static SemaphoreSlim`, shared by every instance in the process - correct for WebAssembly and MAUI,
+where a process is one user, but shared by every circuit in a Blazor Server host. Two separately
+composed client stacks, two different users, both access tokens expired the same way, refreshing at
+the same time: the probe confirms via `harness/whoami` (with each client's own final access token
+attached - the harness's own bug here, described below, briefly hid this) that neither client ends up
+with the other's identity, only that the shared gate serialises them.
+
+`CLIENT-401-INVALIDATES` is the other real, non-trivial finding in this step, not a harness defect:
+composed exactly as `BlazorBase.User.md` documents it, `BlazorBaseUserAuthStateProvider` never
+becomes authenticated under the `Bearer` transport at all, even immediately after a successful login.
+`GetAuthenticationStateAsync()` always resolves the principal through `IAuthService.GetSessionAsync()`,
+and `IAuthService`'s own `HttpClient` deliberately carries no `AuthTokenHandler` - so that call is
+always made without the access token and always answers anonymous. The 401-invalidation behaviour
+this probe set out to test never gets a chance to matter, because the state it would invalidate never
+becomes authenticated through this composition in the first place. The framework's own
+`BlazorBaseUserAuthStateProviderTests` mask this with a stub `IAuthService` that returns a canned
+authenticated session regardless of transport, never exercising the real `AuthService.GetSessionAsync()`
+implementation this probe drives over real HTTP.
+
+`CLIENT-TOKEN-STORAGE` needed a `BlazorBase.User.Wasm` project reference (`InMemoryTokenStorage`,
+`BrowserTokenStorage`) - the only new reference this step adds. It only inspects which `ITokenStorage`
+each registration method selects, through a bare `ServiceCollection` and a throwing stub `IJSRuntime`
+that satisfies `BrowserTokenStorage`'s constructor without ever being invoked: `AddBlazorBaseUserWasm`
+defaults to `InMemoryTokenStorage`, switches to `BrowserTokenStorage` (`localStorage`, script-readable)
+only when a host opts in with `persistTokensInBrowserStorage: true`, and
+`AddBlazorBaseUserWasmCookieAuth` registers `NoOpTokenStorage`.
+
+**Harness bug found and fixed during this step**: `ClientPipelineSupport.WhoAmIAsync` originally called
+`harness/whoami` with no bearer token at all, even though that endpoint requires authorization. The
+first run of `CLIENT-CONCURRENT-USERS` reported both clients' final identity as `(none)`, which looked
+exactly like a cross-user token leak but was actually the probe never authenticating its own
+verification call. Fixed by attaching each client's own final access token to the `whoami` call; the
+probe now passes, correctly confirming the shared gate only serialises the two users.
+
 ## Running it
 
 ```powershell

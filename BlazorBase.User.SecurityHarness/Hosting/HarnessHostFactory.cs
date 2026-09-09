@@ -114,6 +114,7 @@ public static class HarnessHostFactory
             builder.Services.AddControllers();
 
             ConfigureLockoutDuration(builder);
+            ConfigureDataProtectionTokenLifespan(builder);
 
             switch (profile)
             {
@@ -212,6 +213,16 @@ public static class HarnessHostFactory
             identityOptions.Lockout.MaxFailedAccessAttempts = maxFailedAccessAttempts;
         });
     }
+
+    /// <summary>
+    /// Binds <see cref="DataProtectionTokenProviderOptions.TokenLifespan"/> from
+    /// <c>Tokens:DataProtection:TokenLifespan</c> - the framework itself never wires this, so an
+    /// account-management probe that needs to observe a reset or confirmation token actually expire
+    /// (rather than wait out Identity's one-day default) has no other seam to shorten it through.
+    /// Left unbound in every other configuration, this changes nothing for any other profile.
+    /// </summary>
+    private static void ConfigureDataProtectionTokenLifespan(WebApplicationBuilder builder) =>
+        builder.Services.Configure<DataProtectionTokenProviderOptions>(builder.Configuration.GetSection("Tokens:DataProtection"));
 
     /// <summary>
     /// Maps the harness's own minimal authenticated endpoint. It is not a framework route: a probe
