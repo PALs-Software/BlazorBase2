@@ -54,6 +54,44 @@ wait to observe recovery - kept to a few seconds so the run stays fast.
 `GET harness/protected-probe` behind `RequireAuthorization()` - the harness's own minimal route, not
 a framework endpoint - purely so a probe can tell whether a given access token still authenticates.
 
+## Cookie transport and CSRF probes (`Probes/CookieTransport/`)
+
+19 probes against the `Cookie` profile (cookie attributes, CSRF, transport confusion) plus one
+(`CSRF-GUARD-FIRES`) against `CookieWithoutCsrfMiddleware`. Every one of these probes also starts
+its own private instance of its profile through `ProbeContext.StartIsolatedHostAsync`, for the same
+reason the core-session probes do: `api/auth/login` is rate-limited, and a cookie/CSRF probe logs in
+at least once, so sharing one host's login budget across every probe in the category would starve
+whichever probes happened to run later.
+
+`CookieTransportSupport` is the shared plumbing: it reads the session cookie's configured name and
+the antiforgery header name back from the host's own `AuthCookieOptions` rather than hardcoding a
+default, fetches the antiforgery token an anonymous caller needs before `api/auth/login` will even
+accept a request, and logs in with that token attached. `api/auth/login` carries no exemption from
+`BlazorBaseCsrfMiddleware` of its own, so this anonymous-token-then-login sequence is a precondition
+for every probe here, not just the ones that are explicitly about CSRF.
+
+Cookie-attribute probes (`COOKIE-HTTPONLY`, `COOKIE-SECURE`, `COOKIE-SAMESITE`, `COOKIE-HOST-PREFIX`)
+parse the raw `Set-Cookie` header text directly, rather than reading it back through the HTTP
+client's own cookie container - the container normalises attributes away, which would make a probe
+assert on .NET's parsing of the header instead of on the bytes the server actually sent.
+
+`HarnessHostFactory` maps two more harness-only endpoints for these probes to target:
+`POST harness/guarded-probe` (no authorization requirement) and `POST harness/protected-guarded-probe`
+(`RequireAuthorization()`) - two state-changing routes shaped like a real application endpoint, with
+no `[AllowBlazorBaseCsrf]` exemption of their own, so `BlazorBaseCsrfMiddleware` is the only thing
+standing between a forged request and either one. `CSRF-EXEMPT-ENDPOINTS` enumerates every endpoint
+the running host actually mapped through `EndpointDataSource`, by reflection over each endpoint's
+metadata for `AllowBlazorBaseCsrfAttribute` - never by grepping source, since an exemption is a
+property of what a host maps, not of what the framework merely offers a way to mark.
+
+`CSRF-GUARD-FIRES` targets `CookieWithoutCsrfMiddleware`, whose host never serves a request
+successfully at all - `BlazorBaseCsrfStartupGuardFilter` throws on the very first one, which is why
+that profile is reported `FailedToStart` rather than `Started`. `ProbeContext` now carries an
+optional `StartupGuardFailure` string, and `Program.cs` builds a context for every profile regardless
+of whether its host started - a normal, live one when it did, or a degenerate one exposing only that
+failure message when it did not - so this probe still gets a `ProbeContext` to read a verdict from,
+without any of its other members (`BaseAddress`, `HttpClientFactory`, and so on) ever being called.
+
 ## Running it
 
 ```powershell

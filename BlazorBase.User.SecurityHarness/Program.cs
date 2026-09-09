@@ -43,15 +43,7 @@ try
         var hostResult = await HarnessHostFactory.StartAsync(profile, hostOptions, CancellationToken.None);
         hostEntries.Add(ToHostEntry(hostResult));
 
-        if (hostResult.Status != HarnessHostStatus.Started || hostResult.Host is null || hostResult.BaseAddress is null || hostResult.HttpClientFactory is null)
-            continue;
-
-        var context = new ProbeContext(
-            hostResult.BaseAddress,
-            hostResult.HttpClientFactory,
-            hostResult.Host.Services,
-            hostResult.Host.Services.GetRequiredService<TimeProvider>(),
-            (overrides, isolatedCancellationToken) => StartIsolatedHostAsync(profile, hostOptions, overrides, isolatedCancellationToken));
+        var context = BuildProbeContext(hostResult, profile, hostOptions);
 
         foreach (var probe in probes.Where(probe => probe.Profile == profile && MatchesFilter(probe, options)))
         {
@@ -59,8 +51,11 @@ try
             probeEntries.Add(ToProbeEntry(probe, probeResult));
         }
 
-        await hostResult.Host.StopAsync();
-        hostResult.Host.Dispose();
+        if (hostResult.Host is not null)
+        {
+            await hostResult.Host.StopAsync();
+            hostResult.Host.Dispose();
+        }
     }
 
     var report = new HarnessReport(DateTimeOffset.UtcNow, hostEntries, probeEntries);
@@ -142,6 +137,35 @@ static async Task<ProbeResult> RunProbeSafelyAsync(IAuthProbe probe, ProbeContex
     {
         return ProbeResult.Inconclusive($"Probe threw before it could reach a conclusion: {ex.Message}");
     }
+}
+
+/// <summary>
+/// Builds the context handed to one profile's probes: a normal, fully live context when the host
+/// started, or a degenerate one carrying only <see cref="HarnessHostResult.FailureMessage"/> through
+/// <see cref="ProbeContext.StartupGuardFailure"/> when it never served a request - so a probe that
+/// targets a host that fails by design (<c>CSRF-GUARD-FIRES</c> against
+/// <see cref="HarnessProfile.CookieWithoutCsrfMiddleware"/>) still gets a context to reach a verdict
+/// from, without any of its other members ever being called.
+/// </summary>
+static ProbeContext BuildProbeContext(HarnessHostResult hostResult, HarnessProfile profile, HarnessHostOptions hostOptions)
+{
+    if (hostResult.Status == HarnessHostStatus.Started && hostResult.Host is not null && hostResult.BaseAddress is not null && hostResult.HttpClientFactory is not null)
+    {
+        return new ProbeContext(
+            hostResult.BaseAddress,
+            hostResult.HttpClientFactory,
+            hostResult.Host.Services,
+            hostResult.Host.Services.GetRequiredService<TimeProvider>(),
+            (overrides, isolatedCancellationToken) => StartIsolatedHostAsync(profile, hostOptions, overrides, isolatedCancellationToken));
+    }
+
+    return new ProbeContext(
+        new Uri("https://unavailable.invalid/"),
+        () => new HttpClient(),
+        new ServiceCollection().BuildServiceProvider(),
+        TimeProvider.System,
+        (_, _) => throw new NotSupportedException($"Profile '{profile}' never started; isolated hosts are unavailable for it."),
+        hostResult.FailureMessage);
 }
 
 /// <summary>

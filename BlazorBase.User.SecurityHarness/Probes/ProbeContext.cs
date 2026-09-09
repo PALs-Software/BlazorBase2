@@ -23,12 +23,21 @@ namespace BlazorBase.User.SecurityHarness.Probes;
 /// leaves its budget half-spent for whichever probe runs after it. The caller disposes the result to
 /// stop that private host.
 /// </param>
+/// <param name="StartupGuardFailure">
+/// The message a startup guard recorded when this profile's host never actually served a request -
+/// see <see cref="Hosting.HarnessHostResult.FailureMessage"/> - or <see langword="null"/> for a
+/// profile that started normally. Every other member of this record is a placeholder in that case,
+/// since there is no live host behind it; a probe that targets such a profile (for example
+/// <c>CSRF-GUARD-FIRES</c>, against <see cref="Hosting.HarnessProfile.CookieWithoutCsrfMiddleware"/>)
+/// reads this member instead of making any request through the others.
+/// </param>
 public sealed record ProbeContext(
     Uri BaseAddress,
     Func<HttpClient> HttpClientFactory,
     IServiceProvider Services,
     TimeProvider TimeProvider,
-    Func<IReadOnlyDictionary<string, string?>, CancellationToken, Task<IsolatedProbeHost>> StartIsolatedHostAsync);
+    Func<IReadOnlyDictionary<string, string?>, CancellationToken, Task<IsolatedProbeHost>> StartIsolatedHostAsync,
+    string? StartupGuardFailure = null);
 
 /// <summary>
 /// A private <see cref="Hosting.HarnessHostFactory"/>-started host handed to one probe, alongside how

@@ -200,8 +200,29 @@ public static class HarnessHostFactory
     /// needs somewhere to observe the plain 401/200 distinction for a bearer token without depending
     /// on a protected route that only a particular host would define.
     /// </summary>
-    private static void MapHarnessProbeEndpoint(WebApplication app) =>
+    private static void MapHarnessProbeEndpoint(WebApplication app)
+    {
         app.MapGet("harness/protected-probe", () => Results.Ok()).RequireAuthorization();
+
+        MapHarnessWriteProbeEndpoints(app);
+    }
+
+    /// <summary>
+    /// Maps two application-shaped write endpoints for the cookie and CSRF probes. Neither carries
+    /// <c>AllowBlazorBaseCsrf</c>, so <c>BlazorBaseCsrfMiddleware</c> is the only thing between a
+    /// cross-site caller and either one.
+    /// </summary>
+    /// <remarks>
+    /// The anonymous one stands in for a state-changing endpoint any caller can reach; the
+    /// authenticated one stands in for the far more common shape, a write behind
+    /// <c>RequireAuthorization()</c>. Having both lets a probe tell whether bypassing the CSRF check
+    /// also carries the caller's identity, or only reaches something that never needed a session.
+    /// </remarks>
+    private static void MapHarnessWriteProbeEndpoints(WebApplication app)
+    {
+        app.MapPost("harness/guarded-probe", () => Results.Ok());
+        app.MapPost("harness/protected-guarded-probe", () => Results.Ok()).RequireAuthorization();
+    }
 
     /// <summary>
     /// Registers development authentication for a profile. Throws synchronously, inside this call,
