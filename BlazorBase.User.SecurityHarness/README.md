@@ -10,6 +10,9 @@ it starts is its own, in-process, loopback-only Kestrel instance; it never talks
 Microsoft identity platform or any production system unless `--base-url` is pointed at one on
 purpose.
 
+The critical review written from a full run of this catalogue lives in
+[`Libs/Documentation/BlazorBase.User.SecurityReview.md`](../Documentation/BlazorBase.User.SecurityReview.md).
+
 ## What this step adds
 
 The runnable skeleton: a profile-based host launcher, the probe abstraction, and three reporters.

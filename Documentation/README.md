@@ -21,6 +21,7 @@ This folder contains the documentation for all reusable BlazorBase libraries shi
 | **BlazorBase.User** | Razor Class Library (net10.0) | [BlazorBase.User.md](BlazorBase.User.md) |
 | **BlazorBase.User.Server** | ASP.NET Core library (net10.0) | [BlazorBase.User.Server.md](BlazorBase.User.Server.md) |
 | ↳ *auth token transports* | topic guide | [BlazorBase.User.Server.AuthTransports.md](BlazorBase.User.Server.AuthTransports.md) |
+| ↳ *security review* | topic guide | [BlazorBase.User.SecurityReview.md](BlazorBase.User.SecurityReview.md) |
 | **BlazorBase.User.Wasm** | WebAssembly library (net10.0) | [BlazorBase.User.Wasm.md](BlazorBase.User.Wasm.md) |
 | **BlazorBase.User.Maui** | MAUI library (net10.0-android/ios/maccatalyst/windows) | [BlazorBase.User.Maui.md](BlazorBase.User.Maui.md) |
 
