@@ -21,7 +21,9 @@ public class AuthService(HttpClient httpClient) : IAuthService
     /// <summary>
     /// A failure here means "not signed in", never an exception: this is called on every render of a
     /// guarded page, and throwing would turn a transient network blip into a broken application
-    /// rather than a login prompt.
+    /// rather than a login prompt. A success response that is not JSON is a different matter: it means
+    /// the server never mapped this endpoint (a SPA fallback answering with the host page instead), so
+    /// it is thrown rather than silently read as "not signed in".
     /// </summary>
     public async Task<AuthSessionResponse> GetSessionAsync()
     {
@@ -31,6 +33,13 @@ public class AuthService(HttpClient httpClient) : IAuthService
 
             if (!response.IsSuccessStatusCode)
                 return new AuthSessionResponse();
+
+            var mediaType = response.Content.Headers.ContentType?.MediaType;
+            if (!string.Equals(mediaType, "application/json", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"GET api/auth/session returned a successful {mediaType ?? "unknown"} response instead of JSON. " +
+                    "This usually means the server never called MapBlazorBaseAuthSessionEndpoint() and a SPA fallback " +
+                    "answered the request instead, which would otherwise show up as every user being signed out.");
 
             return await response.Content.ReadFromJsonAsync<AuthSessionResponse>()
                 ?? new AuthSessionResponse();
