@@ -4,6 +4,7 @@ using BlazorBase.Mailing.Services;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Xunit;
 
@@ -88,5 +89,35 @@ public sealed class BlazorBaseMailingServiceCollectionExtensionsTests
 
         Assert.Equal("smtp.example.com", settings.Host);
         Assert.Equal(25, settings.Port);
+    }
+
+    [Fact]
+    public void DefaultDispatchMode_ResolvesBackgroundDispatcher_AndRegistersOneHostedService()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        services.AddBlazorBaseMailing(BuildConfiguration());
+
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        Assert.IsType<BackgroundEmailDispatcher>(scope.ServiceProvider.GetRequiredService<IEmailDispatcher>());
+        Assert.Single(services, descriptor => descriptor.ServiceType == typeof(IHostedService));
+    }
+
+    [Fact]
+    public void InlineDispatchMode_ResolvesInlineDispatcher_AndRegistersNoHostedService()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        services.AddBlazorBaseMailing(BuildConfiguration(), dispatchMode: EmailDispatchMode.Inline);
+
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        Assert.IsType<InlineEmailDispatcher>(scope.ServiceProvider.GetRequiredService<IEmailDispatcher>());
+        Assert.DoesNotContain(services, descriptor => descriptor.ServiceType == typeof(IHostedService));
     }
 }
