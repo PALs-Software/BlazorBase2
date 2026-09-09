@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,7 +51,7 @@ public static class HarnessHostFactory
             _ => Environments.Production,
         };
 
-        var databasePath = Path.Combine(options.TempDirectory, $"{profile}.db");
+        var databasePath = Path.Combine(options.TempDirectory, options.DatabaseFileName ?? $"{profile}.db");
         var certificate = useHttps ? options.Certificate : null;
         var captureProvider = new GuardExceptionCapture();
 
@@ -102,6 +104,8 @@ public static class HarnessHostFactory
             builder.Services.AddSingleton<TimeProvider>(new HarnessTimeProvider());
             builder.Services.AddControllers();
 
+            ConfigureLockoutDuration(builder);
+
             switch (profile)
             {
                 case HarnessProfile.Cookie:
@@ -137,6 +141,8 @@ public static class HarnessHostFactory
         app.UseAuthorization();
         app.MapControllers();
         app.MapBlazorBaseAuthSessionEndpoint();
+
+        MapHarnessProbeEndpoint(app);
 
         if (profile == HarnessProfile.External)
             app.MapBlazorBaseExternalAuthEndpoints<HarnessUser>();
@@ -176,6 +182,26 @@ public static class HarnessHostFactory
 
         return HarnessHostResult.Started(profile, description, baseAddress, app, () => CreateProbeHttpClient(certificate));
     }
+
+    /// <summary>
+    /// Makes ASP.NET Core Identity's lockout duration configurable through
+    /// <c>AuthTokens:LockoutSeconds</c>. <c>AddBlazorBaseUserServer</c> configures only the password
+    /// policy, and Identity's lockout window has no configuration seam of its own, so
+    /// <c>LOGIN-LOCKOUT-RESETS</c> would otherwise have to sit out a real five-minute wait.
+    /// </summary>
+    private static void ConfigureLockoutDuration(WebApplicationBuilder builder)
+    {
+        var lockoutSeconds = builder.Configuration.GetValue("AuthTokens:LockoutSeconds", 300);
+        builder.Services.Configure<IdentityOptions>(identityOptions => identityOptions.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromSeconds(lockoutSeconds));
+    }
+
+    /// <summary>
+    /// Maps the harness's own minimal authenticated endpoint. It is not a framework route: a probe
+    /// needs somewhere to observe the plain 401/200 distinction for a bearer token without depending
+    /// on a protected route that only a particular host would define.
+    /// </summary>
+    private static void MapHarnessProbeEndpoint(WebApplication app) =>
+        app.MapGet("harness/protected-probe", () => Results.Ok()).RequireAuthorization();
 
     /// <summary>
     /// Registers development authentication for a profile. Throws synchronously, inside this call,

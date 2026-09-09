@@ -17,6 +17,43 @@ At the end of this step the tool runs, starts every host profile, discovers zero
 a valid, empty report. No probe is implemented here - later steps only need to add a file under
 `Probes/` and it is picked up automatically.
 
+## Core session probes (`Probes/CoreSession/`)
+
+23 probes against the `Bearer` profile: password login (wrong password, unknown user, inactive
+account, lockout and its reset, a timing-side-channel measurement, password policy, case
+sensitivity), rate limiting (permit-limit trigger, `X-Forwarded-For` spoofing, the shared-partition
+trade-off, window recovery), and the token lifecycle (expiry, refresh rotation, replay and family
+revocation, concurrent refresh, logout and its idempotency, security-stamp invalidation latency,
+cross-user refresh, cross-transport token acceptance, and malformed/oversized token values).
+
+Every one of these probes starts its own private instance of the `Bearer` profile through
+`ProbeContext.StartIsolatedHostAsync` - its own port, its own SQLite file - rather than sharing the
+one host the main run started for the profile. A probe that needs a shortened access-token
+lifetime, a lowered rate-limit permit count, or a shortened lockout window asks for it through
+`AuthTokens:*` configuration overrides on that private host; no probe's rate-limit or lockout state
+can leak into another's, and a probe that measures latency is never skewed by another probe's
+requests sharing the same budget.
+
+Two probes had to establish, empirically, whether a mechanism honours the harness's
+DI-registered `TimeProvider` before deciding whether to advance the clock or fall back to a real,
+short wait:
+
+- **`RATE-WINDOW-RECOVERY`**: the fixed-window rate limiter does **not** honour it - it was built
+  with a plain `FixedWindowRateLimiterOptions` that never has its `TimeProvider` property assigned,
+  so it defaults to the real wall clock.
+- **`LOGIN-LOCKOUT-RESETS`**: ASP.NET Core Identity's lockout does **not** honour it either -
+  `UserManager.AccessFailedAsync` computes the lockout end from `DateTimeOffset.UtcNow` directly,
+  not from any injected clock.
+
+Both probes therefore advance the harness clock first (to demonstrate the non-effect), then fall
+back to a short, `AuthTokens:LockoutSeconds` / `AuthTokens:RateLimit:WindowSeconds`-configured real
+wait to observe recovery - kept to a few seconds so the run stays fast.
+
+`TOKEN-EXPIRY` and `TOKEN-STAMP-INVALIDATION` needed an actual authenticated route to observe a
+`401`/`200` distinction on, which no profile mapped: `HarnessHostFactory` now also maps
+`GET harness/protected-probe` behind `RequireAuthorization()` - the harness's own minimal route, not
+a framework endpoint - purely so a probe can tell whether a given access token still authenticates.
+
 ## Running it
 
 ```powershell

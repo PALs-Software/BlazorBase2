@@ -46,7 +46,12 @@ try
         if (hostResult.Status != HarnessHostStatus.Started || hostResult.Host is null || hostResult.BaseAddress is null || hostResult.HttpClientFactory is null)
             continue;
 
-        var context = new ProbeContext(hostResult.BaseAddress, hostResult.HttpClientFactory, hostResult.Host.Services, hostResult.Host.Services.GetRequiredService<TimeProvider>());
+        var context = new ProbeContext(
+            hostResult.BaseAddress,
+            hostResult.HttpClientFactory,
+            hostResult.Host.Services,
+            hostResult.Host.Services.GetRequiredService<TimeProvider>(),
+            (overrides, isolatedCancellationToken) => StartIsolatedHostAsync(profile, hostOptions, overrides, isolatedCancellationToken));
 
         foreach (var probe in probes.Where(probe => probe.Profile == profile && MatchesFilter(probe, options)))
         {
@@ -137,6 +142,42 @@ static async Task<ProbeResult> RunProbeSafelyAsync(IAuthProbe probe, ProbeContex
     {
         return ProbeResult.Inconclusive($"Probe threw before it could reach a conclusion: {ex.Message}");
     }
+}
+
+/// <summary>
+/// Starts a private instance of <paramref name="profile"/> with <paramref name="overrides"/> layered
+/// over <paramref name="baseOptions"/>'s own configuration, on its own port and its own database
+/// file - see <see cref="ProbeContext.StartIsolatedHostAsync"/>.
+/// </summary>
+static async Task<IsolatedProbeHost> StartIsolatedHostAsync(HarnessProfile profile, HarnessHostOptions baseOptions, IReadOnlyDictionary<string, string?> overrides, CancellationToken cancellationToken)
+{
+    var isolatedOptions = new HarnessHostOptions
+    {
+        TempDirectory = baseOptions.TempDirectory,
+        ExternalAuthority = baseOptions.ExternalAuthority,
+        ExternalAllowedTenantId = baseOptions.ExternalAllowedTenantId,
+        Certificate = baseOptions.Certificate,
+        ConfigurationOverrides = overrides,
+        DatabaseFileName = $"{profile}-{Guid.NewGuid():N}.db",
+    };
+
+    var result = await HarnessHostFactory.StartAsync(profile, isolatedOptions, cancellationToken);
+
+    if (result.Status != HarnessHostStatus.Started || result.Host is null || result.BaseAddress is null || result.HttpClientFactory is null)
+        throw new InvalidOperationException($"Isolated host for profile '{profile}' failed to start: {result.FailureMessage}");
+
+    var isolatedContext = new ProbeContext(
+        result.BaseAddress,
+        result.HttpClientFactory,
+        result.Host.Services,
+        result.Host.Services.GetRequiredService<TimeProvider>(),
+        (nestedOverrides, nestedCancellationToken) => StartIsolatedHostAsync(profile, baseOptions, nestedOverrides, nestedCancellationToken));
+
+    return new IsolatedProbeHost(isolatedContext, async () =>
+    {
+        await result.Host.StopAsync(cancellationToken);
+        result.Host.Dispose();
+    });
 }
 
 static ProbeReportEntry ToProbeEntry(IAuthProbe probe, ProbeResult result) => new(

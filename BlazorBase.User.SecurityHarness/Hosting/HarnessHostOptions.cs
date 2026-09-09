@@ -34,4 +34,13 @@ public sealed class HarnessHostOptions
     /// example to mint short-lived tokens or alter rate limits for a specific probe group.
     /// </summary>
     public IReadOnlyDictionary<string, string?> ConfigurationOverrides { get; init; } = new Dictionary<string, string?>();
+
+    /// <summary>
+    /// Overrides the per-profile database file name (normally <c>"{profile}.db"</c>). A probe that
+    /// starts its own, differently-configured instance of a profile - to observe a shortened token
+    /// lifetime or lockout window without a real wait, or to keep a rate-limit probe's budget from
+    /// leaking into another probe's - supplies a unique name so its private Kestrel instance never
+    /// shares a SQLite file with the main run's instance of the same profile.
+    /// </summary>
+    public string? DatabaseFileName { get; init; }
 }

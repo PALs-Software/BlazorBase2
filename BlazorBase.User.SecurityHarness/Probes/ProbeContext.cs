@@ -15,8 +15,28 @@ namespace BlazorBase.User.SecurityHarness.Probes;
 /// database directly instead of only driving the host through HTTP.
 /// </param>
 /// <param name="TimeProvider">The <see cref="System.TimeProvider"/> the profile's host was built with.</param>
+/// <param name="StartIsolatedHostAsync">
+/// Starts a private, differently-configured instance of this same profile - its own port, its own
+/// database file - so a probe that needs a shortened token lifetime, a lowered rate-limit permit
+/// count, or a shortened lockout window can ask for it through <c>AuthTokens:*</c> configuration
+/// overrides without changing what any other probe measures, and a rate-limit or lockout probe never
+/// leaves its budget half-spent for whichever probe runs after it. The caller disposes the result to
+/// stop that private host.
+/// </param>
 public sealed record ProbeContext(
     Uri BaseAddress,
     Func<HttpClient> HttpClientFactory,
     IServiceProvider Services,
-    TimeProvider TimeProvider);
+    TimeProvider TimeProvider,
+    Func<IReadOnlyDictionary<string, string?>, CancellationToken, Task<IsolatedProbeHost>> StartIsolatedHostAsync);
+
+/// <summary>
+/// A private <see cref="Hosting.HarnessHostFactory"/>-started host handed to one probe, alongside how
+/// to stop it again. See <see cref="ProbeContext.StartIsolatedHostAsync"/>.
+/// </summary>
+public sealed class IsolatedProbeHost(ProbeContext context, Func<Task> stopAsync) : IAsyncDisposable
+{
+    public ProbeContext Context { get; } = context;
+
+    public async ValueTask DisposeAsync() => await stopAsync();
+}
