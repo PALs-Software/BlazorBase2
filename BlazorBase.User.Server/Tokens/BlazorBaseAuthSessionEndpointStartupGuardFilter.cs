@@ -4,11 +4,12 @@ using Microsoft.AspNetCore.Hosting;
 namespace BlazorBase.User.Server.Tokens;
 
 /// <summary>
-/// Fails every request rather than letting the cookie transport silently leave the client with no way
-/// to authenticate. A host that registers <c>AddBlazorBaseCookieAuthTokens</c> hands the access token
-/// to the browser as an <c>HttpOnly</c> cookie, so the client cannot decode its own claims and has no
-/// antiforgery token to attach to state-changing requests unless the host also maps
-/// <c>app.MapBlazorBaseAuthSessionEndpoint()</c>; forgetting it leaves authentication silently dead.
+/// Fails every request rather than letting a host silently leave its client with no way to read who
+/// it is signed in as. Identity's bearer access token is an opaque data-protected blob and the cookie
+/// transport's is <c>HttpOnly</c>, so under either transport the client can only learn its claims -
+/// and, under the cookie transport, obtain an antiforgery token - from
+/// <c>app.MapBlazorBaseAuthSessionEndpoint()</c>. Forgetting the call leaves authentication silently
+/// dead: every caller reads as signed out and nothing says why.
 /// </summary>
 /// <remarks>
 /// Registered as an <see cref="IStartupFilter"/> so the check runs regardless of whether the host
@@ -33,10 +34,13 @@ internal sealed class BlazorBaseAuthSessionEndpointStartupGuardFilter(BlazorBase
         {
             if (!Registration.WasRegistered)
                 throw new InvalidOperationException(
-                    "AddBlazorBaseCookieAuthTokens() is registered, but app.MapBlazorBaseAuthSessionEndpoint() was never called. " +
-                    "The client has no way to read its own claims from an HttpOnly cookie and gets no antiforgery token, so " +
-                    "authentication is silently dead. Call app.MapBlazorBaseAuthSessionEndpoint() before app.MapFallbackToFile(...), " +
-                    "or stop registering the cookie transport.");
+                    "app.MapBlazorBaseAuthSessionEndpoint() was never called, but this host requires it. " +
+                    "A BlazorBase client cannot decode its own claims from either token transport and reads every " +
+                    "caller as signed out without it, so authentication is silently dead. Call " +
+                    "app.MapBlazorBaseAuthSessionEndpoint() before app.MapFallbackToFile(...). If no BlazorBase " +
+                    "client consumes this API, set BlazorBaseUserServerOptions.RequiresAuthSessionEndpoint to false " +
+                    "in AddBlazorBaseUserServer() - note that AddBlazorBaseCookieAuthTokens() requires the endpoint " +
+                    "regardless of that flag.");
 
             await requestDelegate(httpContext);
         });

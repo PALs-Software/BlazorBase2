@@ -60,7 +60,11 @@ public sealed class ForwardedHeadersRateLimitTests
                     services.AddRouting();
                     services.AddSingleton<IConfiguration>(configuration);
                     services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(connection));
-                    services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration);
+                    services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration, options =>
+                    {
+                        // This host is a bearer-only API and never maps the session endpoint.
+                        options.RequiresAuthSessionEndpoint = false;
+                    });
                     services.AddBlazorBaseForwardedHeaders(configuration);
                 });
                 webHost.Configure(app =>

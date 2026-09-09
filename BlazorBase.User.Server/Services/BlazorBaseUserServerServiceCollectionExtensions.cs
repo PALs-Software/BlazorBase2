@@ -35,9 +35,10 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
     /// effect.
     /// </summary>
     /// <param name="configureOptions">
-    /// Optionally overrides the bearer scheme name and whether it becomes the authentication default -
-    /// see <see cref="BlazorBaseUserServerOptions"/>. Leave <see langword="null"/> to keep today's
-    /// behavior: scheme name <see cref="IdentityConstants.BearerScheme"/>, claiming the default.
+    /// Optionally overrides the bearer scheme name, whether it becomes the authentication default, and
+    /// whether the session endpoint is required - see <see cref="BlazorBaseUserServerOptions"/>. Leave
+    /// <see langword="null"/> to keep today's behavior: scheme name
+    /// <see cref="IdentityConstants.BearerScheme"/>, claiming the default, session endpoint required.
     /// </param>
     /// <param name="configurePassword">
     /// Applied after the framework's own password-policy defaults, inside the same
@@ -145,6 +146,15 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
         // AddBlazorBaseForwardedHeaders is warned rather than left silently partitioning every
         // client behind its proxy into one bucket - see BlazorBaseForwardedHeadersStartupGuardFilter.
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseForwardedHeadersStartupGuardFilter>());
+
+        // AddBlazorBaseCookieAuthTokens registers the same pair unconditionally - TryAdd/TryAddEnumerable
+        // dedupe by service type and implementation type respectively, so a host that uses both transports
+        // ends up with exactly one registration of each regardless of call order.
+        if (schemeOptions.RequiresAuthSessionEndpoint)
+        {
+            services.TryAddSingleton<BlazorBaseAuthSessionEndpointRegistration>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseAuthSessionEndpointStartupGuardFilter>());
+        }
 
         // Every api/auth/* response carries a bearer token, a refresh token, or account state that
         // must not be replayed from a shared cache or a browser back-button history entry.

@@ -30,4 +30,15 @@ public class BlazorBaseUserServerOptions
     /// this to <see langword="false"/> and leaves that choice untouched.
     /// </summary>
     public bool ClaimDefaultScheme { get; set; } = true;
+
+    /// <summary>
+    /// Whether this host must map <c>app.MapBlazorBaseAuthSessionEndpoint()</c>. Defaults to
+    /// <see langword="true"/>: Identity's bearer access token is an opaque data-protected blob, so a
+    /// BlazorBase client cannot decode its own claims under either token transport and has to ask the
+    /// server for them. Set to <see langword="false"/> only when the host states, deliberately, that no
+    /// BlazorBase client consumes this API - a pure Web API serving native or service clients over
+    /// bearer tokens is the legitimate case. The cookie transport requires the endpoint regardless of
+    /// this flag - see <see cref="BlazorBase.User.Server.Tokens.BlazorBaseAuthTokenTransportExtensions.AddBlazorBaseCookieAuthTokens"/>.
+    /// </summary>
+    public bool RequiresAuthSessionEndpoint { get; set; } = true;
 }

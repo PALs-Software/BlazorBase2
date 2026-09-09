@@ -824,16 +824,17 @@ GET /api/user/me                        (Authorization: Bearer ...)
 PUT /api/user/me/settings               { "themePreference": "Dark", "language": "en" }
 ```
 
-### Session (cookie transport only)
+### Session
 
 ```http
 GET /api/auth/session
 200 OK   { "isAuthenticated": true, "csrfToken": "..." }
 ```
 
-Mapped via `app.MapBlazorBaseAuthSessionEndpoint()` — see
-[Authentication token transports](BlazorBase.User.Server.AuthTransports.md) for why a cookie-transport
-client needs this at all.
+Mapped via `app.MapBlazorBaseAuthSessionEndpoint()`. Required by default under both token transports —
+see [Authentication token transports](BlazorBase.User.Server.AuthTransports.md) for why any BlazorBase
+client needs this, and `BlazorBaseUserServerOptions.RequiresAuthSessionEndpoint` for the opt-out on a
+host with no BlazorBase client.
 
 ### Admin user CRUD — delegated to BlazorBase.CRUD
 

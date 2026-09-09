@@ -99,7 +99,11 @@ public sealed class ExternalAuthRedirectEndpointMapperTests
                     services.AddSingleton<IConfiguration>(configuration);
                     services.AddSingleton(recorder);
                     services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(connection));
-                    services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration);
+                    services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration, options =>
+                    {
+                        // This host is a bearer-only API and never maps the session endpoint.
+                        options.RequiresAuthSessionEndpoint = false;
+                    });
 
                     services.AddAuthentication()
                         .AddScheme<AuthenticationSchemeOptions, RecordingAuthenticationHandler>(ExternalScheme, null)

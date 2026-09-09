@@ -50,11 +50,26 @@ the client stores it and sends `Authorization: Bearer …`.
 
 ```csharp
 builder.Services.AddBlazorBaseUserServer<AppUser, AppDbContext>(builder.Configuration);
+// ...
+app.MapBlazorBaseAuthSessionEndpoint();
 ```
 
 If the client is a browser, leave `AddBlazorBaseUserWasm`'s token storage at its default —
 `InMemoryTokenStorage` — rather than opting into `localStorage`. Anything in browser storage survives
 a reload and is readable by any script that gets injected into the page.
+
+The access token is opaque and data-protected, so a Blazor client cannot decode its own claims from it
+any more than it could from a cookie — it has to ask the server via `GET /api/auth/session`, same as
+under the cookie transport (see below). `AddBlazorBaseUserServer` therefore requires that endpoint to
+be mapped by default and fails at startup otherwise. A pure Web API with no BlazorBase client — served
+only to native or service clients that hold the bearer token themselves — states that explicitly:
+
+```csharp
+builder.Services.AddBlazorBaseUserServer<AppUser, AppDbContext>(builder.Configuration, options =>
+{
+    options.RequiresAuthSessionEndpoint = false;
+});
+```
 
 ---
 
@@ -226,7 +241,10 @@ app.MapBlazorBaseAuthSessionEndpoint();
 
 Calling `AddBlazorBaseCookieAuthTokens` without ever mapping this endpoint fails at startup rather
 than silently shipping a client that can never read its own claims or obtain an antiforgery token —
-see `BlazorBaseAuthSessionEndpointStartupGuardFilter`.
+see `BlazorBaseAuthSessionEndpointStartupGuardFilter`. That check applies regardless of
+`BlazorBaseUserServerOptions.RequiresAuthSessionEndpoint`: the cookie transport's own registration is
+unconditional, so a host that opted out and then adopted cookies has contradicted itself and is still
+caught.
 
 It echoes the caller's own claims and answers an anonymous caller with `IsAuthenticated: false`
 rather than a challenge — a client has to be able to ask "am I signed in?" without being redirected
