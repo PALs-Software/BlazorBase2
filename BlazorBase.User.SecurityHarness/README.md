@@ -138,6 +138,80 @@ never left opaque - alongside the response, as `ProbeEvidence`; `Program.cs`'s `
 that request/response pair into the rendered report next to each probe's one-line description, so a
 finding is legible directly from the report file without a debugger.
 
+## Redirect flow, access tokens and two-factor probes (`Probes/RedirectFlow/`, `Probes/AccessTokens/`, `Probes/TwoFactor/`)
+
+25 probes: 6 against a real browser-redirect OIDC flow on the `External` profile, 10 against
+`bbat_`-prefixed machine access tokens on the `AccessTokens` profile, and 9 against the two-factor
+endpoints on the `Bearer` profile.
+
+**The redirect flow runs against a real `AddOpenIdConnect` handler**, not a stub.
+`HarnessHostFactory.RegisterRedirectFlowAuthentication` registers `AddCookie` (the sign-in scheme)
+and `AddOpenIdConnect` additively on the `External` profile, pointed at the fake identity provider
+over a certificate-pinned backchannel - `FakeIdentityProviderHost` now also serves a real
+`oauth2/v2.0/authorize` (auto-approves every request as the fixed `RedirectFlowSubject`, mints a
+single-use authorization code) and a real `oauth2/v2.0/token` endpoint (redeems the code for a freshly
+RS256-signed id_token). `RedirectFlowSupport.RunChallengeAsync` drives the whole thing by manually
+following every redirect a browser would - `challenge` to the provider's `authorize`, its redirect to
+the OIDC handler's own callback path (`/signin-oidc`), and that callback's redirect to `complete` -
+since the probe client never follows redirects automatically.
+
+Getting this far needed two harness fixes, both empirically diagnosed rather than assumed:
+
+- **`External` now runs over HTTPS** (`HarnessHostFactory.HttpsProfiles`), not plain HTTP as before.
+  The OIDC handler's correlation cookie is `SameSite=None`, which ASP.NET Core unconditionally
+  upgrades to `Secure=true` regardless of configuration - over HTTP that cookie can never come back,
+  and the callback fails with `AuthenticationFailureException: Correlation failed.` every time. Real
+  OIDC deployments are HTTPS-only for exactly this reason.
+- A redirect-flow probe's own client must trust the fake provider's certificate directly (it visits
+  the provider's HTTPS `authorize` endpoint itself, simulating the browser hop), which
+  `ProbeContext.HttpClientFactory` does not provide for a plain-HTTP profile.
+  `RedirectFlowSupport.CreateClient` builds one pinned to the certificate, now registered as a
+  singleton in every profile's DI container by `HarnessHostFactory` for exactly this purpose.
+
+With both fixed, the OIDC handshake itself completes correctly end to end - but
+**`ExternalAuthRedirectEndpointMapper.Complete` can never succeed**, wired exactly as its own XML
+documentation prescribes (`externalScheme = OpenIdConnectDefaults.AuthenticationScheme`).
+`Complete`'s `httpContext.AuthenticateAsync(externalScheme)` call always fails against a genuine
+`RemoteAuthenticationHandler` (OpenID Connect, OAuth): remote schemes only produce a principal during
+their own callback processing, and `RemoteAuthenticationHandler<TOptions>.HandleAuthenticateAsync()`
+answers every other call with `AuthenticationFailureException: Remote authentication does not support
+authenticate`-shaped failure regardless of whether the handshake succeeded. The framework's own test
+suite (`ExternalAuthRedirectEndpointMapperTests`) does not catch this because it substitutes a
+synthetic scheme whose `HandleAuthenticateAsync` trivially returns success - nothing like a real
+remote handler. `REDIR-COMPLETE-REPLAY`, `REDIR-RETURNURL-PRESERVED` and `REDIR-OPEN-REDIRECT` are
+`Inconclusive` for this reason and say so in their own evidence; `REDIR-COMPLETE-WITHOUT-CHALLENGE`,
+`REDIR-NO-STORE` and `REDIR-CHALLENGE-RATE-LIMIT` do not depend on a completed flow and pass.
+`REDIR-OPEN-REDIRECT` is one probe over the full open-redirect/header-injection payload table, not
+eleven; its evidence lists every payload and the `Location` chain it produced.
+
+**Access tokens** (`AccessTokens` profile): probes mint and revoke tokens directly through
+`IAccessTokenService` against the profile's own service provider, and call a new harness-only route,
+`GET harness/access-token-probe`, gated specifically behind
+`AccessTokenAuthenticationDefaults.AuthenticationScheme` (`HarnessHostFactory`) rather than the
+default JWT scheme every other harness route uses. `AT-VALID` is the canary. `AT-INACTIVE-OWNER`
+is a real finding: `AccessTokenService.ValidateAsync` re-checks `IsRevoked` and `ExpiresAt` against
+the database on every call, but never the owning user's `IsActive` flag - a machine token keeps
+authenticating after its owner is deactivated. `AT-CASE-AND-TRIM`'s whitespace half is *not* a
+finding: `AccessTokenAuthenticationHandler.ExtractToken()` explicitly `.Trim()`s the bearer value
+before comparison, a deliberate, harmless normalisation - the padded variant is byte-for-byte the
+valid secret by the time it reaches the comparison, never a weakened check. `AT-BACKOFF` and
+`AT-PREFIX-TIMING` are measurements (`Inconclusive`, numbers in the evidence), following
+`LOGIN-TIMING-ORACLE`'s median/IQR approach for the latter.
+
+**Two-factor** (`Bearer` profile): `TwoFactorSupport.EnableTwoFactorAsync` enrols an account through
+the real HTTP flow - login, read the authenticator secret from `api/auth/manage/2fa`'s
+`AuthenticatorUri`, compute a genuine code, and call `2fa/enable` - which needed
+`HarnessHostFactory` to map `MapBlazorBaseAccountEndpoints`, never mapped by any earlier step.
+`Totp` (`Probes/TwoFactor/Totp.cs`) is a from-scratch RFC 6238 implementation (base32 decode, HMAC-SHA1,
+30-second step, 6 digits, no modifier) computed against the real authenticator key the framework
+hands out - no package added, no framework internals reached into. `2FA-PENDING-REQUIRED` is the
+canary. `2FA-PENDING-REPLAY` is a real finding: `TwoFactorPendingTokenService`'s pending token carries
+no single-use tracking of its own - only its data-protection expiry - so the same pending token
+completes a second login with a freshly computed code after already minting one session.
+`2FA-CODE-BRUTE-FORCE` is a measurement (`Inconclusive`) run against a host with a lowered
+`AuthTokens:MaxFailedAccessAttempts` override (new in `HarnessHostFactory`) so the lockout threshold
+is reached in a handful of requests instead of Identity's default five.
+
 ## Running it
 
 ```powershell
@@ -179,7 +253,7 @@ One real Kestrel host per row, each on an operating-system assigned loopback por
 | `BearerHttps` | The same, over HTTPS with a self-signed loopback certificate. |
 | `Cookie` | `AddBlazorBaseCookieAuthTokens` plus `app.UseBlazorBaseCsrf()`, over HTTPS. |
 | `CookieWithoutCsrfMiddleware` | The cookie transport with `app.UseBlazorBaseCsrf()` deliberately not called. |
-| `External` | `AddBlazorBaseExternalAuth` pointed at the fake identity provider started alongside every run (see "Fake identity provider" below). |
+| `External` | `AddBlazorBaseExternalAuth` pointed at the fake identity provider started alongside every run (see "Fake identity provider" below), over HTTPS - required for the redirect flow's `SameSite=None` correlation cookie. |
 | `AccessTokens` | `AddBlazorBaseAccessTokens` with defaults. |
 | `DevelopmentLogin` | `AddBlazorBaseDevelopmentAuthentication` in the Development environment. |
 | `ProductionWithDevelopmentLogin` | The same registration with `EnvironmentName = "Production"`. |

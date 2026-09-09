@@ -2,10 +2,14 @@ using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography.X509Certificates;
 using BlazorBase.User.SecurityHarness.IdentityProvider;
+using BlazorBase.User.Server.Account;
 using BlazorBase.User.Server.AccessTokens;
 using BlazorBase.User.Server.ExternalAuth;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Tokens;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -17,6 +21,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 
 namespace BlazorBase.User.SecurityHarness.Hosting;
@@ -33,6 +38,7 @@ public static class HarnessHostFactory
         HarnessProfile.BearerHttps,
         HarnessProfile.Cookie,
         HarnessProfile.CookieWithoutCsrfMiddleware,
+        HarnessProfile.External,
     ];
 
     public static async Task<HarnessHostResult> StartAsync(HarnessProfile profile, HarnessHostOptions options, CancellationToken cancellationToken)
@@ -76,6 +82,8 @@ public static class HarnessHostFactory
                 if (certificate is not null)
                     listenOptions.UseHttps(certificate);
             }));
+
+            builder.Services.AddSingleton(options.Certificate);
 
             var configurationValues = new Dictionary<string, string?>
             {
@@ -142,11 +150,15 @@ public static class HarnessHostFactory
         app.UseAuthorization();
         app.MapControllers();
         app.MapBlazorBaseAuthSessionEndpoint();
+        app.MapBlazorBaseAccountEndpoints<HarnessUser>();
 
         MapHarnessProbeEndpoint(app);
 
         if (profile == HarnessProfile.External)
+        {
             app.MapBlazorBaseExternalAuthEndpoints<HarnessUser>();
+            app.MapBlazorBaseExternalAuthRedirectEndpoints<HarnessUser>(OpenIdConnectDefaults.AuthenticationScheme);
+        }
 
         await EnsureDatabaseCreatedAsync(app, cancellationToken);
 
@@ -193,7 +205,12 @@ public static class HarnessHostFactory
     private static void ConfigureLockoutDuration(WebApplicationBuilder builder)
     {
         var lockoutSeconds = builder.Configuration.GetValue("AuthTokens:LockoutSeconds", 300);
-        builder.Services.Configure<IdentityOptions>(identityOptions => identityOptions.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromSeconds(lockoutSeconds));
+        var maxFailedAccessAttempts = builder.Configuration.GetValue("AuthTokens:MaxFailedAccessAttempts", 5);
+        builder.Services.Configure<IdentityOptions>(identityOptions =>
+        {
+            identityOptions.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromSeconds(lockoutSeconds);
+            identityOptions.Lockout.MaxFailedAccessAttempts = maxFailedAccessAttempts;
+        });
     }
 
     /// <summary>
@@ -209,6 +226,9 @@ public static class HarnessHostFactory
                 user.Identity?.Name,
                 user.FindFirst(ClaimTypes.Email)?.Value)))
             .RequireAuthorization();
+
+        app.MapGet("harness/access-token-probe", () => Results.Ok())
+            .RequireAuthorization(new AuthorizeAttribute { AuthenticationSchemes = AccessTokenAuthenticationDefaults.AuthenticationScheme });
 
         MapHarnessWriteProbeEndpoints(app);
     }
@@ -260,6 +280,65 @@ public static class HarnessHostFactory
         builder.Services.AddScoped<StrictSubjectExternalUserResolver>();
         builder.Services.AddScoped<NaiveEmailMatchingExternalUserResolver>();
         builder.Services.AddScoped<IExternalUserResolver<HarnessUser>, SwitchingExternalUserResolver>();
+
+        RegisterRedirectFlowAuthentication(builder, options);
+    }
+
+    /// <summary>
+    /// Registers an actual <c>AddCookie</c>/<c>AddOpenIdConnect</c> pair, additively, so the
+    /// browser-redirect half of external authentication
+    /// (<c>MapBlazorBaseExternalAuthRedirectEndpoints</c>) runs against a real remote handler
+    /// instead of a stub - the handler drives the fake provider's authorization and token endpoints
+    /// exactly the way a real Entra ID app registration would drive Entra's. Pointed at the same
+    /// <see cref="HarnessHostOptions.ExternalAuthority"/> the token-exchange flow uses, but under
+    /// its own client id: the two flows validate independently (the OIDC handler's own
+    /// <c>TokenValidationParameters</c> versus <c>OidcExternalTokenValidator</c>), and sharing a
+    /// client id would not by itself couple them.
+    /// </summary>
+    private static void RegisterRedirectFlowAuthentication(WebApplicationBuilder builder, HarnessHostOptions options)
+    {
+        builder.Services.AddAuthentication()
+            .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, cookieOptions =>
+            {
+                cookieOptions.Cookie.Name = "harness.external.redirect";
+            })
+            .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, oidcOptions =>
+            {
+                oidcOptions.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                oidcOptions.Authority = options.ExternalAuthority;
+                oidcOptions.ClientId = RedirectFlowClientId;
+                oidcOptions.ResponseType = OpenIdConnectResponseType.Code;
+                oidcOptions.ResponseMode = OpenIdConnectResponseMode.Query;
+                oidcOptions.UsePkce = false;
+                oidcOptions.SaveTokens = false;
+                oidcOptions.GetClaimsFromUserInfoEndpoint = false;
+                oidcOptions.Backchannel = CreatePinnedBackchannel(options.Certificate);
+            });
+    }
+
+    /// <summary>
+    /// The client id the redirect flow's <c>AddOpenIdConnect</c> handler presents to the fake
+    /// provider - independent of <c>ExternalAuthSettings:Audiences</c>, which only the separate
+    /// token-exchange flow reads.
+    /// </summary>
+    private const string RedirectFlowClientId = "blazorbase-security-harness-redirect";
+
+    /// <summary>
+    /// An <see cref="HttpClient"/> that trusts exactly <paramref name="certificate"/>'s thumbprint -
+    /// the same pinning discipline <see cref="PinnedThumbprintConfigurationManagerFactory"/> applies
+    /// for the token-exchange flow, applied here to the OIDC handler's own metadata and
+    /// authorization-code-exchange backchannel.
+    /// </summary>
+    private static HttpClient CreatePinnedBackchannel(X509Certificate2 certificate)
+    {
+        var pinnedThumbprint = certificate.Thumbprint;
+        var handler = new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = (_, presentedCertificate, _, _) =>
+                presentedCertificate is not null && string.Equals(presentedCertificate.Thumbprint, pinnedThumbprint, StringComparison.OrdinalIgnoreCase),
+        };
+
+        return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
     }
 
     /// <summary>

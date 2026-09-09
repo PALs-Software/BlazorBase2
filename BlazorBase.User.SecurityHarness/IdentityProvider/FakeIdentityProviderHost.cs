@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Builder;
@@ -19,8 +20,20 @@ namespace BlazorBase.User.SecurityHarness.IdentityProvider;
 /// dark. Serves both a concrete tenant's issuer and, at the <c>common</c> tenant segment, the
 /// tenant-templated issuer a real multi-tenant Entra authority publishes.
 /// </summary>
+/// <remarks>
+/// Also serves a real authorization endpoint and a real token endpoint, so an
+/// <c>AddOpenIdConnect</c> handler registered by <see cref="Hosting.HarnessHostFactory"/> can run
+/// the full browser-redirect authorization-code flow against this provider unmodified, the same way
+/// <see cref="OidcExternalTokenValidator"/> already does for the token-exchange flow. The
+/// authorization endpoint auto-approves every request as <see cref="RedirectFlowSubject"/> - there
+/// is no interactive login page - and mints a single-use authorization code the token endpoint
+/// exchanges for a freshly RS256-signed id_token.
+/// </remarks>
 public sealed class FakeIdentityProviderHost : IAsyncDisposable
 {
+    /// <summary>The subject every authorization-code-flow id_token this provider mints carries.</summary>
+    public const string RedirectFlowSubject = "harness-redirect-subject@harness.local";
+
     public required Uri BaseAddress { get; init; }
     public required FakeSigningKeyRegistry KeyRegistry { get; init; }
     private readonly WebApplication App;
@@ -52,6 +65,7 @@ public sealed class FakeIdentityProviderHost : IAsyncDisposable
     {
         var keyRegistry = new FakeSigningKeyRegistry();
         var availability = new FakeIdentityProviderAvailability();
+        var authorizationCodes = new ConcurrentDictionary<string, AuthorizationCodeEntry>();
         string? baseAddressText = null;
 
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -95,6 +109,69 @@ public sealed class FakeIdentityProviderHost : IAsyncDisposable
                 ? Results.Json(keyRegistry.BuildJwksDocument())
                 : Results.StatusCode(StatusCodes.Status503ServiceUnavailable));
 
+        app.MapGet("/{tenant}/oauth2/v2.0/authorize", (string tenant, HttpRequest request) =>
+        {
+            if (!availability.IsOnline)
+                return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+
+            var redirectUri = request.Query["redirect_uri"].ToString();
+
+            if (string.IsNullOrEmpty(redirectUri))
+                return Results.BadRequest(new { error = "invalid_request", error_description = "Missing redirect_uri." });
+
+            var code = Guid.NewGuid().ToString("N");
+            authorizationCodes[code] = new AuthorizationCodeEntry(
+                tenant,
+                request.Query["client_id"].ToString(),
+                request.Query["nonce"].ToString() is { Length: > 0 } nonce ? nonce : null,
+                DateTimeOffset.UtcNow.AddMinutes(2));
+
+            var state = request.Query["state"].ToString();
+            var separator = redirectUri.Contains('?', StringComparison.Ordinal) ? '&' : '?';
+            var location = $"{redirectUri}{separator}code={Uri.EscapeDataString(code)}&state={Uri.EscapeDataString(state)}";
+
+            return Results.Redirect(location);
+        });
+
+        app.MapPost("/{tenant}/oauth2/v2.0/token", async (HttpRequest request) =>
+        {
+            if (!availability.IsOnline)
+                return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+
+            var form = await request.ReadFormAsync();
+            var code = form["code"].ToString();
+
+            if (string.IsNullOrEmpty(code) || !authorizationCodes.TryRemove(code, out var entry) || entry.ExpiresAt < DateTimeOffset.UtcNow)
+                return Results.BadRequest(new { error = "invalid_grant", error_description = "Unknown, already-used or expired authorization code." });
+
+            var extraClaims = entry.Nonce is null
+                ? null
+                : new Dictionary<string, object> { ["nonce"] = entry.Nonce };
+
+            var description = new FakeTokenDescription
+            {
+                Issuer = $"{baseAddressText}/{entry.Tenant}/v2.0",
+                Audience = entry.ClientId,
+                Subject = RedirectFlowSubject,
+                TenantId = entry.Tenant,
+                ObjectId = RedirectFlowSubject,
+                IssuedAt = DateTimeOffset.UtcNow.AddMinutes(-1),
+                NotBefore = DateTimeOffset.UtcNow.AddMinutes(-1),
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+                ExtraClaims = extraClaims,
+            };
+
+            var idToken = FakeTokenBuilder.CreateRsaSignedToken(description, FakeSigningKeyRegistry.KeyIdA, keyRegistry.GetKey(FakeSigningKeyRegistry.KeyIdA));
+
+            return Results.Json(new
+            {
+                token_type = "Bearer",
+                id_token = idToken,
+                access_token = Guid.NewGuid().ToString("N"),
+                expires_in = 300,
+            });
+        });
+
         await app.StartAsync(cancellationToken);
 
         var addresses = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()?.Addresses;
@@ -108,3 +185,11 @@ public sealed class FakeIdentityProviderHost : IAsyncDisposable
         };
     }
 }
+
+/// <summary>
+/// A single-use authorization code minted by the authorize endpoint, redeemed by the token endpoint
+/// - the state the fake provider needs to carry between the two, since it never persists anything
+/// beyond one run.
+/// </summary>
+internal sealed record AuthorizationCodeEntry(string Tenant, string ClientId, string? Nonce, DateTimeOffset ExpiresAt);
+
