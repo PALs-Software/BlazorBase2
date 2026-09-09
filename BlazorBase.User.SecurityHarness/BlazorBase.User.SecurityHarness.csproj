@@ -16,6 +16,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Baseline\known-findings.baseline" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\BlazorBase.CRUD\BlazorBase.CRUD.csproj" />
     <ProjectReference Include="..\BlazorBase.User\BlazorBase.User.csproj" />
     <ProjectReference Include="..\BlazorBase.User.Server\BlazorBase.User.Server.csproj" />

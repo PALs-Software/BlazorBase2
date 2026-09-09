@@ -13,7 +13,14 @@ namespace BlazorBase.User.SecurityHarness.Probes.AccountManagement;
 /// </summary>
 internal sealed class AcctForgotEnumerationProbe : IAuthProbe
 {
-    private const int SampleCount = 15;
+    /// <summary>
+    /// Higher than the other timing probes' 30 (<c>LOGIN-TIMING-ORACLE</c>, <c>AT-PREFIX-TIMING</c>)
+    /// because <c>forgot-password</c>'s own randomised 750-1250 ms timing floor is, by design, a far
+    /// wider noise source (roughly 150-270 ms of interquartile range per group) than the raw
+    /// processing-time noise those probes measure - a bootstrap confidence interval on the median
+    /// needs more samples to reach the same coverage against that much larger, self-inflicted noise.
+    /// </summary>
+    private const int SampleCount = 40;
 
     private static readonly Dictionary<string, string?> RateLimitOverrides =
         new() { ["AuthTokens:RateLimit:PermitLimit"] = "1000" };
@@ -34,10 +41,8 @@ internal sealed class AcctForgotEnumerationProbe : IAuthProbe
 
         using var client = host.Context.HttpClientFactory();
 
-        var known = await AccountManagementSupport.SampleEndpointAsync(client, host.Context.BaseAddress, "api/auth/manage/forgot-password",
-            () => new ForgotPasswordRequest { Email = knownEmail }, SampleCount, cancellationToken);
-        var unknown = await AccountManagementSupport.SampleEndpointAsync(client, host.Context.BaseAddress, "api/auth/manage/forgot-password",
-            () => new ForgotPasswordRequest { Email = unknownEmail }, SampleCount, cancellationToken);
+        var (known, unknown) = await AccountManagementSupport.SampleEndpointPairAsync(client, host.Context.BaseAddress, "api/auth/manage/forgot-password",
+            () => new ForgotPasswordRequest { Email = knownEmail }, () => new ForgotPasswordRequest { Email = unknownEmail }, SampleCount, cancellationToken);
 
         return AccountEnumerationVerdict.Evaluate("forgot-password", known, unknown);
     }

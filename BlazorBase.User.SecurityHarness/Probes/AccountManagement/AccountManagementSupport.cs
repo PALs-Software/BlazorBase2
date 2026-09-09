@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using BlazorBase.User.SecurityHarness.Hosting;
 using BlazorBase.User.SecurityHarness.Probes.CoreSession;
@@ -31,54 +30,41 @@ internal static class AccountManagementSupport
     }
 
     /// <summary>
-    /// Sends <paramref name="sampleCount"/> requests to <paramref name="path"/>, each built fresh by
-    /// <paramref name="requestFactory"/>, and records the status, raw body and elapsed time of each -
-    /// the raw material both enumeration probes reduce to a status/body comparison and a
-    /// median/interquartile-range timing verdict.
+    /// Samples <paramref name="pathA"/> and <paramref name="pathB"/> - the same path, a known and an
+    /// unknown address - alternating one request at a time via <see cref="InterleavedTimingSampler"/>,
+    /// recording the status, raw body and elapsed time of each side. The raw material both
+    /// enumeration probes reduce to a status/body comparison and a bootstrap-based timing verdict.
     /// </summary>
-    public static async Task<EnumerationSample> SampleEndpointAsync(
+    public static async Task<(EnumerationSample A, EnumerationSample B)> SampleEndpointPairAsync(
         HttpClient client,
         Uri baseAddress,
         string path,
-        Func<object> requestFactory,
+        Func<object> requestFactoryA,
+        Func<object> requestFactoryB,
         int sampleCount,
         CancellationToken cancellationToken)
     {
-        var statuses = new List<HttpStatusCode>(sampleCount);
-        var bodies = new List<string>(sampleCount);
-        var samples = new List<double>(sampleCount);
-        var stopwatch = new Stopwatch();
+        var statusesA = new List<HttpStatusCode>(sampleCount);
+        var bodiesA = new List<string>(sampleCount);
+        var statusesB = new List<HttpStatusCode>(sampleCount);
+        var bodiesB = new List<string>(sampleCount);
 
-        for (var sample = 0; sample < sampleCount; sample++)
-        {
-            stopwatch.Restart();
-            var exchange = await CoreSessionSupport.SendAsync(client, HttpMethod.Post, baseAddress, path, requestFactory(), cancellationToken: cancellationToken);
-            stopwatch.Stop();
-            statuses.Add(exchange.StatusCode);
-            bodies.Add(exchange.ResponseBody);
-            samples.Add(stopwatch.Elapsed.TotalMilliseconds);
-        }
+        var (samplesA, samplesB) = await InterleavedTimingSampler.SampleAsync(
+            async ct =>
+            {
+                var exchange = await CoreSessionSupport.SendAsync(client, HttpMethod.Post, baseAddress, path, requestFactoryA(), cancellationToken: ct);
+                statusesA.Add(exchange.StatusCode);
+                bodiesA.Add(exchange.ResponseBody);
+            },
+            async ct =>
+            {
+                var exchange = await CoreSessionSupport.SendAsync(client, HttpMethod.Post, baseAddress, path, requestFactoryB(), cancellationToken: ct);
+                statusesB.Add(exchange.StatusCode);
+                bodiesB.Add(exchange.ResponseBody);
+            },
+            sampleCount, cancellationToken);
 
-        return new EnumerationSample(statuses, bodies, samples);
-    }
-
-    public static (double Median, double InterquartileRange) MedianAndInterquartileRange(IReadOnlyList<double> samples)
-    {
-        var sorted = samples.Order().ToList();
-        return (Percentile(sorted, 0.50), Percentile(sorted, 0.75) - Percentile(sorted, 0.25));
-    }
-
-    private static double Percentile(IReadOnlyList<double> sorted, double percentile)
-    {
-        var rank = percentile * (sorted.Count - 1);
-        var lowerIndex = (int)Math.Floor(rank);
-        var upperIndex = (int)Math.Ceiling(rank);
-
-        if (lowerIndex == upperIndex)
-            return sorted[lowerIndex];
-
-        var fraction = rank - lowerIndex;
-        return sorted[lowerIndex] + (sorted[upperIndex] - sorted[lowerIndex]) * fraction;
+        return (new EnumerationSample(statusesA, bodiesA, samplesA), new EnumerationSample(statusesB, bodiesB, samplesB));
     }
 }
 
@@ -88,9 +74,9 @@ internal sealed record EnumerationSample(IReadOnlyList<HttpStatusCode> Statuses,
 /// <summary>
 /// Reduces two <see cref="EnumerationSample"/> groups (a known address and an unknown one) to one
 /// <see cref="ProbeResult"/>: a hard failure when the status or body differs at all between the
-/// groups, otherwise a median/interquartile-range timing comparison in the same style as
-/// <c>LOGIN-TIMING-ORACLE</c> - <see cref="ProbeOutcome.Inconclusive"/> when the delta sits inside
-/// the noise, since "no side channel demonstrated" is not the same claim as "no side channel exists".
+/// groups, otherwise a bootstrap-based timing comparison via <see cref="TimingSideChannelAnalysis"/>
+/// - <see cref="ProbeOutcome.Inconclusive"/> when the interval straddles zero, since "no side channel
+/// demonstrated" is not the same claim as "no side channel exists".
 /// </summary>
 internal static class AccountEnumerationVerdict
 {
@@ -108,19 +94,17 @@ internal static class AccountEnumerationVerdict
         if (known.Bodies.Distinct().Count() > 1 || unknown.Bodies.Distinct().Count() > 1 || known.Bodies[0] != unknown.Bodies[0])
             return ProbeResult.Failed("Response bodies differ between the two groups - an enumeration oracle in the body.", evidence);
 
-        var (knownMedian, knownIqr) = AccountManagementSupport.MedianAndInterquartileRange(known.Samples);
-        var (unknownMedian, unknownIqr) = AccountManagementSupport.MedianAndInterquartileRange(unknown.Samples);
-        var delta = Math.Abs(knownMedian - unknownMedian);
-        var noiseFloor = Math.Max(knownIqr, unknownIqr);
+        var verdict = TimingSideChannelAnalysis.Evaluate(known.Samples, unknown.Samples);
 
         var summary =
             $"Both groups answered {known.Statuses[0]} with an identical body. {known.Samples.Count} samples each: " +
-            $"known-address median {knownMedian:F2} ms (IQR {knownIqr:F2} ms); unknown-address median {unknownMedian:F2} ms (IQR {unknownIqr:F2} ms); delta {delta:F2} ms.";
+            $"known-address median {verdict.MedianA:F2} ms (IQR {verdict.InterquartileRangeA:F2} ms); unknown-address median {verdict.MedianB:F2} ms (IQR {verdict.InterquartileRangeB:F2} ms); delta {verdict.Delta:F2} ms " +
+            $"(99% bootstrap interval [{verdict.LowerBound:F2}, {verdict.UpperBound:F2}] ms).";
 
-        if (delta > noiseFloor)
-            return ProbeResult.Failed($"{summary} The delta exceeds the noise floor (max IQR {noiseFloor:F2} ms) - a timing side channel survives the identical response.", evidence);
+        if (verdict.SideChannelDemonstrated)
+            return ProbeResult.Failed($"{summary} The interval excludes zero - a timing side channel survives the identical response.", evidence);
 
-        return ProbeResult.Inconclusive($"{summary} The delta sits inside the noise (max IQR {noiseFloor:F2} ms) - no timing side channel demonstrated.", evidence);
+        return ProbeResult.Inconclusive($"{summary} The interval includes zero - no timing side channel demonstrated.", evidence);
     }
 }
 

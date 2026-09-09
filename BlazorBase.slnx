@@ -39,5 +39,6 @@
     <Project Path="BlazorBase.User.Test/BlazorBase.User.Test.csproj" />
     <Project Path="BlazorBase.User.Server.Test/BlazorBase.User.Server.Test.csproj" />
     <Project Path="BlazorBase.Files.Server.Test/BlazorBase.Files.Server.Test.csproj" />
+    <Project Path="BlazorBase.User.SecurityHarness.Test/BlazorBase.User.SecurityHarness.Test.csproj" />
   </Folder>
 </Solution>

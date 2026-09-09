@@ -11,7 +11,8 @@ namespace BlazorBase.User.SecurityHarness.Probes.AccountManagement;
 /// </summary>
 internal sealed class AcctResendEnumerationProbe : IAuthProbe
 {
-    private const int SampleCount = 15;
+    /// <summary>See <see cref="AcctForgotEnumerationProbe.SampleCount"/> for why this is higher than the other timing probes' 30.</summary>
+    private const int SampleCount = 40;
 
     private static readonly Dictionary<string, string?> RateLimitOverrides =
         new() { ["AuthTokens:RateLimit:PermitLimit"] = "1000" };
@@ -32,10 +33,8 @@ internal sealed class AcctResendEnumerationProbe : IAuthProbe
 
         using var client = host.Context.HttpClientFactory();
 
-        var known = await AccountManagementSupport.SampleEndpointAsync(client, host.Context.BaseAddress, "api/auth/manage/resend-confirmation",
-            () => new ResendConfirmationRequest { Email = knownEmail }, SampleCount, cancellationToken);
-        var unknown = await AccountManagementSupport.SampleEndpointAsync(client, host.Context.BaseAddress, "api/auth/manage/resend-confirmation",
-            () => new ResendConfirmationRequest { Email = unknownEmail }, SampleCount, cancellationToken);
+        var (known, unknown) = await AccountManagementSupport.SampleEndpointPairAsync(client, host.Context.BaseAddress, "api/auth/manage/resend-confirmation",
+            () => new ResendConfirmationRequest { Email = knownEmail }, () => new ResendConfirmationRequest { Email = unknownEmail }, SampleCount, cancellationToken);
 
         return AccountEnumerationVerdict.Evaluate("resend-confirmation", known, unknown);
     }
