@@ -14,6 +14,9 @@ namespace BlazorBase.User.Wasm;
 /// The token comes from <c>GET /api/auth/session</c> and is held in memory. It is deliberately not
 /// read from a cookie: ASP.NET Core binds the token to the caller's identity, and delivering it in
 /// the body keeps it out of reach of anything that can merely write cookies.
+///
+/// Both the credentials and the token are withheld from requests that leave the configured API
+/// origin, so an absolute or attacker-influenced URL cannot carry this application's session with it.
 /// </remarks>
 public sealed class CsrfHeaderHandler(CsrfTokenProvider tokenProvider, ICsrfTokenOptions options) : DelegatingHandler
 {
@@ -24,17 +27,30 @@ public sealed class CsrfHeaderHandler(CsrfTokenProvider tokenProvider, ICsrfToke
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        request.SetBrowserRequestCredentials(BrowserRequestCredentials.Include);
-
-        // A missing token is not an error here. The request goes out without the header and the
-        // server refuses it, which is the same answer decided in the one place able to decide it.
-        if (RequiresCsrfToken(request.Method) && TokenProvider.Token is { } token)
+        if (IsApiOrigin(request.RequestUri))
         {
-            request.Headers.Remove(Options.HeaderName);
-            request.Headers.Add(Options.HeaderName, token);
+            request.SetBrowserRequestCredentials(BrowserRequestCredentials.Include);
+
+            // A missing token is not an error here. The request goes out without the header and the
+            // server refuses it, which is the same answer decided in the one place able to decide it.
+            if (RequiresCsrfToken(request.Method) && TokenProvider.Token is { } token)
+            {
+                request.Headers.Remove(Options.HeaderName);
+                request.Headers.Add(Options.HeaderName, token);
+            }
         }
 
         return await base.SendAsync(request, cancellationToken);
+    }
+
+    private bool IsApiOrigin(Uri? requestUri)
+    {
+        if (requestUri is null || !requestUri.IsAbsoluteUri || Options.ApiOrigin is not { } apiOrigin)
+            return true;
+
+        return string.Equals(requestUri.Scheme, apiOrigin.Scheme, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(requestUri.Host, apiOrigin.Host, StringComparison.OrdinalIgnoreCase)
+            && requestUri.Port == apiOrigin.Port;
     }
 
     private static bool RequiresCsrfToken(HttpMethod method) =>

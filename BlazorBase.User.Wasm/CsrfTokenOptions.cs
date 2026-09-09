@@ -7,10 +7,18 @@ namespace BlazorBase.User.Wasm;
 public interface ICsrfTokenOptions
 {
     string HeaderName { get; }
+
+    /// <summary>
+    /// The application's own API origin. <see cref="CsrfHeaderHandler"/> compares every request
+    /// against it and only attaches credentials or the token when the request stays on it.
+    /// </summary>
+    Uri? ApiOrigin { get; }
 }
 
 /// <inheritdoc />
 public sealed class CsrfTokenOptions : ICsrfTokenOptions
 {
     public string HeaderName { get; set; } = "X-CSRF-TOKEN";
+
+    public Uri? ApiOrigin { get; internal set; }
 }

@@ -64,6 +64,7 @@ public static class BlazorBaseUserWasmServiceCollectionExtensions
     {
         var csrfOptions = new CsrfTokenOptions();
         configureCsrf?.Invoke(csrfOptions);
+        csrfOptions.ApiOrigin = new Uri(hostBaseAddress, UriKind.Absolute);
 
         services.AddScoped<ITokenStorage, NoOpTokenStorage>();
         services.AddScoped<IAppConfigService>(_ => new WasmAppConfigService(hostBaseAddress));
