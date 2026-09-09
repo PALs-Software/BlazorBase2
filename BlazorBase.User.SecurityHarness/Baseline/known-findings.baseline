@@ -1,0 +1,15 @@
+# Known, reviewed probe findings this run currently produces. The CI wrapper fails a probe only
+# when it fails AND is missing from this file, or when a line here names a probe that no longer
+# exists - never on a failure this file already names. Fixing one of these is a separate, later,
+# approved step (see step 11 in .plan/auth-attack-harness).
+
+AT-CASE-AND-TRIM :: AccessTokenAuthenticationHandler trims the raw Authorization header value before comparing the secret, so a whitespace-padded secret is accepted; a deliberate trimming behaviour, not a bypass of a different secret.
+AT-INACTIVE-OWNER :: AccessTokenService.ValidateAsync checks IsRevoked and ExpiresAt but never the owning account's IsActive flag, so a machine token outlives its owner's deactivation.
+ACCT-RESET-INVALIDATES-SESSIONS :: A password reset rotates the security stamp and revokes the refresh token immediately, but the access token issued before the reset keeps authenticating until its own natural expiry.
+CSRF-NO-FETCH-METADATA :: BlazorBaseCsrfChecks.IsSameOriginRequest treats an entirely absent Sec-Fetch-Site header as same-origin, so a client that omits fetch metadata is accepted on the antiforgery token alone.
+COOKIE-LOGOUT-CLEARS :: Logout clears the cookie client-side but does not rotate the security stamp or otherwise revoke the pre-logout cookie value server-side, so the old cookie still authenticates if replayed.
+CLIENT-401-INVALIDATES :: BlazorBaseUserAuthStateProvider never becomes authenticated under the Bearer transport as the framework's own documentation composes it, because IAuthService's HttpClient deliberately carries no AuthTokenHandler.
+INFO-RESPONSE-HEADERS :: Kestrel's own default Server header is present on every response - an infrastructure default, not application code, and not disabled by the framework.
+INFO-SESSION-CLAIMS :: SignInManager.CreateUserPrincipalAsync adds the security-stamp claim to the same principal used to mint the access token, so api/auth/session echoes it back verbatim to the client.
+EXT-UNVERIFIED-EMAIL-TAKEOVER :: Demonstrates account takeover through the harness's own naive email-matching external-user resolver, which a host could plausibly choose; the framework itself ships no default resolver at all.
+2FA-PENDING-REPLAY :: TwoFactorPendingTokenService has no single-use tracking, so a pending two-factor token can be replayed with a fresh code after already completing a successful login.
