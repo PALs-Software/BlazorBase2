@@ -29,6 +29,14 @@ public sealed class OidcExternalTokenValidatorTests
 
     private static readonly SigningCredentials SigningCredentials = new(SigningKey, SecurityAlgorithms.HmacSha256);
 
+    private static readonly SymmetricSecurityKey ForeignSigningKey = new(
+    [
+        32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17,
+        16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1,
+    ]);
+
+    private static readonly SigningCredentials ForeignSigningCredentials = new(ForeignSigningKey, SecurityAlgorithms.HmacSha256);
+
     private static string Authority(string tenantId) => $"https://login.microsoftonline.com/{tenantId}/v2.0";
 
     private static OidcExternalTokenValidator CreateValidator(ExternalAuthSettings settings, IExternalTenantAllowList? allowList = null)
@@ -77,6 +85,55 @@ public sealed class OidcExternalTokenValidatorTests
         };
 
         return new JsonWebTokenHandler().CreateToken(descriptor);
+    }
+
+    private static string CreateCustomToken(
+        string tenantId,
+        string? scope,
+        string audience,
+        DateTime expires,
+        SigningCredentials signingCredentials,
+        DateTime? notBefore = null)
+    {
+        var claims = new Dictionary<string, object> { ["tid"] = tenantId };
+
+        if (scope is not null)
+            claims["scp"] = scope;
+
+        var descriptor = new SecurityTokenDescriptor
+        {
+            Issuer = Authority(tenantId),
+            Audience = audience,
+            Claims = claims,
+            SigningCredentials = signingCredentials,
+            Expires = expires,
+            NotBefore = notBefore ?? DateTime.UtcNow,
+            IssuedAt = notBefore ?? DateTime.UtcNow,
+        };
+
+        return new JsonWebTokenHandler().CreateToken(descriptor);
+    }
+
+    private static string TamperSignature(string token)
+    {
+        var segments = token.Split('.');
+        var signature = segments[^1];
+        var lastCharacter = signature[^1];
+        segments[^1] = signature[..^1] + (lastCharacter == 'A' ? 'B' : 'A');
+
+        return string.Join('.', segments);
+    }
+
+    private static string CreateUnsignedToken(string tenantId, string scope, string audience)
+    {
+        var issuedAt = EpochTime.GetIntDate(DateTime.UtcNow);
+
+        var header = """{"alg":"none","typ":"JWT"}""";
+        var payload = $$"""
+            {"tid":"{{tenantId}}","scp":"{{scope}}","aud":"{{audience}}","iss":"{{Authority(tenantId)}}","exp":{{issuedAt + 300}},"nbf":{{issuedAt}},"iat":{{issuedAt}}}
+            """;
+
+        return $"{Base64UrlEncoder.Encode(header)}.{Base64UrlEncoder.Encode(payload)}.";
     }
 
     private static ExternalAuthSettings BuildMultiTenantSettings(
@@ -200,6 +257,67 @@ public sealed class OidcExternalTokenValidatorTests
         var principal = await validator.ValidateAsync(token, CancellationToken.None);
 
         Assert.NotNull(principal);
+    }
+
+    [Fact]
+    public async Task A_token_whose_signature_was_tampered_with_is_rejected()
+    {
+        var settings = BuildMultiTenantSettings();
+        var validator = CreateValidator(settings);
+        var token = CreateToken(AllowedTenantId, scope: "access_as_user");
+
+        var principal = await validator.ValidateAsync(TamperSignature(token), CancellationToken.None);
+
+        Assert.Null(principal);
+    }
+
+    [Fact]
+    public async Task A_token_signed_with_a_different_key_is_rejected()
+    {
+        var settings = BuildMultiTenantSettings();
+        var validator = CreateValidator(settings);
+        var token = CreateCustomToken(AllowedTenantId, scope: "access_as_user", audience: Audience, expires: DateTime.UtcNow.AddMinutes(5), signingCredentials: ForeignSigningCredentials);
+
+        var principal = await validator.ValidateAsync(token, CancellationToken.None);
+
+        Assert.Null(principal);
+    }
+
+    [Fact]
+    public async Task A_token_for_a_different_audience_is_rejected()
+    {
+        var settings = BuildMultiTenantSettings();
+        var validator = CreateValidator(settings);
+        var token = CreateCustomToken(AllowedTenantId, scope: "access_as_user", audience: "api://different-audience", expires: DateTime.UtcNow.AddMinutes(5), signingCredentials: SigningCredentials);
+
+        var principal = await validator.ValidateAsync(token, CancellationToken.None);
+
+        Assert.Null(principal);
+    }
+
+    [Fact]
+    public async Task An_expired_token_is_rejected()
+    {
+        var settings = BuildMultiTenantSettings();
+        var validator = CreateValidator(settings);
+        var expires = DateTime.UtcNow.AddMinutes(-10);
+        var token = CreateCustomToken(AllowedTenantId, scope: "access_as_user", audience: Audience, expires: expires, signingCredentials: SigningCredentials, notBefore: expires.AddMinutes(-5));
+
+        var principal = await validator.ValidateAsync(token, CancellationToken.None);
+
+        Assert.Null(principal);
+    }
+
+    [Fact]
+    public async Task An_unsigned_token_is_rejected()
+    {
+        var settings = BuildMultiTenantSettings();
+        var validator = CreateValidator(settings);
+        var token = CreateUnsignedToken(AllowedTenantId, scope: "access_as_user", audience: Audience);
+
+        var principal = await validator.ValidateAsync(token, CancellationToken.None);
+
+        Assert.Null(principal);
     }
 
     private sealed class StubExternalTenantAllowList(bool allowed) : IExternalTenantAllowList
