@@ -1,4 +1,5 @@
 using BlazorBase.User.SecurityHarness.Hosting;
+using BlazorBase.User.SecurityHarness.IdentityProvider;
 using BlazorBase.User.SecurityHarness.Probes;
 using BlazorBase.User.SecurityHarness.Reporting;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,14 +21,17 @@ if (options.BaseUrl is not null)
 }
 
 var tempDirectory = Directory.CreateTempSubdirectory("blazorbase-security-harness-");
+var certificate = HarnessSelfSignedCertificate.Create();
+var identityProvider = await FakeIdentityProviderHost.StartAsync(certificate, CancellationToken.None);
 
 try
 {
     var hostOptions = new HarnessHostOptions
     {
         TempDirectory = tempDirectory.FullName,
-        ExternalAuthority = null,
-        Certificate = HarnessSelfSignedCertificate.Create(),
+        ExternalAuthority = identityProvider.TenantAuthority(FakeIdentityProviderTenants.AllowedTenantId),
+        ExternalAllowedTenantId = FakeIdentityProviderTenants.AllowedTenantId,
+        Certificate = certificate,
     };
 
     var profilesToRun = ResolveProfiles(options);
@@ -71,6 +75,8 @@ catch (Exception ex)
 }
 finally
 {
+    await identityProvider.DisposeAsync();
+
     try
     {
         Directory.Delete(tempDirectory.FullName, recursive: true);

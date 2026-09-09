@@ -18,6 +18,13 @@ public sealed class HarnessHostOptions
     /// </summary>
     public string? ExternalAuthority { get; init; }
 
+    /// <summary>
+    /// The tenant ID the <see cref="HarnessProfile.External"/> profile's <c>ExternalAuthSettings:AllowedTenantIds</c>
+    /// allow-lists, so "allowed tenant" and "some other real tenant" are both representable against
+    /// the fake identity provider's issuer.
+    /// </summary>
+    public string? ExternalAllowedTenantId { get; init; }
+
     /// <summary>The self-signed certificate every HTTPS profile listens with.</summary>
     public required X509Certificate2 Certificate { get; init; }
 

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
+using BlazorBase.User.SecurityHarness.IdentityProvider;
 using BlazorBase.User.Server.AccessTokens;
+using BlazorBase.User.Server.ExternalAuth;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Tokens;
 using Microsoft.AspNetCore.Builder;
@@ -12,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 
 namespace BlazorBase.User.SecurityHarness.Hosting;
 
@@ -84,6 +87,9 @@ public static class HarnessHostFactory
             {
                 configurationValues["ExternalAuthSettings:Authority"] = options.ExternalAuthority;
                 configurationValues["ExternalAuthSettings:Audiences:0"] = "blazorbase-security-harness";
+
+                if (options.ExternalAllowedTenantId is not null)
+                    configurationValues["ExternalAuthSettings:AllowedTenantIds:0"] = options.ExternalAllowedTenantId;
             }
 
             foreach (var (key, value) in options.ConfigurationOverrides)
@@ -104,6 +110,9 @@ public static class HarnessHostFactory
                     break;
                 case HarnessProfile.AccessTokens:
                     builder.Services.AddBlazorBaseAccessTokens<HarnessDbContext>(builder.Configuration);
+                    break;
+                case HarnessProfile.External:
+                    RegisterExternalAuth(builder, options);
                     break;
                 case HarnessProfile.DevelopmentLogin:
                 case HarnessProfile.ProductionWithDevelopmentLogin:
@@ -128,6 +137,9 @@ public static class HarnessHostFactory
         app.UseAuthorization();
         app.MapControllers();
         app.MapBlazorBaseAuthSessionEndpoint();
+
+        if (profile == HarnessProfile.External)
+            app.MapBlazorBaseExternalAuthEndpoints<HarnessUser>();
 
         await EnsureDatabaseCreatedAsync(app, cancellationToken);
 
@@ -172,6 +184,27 @@ public static class HarnessHostFactory
     /// </summary>
     private static void RegisterDevelopmentAuthentication(WebApplicationBuilder builder) =>
         builder.Services.AddBlazorBaseDevelopmentAuthentication<HarnessUser>(builder.Configuration, builder.Environment);
+
+    /// <summary>
+    /// Registers a <see cref="BaseConfigurationManager"/> built over a thumbprint-pinning
+    /// <see cref="HttpClient"/> before calling <c>AddBlazorBaseExternalAuth</c>, so
+    /// <c>OidcExternalTokenValidator</c>'s constructor - which accepts one as an optional parameter -
+    /// resolves it from DI instead of building its own unpinned <c>ConfigurationManager</c>. Every
+    /// other part of the validator (signature verification, issuer and audience validation, <c>tid</c>
+    /// handling) still runs unmodified; only its transport is pinned.
+    /// </summary>
+    private static void RegisterExternalAuth(WebApplicationBuilder builder, HarnessHostOptions options)
+    {
+        var configurationManager = PinnedThumbprintConfigurationManagerFactory.Create(options.ExternalAuthority!, options.Certificate);
+        builder.Services.AddSingleton(configurationManager);
+
+        builder.Services.AddBlazorBaseExternalAuth(builder.Configuration);
+
+        builder.Services.AddSingleton<ExternalUserResolverSwitch>();
+        builder.Services.AddScoped<StrictSubjectExternalUserResolver>();
+        builder.Services.AddScoped<NaiveEmailMatchingExternalUserResolver>();
+        builder.Services.AddScoped<IExternalUserResolver<HarnessUser>, SwitchingExternalUserResolver>();
+    }
 
     /// <summary>
     /// Creates the database schema before <c>app.StartAsync()</c> is called, not after:

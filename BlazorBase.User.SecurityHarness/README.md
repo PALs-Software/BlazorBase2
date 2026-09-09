@@ -58,7 +58,7 @@ One real Kestrel host per row, each on an operating-system assigned loopback por
 | `BearerHttps` | The same, over HTTPS with a self-signed loopback certificate. |
 | `Cookie` | `AddBlazorBaseCookieAuthTokens` plus `app.UseBlazorBaseCsrf()`, over HTTPS. |
 | `CookieWithoutCsrfMiddleware` | The cookie transport with `app.UseBlazorBaseCsrf()` deliberately not called. |
-| `External` | `AddBlazorBaseExternalAuth` pointed at the fake identity provider added in step 2. Reports as unavailable until then. |
+| `External` | `AddBlazorBaseExternalAuth` pointed at the fake identity provider started alongside every run (see "Fake identity provider" below). |
 | `AccessTokens` | `AddBlazorBaseAccessTokens` with defaults. |
 | `DevelopmentLogin` | `AddBlazorBaseDevelopmentAuthentication` in the Development environment. |
 | `ProductionWithDevelopmentLogin` | The same registration with `EnvironmentName = "Production"`. |
@@ -70,6 +70,37 @@ records the guard's exact message rather than treating the failure as a harness 
 The self-signed certificate is generated in-process for every run and never touches a machine
 certificate store. A probe's HTTP client trusts exactly that certificate's thumbprint - never a
 blanket `_ => true` validation callback.
+
+## Fake identity provider
+
+A second real Kestrel host, started before any profile and stopped after every profile has run,
+serves an actual OpenID Connect discovery document and an actual JWKS with two rotatable RSA key
+pairs (`FakeSigningKeyRegistry.KeyIdA`, published by default, and `KeyIdB`, withheld by default).
+`OidcExternalTokenValidator` runs against it completely unmodified: `HarnessHostFactory` registers a
+`BaseConfigurationManager` (`PinnedThumbprintConfigurationManagerFactory`) built over an
+`HttpClient` that trusts exactly the provider's certificate thumbprint, and the validator's
+constructor picks that instance up from dependency injection instead of building its own. Every
+part of the validator - signature verification, issuer and audience validation, `tid` handling -
+still executes; only the transport is pinned.
+
+`FakeTokenBuilder` hand-assembles compact JWS tokens from base64url segments, including shapes a
+well-behaved library will not produce on request: `alg: none`, an HS256 token whose secret is an
+RSA public key (algorithm confusion), a header `kid` that names a different key than the one that
+actually signed the token, and any combination of missing, expired or out-of-range claims a
+`FakeTokenDescription` can express.
+
+The `External` profile registers two `IExternalUserResolver<HarnessUser>` implementations behind a
+runtime switch (`ExternalUserResolverSwitch`, resolved from the host's own DI container): the
+strict `StrictSubjectExternalUserResolver`, matching on the provider's `oid`/`sub` claim, and the
+deliberately unsafe `NaiveEmailMatchingExternalUserResolver`, matching on the `email` claim without
+checking `email_verified` - named and documented so it is unmistakably a demonstration, never a
+recommendation.
+
+A rotation-relevant note: `ConfigurationManager<T>`'s default fire-and-forget background refresh
+means a `RequestRefresh()`-triggered retry inside one failed validation call still sees the stale
+configuration, since the background fetch has not completed yet. `PinnedThumbprintConfigurationManagerFactory`
+sets the library's `Switch.Microsoft.IdentityModel.UpdateConfigAsBlocking` `AppContext` switch so a
+refresh blocks instead - a supported, library-wide setting, not a change to the validator.
 
 ## Adding a probe
 
