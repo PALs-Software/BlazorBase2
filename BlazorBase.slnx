@@ -28,6 +28,9 @@
   <Project Path="BlazorBase.User.Server/BlazorBase.User.Server.csproj" />
   <Project Path="BlazorBase.User.Wasm/BlazorBase.User.Wasm.csproj" />
   <Project Path="BlazorBase.User.Maui/BlazorBase.User.Maui.csproj" />
+  <Folder Name="/Security/">
+    <Project Path="BlazorBase.User.SecurityHarness/BlazorBase.User.SecurityHarness.csproj" />
+  </Folder>
   <Folder Name="/Tests/">
     <Project Path="BlazorBase.CRUD.Test/BlazorBase.CRUD.Test.csproj" />
     <Project Path="BlazorBase.DataProtection.Test/BlazorBase.DataProtection.Test.csproj" />

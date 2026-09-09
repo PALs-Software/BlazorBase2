@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>BlazorBase.User.SecurityHarness</RootNamespace>
+    <AssemblyName>BlazorBase.User.SecurityHarness</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BlazorBase.CRUD\BlazorBase.CRUD.csproj" />
+    <ProjectReference Include="..\BlazorBase.User\BlazorBase.User.csproj" />
+    <ProjectReference Include="..\BlazorBase.User.Server\BlazorBase.User.Server.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" />
+  </ItemGroup>
+
+</Project>
