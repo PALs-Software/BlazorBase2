@@ -541,7 +541,17 @@ calling out explicitly:
 
 - **`resend-confirmation` and `forgot-password` are anti-enumeration by construction:** both answer
   `202 Accepted` identically whether the address is known, already confirmed, or neither — a
-  distinguishable response would let a caller enumerate registered emails one probe at a time.
+  distinguishable response would let a caller enumerate registered emails one probe at a time. An
+  identical body is not enough on its own, though: only the known-address branch generates a token
+  and sends mail, and that network round trip is measurably slower than the branch that does
+  nothing. Both handlers pad the response up to a randomised floor
+  (`AccountManagementOptions.TimingFloorMinimumMilliseconds`/`TimingFloorMaximumMilliseconds`,
+  default 750–1250 ms) so the *observed* duration is the floor either way, with the real work
+  disappearing underneath it. The target is drawn per-request from `RandomNumberGenerator`, not
+  `Random.Shared`, so there is no fixed constant an attacker could calibrate against by averaging
+  many requests. Set both values to `0` to disable the padding, which is what an automated test host
+  should do to stay fast. A mail send slower than the drawn floor still shows through it - the fix
+  is to raise the floor to comfortably exceed the host's own SMTP latency, not to remove the padding.
 - **`reset-password` is the one endpoint in this group that reports failure honestly.** The reset
   token *is* the credential at that point, so saying it is invalid or expired tells the caller only
   something about a token already in their hands, not about the account. Staying silent instead, as
@@ -569,7 +579,9 @@ calling out explicitly:
 {
   "AccountManagement": {
     "Issuer": "OmniLog",
-    "ClientBaseUrl": "https://app.example.com"
+    "ClientBaseUrl": "https://app.example.com",
+    "TimingFloorMinimumMilliseconds": 750,
+    "TimingFloorMaximumMilliseconds": 1250
   }
 }
 ```
@@ -783,10 +795,11 @@ POST /api/auth/manage/confirm-email        { "userId": "...", "token": "..." }
 200 OK   |   400 Bad Request   { "message": "Invalid confirmation link." }
 
 POST /api/auth/manage/resend-confirmation  { "email": "..." }
-202 Accepted   (identical whether the address is known, already confirmed, or not — anti-enumeration)
+202 Accepted   (identical whether the address is known, already confirmed, or not — anti-enumeration;
+                padded to a randomised timing floor so response latency does not leak it either)
 
 POST /api/auth/manage/forgot-password      { "email": "..." }
-202 Accepted   (identical whether the address is known — anti-enumeration)
+202 Accepted   (identical whether the address is known — anti-enumeration; same timing-floor padding)
 
 POST /api/auth/manage/reset-password       { "email": "...", "token": "...", "newPassword": "..." }
 204 No Content   |   400 Bad Request   { "errors": [ "..." ] }

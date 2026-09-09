@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.Configuration;
 using BlazorBase.User.Server.Entities;
@@ -63,6 +65,8 @@ public static class AccountEndpointMapper
         IOptions<AccountManagementOptions> options)
         where TUser : BaseUser
     {
+        var startTimestamp = Stopwatch.GetTimestamp();
+
         var user = await userManager.FindByEmailAsync(request.Email);
         if (user is not null && !await userManager.IsEmailConfirmedAsync(user))
         {
@@ -72,7 +76,10 @@ public static class AccountEndpointMapper
         }
 
         // Identical regardless of whether the address is known or already confirmed - anything else
-        // is an account-enumeration oracle.
+        // is an account-enumeration oracle. The timing floor below closes the same oracle for latency:
+        // only the branch above sends mail, and a network round trip is otherwise measurable.
+        await PadResponseToTimingFloorAsync(startTimestamp, options.Value);
+
         return Results.Accepted();
     }
 
@@ -83,6 +90,8 @@ public static class AccountEndpointMapper
         IOptions<AccountManagementOptions> options)
         where TUser : BaseUser
     {
+        var startTimestamp = Stopwatch.GetTimestamp();
+
         var user = await userManager.FindByEmailAsync(request.Email);
         if (user is not null)
         {
@@ -92,8 +101,38 @@ public static class AccountEndpointMapper
         }
 
         // Identical regardless of whether the address is known - a distinguishable response would be
-        // an account-enumeration oracle.
+        // an account-enumeration oracle. The timing floor below closes the same oracle for latency:
+        // only the branch above sends mail, and a network round trip is otherwise measurable.
+        await PadResponseToTimingFloorAsync(startTimestamp, options.Value);
+
         return Results.Accepted();
+    }
+
+    /// <summary>
+    /// Delays the response until <paramref name="startTimestamp"/> plus a randomised target between
+    /// <see cref="AccountManagementOptions.TimingFloorMinimumMilliseconds"/> and
+    /// <see cref="AccountManagementOptions.TimingFloorMaximumMilliseconds"/> have elapsed, so the
+    /// existing- and unknown-address branches of <c>forgot-password</c> and <c>resend-confirmation</c>
+    /// become indistinguishable by response time, not just by response body. The target is drawn from
+    /// <see cref="RandomNumberGenerator"/> rather than <see cref="Random.Shared"/> because a
+    /// predictable pad could be averaged out and subtracted back by an attacker sampling many
+    /// requests. A configured maximum below the minimum clamps up to the minimum instead of throwing,
+    /// so a bad configuration value degrades to a fixed floor rather than crashing the endpoint. A
+    /// mail send slower than the drawn floor still shows through it - the remedy is for the host to
+    /// raise these values, not to close this gap in code.
+    /// </summary>
+    private static async Task PadResponseToTimingFloorAsync(long startTimestamp, AccountManagementOptions options)
+    {
+        var minimumMilliseconds = Math.Max(options.TimingFloorMinimumMilliseconds, 0);
+        var maximumMilliseconds = Math.Max(options.TimingFloorMaximumMilliseconds, minimumMilliseconds);
+
+        var targetMilliseconds = maximumMilliseconds > minimumMilliseconds
+            ? RandomNumberGenerator.GetInt32(minimumMilliseconds, maximumMilliseconds)
+            : minimumMilliseconds;
+
+        var remainingMilliseconds = targetMilliseconds - Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds;
+        if (remainingMilliseconds > 0)
+            await Task.Delay((int)remainingMilliseconds);
     }
 
     /// <summary>

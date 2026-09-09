@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -28,7 +29,14 @@ namespace BlazorBase.User.Server.Test.Account;
 /// </summary>
 public sealed class AccountEndpointMapperTests
 {
-    private static async Task<IHost> StartHostAsync()
+    private static Task<IHost> StartHostAsync() => StartHostAsync(timingFloorMinimumMilliseconds: 0, timingFloorMaximumMilliseconds: 0);
+
+    /// <summary>
+    /// The timing floor defaults to <c>0</c> (disabled) so the suite stays fast; tests that exercise
+    /// the floor itself pass a small non-zero value instead of the production default, which would
+    /// make every one of them take at least three quarters of a second.
+    /// </summary>
+    private static async Task<IHost> StartHostAsync(int timingFloorMinimumMilliseconds, int timingFloorMaximumMilliseconds)
     {
         var connection = new SqliteConnection("DataSource=:memory:");
         connection.Open();
@@ -38,6 +46,8 @@ public sealed class AccountEndpointMapperTests
             {
                 ["AuthTokens:AccessTokenMinutes"] = "15",
                 ["AuthTokens:RefreshTokenDays"] = "30",
+                ["AccountManagement:TimingFloorMinimumMilliseconds"] = timingFloorMinimumMilliseconds.ToString(),
+                ["AccountManagement:TimingFloorMaximumMilliseconds"] = timingFloorMaximumMilliseconds.ToString(),
             })
             .Build();
 
@@ -99,6 +109,68 @@ public sealed class AccountEndpointMapperTests
 
         Assert.Equal(knownResponse.StatusCode, unknownResponse.StatusCode);
         Assert.Equal(await knownResponse.Content.ReadAsByteArrayAsync(), await unknownResponse.Content.ReadAsByteArrayAsync());
+    }
+
+    private const int TimingFloorMilliseconds = 200;
+
+    /// <summary>
+    /// A small downward tolerance for timer granularity - the assertion still fails long before it
+    /// could pass without the padding actually running, since the gap to the floor is two orders of
+    /// magnitude larger than any granularity error this host would produce.
+    /// </summary>
+    private static readonly TimeSpan TimingFloorTolerance = TimeSpan.FromMilliseconds(15);
+
+    [Fact]
+    public async Task ForgotPassword_TakesAtLeastTheTimingFloor_ForAnUnknownAddress()
+    {
+        using var host = await StartHostAsync(TimingFloorMilliseconds, TimingFloorMilliseconds);
+        using var client = host.GetTestClient();
+
+        var stopwatch = Stopwatch.StartNew();
+        await client.PostAsJsonAsync("/api/auth/manage/forgot-password", new ForgotPasswordRequest { Email = "unknown@example.test" });
+        stopwatch.Stop();
+
+        Assert.True(stopwatch.Elapsed >= TimeSpan.FromMilliseconds(TimingFloorMilliseconds) - TimingFloorTolerance);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_TakesAtLeastTheTimingFloor_ForAKnownAddress()
+    {
+        using var host = await StartHostAsync(TimingFloorMilliseconds, TimingFloorMilliseconds);
+        await SeedUserAsync(host, "known@example.test");
+        using var client = host.GetTestClient();
+
+        var stopwatch = Stopwatch.StartNew();
+        await client.PostAsJsonAsync("/api/auth/manage/forgot-password", new ForgotPasswordRequest { Email = "known@example.test" });
+        stopwatch.Stop();
+
+        Assert.True(stopwatch.Elapsed >= TimeSpan.FromMilliseconds(TimingFloorMilliseconds) - TimingFloorTolerance);
+    }
+
+    [Fact]
+    public async Task ResendConfirmation_TakesAtLeastTheTimingFloor_ForAnUnknownAddress()
+    {
+        using var host = await StartHostAsync(TimingFloorMilliseconds, TimingFloorMilliseconds);
+        using var client = host.GetTestClient();
+
+        var stopwatch = Stopwatch.StartNew();
+        await client.PostAsJsonAsync("/api/auth/manage/resend-confirmation", new ResendConfirmationRequest { Email = "unknown@example.test" });
+        stopwatch.Stop();
+
+        Assert.True(stopwatch.Elapsed >= TimeSpan.FromMilliseconds(TimingFloorMilliseconds) - TimingFloorTolerance);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_DoesNotPad_WhenTheTimingFloorIsDisabled()
+    {
+        using var host = await StartHostAsync();
+        using var client = host.GetTestClient();
+
+        var stopwatch = Stopwatch.StartNew();
+        await client.PostAsJsonAsync("/api/auth/manage/forgot-password", new ForgotPasswordRequest { Email = "unknown@example.test" });
+        stopwatch.Stop();
+
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromMilliseconds(TimingFloorMilliseconds));
     }
 
     [Fact]

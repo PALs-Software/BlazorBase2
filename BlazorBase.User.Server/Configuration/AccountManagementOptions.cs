@@ -22,4 +22,22 @@ public class AccountManagementOptions
     /// this API.
     /// </summary>
     public string? ClientBaseUrl { get; set; }
+
+    /// <summary>
+    /// Lower bound, in milliseconds, of the randomised response-time floor <c>forgot-password</c> and
+    /// <c>resend-confirmation</c> pad up to, so that generating a token and sending mail on the
+    /// existing-address path does not leak through response latency what the identical response body
+    /// already hides. Set both this and <see cref="TimingFloorMaximumMilliseconds"/> to <c>0</c> to
+    /// disable the padding entirely, which is what the test host does. Must comfortably exceed the
+    /// host's own mail-send latency - a slower SMTP path still shows through the floor, and raising
+    /// these values is the fix.
+    /// </summary>
+    public int TimingFloorMinimumMilliseconds { get; set; } = 750;
+
+    /// <summary>
+    /// Upper bound, in milliseconds, of the randomised response-time floor - see
+    /// <see cref="TimingFloorMinimumMilliseconds"/>. A value below the minimum is a misconfiguration;
+    /// the endpoint clamps it up to the minimum rather than producing a negative delay.
+    /// </summary>
+    public int TimingFloorMaximumMilliseconds { get; set; } = 1250;
 }
