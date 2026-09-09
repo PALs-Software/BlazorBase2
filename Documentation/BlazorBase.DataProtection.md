@@ -57,6 +57,11 @@ volume so they survive restarts and redeploys:
 dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo("/keys"));
 ```
 
+It has to be a volume that outlives the *container*, not just the process: a named volume, a bind
+mount or a `PersistentVolumeClaim`. An anonymous volume disappears with `docker compose down` and a
+Kubernetes `emptyDir` disappears when the pod is rescheduled, so both look fine across a restart and
+fail on the next deployment. Verify after a redeploy, not after a restart.
+
 ### Farm guidance — a stable application name and a shared key store
 
 Across a farm of nodes, ASP.NET Core derives the key ring's isolation identity from the application

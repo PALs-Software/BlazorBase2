@@ -292,8 +292,17 @@ the key ring is now an authentication concern rather than a background detail.
 Two failure modes follow, and neither announces itself:
 
 - **Keys that do not survive a restart sign everyone out.** ASP.NET Core's default key location is
-  the local machine or user profile. In a container that is gone on every redeploy, so every
-  deployment logs out every user.
+  the local machine or user profile. A container's filesystem is neither: it is discarded when the
+  container is replaced, which is what a redeploy does, so every deployment logs out every user.
+  The keys have to be written somewhere that outlives the container — a named volume or a bind mount
+  that `PersistKeysToFileSystem` points at, or a store outside the filesystem entirely such as the
+  application's database or blob storage.
+
+  Watch the difference between *restart* and *replace*. An anonymous volume survives
+  `docker restart` and disappears with `docker compose down`; a Kubernetes `emptyDir` is gone the
+  moment the pod is rescheduled. Neither is persistence in the sense that matters here. Use a named
+  volume, a bind mount, or a `PersistentVolumeClaim`, and check that it is still there after a
+  deployment rather than after a restart.
 - **Keys that are not shared make instances reject each other.** Two instances with their own key
   rings cannot read each other's cookies or tokens. This does not fail cleanly — it looks like
   sporadic 401s that follow the load balancer rather than the user.
@@ -305,6 +314,27 @@ So decide key management deliberately, at the same time as the transport:
 | Local development, single machine | Nothing. The default is fine. |
 | One instance, durable and backed-up storage | `PersistKeysToFileSystem(…)` plus `SetApplicationName(…)` |
 | Several instances, or keys must be encrypted at rest | [BlazorBase.DataProtection.AzureKeyVault](BlazorBase.DataProtection.AzureKeyVault.md) |
+
+For a single container, that is a named volume and a matching registration — both halves are
+required, and neither is any use alone:
+
+```yaml
+services:
+  app:
+    volumes:
+      - dataprotection-keys:/keys
+volumes:
+  dataprotection-keys:
+```
+
+```csharp
+builder.Services.AddBlazorBaseDataProtection(dataProtection => dataProtection
+    .PersistKeysToFileSystem(new DirectoryInfo("/keys"))
+    .SetApplicationName("MyApp"));
+```
+
+The keys are unencrypted in that volume, so treat it as a secret: back it up with the application,
+and keep it out of an image layer or a bind mount that lands in source control.
 
 `SetApplicationName` must be stable and identical on every instance in all of the last two rows —
 left unset it is derived from the content-root path, so two instances deployed to different paths
