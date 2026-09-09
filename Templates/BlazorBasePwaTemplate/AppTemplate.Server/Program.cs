@@ -6,6 +6,7 @@ using AppTemplate.Shared.Modules.Notes.Entities;
 using BlazorBase.CRUD.Extensions;
 using BlazorBase.DataProtection;
 using BlazorBase.User.Server.Services;
+using BlazorBase.User.Server.Tokens;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -58,6 +59,7 @@ app.MapStaticAssets();
 app.MapControllers();
 app.MapBlazorBaseCrudEndpoints(typeof(Note).Assembly);
 app.MapBlazorBaseUserAdminEndpoints();
+app.MapBlazorBaseAuthSessionEndpoint();
 app.MapFallbackToFile("index.html");
 
 await using (var scope = app.Services.CreateAsyncScope())

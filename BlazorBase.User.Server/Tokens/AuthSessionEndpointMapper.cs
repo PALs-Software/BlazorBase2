@@ -31,6 +31,8 @@ public static class AuthSessionEndpointMapper
         this IEndpointRouteBuilder endpoints,
         string path = "api/auth")
     {
+        endpoints.ServiceProvider.GetService<BlazorBaseAuthSessionEndpointRegistration>()?.WasRegistered = true;
+
         endpoints.MapGet($"{path}/session", (HttpContext httpContext) =>
             {
                 var user = httpContext.User;

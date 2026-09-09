@@ -81,6 +81,12 @@ public static class BlazorBaseAuthTokenTransportExtensions
         services.TryAddSingleton<BlazorBaseCsrfMiddlewareRegistration>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseCsrfStartupGuardFilter>());
 
+        // Flipped by MapBlazorBaseAuthSessionEndpoint() and read by the startup guard below, so a host
+        // that forgets to map the endpoint fails loudly instead of quietly shipping a client that can
+        // never read its own claims or obtain an antiforgery token.
+        services.TryAddSingleton<BlazorBaseAuthSessionEndpointRegistration>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseAuthSessionEndpointStartupGuardFilter>());
+
         var cookieOptions = new AuthCookieOptions();
         configuration.GetSection(AuthCookieOptions.SectionName).Bind(cookieOptions);
         configureOptions?.Invoke(cookieOptions);
