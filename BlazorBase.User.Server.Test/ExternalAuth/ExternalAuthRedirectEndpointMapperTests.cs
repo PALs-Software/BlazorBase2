@@ -135,6 +135,23 @@ public sealed class ExternalAuthRedirectEndpointMapperTests
         Assert.True(result.Succeeded, string.Join("; ", result.Errors.Select(e => e.Description)));
     }
 
+    private static async Task SetUserActiveAsync(IHost host, bool isActive)
+    {
+        using var scope = host.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
+        var user = await userManager.FindByNameAsync("known-subject");
+        user!.IsActive = isActive;
+        await userManager.UpdateAsync(user);
+    }
+
+    private static async Task LockOutAsync(IHost host)
+    {
+        using var scope = host.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
+        var user = await userManager.FindByNameAsync("known-subject");
+        await userManager.SetLockoutEndDateAsync(user!, DateTimeOffset.UtcNow.AddYears(1));
+    }
+
     [Fact]
     public async Task An_accepted_resolution_issues_through_the_transport_and_redirects_locally()
     {
@@ -198,6 +215,38 @@ public sealed class ExternalAuthRedirectEndpointMapperTests
         using var client = host.GetTestClient();
         await client.GetAsync("/api/auth/external/complete");
 
+        Assert.DoesNotContain(ExternalScheme, recorder.SignedOutSchemes);
+    }
+
+    [Fact]
+    public async Task A_deactivated_users_resolution_answers_401_and_signs_out_the_local_scheme()
+    {
+        var (host, recorder) = await StartHostAsync(acceptResolution: true);
+        using var _ = host;
+        await SeedUserAsync(host);
+        await SetUserActiveAsync(host, isActive: false);
+
+        using var client = host.GetTestClient();
+        var response = await client.GetAsync("/api/auth/external/complete?returnUrl=/dashboard");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Contains(SignInScheme, recorder.SignedOutSchemes);
+        Assert.DoesNotContain(ExternalScheme, recorder.SignedOutSchemes);
+    }
+
+    [Fact]
+    public async Task A_locked_out_users_resolution_answers_401_and_signs_out_the_local_scheme()
+    {
+        var (host, recorder) = await StartHostAsync(acceptResolution: true);
+        using var _ = host;
+        await SeedUserAsync(host);
+        await LockOutAsync(host);
+
+        using var client = host.GetTestClient();
+        var response = await client.GetAsync("/api/auth/external/complete?returnUrl=/dashboard");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Contains(SignInScheme, recorder.SignedOutSchemes);
         Assert.DoesNotContain(ExternalScheme, recorder.SignedOutSchemes);
     }
 }

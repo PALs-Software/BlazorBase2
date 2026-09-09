@@ -124,6 +124,23 @@ public sealed class ExternalAuthExchangeEndpointTests
         Assert.True(result.Succeeded, string.Join("; ", result.Errors.Select(e => e.Description)));
     }
 
+    private static async Task SetUserActiveAsync(IHost host, string userName, bool isActive)
+    {
+        using var scope = host.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
+        var user = await userManager.FindByNameAsync(userName);
+        user!.IsActive = isActive;
+        await userManager.UpdateAsync(user);
+    }
+
+    private static async Task LockOutAsync(IHost host, string userName)
+    {
+        using var scope = host.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
+        var user = await userManager.FindByNameAsync(userName);
+        await userManager.SetLockoutEndDateAsync(user!, DateTimeOffset.UtcNow.AddYears(1));
+    }
+
     /// <summary>
     /// Unprotects an access token minted by <see cref="AuthTokenIssuer"/> so a test can assert on its
     /// claims without a JWT library - the token is an opaque, data-protected blob.
@@ -198,5 +215,35 @@ public sealed class ExternalAuthExchangeEndpointTests
 
         var principal = UnprotectAccessToken(host, body!.AccessToken);
         Assert.Equal("tenant-42", principal.Claims.Single(c => c.Type == "tenant").Value);
+    }
+
+    [Fact]
+    public async Task A_deactivated_users_resolution_is_rejected()
+    {
+        var (host, validator) = await StartHostAsync();
+        using var _ = host;
+        await SeedUserAsync(host, "known-subject");
+        await SetUserActiveAsync(host, "known-subject", isActive: false);
+        validator.Register("valid-external-token", BuildExternalPrincipal("known-subject"));
+
+        using var client = host.GetTestClient();
+        var response = await client.PostAsJsonAsync("/api/auth/external/exchange", new ExternalTokenExchangeRequest { ExternalToken = "valid-external-token" });
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_locked_out_users_resolution_is_rejected()
+    {
+        var (host, validator) = await StartHostAsync();
+        using var _ = host;
+        await SeedUserAsync(host, "known-subject");
+        await LockOutAsync(host, "known-subject");
+        validator.Register("valid-external-token", BuildExternalPrincipal("known-subject"));
+
+        using var client = host.GetTestClient();
+        var response = await client.PostAsJsonAsync("/api/auth/external/exchange", new ExternalTokenExchangeRequest { ExternalToken = "valid-external-token" });
+
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, response.StatusCode);
     }
 }

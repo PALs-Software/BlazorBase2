@@ -93,6 +93,12 @@ public static class ExternalAuthRedirectEndpointMapper
                     return Results.Unauthorized();
                 }
 
+                if (!await ExternalAuthEndpointMapper.IsAccountActiveAndNotLockedOutAsync(signInManager, resolution.User))
+                {
+                    await httpContext.SignOutAsync(signInScheme);
+                    return Results.Unauthorized();
+                }
+
                 var principal = await signInManager.CreateUserPrincipalAsync(resolution.User);
                 var tokens = await tokenIssuer.IssueTokenPairAsync(principal, cancellationToken: cancellationToken);
 

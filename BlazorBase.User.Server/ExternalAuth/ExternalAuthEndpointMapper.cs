@@ -55,6 +55,9 @@ public static class ExternalAuthEndpointMapper
                 if (!resolution.IsAccepted || resolution.User is null)
                     return Results.Unauthorized();
 
+                if (!await IsAccountActiveAndNotLockedOutAsync(signInManager, resolution.User))
+                    return Results.Unauthorized();
+
                 var principal = await signInManager.CreateUserPrincipalAsync(resolution.User);
                 var tokens = await tokenIssuer.IssueTokenPairAsync(principal, cancellationToken: cancellationToken);
                 var response = await tokenTransport.WriteAsync(httpContext, tokens, principal, cancellationToken);
@@ -66,5 +69,18 @@ public static class ExternalAuthEndpointMapper
             .RequireRateLimiting("BlazorBaseAuth");
 
         return endpoints;
+    }
+
+    /// <summary>
+    /// Mirrors the account-state gate <see cref="BlazorBase.User.Server.Controllers.AuthControllerBase"/>
+    /// applies to every password-based sign-in path - a valid external token alone must not grant a
+    /// session to a deactivated or locked-out local account. Shared with
+    /// <see cref="ExternalAuthRedirectEndpointMapper"/>, the redirect-based half of external
+    /// authentication, so the rule exists in one place.
+    /// </summary>
+    internal static async Task<bool> IsAccountActiveAndNotLockedOutAsync<TUser>(SignInManager<TUser> signInManager, TUser user)
+        where TUser : BaseUser, new()
+    {
+        return user.IsActive && !await signInManager.UserManager.IsLockedOutAsync(user);
     }
 }
