@@ -134,6 +134,14 @@ builder.Services.AddHttpClient<IUserService, UserService>(c => c.BaseAddress = b
 
 `baseUri` is the API root (`https://api.example.com/`). The services post to relative paths like `api/auth/login`.
 
+`GET api/auth/session` is the one auth endpoint that does need to know who is calling, and it cannot
+learn that from a handler this client does not have. `BlazorBaseUserAuthStateProvider` therefore reads
+the access token from `ITokenStorage` and passes it to `IAuthService.GetSessionAsync(accessToken)`
+itself. Under the cookie transport `ITokenStorage` is `NoOpTokenStorage`, no header is sent, and the
+session cookie identifies the caller as before. Nothing here changes for the host — but a host that
+replaces `IAuthService` must honour that parameter, or its client will report every user as signed
+out while the server happily authorises the same requests.
+
 ### 5. Optional — skip the login form while developing
 
 ```csharp
@@ -569,6 +577,36 @@ Steps:
 3. **Token refresh** is automatic: `AuthTokenHandler` refreshes when `ExpiresAt - UtcNow < 1 minute`, or after a `401`. Refresh rotation is single-use — the server revokes the presented refresh token atomically while issuing the new pair, so a replayed or concurrently-lost refresh token gets a `401` instead of a token pair.
 4. **Logout** revokes the refresh token (by its hash) via `/api/auth/logout` and clears `ITokenStorage`. The endpoint is anonymous, so logout still succeeds even if the access token stored locally has already expired.
 5. `Routes.razor` uses `<AuthorizeRouteView>`; non-authenticated users hit `RedirectToLogin`.
+
+### Resolving an external identity to a local account
+
+`AddBlazorBaseExternalAuth` validates an externally issued OIDC token (e.g. Microsoft Entra ID),
+but validating a token only proves who the *provider* thinks the caller is - matching that
+identity to a local account is a separate, host-specific decision, made by whatever
+`IExternalUserResolver<TUser>` is registered.
+
+A host that calls `AddBlazorBaseUserServer<TUser, TContext>` gets a safe default for free:
+`IdentityLoginExternalUserResolver<TUser>` looks the caller up through ASP.NET Core Identity's own
+external-login table via `UserManager<TUser>.FindByLoginAsync`, keyed on the token's `oid` claim
+(falling back to `sub`) - never on `email`, `preferred_username`, `upn` or `name`, none of which are
+stable, provider-issued identifiers a host can safely trust for account linking. An unrecognised
+subject is rejected, not auto-provisioned.
+
+Linking an account is therefore something a host must do explicitly, typically once, at invitation
+or first-login time:
+
+```csharp
+await userManager.AddLoginAsync(user, new UserLoginInfo(
+    loginProvider: ExternalAuthSettings.DefaultLoginProvider,
+    providerKey: entraObjectId,
+    displayName: entraObjectId));
+```
+
+A host with a different linking rule - matching by an internal tenant/subject mapping table, for
+example - registers its own `IExternalUserResolver<TUser>` (with `AddScoped`, before or after
+`AddBlazorBaseUserServer`); that registration always takes precedence over the default. Matching by
+`email` alone is an account-takeover vector: an attacker who controls any external identity with a
+matching, possibly-unverified email claim would take over the existing account.
 
 ---
 

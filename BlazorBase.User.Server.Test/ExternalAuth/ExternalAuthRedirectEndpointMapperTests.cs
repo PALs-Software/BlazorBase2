@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using BlazorBase.User.Server.ExternalAuth;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
@@ -36,13 +37,17 @@ public sealed class ExternalAuthRedirectEndpointMapperTests
     private sealed class SignOutRecorder
     {
         public List<string> SignedOutSchemes { get; } = [];
-        public ClaimsPrincipal? ExternalPrincipal { get; set; }
+        public ClaimsPrincipal? SignedInPrincipal { get; set; }
     }
 
     /// <summary>
-    /// Stands in for both the OIDC handler and the cookie handler it hands off to: it never talks
-    /// to a provider, so any request to an <c>end_session_endpoint</c> would have to come from
-    /// somewhere else in the pipeline, and it records every scheme it is asked to sign out of.
+    /// Stands in for both the OIDC handler and the cookie handler it hands off to. A real remote
+    /// handler only produces a principal for <c>signInScheme</c> - the scheme it hands its ticket off
+    /// to - and returns <see cref="AuthenticateResult.NoResult"/> for its own scheme outside of the
+    /// callback request it is processing, so this stub mirrors that split rather than answering for
+    /// <c>externalScheme</c>. It never talks to a provider, so any request to an
+    /// <c>end_session_endpoint</c> would have to come from somewhere else in the pipeline, and it
+    /// records every scheme it is asked to sign out of.
     /// </summary>
     private sealed class RecordingAuthenticationHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
@@ -53,8 +58,8 @@ public sealed class ExternalAuthRedirectEndpointMapperTests
     {
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            if (Scheme.Name == ExternalScheme && recorder.ExternalPrincipal is not null)
-                return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(recorder.ExternalPrincipal, Scheme.Name)));
+            if (Scheme.Name == SignInScheme && recorder.SignedInPrincipal is not null)
+                return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(recorder.SignedInPrincipal, Scheme.Name)));
 
             return Task.FromResult(AuthenticateResult.NoResult());
         }
@@ -87,7 +92,7 @@ public sealed class ExternalAuthRedirectEndpointMapperTests
         connection.Open();
 
         var configuration = new ConfigurationBuilder().Build();
-        var recorder = new SignOutRecorder { ExternalPrincipal = BuildExternalPrincipal("subject") };
+        var recorder = new SignOutRecorder { SignedInPrincipal = BuildExternalPrincipal("subject") };
 
         var host = await new HostBuilder()
             .ConfigureWebHost(webHost =>
@@ -101,7 +106,6 @@ public sealed class ExternalAuthRedirectEndpointMapperTests
                     services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(connection));
                     services.AddBlazorBaseUserServer<TestUser, TestUserDbContext>(configuration, options =>
                     {
-                        // This host is a bearer-only API and never maps the session endpoint.
                         options.RequiresAuthSessionEndpoint = false;
                     });
 
@@ -117,6 +121,7 @@ public sealed class ExternalAuthRedirectEndpointMapperTests
                     app.UseRouting();
                     app.UseRateLimiter();
                     app.UseAuthentication();
+                    app.UseBlazorBaseAccessTokenStampValidation();
                     app.UseAuthorization();
                     app.UseEndpoints(endpoints => endpoints.MapBlazorBaseExternalAuthRedirectEndpoints<TestUser>(ExternalScheme));
                 });
@@ -224,12 +229,15 @@ public sealed class ExternalAuthRedirectEndpointMapperTests
         Assert.Equal("/dashboard", response.Headers.Location?.OriginalString);
     }
 
+    /// <summary>
+    /// <see cref="RecordingAuthenticationHandler"/> never contacts a network endpoint, so this asserts
+    /// the production code path - <c>SignOutAsync(signInScheme)</c>, never
+    /// <c>SignOutAsync(externalScheme)</c> - which is what would trigger a real OIDC handler's
+    /// redirect to its <c>end_session_endpoint</c>.
+    /// </summary>
     [Fact]
     public async Task No_request_is_made_to_the_providers_end_session_endpoint()
     {
-        // RecordingAuthenticationHandler never contacts a network endpoint - this asserts the
-        // production code path (SignOutAsync(signInScheme), never SignOutAsync(externalScheme)),
-        // which is what would trigger a real OIDC handler's redirect to end_session_endpoint.
         var (host, recorder) = await StartHostAsync(acceptResolution: true);
         using var _ = host;
         await SeedUserAsync(host);

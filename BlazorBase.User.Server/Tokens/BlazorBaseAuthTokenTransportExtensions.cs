@@ -44,6 +44,11 @@ public static class BlazorBaseAuthTokenTransportExtensions
     /// Cookies reintroduce CSRF. Call <see cref="UseBlazorBaseCsrf"/> on the pipeline, after
     /// <c>app.UseAuthentication()</c>, and keep <c>GET</c> free of side effects. Forgetting the call is
     /// not silent — see <see cref="BlazorBaseCsrfStartupGuardFilter"/>.
+    ///
+    /// Also registers <see cref="BlazorBaseTicketStore"/> as the default <c>ITicketStore</c> and wires
+    /// it into the application cookie's <c>SessionStore</c>, so sign-out revokes the session
+    /// server-side instead of merely asking the browser to forget the cookie — see
+    /// <see cref="AuthCookieOptions.ServerSideSessionStoreEnabled"/> to opt out.
     /// </remarks>
     /// <param name="bearerSchemeName">
     /// The JWT scheme a bearer request is forwarded to. Leave <see langword="null"/> to reuse the name
@@ -86,6 +91,8 @@ public static class BlazorBaseAuthTokenTransportExtensions
         // never read its own claims or obtain an antiforgery token.
         services.TryAddSingleton<BlazorBaseAuthSessionEndpointRegistration>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseAuthSessionEndpointStartupGuardFilter>());
+
+        services.TryAddSingleton<ITicketStore, BlazorBaseTicketStore>();
 
         var cookieOptions = new AuthCookieOptions();
         configuration.GetSection(AuthCookieOptions.SectionName).Bind(cookieOptions);
@@ -134,6 +141,9 @@ public static class BlazorBaseAuthTokenTransportExtensions
                 // Resolved from the root provider rather than assumed system time, so a test can swap
                 // in a controllable clock without waiting on a real one.
                 cookieAuthOptions.TimeProvider = rootServiceProvider.GetService<TimeProvider>() ?? TimeProvider.System;
+
+                if (cookieOptions.ServerSideSessionStoreEnabled)
+                    cookieAuthOptions.SessionStore = rootServiceProvider.GetRequiredService<ITicketStore>();
 
                 // This is an API: a browser client reads the status code and decides what to do,
                 // rather than following a redirect to a login page that does not exist here.

@@ -1,9 +1,12 @@
+using System.Security.Claims;
 using BlazorBase.User.Models;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace BlazorBase.User.Server.Tokens;
 
@@ -33,7 +36,7 @@ public static class AuthSessionEndpointMapper
     {
         endpoints.ServiceProvider.GetService<BlazorBaseAuthSessionEndpointRegistration>()?.WasRegistered = true;
 
-        endpoints.MapGet($"{path}/session", (HttpContext httpContext) =>
+        endpoints.MapGet($"{path}/session", (HttpContext httpContext, IOptions<IdentityOptions> identityOptions) =>
             {
                 var user = httpContext.User;
 
@@ -45,15 +48,27 @@ public static class AuthSessionEndpointMapper
                 if (user.Identity?.IsAuthenticated != true)
                     return Results.Ok(new AuthSessionResponse { CsrfToken = csrfToken });
 
+                var securityStampClaimType = identityOptions.Value.ClaimsIdentity.SecurityStampClaimType;
+
                 return Results.Ok(new AuthSessionResponse
                 {
                     IsAuthenticated = true,
                     CsrfToken       = csrfToken,
-                    Claims          = [.. user.Claims.Select(claim => new AuthSessionClaim(claim.Type, claim.Value))],
+                    Claims          = [.. user.Claims
+                        .Where(claim => IsClientVisibleClaim(claim, securityStampClaimType))
+                        .Select(claim => new AuthSessionClaim(claim.Type, claim.Value))],
                 });
             })
             .AllowAnonymous();
 
         return endpoints;
     }
+
+    /// <summary>
+    /// The security stamp is internal bookkeeping - it names the validity generation of an account
+    /// and the server compares against it - so it has no client-side use and is not handed out. Its
+    /// claim type is host-configurable, hence the parameter rather than a constant.
+    /// </summary>
+    private static bool IsClientVisibleClaim(Claim claim, string securityStampClaimType) =>
+        claim.Type != securityStampClaimType;
 }

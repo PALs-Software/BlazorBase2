@@ -174,16 +174,22 @@ public abstract class AuthControllerBase<TUser>(
     /// A wrong code counts toward the same lockout as a wrong password, through
     /// <see cref="UserManager{TUser}.AccessFailedAsync"/>, so the pending token cannot be used to
     /// brute-force the code without limit.
+    /// <para>
+    /// Consuming the token is the last step and its result decides the outcome: two requests racing
+    /// with the same pending token both pass verification, but only the one that wins the atomic
+    /// consume gets a session. Consuming after verification rather than before is what keeps a wrong
+    /// code from burning the token.
+    /// </para>
     /// </remarks>
     [HttpPost("login/2fa")]
     [AllowAnonymous]
     [EnableRateLimiting("BlazorBaseAuth")]
-    public async Task<ActionResult<LoginResponse>> LoginTwoFactor([FromBody] TwoFactorLoginRequest request)
+    public async Task<ActionResult<LoginResponse>> LoginTwoFactor([FromBody] TwoFactorLoginRequest request, CancellationToken cancellationToken)
     {
         if (!ModelState.IsValid)
             return ValidationProblem(ModelState);
 
-        var userId = PendingTokenService.Unprotect(request.PendingToken);
+        var userId = await PendingTokenService.UnprotectAsync(request.PendingToken, cancellationToken);
         if (userId is null)
             return Unauthorized(new { message = "Invalid or expired two-factor session." });
 
@@ -200,6 +206,9 @@ public abstract class AuthControllerBase<TUser>(
             await UserManager.AccessFailedAsync(user);
             return Unauthorized(new { message = "Invalid code." });
         }
+
+        if (!await PendingTokenService.ConsumeAsync(request.PendingToken, cancellationToken))
+            return Unauthorized(new { message = "Invalid or expired two-factor session." });
 
         return Ok(await GenerateTokenResponse(user));
     }

@@ -52,6 +52,25 @@ public class ExternalAuthSettings
     public IList<string> RequiredAppRoles { get; set; } = [];
 
     /// <summary>
+    /// Whether the same external token, exchanged more than once, is rejected on every attempt
+    /// after the first. Defaults to <see langword="true"/>. A host whose provider already issues
+    /// single-use tokens may turn this off; the default protects a host whose provider does not.
+    /// </summary>
+    public bool ReplayProtectionEnabled { get; set; } = true;
+
+    /// <summary>
+    /// The <c>loginProvider</c> value <see cref="IdentityLoginExternalUserResolver{TUser}"/> reads
+    /// and writes in ASP.NET Core Identity's own external-login table. Defaults to
+    /// <see cref="DefaultLoginProvider"/> - a stable, framework-owned constant rather than something
+    /// derived from <see cref="Authority"/>, since deriving it from the authority would silently
+    /// orphan every stored login the day a host changes authority.
+    /// </summary>
+    public string LoginProvider { get; set; } = DefaultLoginProvider;
+
+    /// <summary>See <see cref="LoginProvider"/>.</summary>
+    public const string DefaultLoginProvider = "BlazorBaseExternal";
+
+    /// <summary>
     /// Whether <paramref name="authority"/> is a multi-tenant Entra endpoint whose own issuer
     /// varies per tenant - <c>/common</c>, <c>/organizations</c> or <c>/consumers</c> - as opposed
     /// to a single tenant's fixed issuer. Shared between <see cref="ExternalAuthSettingsValidator"/>

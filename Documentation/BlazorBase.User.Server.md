@@ -463,18 +463,40 @@ Behavior details:
 - Both `refresh` and `logout` additionally ask the active `IAuthTokenTransport.IsRequestIntentionalAsync` and answer `403 Forbidden` when it says no — the check that keeps a cross-site page from rotating or revoking a visitor's session under the cookie transport (the bearer transport always answers `true`; see [Authentication token transports](BlazorBase.User.Server.AuthTransports.md)).
 - `EnsureRolesExist` creates all roles in `RolesToSeed` on first setup.
 
-**Residual limitations:** an access token remains valid until its own lifetime lapses, even after a
-logout, a deactivation, a role change or an admin password reset — logout revokes the *refresh* token
-family, not the already-issued access token, because there is no server-side access-token
-revocation/blocklist. The default lifetime is **15 minutes** (`AuthTokens:AccessTokenMinutes`) to keep
-that window short; a `SecurityStamp` claim revalidated against the database on every authenticated
-request would close it entirely but was deliberately **not** implemented, because it would reintroduce
-a database read per authenticated request and undo the point of an opaque, cheaply-validated token —
-hosts needing immediate revocation should register their own check against `IdentityConstants.BearerScheme`'s
-events. Logout is `[AllowAnonymous]` and revokes by hash — possession of the (unguessable, hashed-at-rest)
-token is itself the authority to revoke it, by design. `RefreshTokenCleanupService<TUser>` purges
-revoked/expired `RefreshToken` rows periodically, so they no longer accumulate unbounded (see
+**Residual limitations:** none, for the access token's own revocation window - see
+[Access-token security-stamp revalidation](#access-token-security-stamp-revalidation) below. `logout`
+still only revokes the *refresh* token family by design (see above); `RefreshTokenCleanupService<TUser>`
+purges revoked/expired `RefreshToken` rows periodically, so they no longer accumulate unbounded (see
 [Services](#services)).
+
+#### Access-token security-stamp revalidation
+
+`BlazorBaseAccessTokenStampValidationMiddleware` (`BlazorBase.User.Server.Security`) re-checks a bearer
+access token's captured security-stamp claim against the user's current one, via
+`SignInManager<TUser>.ValidateSecurityStampAsync`, on every authenticated bearer request by default - a
+password reset, an admin deactivation-adjacent stamp rotation, or an explicit sign-out-everywhere now
+invalidates an already-issued access token immediately, closing the window the previous revision of
+this document described as a deliberate, unimplemented trade-off. It runs only for a principal
+authenticated by the framework's own bearer scheme; a cookie session is already covered by Identity's
+own `SecurityStampValidator`, and a machine access token (`AccessTokenAuthenticationDefaults.AuthenticationScheme`)
+is already re-checked against the database, including its owner's `IsActive` flag, by
+`AccessTokenService`.
+
+Call `app.UseBlazorBaseAccessTokenStampValidation()` after `app.UseAuthentication()` and before
+`app.UseAuthorization()`. This is required whenever `AddBlazorBaseUserServer` claims the authentication
+default (`BlazorBaseUserServerOptions.ClaimDefaultScheme`, true unless the host opted out) and
+revalidation has not been disabled by configuration - an `IStartupFilter` throws on every request until
+the call is made, the same shape as `app.UseBlazorBaseCsrf()`'s own guard. A host that dispatches its
+own authentication schemes (`ClaimDefaultScheme = false`) has declared it manages that wiring itself
+and is exempt from the guard.
+
+`AuthTokens:SecurityStampValidationInterval` (a `TimeSpan`, default `00:00:00`) trades freshness for
+database load: zero re-checks on every request (one indexed primary-key read, the same cost
+`AccessTokenService` already pays for every machine token); a positive value caches the last successful
+check per user for that long before checking again; a negative value disables the middleware entirely,
+reproducing the previous behavior exactly.
+
+
 
 #### Extension points
 
@@ -570,6 +592,19 @@ calling out explicitly:
   that a session obtained without the second factor cannot remove it; it also resets the authenticator
   key on success, so re-enabling always starts a fresh enrolment rather than reusing a key the account
   may no longer control. `2fa/recovery-codes` requires the same proof before minting a fresh batch.
+- **Three of those operations rotate the caller's own security stamp** - `GET 2fa` the first time it
+  generates the authenticator key, `2fa/enable`, and `2fa/disable` - which
+  [Access-token security-stamp revalidation](#access-token-security-stamp-revalidation) now enforces
+  on the very next bearer request. Each of the three mints a fresh token pair through
+  `AuthTokenIssuer<TUser>` and delivers it through the active `IAuthTokenTransport`, exactly the way
+  login does, and carries it back as an optional `RefreshedTokens` field on `TwoFactorStatusResponse`,
+  `TwoFactorRecoveryCodesResponse` and `TwoFactorDisableResponse` respectively - present only when that
+  particular call actually rotated the stamp. `AuthService` on the client adopts it transparently
+  through the same `ITokenStorage` it already uses for login, so a page built against the pre-existing
+  `IAuthService` methods needs no change of its own to keep its session across these calls; a client
+  that ignores the field is signed out on its next request, exactly as it would have been before this
+  mechanism existed. Under the cookie transport the pair travels as a rewritten session cookie instead,
+  with both token strings in the body blanked, the same as every other response this transport touches.
 - **Email delivery goes through `IEmailSender<TUser>`**, registered as `NoOpEmailSender<TUser>` by
   default (logs a warning and sends nothing — a missing mail configuration must not stop the host from
   starting). Call `AddBlazorBaseMailingEmailSender<TUser>()` after `AddBlazorBaseMailing` (see
@@ -631,6 +666,7 @@ the corresponding key.
 | `AuthTokens:AccessTokenMinutes` | int | 15 (`AuthTokenDefaults.AccessTokenExpirationMinutes`) | Access-token lifetime |
 | `AuthTokens:RefreshTokenDays` | int | 30 (`AuthTokenDefaults.RefreshTokenExpirationDays`) | Refresh-token lifetime |
 | `AuthTokens:CleanupIntervalHours` | int | 24 (`AuthTokenDefaults.CleanupIntervalHours`) | How often `RefreshTokenCleanupService<TUser>` sweeps expired/revoked rows |
+| `AuthTokens:SecurityStampValidationInterval` | TimeSpan | `00:00:00` (`AuthTokenDefaults.SecurityStampValidationInterval`) | How long a bearer access token's stamp check is cached before re-checking; negative disables re-validation entirely - see [Access-token security-stamp revalidation](#access-token-security-stamp-revalidation) |
 | `AuthTokens:RateLimit:PermitLimit` | int | 10 | Max `login`/`refresh`/`setup`/`login/2fa` requests per window per client IP, under the `"BlazorBaseAuth"` policy |
 | `AuthTokens:RateLimit:WindowSeconds` | int | 60 | Rate-limit window length in seconds |
 
@@ -811,13 +847,13 @@ POST /api/auth/manage/reset-password       { "email": "...", "token": "...", "ne
 204 No Content   |   400 Bad Request   { "errors": [ "..." ] }
 
 GET  /api/auth/manage/2fa                              (Authorization: Bearer ...)
-200 OK   { "enabled": false, "recoveryCodesRemaining": 0, "authenticatorUri": "otpauth://totp/..." }
+200 OK   { "enabled": false, "recoveryCodesRemaining": 0, "authenticatorUri": "otpauth://totp/...", "refreshedTokens": null }
 
 POST /api/auth/manage/2fa/enable           { "code": "..." }
-200 OK   { "recoveryCodes": [ "...", "..." ] }   |   400 Bad Request   { "message": "Invalid code." }
+200 OK   { "recoveryCodes": [ "...", "..." ], "refreshedTokens": { "accessToken": "...", "refreshToken": "...", "expiresAt": "..." } }   |   400 Bad Request   { "message": "Invalid code." }
 
 POST /api/auth/manage/2fa/disable          { "code": "..." }
-204 No Content   |   400 Bad Request   { "message": "Invalid code." }   |   400 Bad Request   { "message": "Two-factor authentication is not enabled." }
+200 OK   { "refreshedTokens": { "accessToken": "...", "refreshToken": "...", "expiresAt": "..." } }   |   400 Bad Request   { "message": "Invalid code." }   |   400 Bad Request   { "message": "Two-factor authentication is not enabled." }
 
 POST /api/auth/manage/2fa/recovery-codes   { "code": "..." }
 200 OK   { "recoveryCodes": [ "...", "..." ] }   |   400 Bad Request   { "message": "Invalid code." }   |   400 Bad Request   { "message": "Two-factor authentication is not enabled." }

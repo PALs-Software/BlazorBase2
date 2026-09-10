@@ -39,7 +39,7 @@ public class BlazorBaseUserAuthStateProvider(
         if (_cachedPrincipal is not null)
             return _cachedPrincipal;
 
-        var session = await AuthService.GetSessionAsync();
+        var session = await AuthService.GetSessionAsync(await ReadAccessTokenAsync());
         CsrfTokenProvider.Set(session.CsrfToken);
 
         _cachedPrincipal = session.IsAuthenticated
@@ -51,6 +51,18 @@ public class BlazorBaseUserAuthStateProvider(
             : new ClaimsPrincipal(new ClaimsIdentity());
 
         return _cachedPrincipal;
+    }
+
+    /// <summary>
+    /// Null under the cookie transport, where <see cref="ITokenStorage"/> is <c>NoOpTokenStorage</c>
+    /// and the session cookie identifies the caller on its own. Under the bearer transport this is
+    /// the only thing that identifies the caller to the session endpoint, because the client this
+    /// service calls through deliberately carries no <see cref="AuthTokenHandler"/>.
+    /// </summary>
+    private async Task<string?> ReadAccessTokenAsync()
+    {
+        var tokens = await TokenStorage.GetTokensAsync();
+        return tokens?.AccessToken;
     }
 
     /// <summary>

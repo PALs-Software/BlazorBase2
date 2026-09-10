@@ -27,8 +27,7 @@ internal sealed class RedirectCompleteReplayProbe : IAuthProbe
 
         if (firstCompletion.Exchange.StatusCode is not (HttpStatusCode.Redirect or HttpStatusCode.Found))
             return ProbeResult.Inconclusive(
-                $"The initial completion did not succeed (final hop: {(int)firstCompletion.Exchange.StatusCode} {firstCompletion.Exchange.StatusCode}) - replay could not be tested. " +
-                "A 401 here is ExternalAuthRedirectEndpointMapper.Complete's own httpContext.AuthenticateAsync(externalScheme) call failing structurally: a real RemoteAuthenticationHandler (OpenIdConnect) never succeeds AuthenticateAsync outside its own callback processing, so Complete rejects every genuine completion regardless of whether the OIDC handshake itself succeeded - the redirect flow, wired exactly as ExternalAuthRedirectEndpointMapper's own XML documentation describes, can never mint a session.", evidence);
+                $"The initial completion did not succeed (final hop: {(int)firstCompletion.Exchange.StatusCode} {firstCompletion.Exchange.StatusCode}) - replay could not be tested.", evidence);
 
         var replay = await CoreSessionSupport.SendAsync(client, HttpMethod.Get, firstCompletion.RequestUri, string.Empty, cancellationToken: cancellationToken);
         evidence.Add(replay.ToEvidence("Replaying the same complete URL a second time, with the same client."));

@@ -39,8 +39,11 @@ internal static partial class TwoFactorSupport
         var secret = secretMatch.Groups[1].Value;
         var code = Totp.ComputeCode(secret, DateTimeOffset.UtcNow);
 
+        if (status?.RefreshedTokens is not { } refreshedTokensFromKeyGeneration)
+            throw new InvalidOperationException($"api/auth/manage/2fa did not return refreshed tokens after generating the authenticator key: {statusExchange.ResponseBody}");
+
         var enableExchange = await CoreSessionSupport.SendAsync(client, HttpMethod.Post, context.BaseAddress, "api/auth/manage/2fa/enable",
-            new TwoFactorEnableRequest { Code = code }, bearerToken: tokens.AccessToken, cancellationToken: cancellationToken);
+            new TwoFactorEnableRequest { Code = code }, bearerToken: refreshedTokensFromKeyGeneration.AccessToken, cancellationToken: cancellationToken);
 
         if (enableExchange.StatusCode != HttpStatusCode.OK)
             throw new InvalidOperationException($"Enabling two-factor did not answer 200: {enableExchange.StatusCode} {enableExchange.ResponseBody}");

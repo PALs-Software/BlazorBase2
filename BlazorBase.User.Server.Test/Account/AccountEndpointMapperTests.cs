@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.Account;
 using BlazorBase.User.Server.Entities;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -88,6 +89,7 @@ public sealed class AccountEndpointMapperTests
                     app.UseRouting();
                     app.UseRateLimiter();
                     app.UseAuthentication();
+                    app.UseBlazorBaseAccessTokenStampValidation();
                     app.UseAuthorization();
                     app.UseEndpoints(endpoints => endpoints.MapBlazorBaseAccountEndpoints<TestUser>());
                 });
@@ -377,11 +379,45 @@ public sealed class AccountEndpointMapperTests
 
         var response = await client.PostAsJsonAsync("/api/auth/manage/2fa/disable", new TwoFactorVerificationRequest { Code = code });
 
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<TwoFactorDisableResponse>();
+        Assert.NotNull(body?.RefreshedTokens);
 
         using var scope = host.Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
         Assert.False(await userManager.GetTwoFactorEnabledAsync((await userManager.FindByIdAsync(user.Id))!));
+    }
+
+    /// <summary>
+    /// Disabling rotates the security stamp (<c>SetTwoFactorEnabledAsync</c> and
+    /// <c>ResetAuthenticatorKeyAsync</c> both do) - the token used to call <c>disable</c> must die on
+    /// its very next use, and the refreshed pair the response carries must authenticate in its place.
+    /// </summary>
+    [Fact]
+    public async Task Disable_ReturnsARefreshedTokenPair_ThatAuthenticatesWhileThePreDisableTokenNoLongerDoes()
+    {
+        using var host = await StartHostAsync();
+        var user = await SeedUserAsync(host, "ada@example.test");
+        var key = await EnableAuthenticatorTwoFactorAsync(host, user.Id);
+        var preDisableAccessToken = await IssueAccessTokenAsync(host, user);
+        var code = TotpTestHelper.GenerateCode(key, DateTimeOffset.UtcNow);
+
+        using var client = host.GetTestClient();
+        Authenticate(client, preDisableAccessToken);
+
+        var response = await client.PostAsJsonAsync("/api/auth/manage/2fa/disable", new TwoFactorVerificationRequest { Code = code });
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<TwoFactorDisableResponse>();
+        var refreshedAccessToken = body?.RefreshedTokens?.AccessToken;
+        Assert.False(string.IsNullOrEmpty(refreshedAccessToken));
+
+        Authenticate(client, preDisableAccessToken);
+        var withThePreDisableToken = await client.GetAsync("/api/auth/manage/2fa");
+        Assert.Equal(HttpStatusCode.Unauthorized, withThePreDisableToken.StatusCode);
+
+        Authenticate(client, refreshedAccessToken!);
+        var withTheRefreshedToken = await client.GetAsync("/api/auth/manage/2fa");
+        Assert.Equal(HttpStatusCode.OK, withTheRefreshedToken.StatusCode);
     }
 
     [Fact]
@@ -398,7 +434,9 @@ public sealed class AccountEndpointMapperTests
 
         var response = await client.PostAsJsonAsync("/api/auth/manage/2fa/disable", new TwoFactorVerificationRequest { Code = recoveryCode });
 
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<TwoFactorDisableResponse>();
+        Assert.NotNull(body?.RefreshedTokens);
 
         using var scope = host.Services.CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
@@ -418,13 +456,116 @@ public sealed class AccountEndpointMapperTests
         Authenticate(client, accessToken);
 
         var firstAttempt = await client.PostAsJsonAsync("/api/auth/manage/2fa/disable", new TwoFactorVerificationRequest { Code = recoveryCode });
-        Assert.Equal(HttpStatusCode.NoContent, firstAttempt.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, firstAttempt.StatusCode);
 
         await EnableAuthenticatorTwoFactorAsync(host, user.Id);
+
+        var accessTokenAfterStampRotatingReEnable = await IssueAccessTokenAsync(host, user);
+        Authenticate(client, accessTokenAfterStampRotatingReEnable);
 
         var secondAttempt = await client.PostAsJsonAsync("/api/auth/manage/2fa/disable", new TwoFactorVerificationRequest { Code = recoveryCode });
 
         Assert.Equal(HttpStatusCode.BadRequest, secondAttempt.StatusCode);
+    }
+
+    /// <summary>
+    /// <c>GET 2fa</c> generates the authenticator key the first time an account has none - a mutation
+    /// Identity performs as a side effect of <c>ResetAuthenticatorKeyAsync</c>, which rotates the
+    /// security stamp. The response must carry a refreshed token pair, and the token used to make this
+    /// very call must die on its next use while the refreshed one authenticates in its place.
+    /// </summary>
+    [Fact]
+    public async Task GetTwoFactorStatus_FirstCall_RotatesTheStamp_AndReturnsARefreshedTokenPairThatAuthenticates()
+    {
+        using var host = await StartHostAsync();
+        var user = await SeedUserAsync(host, "ada@example.test");
+        var preStatusAccessToken = await IssueAccessTokenAsync(host, user);
+
+        using var client = host.GetTestClient();
+        Authenticate(client, preStatusAccessToken);
+
+        var response = await client.GetAsync("/api/auth/manage/2fa");
+        response.EnsureSuccessStatusCode();
+        var body = await response.Content.ReadFromJsonAsync<TwoFactorStatusResponse>();
+        Assert.NotNull(body?.AuthenticatorUri);
+        var refreshedAccessToken = body?.RefreshedTokens?.AccessToken;
+        Assert.False(string.IsNullOrEmpty(refreshedAccessToken));
+
+        Authenticate(client, preStatusAccessToken);
+        var withThePreStatusToken = await client.GetAsync("/api/auth/manage/2fa");
+        Assert.Equal(HttpStatusCode.Unauthorized, withThePreStatusToken.StatusCode);
+
+        Authenticate(client, refreshedAccessToken!);
+        var withTheRefreshedToken = await client.GetAsync("/api/auth/manage/2fa");
+        Assert.Equal(HttpStatusCode.OK, withTheRefreshedToken.StatusCode);
+    }
+
+    /// <summary>
+    /// Once the key exists, <c>GET 2fa</c> never rotates the stamp again - the second call must not
+    /// carry a refreshed pair, and the very same access token must keep authenticating across it.
+    /// </summary>
+    [Fact]
+    public async Task GetTwoFactorStatus_SecondCall_DoesNotRotateTheStamp_AndTheSameTokenKeepsWorking()
+    {
+        using var host = await StartHostAsync();
+        var user = await SeedUserAsync(host, "ada@example.test");
+        var accessToken = await IssueAccessTokenAsync(host, user);
+
+        using var client = host.GetTestClient();
+        Authenticate(client, accessToken);
+
+        var firstResponse = await client.GetAsync("/api/auth/manage/2fa");
+        firstResponse.EnsureSuccessStatusCode();
+        var firstBody = await firstResponse.Content.ReadFromJsonAsync<TwoFactorStatusResponse>();
+        var refreshedAccessToken = firstBody?.RefreshedTokens?.AccessToken;
+        Assert.False(string.IsNullOrEmpty(refreshedAccessToken));
+
+        Authenticate(client, refreshedAccessToken!);
+        var secondResponse = await client.GetAsync("/api/auth/manage/2fa");
+        secondResponse.EnsureSuccessStatusCode();
+        var secondBody = await secondResponse.Content.ReadFromJsonAsync<TwoFactorStatusResponse>();
+        Assert.Null(secondBody?.RefreshedTokens);
+
+        var thirdResponse = await client.GetAsync("/api/auth/manage/2fa");
+        Assert.Equal(HttpStatusCode.OK, thirdResponse.StatusCode);
+    }
+
+    /// <summary>
+    /// Enabling rotates the security stamp too (<c>SetTwoFactorEnabledAsync</c>) - the token used to
+    /// submit the enable code must die on its next use, and the refreshed pair the response carries
+    /// must authenticate in its place.
+    /// </summary>
+    [Fact]
+    public async Task Enable_RotatesTheStamp_AndReturnsARefreshedTokenPairThatAuthenticates()
+    {
+        using var host = await StartHostAsync();
+        var user = await SeedUserAsync(host, "ada@example.test");
+        var loginAccessToken = await IssueAccessTokenAsync(host, user);
+
+        using var client = host.GetTestClient();
+        Authenticate(client, loginAccessToken);
+
+        var statusResponse = await client.GetAsync("/api/auth/manage/2fa");
+        statusResponse.EnsureSuccessStatusCode();
+        var statusBody = await statusResponse.Content.ReadFromJsonAsync<TwoFactorStatusResponse>();
+        var secret = ExtractAuthenticatorSecret(statusBody!.AuthenticatorUri!);
+        var accessTokenAfterKeyGeneration = statusBody.RefreshedTokens!.AccessToken;
+        var code = TotpTestHelper.GenerateCode(secret, DateTimeOffset.UtcNow);
+
+        Authenticate(client, accessTokenAfterKeyGeneration);
+        var enableResponse = await client.PostAsJsonAsync("/api/auth/manage/2fa/enable", new TwoFactorEnableRequest { Code = code });
+        enableResponse.EnsureSuccessStatusCode();
+        var enableBody = await enableResponse.Content.ReadFromJsonAsync<TwoFactorRecoveryCodesResponse>();
+        var refreshedAccessToken = enableBody?.RefreshedTokens?.AccessToken;
+        Assert.False(string.IsNullOrEmpty(refreshedAccessToken));
+
+        Authenticate(client, accessTokenAfterKeyGeneration);
+        var withThePreEnableToken = await client.GetAsync("/api/auth/manage/2fa");
+        Assert.Equal(HttpStatusCode.Unauthorized, withThePreEnableToken.StatusCode);
+
+        Authenticate(client, refreshedAccessToken!);
+        var withTheRefreshedToken = await client.GetAsync("/api/auth/manage/2fa");
+        Assert.Equal(HttpStatusCode.OK, withTheRefreshedToken.StatusCode);
     }
 
     [Fact]
@@ -494,17 +635,28 @@ public sealed class AccountEndpointMapperTests
         return codes!.First();
     }
 
+    private static string ExtractAuthenticatorSecret(string authenticatorUri) =>
+        Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(authenticatorUri).Query)["secret"]!;
+
+
     /// <summary>
     /// Mints a real access token through the same issuer the login endpoint uses, since this test
     /// host maps only the account-management group and has no login endpoint of its own to call.
+    /// Re-fetches the user by id first: <paramref name="user"/> is often the value returned by
+    /// <see cref="SeedUserAsync"/> before <see cref="EnableAuthenticatorTwoFactorAsync"/> ran, and
+    /// that call rotates the security stamp - minting from the stale in-memory copy would carry the
+    /// pre-rotation stamp value into the token, exactly the situation a real login endpoint (which
+    /// always loads the current user first) never produces.
     /// </summary>
     private static async Task<string> IssueAccessTokenAsync(IHost host, TestUser user)
     {
         using var scope = host.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
         var signInManager = scope.ServiceProvider.GetRequiredService<SignInManager<TestUser>>();
         var tokenIssuer = scope.ServiceProvider.GetRequiredService<AuthTokenIssuer<TestUser>>();
 
-        var principal = await signInManager.CreateUserPrincipalAsync(user);
+        var currentUser = await userManager.FindByIdAsync(user.Id);
+        var principal = await signInManager.CreateUserPrincipalAsync(currentUser!);
         var tokens = await tokenIssuer.IssueTokenPairAsync(principal);
 
         return tokens.AccessToken;

@@ -1,9 +1,12 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using BlazorBase.User.Models;
+using BlazorBase.User.Server.Account;
 using BlazorBase.User.Server.ExternalAuth;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using BlazorBase.User.Server.Tokens;
@@ -27,8 +30,9 @@ namespace BlazorBase.User.Server.Test.Tokens;
 /// leaves as an <c>HttpOnly</c> session cookie and not in the body, the session cookie authenticates a
 /// later request, a presented bearer header still wins so a native client is unaffected, the CSRF
 /// filter refuses a state-changing request that cannot prove it came from the application itself, the
-/// session survives past the old 15-minute access-token lifetime through sliding expiration, and a
-/// rotated security stamp invalidates an existing session.
+/// session survives past the old 15-minute access-token lifetime through sliding expiration, a
+/// rotated security stamp invalidates an existing session, and logout revokes the session server-side
+/// without affecting a second, independent session of the same user.
 /// </summary>
 public sealed class CookieAuthTokenTransportTests
 {
@@ -142,6 +146,7 @@ public sealed class CookieAuthTokenTransportTests
                     app.UseRouting();
                     app.UseRateLimiter();
                     app.UseAuthentication();
+                    app.UseBlazorBaseAccessTokenStampValidation();
 
                     if (useCookies && useCsrfMiddleware)
                         app.UseBlazorBaseCsrf();
@@ -153,6 +158,7 @@ public sealed class CookieAuthTokenTransportTests
                         // exists yet for a cross-site page to ride along on.
                         endpoints.MapGroup(string.Empty).AllowBlazorBaseCsrf().MapBlazorBaseExternalAuthEndpoints<TestUser>();
                         endpoints.MapBlazorBaseAuthSessionEndpoint();
+                        endpoints.MapBlazorBaseAccountEndpoints<TestUser>();
                         endpoints.MapGet("/protected", (HttpContext context) => context.User.Identity?.Name ?? "anonymous")
                                  .RequireAuthorization();
                         endpoints.MapPost("/guarded", () => Results.Ok("written"));
@@ -180,15 +186,23 @@ public sealed class CookieAuthTokenTransportTests
         Assert.True(result.Succeeded, string.Join("; ", result.Errors.Select(e => e.Description)));
 
         validator.Register("valid-external-token", new ClaimsPrincipal(
-            new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "known-subject")], "External")));
+            new ClaimsIdentity(
+                [
+                    new Claim(ClaimTypes.NameIdentifier, "known-subject"),
+                    new Claim("exp", DateTimeOffset.UtcNow.AddMinutes(10).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)),
+                ],
+                "External")));
 
         return (host, validator);
     }
 
-    private static async Task<HttpResponseMessage> ExchangeAsync(IHost host) =>
+    private static Task<HttpResponseMessage> ExchangeAsync(IHost host) =>
+        ExchangeAsync(host, "valid-external-token");
+
+    private static async Task<HttpResponseMessage> ExchangeAsync(IHost host, string externalToken) =>
         await host.GetTestClient().PostAsJsonAsync(
             "/api/auth/external/exchange",
-            new ExternalTokenExchangeRequest { ExternalToken = "valid-external-token" });
+            new ExternalTokenExchangeRequest { ExternalToken = externalToken });
 
     private static Dictionary<string, string> ReadCookies(HttpResponseMessage response)
     {
@@ -226,6 +240,42 @@ public sealed class CookieAuthTokenTransportTests
 
         var cookies = ReadCookies(response);
         Assert.True(cookies.ContainsKey(SessionCookie));
+    }
+
+    /// <summary>
+    /// A stamp-rotating account operation (here, <c>GET 2fa</c>'s first-time authenticator-key
+    /// generation) must keep working under the cookie transport too: the refreshed pair travels as a
+    /// rewritten session cookie, carries no readable tokens in the body, and the rewritten cookie goes
+    /// on authenticating a later request.
+    /// </summary>
+    [Fact]
+    public async Task A_stamp_rotating_account_operation_rewrites_the_cookie_and_carries_no_tokens_in_the_body()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true);
+        using var _host = host;
+
+        var initialCookies = ReadCookies(await ExchangeAsync(host));
+
+        var statusRequest = new HttpRequestMessage(HttpMethod.Get, "/api/auth/manage/2fa");
+        statusRequest.Headers.Add("Cookie", $"{SessionCookie}={initialCookies[SessionCookie]}");
+
+        var client = host.GetTestClient();
+        var statusResponse = await client.SendAsync(statusRequest);
+        statusResponse.EnsureSuccessStatusCode();
+
+        var body = await statusResponse.Content.ReadFromJsonAsync<TwoFactorStatusResponse>();
+        Assert.NotNull(body?.RefreshedTokens);
+        Assert.Empty(body!.RefreshedTokens!.AccessToken);
+        Assert.Empty(body.RefreshedTokens.RefreshToken);
+
+        var rewrittenCookies = ReadCookies(statusResponse);
+        Assert.True(rewrittenCookies.ContainsKey(SessionCookie));
+
+        var protectedRequest = new HttpRequestMessage(HttpMethod.Get, "/protected");
+        protectedRequest.Headers.Add("Cookie", $"{SessionCookie}={rewrittenCookies[SessionCookie]}");
+        var protectedResponse = await client.SendAsync(protectedRequest);
+
+        Assert.Equal(HttpStatusCode.OK, protectedResponse.StatusCode);
     }
 
     [Fact]
@@ -558,6 +608,77 @@ public sealed class CookieAuthTokenTransportTests
         Assert.Contains("expires=", setCookieHeader, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Closes <c>COOKIE-LOGOUT-CLEARS</c>: the pre-logout cookie value was cryptographically valid on
+    /// its own, so replaying it after logout used to still authenticate even though the browser had
+    /// been told to drop it. <see cref="BlazorBaseTicketStore"/> makes the cookie carry only a lookup
+    /// key, and <c>ClearAsync</c>'s <c>SignOutAsync</c> call removes that key from the store, so the
+    /// replayed value now resolves to nothing.
+    /// </summary>
+    [Fact]
+    public async Task Logout_revokes_the_session_so_the_pre_logout_cookie_value_no_longer_authenticates()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true);
+        using var _host = host;
+
+        var sessionCookie = ReadCookies(await ExchangeAsync(host))[SessionCookie];
+        var (token, cookieHeader) = await GetCsrfAsync(host, $"{SessionCookie}={sessionCookie}");
+
+        var logoutRequest = new HttpRequestMessage(HttpMethod.Post, "/logout");
+        logoutRequest.Headers.Add("Cookie", cookieHeader);
+        logoutRequest.Headers.Add(CsrfHeader, token);
+        (await host.GetTestClient().SendAsync(logoutRequest)).EnsureSuccessStatusCode();
+
+        var replayRequest = new HttpRequestMessage(HttpMethod.Get, "/protected");
+        replayRequest.Headers.Add("Cookie", $"{SessionCookie}={sessionCookie}");
+
+        var response = await host.GetTestClient().SendAsync(replayRequest);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// The property that separates server-side revocation from rotating the security stamp: signing
+    /// out one session must not sign every other session of the same user out too. Two logins produce
+    /// two independent <see cref="BlazorBaseTicketStore"/> keys, so removing the first one's key on
+    /// logout leaves the second one's key, and therefore the second session, untouched.
+    /// </summary>
+    /// <remarks>
+    /// The second login exchanges a distinct external token for a distinct token, rather than
+    /// replaying <c>"valid-external-token"</c> — the exchange endpoint's own replay protection would
+    /// otherwise reject the second exchange for an unrelated reason.
+    /// </remarks>
+    [Fact]
+    public async Task A_second_sessions_cookie_survives_the_first_sessions_logout()
+    {
+        var (host, validator) = await StartHostAsync(useCookies: true);
+        using var _host = host;
+
+        validator.Register("second-session-token", new ClaimsPrincipal(
+            new ClaimsIdentity(
+                [
+                    new Claim(ClaimTypes.NameIdentifier, "known-subject"),
+                    new Claim("exp", DateTimeOffset.UtcNow.AddMinutes(10).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)),
+                ],
+                "External")));
+
+        var firstSessionCookie  = ReadCookies(await ExchangeAsync(host))[SessionCookie];
+        var secondSessionCookie = ReadCookies(await ExchangeAsync(host, "second-session-token"))[SessionCookie];
+
+        var (token, cookieHeader) = await GetCsrfAsync(host, $"{SessionCookie}={firstSessionCookie}");
+
+        var logoutRequest = new HttpRequestMessage(HttpMethod.Post, "/logout");
+        logoutRequest.Headers.Add("Cookie", cookieHeader);
+        logoutRequest.Headers.Add(CsrfHeader, token);
+        (await host.GetTestClient().SendAsync(logoutRequest)).EnsureSuccessStatusCode();
+
+        var secondSessionRequest = new HttpRequestMessage(HttpMethod.Get, "/protected");
+        secondSessionRequest.Headers.Add("Cookie", $"{SessionCookie}={secondSessionCookie}");
+
+        var response = await host.GetTestClient().SendAsync(secondSessionRequest);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
 
     /// <summary>
     /// The exact failure mode of finding #1: the old JWT-in-a-cookie transport had no refresh path, so

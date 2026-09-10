@@ -27,7 +27,7 @@ public sealed class AuthTokenHandlerSessionTests
 
         var refreshCalls = 0;
         var authService = Substitute.For<IAuthService>();
-        authService.GetSessionAsync().Returns(Task.FromResult(new AuthSessionResponse()));
+        authService.GetSessionAsync(Arg.Any<string?>()).Returns(Task.FromResult(new AuthSessionResponse()));
         authService.RefreshAsync(Arg.Any<string>()).Returns(async _ =>
         {
             Interlocked.Increment(ref refreshCalls);
@@ -64,7 +64,7 @@ public sealed class AuthTokenHandlerSessionTests
     {
         var tokenStorage = TokenStorageWith(NearExpiryTokens());
         var authService = Substitute.For<IAuthService>();
-        authService.GetSessionAsync().Returns(Task.FromResult(new AuthSessionResponse()));
+        authService.GetSessionAsync(Arg.Any<string?>()).Returns(Task.FromResult(new AuthSessionResponse()));
         authService.RefreshAsync(Arg.Any<string>())
             .Returns<Task<LoginResponse>>(_ => throw new HttpRequestException("Kein Netz"));
 
@@ -88,7 +88,7 @@ public sealed class AuthTokenHandlerSessionTests
     {
         var tokenStorage = TokenStorageWith(NearExpiryTokens());
         var authService = Substitute.For<IAuthService>();
-        authService.GetSessionAsync().Returns(Task.FromResult(new AuthSessionResponse()));
+        authService.GetSessionAsync(Arg.Any<string?>()).Returns(Task.FromResult(new AuthSessionResponse()));
         authService.RefreshAsync(Arg.Any<string>())
             .Returns<Task<LoginResponse>>(_ => throw new HttpRequestException("abgelehnt", null, HttpStatusCode.Unauthorized));
 

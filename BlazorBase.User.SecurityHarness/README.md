@@ -10,8 +10,10 @@ it starts is its own, in-process, loopback-only Kestrel instance; it never talks
 Microsoft identity platform or any production system unless `--base-url` is pointed at one on
 purpose.
 
-The critical review written from a full run of this catalogue lives in
-[`Libs/Documentation/BlazorBase.User.SecurityReview.md`](../Documentation/BlazorBase.User.SecurityReview.md).
+The critical review written from a full run of this catalogue is a point-in-time working document
+and is not versioned here. The durable, versioned record of which findings have been reviewed and
+accepted is [`Baseline/known-findings.baseline`](Baseline/known-findings.baseline), which the CI
+wrapper enforces.
 
 ## What this step adds
 

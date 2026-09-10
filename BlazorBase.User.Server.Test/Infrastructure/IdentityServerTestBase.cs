@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using BlazorBase.User.Server.Configuration;
 using BlazorBase.User.Server.Data;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.Http;
@@ -93,7 +94,11 @@ public abstract class IdentityServerTestBase : IDisposable
             .AddClaimsPrincipalFactory<BlazorBaseUserClaimsPrincipalFactory<TestUser>>();
 
         services.AddScoped<AuthTokenIssuer<TestUser>>();
+        services.AddSingleton<ITwoFactorPendingTokenStore, InMemoryTwoFactorPendingTokenStore>();
         services.AddSingleton(typeof(TwoFactorPendingTokenService<>));
+        services.AddSingleton(new AccessTokenStampValidationOptions());
+        services.AddSingleton<AccessTokenStampValidationCache>();
+        services.AddScoped<IAccessTokenStampValidator, AccessTokenStampValidator<TestUser>>();
 
         // The same bridge AddBlazorBaseUserServer registers, so services that take the base
         // context resolve here as they do in a real host.

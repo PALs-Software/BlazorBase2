@@ -31,7 +31,7 @@ public sealed class AuthTokenHandlerLogoutExemptionTests
         tokenStorage.GetTokensAsync().Returns(Task.FromResult<LoginResponse?>(currentTokens));
 
         var authService = Substitute.For<IAuthService>();
-        authService.GetSessionAsync().Returns(Task.FromResult(new AuthSessionResponse()));
+        authService.GetSessionAsync(Arg.Any<string?>()).Returns(Task.FromResult(new AuthSessionResponse()));
         authService.RefreshAsync(currentTokens.RefreshToken).Returns(Task.FromResult(new LoginResponse
         {
             AccessToken = "refreshed-access-token",

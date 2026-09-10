@@ -5,6 +5,7 @@ using BlazorBase.User.SecurityHarness.IdentityProvider;
 using BlazorBase.User.Server.Account;
 using BlazorBase.User.Server.AccessTokens;
 using BlazorBase.User.Server.ExternalAuth;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Tokens;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -144,6 +145,7 @@ public static class HarnessHostFactory
         app.UseRouting();
         app.UseRateLimiter();
         app.UseAuthentication();
+        app.UseBlazorBaseAccessTokenStampValidation();
 
         if (profile == HarnessProfile.Cookie)
             app.UseBlazorBaseCsrf();

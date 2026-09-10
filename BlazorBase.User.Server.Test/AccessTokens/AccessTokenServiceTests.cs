@@ -9,6 +9,13 @@ namespace BlazorBase.User.Server.Test.AccessTokens;
 /// </summary>
 public class AccessTokenServiceTests
 {
+    private static async Task CreateUserAsync(AccessTokenTestHost host, string userId, bool isActive)
+    {
+        await using var dbContext = host.CreateDbContext();
+        dbContext.Users.Add(new TestUser { Id = userId, UserName = userId, IsActive = isActive });
+        await dbContext.SaveChangesAsync();
+    }
+
     [Fact]
     public async Task Create_returns_the_secret_once_and_stores_only_its_hash()
     {
@@ -48,6 +55,52 @@ public class AccessTokenServiceTests
     }
 
     [Fact]
+    public async Task A_token_whose_owner_is_deactivated_does_not_validate()
+    {
+        using var host = new AccessTokenTestHost();
+        await CreateUserAsync(host, "mallory", isActive: false);
+        var service = host.CreateService();
+
+        var created = await service.CreateAsync("mallory-token", expiresAt: null, userId: "mallory");
+
+        Assert.Null(await service.ValidateAsync(created.Secret));
+    }
+
+    [Fact]
+    public async Task A_token_whose_owner_is_active_still_validates()
+    {
+        using var host = new AccessTokenTestHost();
+        await CreateUserAsync(host, "alice", isActive: true);
+        var service = host.CreateService();
+
+        var created = await service.CreateAsync("alice-token", expiresAt: null, userId: "alice");
+
+        Assert.NotNull(await service.ValidateAsync(created.Secret));
+    }
+
+    [Fact]
+    public async Task A_token_with_no_owner_still_validates()
+    {
+        using var host = new AccessTokenTestHost();
+        var service = host.CreateService();
+
+        var created = await service.CreateAsync("shared-token", expiresAt: null);
+
+        Assert.NotNull(await service.ValidateAsync(created.Secret));
+    }
+
+    [Fact]
+    public async Task A_token_whose_owner_no_longer_exists_does_not_validate()
+    {
+        using var host = new AccessTokenTestHost();
+        var service = host.CreateService();
+
+        var created = await service.CreateAsync("ghost-token", expiresAt: null, userId: "deleted-user");
+
+        Assert.Null(await service.ValidateAsync(created.Secret));
+    }
+
+    [Fact]
     public async Task Revoke_reports_false_for_an_unknown_id()
     {
         using var host = new AccessTokenTestHost();
@@ -60,6 +113,7 @@ public class AccessTokenServiceTests
     public async Task Revoke_scoped_to_an_owner_refuses_another_owners_token()
     {
         using var host = new AccessTokenTestHost();
+        await CreateUserAsync(host, "alice", isActive: true);
         var service = host.CreateService();
 
         var created = await service.CreateAsync("alice-token", expiresAt: null, userId: "alice");

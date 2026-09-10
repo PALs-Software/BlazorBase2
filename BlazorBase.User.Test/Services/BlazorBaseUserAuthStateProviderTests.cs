@@ -17,9 +17,12 @@ public sealed class BlazorBaseUserAuthStateProviderTests
     {
         public int SessionCallCount { get; private set; }
 
-        public Task<AuthSessionResponse> GetSessionAsync()
+        public string? LastAccessToken { get; private set; }
+
+        public Task<AuthSessionResponse> GetSessionAsync(string? accessToken = null)
         {
             SessionCallCount++;
+            LastAccessToken = accessToken;
             return Task.FromResult(session);
         }
 
@@ -89,6 +92,59 @@ public sealed class BlazorBaseUserAuthStateProviderTests
         var state = await provider.GetAuthenticationStateAsync();
 
         Assert.False(state.User.Identity?.IsAuthenticated);
+    }
+
+    /// <summary>
+    /// The session endpoint is the only source of the claims, and under the bearer transport nothing
+    /// else identifies the caller to it: the client this call goes through carries no
+    /// <see cref="AuthTokenHandler"/> on purpose, so the provider has to attach the token itself or
+    /// the endpoint answers anonymous however successful the login was.
+    /// </summary>
+    [Fact]
+    public async Task The_stored_access_token_is_handed_to_the_session_call()
+    {
+        var authService = new StubAuthService(AuthenticatedSession());
+        var tokenStorage = new InMemoryTestTokenStorage();
+        await tokenStorage.SaveTokensAsync(new LoginResponse { AccessToken = "stored-access-token" });
+        var provider = new BlazorBaseUserAuthStateProvider(tokenStorage, authService, new CsrfTokenProvider());
+
+        await provider.GetAuthenticationStateAsync();
+
+        Assert.Equal("stored-access-token", authService.LastAccessToken);
+    }
+
+    /// <summary>
+    /// Under the cookie transport <see cref="NoOpTokenStorage"/> holds nothing and the session cookie
+    /// identifies the caller, so no header may be invented.
+    /// </summary>
+    [Fact]
+    public async Task No_access_token_is_sent_when_none_is_stored()
+    {
+        var authService = new StubAuthService(AuthenticatedSession());
+        var provider = new BlazorBaseUserAuthStateProvider(new NoOpTokenStorage(), authService, new CsrfTokenProvider());
+
+        await provider.GetAuthenticationStateAsync();
+
+        Assert.Null(authService.LastAccessToken);
+    }
+
+    private sealed class InMemoryTestTokenStorage : ITokenStorage
+    {
+        private LoginResponse? Tokens;
+
+        public Task<LoginResponse?> GetTokensAsync() => Task.FromResult(Tokens);
+
+        public Task SaveTokensAsync(LoginResponse tokens)
+        {
+            Tokens = tokens;
+            return Task.CompletedTask;
+        }
+
+        public Task ClearTokensAsync()
+        {
+            Tokens = null;
+            return Task.CompletedTask;
+        }
     }
 
     [Fact]

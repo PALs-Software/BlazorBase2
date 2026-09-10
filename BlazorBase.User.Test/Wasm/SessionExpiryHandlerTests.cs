@@ -15,7 +15,7 @@ public sealed class SessionExpiryHandlerTests
 {
     private sealed class StubAuthService(AuthSessionResponse session) : IAuthService
     {
-        public Task<AuthSessionResponse> GetSessionAsync() => Task.FromResult(session);
+        public Task<AuthSessionResponse> GetSessionAsync(string? accessToken = null) => Task.FromResult(session);
 
         public Task<AuthStatusResponse> GetStatusAsync() => throw new NotSupportedException();
         public Task<LoginResponse> SetupAsync(SetupRequest request) => throw new NotSupportedException();

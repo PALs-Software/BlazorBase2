@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -63,6 +64,7 @@ public sealed class IdentityBearerAuthTransportRoundTripTests
                     app.UseRouting();
                     app.UseRateLimiter();
                     app.UseAuthentication();
+                    app.UseBlazorBaseAccessTokenStampValidation();
                     app.UseAuthorization();
                     app.UseEndpoints(endpoints =>
                     {

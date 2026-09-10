@@ -3,10 +3,10 @@ using BlazorBase.User.SecurityHarness.Hosting;
 namespace BlazorBase.User.SecurityHarness.Probes.CoreSession.TokenLifecycle;
 
 /// <summary>
-/// Rotates the security stamp of a signed-in user, then measures how long the access token minted
-/// before that rotation keeps authenticating - a live access token is never re-checked against the
-/// database, so this is a measurement of the framework's design (the access-token lifetime is the
-/// actual bound on a stamp-based revocation), not a threshold check.
+/// Rotates the security stamp of a signed-in user, then checks whether the access token minted
+/// before that rotation still authenticates on its very next use - step 10.8 re-validates a bearer
+/// access token's stamp on every authenticated request by default, so a bare rotation must invalidate
+/// it immediately rather than leaving the access-token lifetime as the only real bound.
 /// </summary>
 internal sealed class TokenStampInvalidationProbe : IAuthProbe
 {
@@ -15,7 +15,7 @@ internal sealed class TokenStampInvalidationProbe : IAuthProbe
     public string Id => "TOKEN-STAMP-INVALIDATION";
     public string Category => "Token lifecycle";
     public string Attack => "Rotates the user's security stamp, then uses an access token minted before that rotation.";
-    public string Expectation => "Measures how long the old access token keeps working after the stamp was rotated, and reports the number.";
+    public string Expectation => "The pre-rotation access token is rejected on its very next use.";
     public ProbeSeverity SeverityIfFailed => ProbeSeverity.Medium;
     public HarnessProfile Profile => HarnessProfile.Bearer;
 
@@ -38,17 +38,14 @@ internal sealed class TokenStampInvalidationProbe : IAuthProbe
         var evidenceImmediate = immediatelyAfterRotation.ToEvidence("Protected endpoint, with the pre-rotation access token, immediately after the security stamp was rotated.");
         var stillValidImmediatelyAfterRotation = immediatelyAfterRotation.StatusCode == System.Net.HttpStatusCode.OK;
 
-        var harnessTimeProvider = (HarnessTimeProvider)host.Context.TimeProvider;
-        harnessTimeProvider.Advance(TimeSpan.FromMinutes(AccessTokenMinutes) + TimeSpan.FromSeconds(5));
-
-        var afterNaturalExpiry = await CoreSessionSupport.CallProtectedEndpointAsync(client, host.Context.BaseAddress, tokens.AccessToken, cancellationToken);
-        var evidenceAfterExpiry = afterNaturalExpiry.ToEvidence($"The same pre-rotation access token, after advancing the harness TimeProvider by its full {AccessTokenMinutes}-minute lifetime plus 5 seconds.");
-        var invalidAfterNaturalExpiry = afterNaturalExpiry.StatusCode == System.Net.HttpStatusCode.Unauthorized;
-
         var summary = stillValidImmediatelyAfterRotation
-            ? $"The pre-rotation access token kept authenticating immediately after the stamp rotation, and only stopped working {(invalidAfterNaturalExpiry ? "at its natural expiry" : "at an undetermined later point")} ({AccessTokenMinutes} minute(s) later) - stamp rotation added 0 seconds of protection to a live access token."
-            : "The pre-rotation access token stopped authenticating immediately after the stamp rotation - the access token IS re-checked against the security stamp.";
+            ? $"The pre-rotation access token kept authenticating immediately after the stamp rotation ({(int)immediatelyAfterRotation.StatusCode}) - stamp rotation added 0 seconds of protection to a live access token."
+            : $"The pre-rotation access token was rejected ({(int)immediatelyAfterRotation.StatusCode}) on its very next use after the stamp rotation.";
 
-        return ProbeResult.Inconclusive(summary, evidenceImmediate, evidenceAfterExpiry);
+        if (stillValidImmediatelyAfterRotation)
+            return ProbeResult.Failed(summary, evidenceImmediate);
+
+        return ProbeResult.Passed(summary, evidenceImmediate);
     }
 }
+

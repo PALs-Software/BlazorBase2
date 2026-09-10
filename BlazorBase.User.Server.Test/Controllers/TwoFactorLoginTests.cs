@@ -60,6 +60,47 @@ public sealed class TwoFactorLoginTests : IdentityServerTestBase
         Assert.IsType<UnauthorizedObjectResult>(result.Result);
     }
 
+    /// <summary>
+    /// Closes <c>2FA-PENDING-REPLAY</c>: a pending token that already completed a login must not
+    /// mint a second session, even with a fresh, correctly computed code.
+    /// </summary>
+    [Fact]
+    public async Task LoginTwoFactor_RejectsTheSameToken_AfterItAlreadyCompletedALogin()
+    {
+        var user = await SeedUserAsync("ada@example.com", "Ada");
+        var key = await EnableAuthenticatorTwoFactorAsync(user.Id);
+
+        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123456");
+        var firstCode = TotpTestHelper.GenerateCode(key, DateTimeOffset.UtcNow);
+        AssertOkLogin(await LoginTwoFactorAsync(pendingToken, firstCode));
+
+        var secondCode = TotpTestHelper.GenerateCode(key, DateTimeOffset.UtcNow);
+        var replay = await LoginTwoFactorAsync(pendingToken, secondCode);
+
+        Assert.IsType<UnauthorizedObjectResult>(replay.Result);
+    }
+
+    /// <summary>
+    /// A wrong code must not burn the pending token - only a completed login may consume it, or a
+    /// single typo would force the user back through a full password login.
+    /// </summary>
+    [Fact]
+    public async Task LoginTwoFactor_WrongCodeDoesNotConsumeTheToken_ACorrectCodeStillWorksAfterward()
+    {
+        var user = await SeedUserAsync("ada@example.com", "Ada");
+        var key = await EnableAuthenticatorTwoFactorAsync(user.Id);
+
+        var pendingToken = await GetPendingTokenAsync("ada@example.com", "Secret123456");
+
+        var wrongAttempt = await LoginTwoFactorAsync(pendingToken, "000000");
+        Assert.IsType<UnauthorizedObjectResult>(wrongAttempt.Result);
+
+        var code = TotpTestHelper.GenerateCode(key, DateTimeOffset.UtcNow);
+        var result = await LoginTwoFactorAsync(pendingToken, code);
+
+        AssertOkLogin(result);
+    }
+
     [Fact]
     public async Task LoginTwoFactor_TripsLockout_OnRepeatedWrongCodes()
     {
@@ -149,7 +190,7 @@ public sealed class TwoFactorLoginTests : IdentityServerTestBase
         using var scope = CreateScope();
         var pendingTokenService = scope.ServiceProvider.GetRequiredService<TwoFactorPendingTokenService<TestUser>>();
 
-        Assert.Null(pendingTokenService.Unprotect(login.AccessToken));
+        Assert.Null(await pendingTokenService.UnprotectAsync(login.AccessToken));
     }
 
     /// <summary>
@@ -203,7 +244,7 @@ public sealed class TwoFactorLoginTests : IdentityServerTestBase
             PendingToken = pendingToken,
             Code = code,
             IsRecoveryCode = isRecoveryCode,
-        });
+        }, CancellationToken.None);
     }
 
     private static LoginResponse AssertOkLogin(ActionResult<LoginResponse> result)

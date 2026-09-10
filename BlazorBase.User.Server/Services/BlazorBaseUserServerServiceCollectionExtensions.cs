@@ -7,6 +7,8 @@ using BlazorBase.User.Models;
 using BlazorBase.User.Server.Configuration;
 using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Entities;
+using BlazorBase.User.Server.ExternalAuth;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Tokens;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -28,9 +30,11 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
     /// Registers Identity (including <see cref="SignInManager{TUser}"/> and the claims-principal
     /// factory that builds every issued token's claims), the Identity bearer-token scheme,
     /// authorization, the "BlazorBaseAuth" rate-limiter policy, <see cref="AuthTokenIssuer{TUser}"/>, the
-    /// IBaseDataProvider&lt;UserModel&gt; for admin user management, and IHttpContextAccessor. Token
-    /// lifetimes (AccessTokenMinutes, RefreshTokenDays) are read from configuration under
-    /// "AuthTokens"; rate-limit settings (PermitLimit, WindowSeconds) are read from
+    /// IBaseDataProvider&lt;UserModel&gt; for admin user management, IHttpContextAccessor, and a default
+    /// <see cref="IExternalUserResolver{TUser}"/> (<see cref="IdentityLoginExternalUserResolver{TUser}"/>,
+    /// registered with <c>TryAddScoped</c> so a host's own registration - made before or after this call
+    /// - always wins). Token lifetimes (AccessTokenMinutes, RefreshTokenDays) are read from configuration
+    /// under "AuthTokens"; rate-limit settings (PermitLimit, WindowSeconds) are read from
     /// "AuthTokens:RateLimit". The host must call <c>app.UseRateLimiter()</c> for the policy to take
     /// effect.
     /// </summary>
@@ -125,6 +129,16 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
 
         services.AddAuthorization();
 
+        var securityStampValidationInterval = configuration.GetValue("AuthTokens:SecurityStampValidationInterval", AuthTokenDefaults.SecurityStampValidationInterval);
+        var stampValidationOptions = new AccessTokenStampValidationOptions { Interval = securityStampValidationInterval };
+
+        services.TryAddSingleton(stampValidationOptions);
+        services.TryAddSingleton<AccessTokenStampValidationCache>();
+        services.TryAddScoped<IAccessTokenStampValidator, AccessTokenStampValidator<TUser>>();
+
+        if (schemeOptions.ClaimDefaultScheme && stampValidationOptions.Enabled)
+            RegisterStampValidationStartupGuard(services);
+
         var rateLimitPermitLimit = configuration.GetValue("AuthTokens:RateLimit:PermitLimit", 10);
         var rateLimitWindowSeconds = configuration.GetValue("AuthTokens:RateLimit:WindowSeconds", 60);
 
@@ -161,6 +175,8 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseAuthNoStoreStartupFilter>());
 
         services.AddScoped<AuthTokenIssuer<TUser>>();
+        services.TryAddScoped<IExternalUserResolver<TUser>, IdentityLoginExternalUserResolver<TUser>>();
+        services.TryAddSingleton<ITwoFactorPendingTokenStore, InMemoryTwoFactorPendingTokenStore>();
         services.TryAddSingleton(typeof(TwoFactorPendingTokenService<>));
         services.TryAddScoped(typeof(IEmailSender<>), typeof(NoOpEmailSender<>));
         services.Configure<AccountManagementOptions>(configuration.GetSection(AccountManagementOptions.SectionName));
@@ -172,6 +188,19 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
         services.AddHostedService<RefreshTokenCleanupService<TUser>>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Registers the guard that refuses to serve when the host never called
+    /// <c>UseBlazorBaseAccessTokenStampValidation()</c>. Only meaningful when this call also claims
+    /// the authentication default: a host that dispatches its own schemes
+    /// (<see cref="BlazorBaseUserServerOptions.ClaimDefaultScheme"/> set to <see langword="false"/>)
+    /// has declared that it manages that wiring itself.
+    /// </summary>
+    private static void RegisterStampValidationStartupGuard(IServiceCollection services)
+    {
+        services.TryAddSingleton<BlazorBaseAccessTokenStampValidationMiddlewareRegistration>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseAccessTokenStampValidationStartupGuardFilter>());
     }
 
     /// <summary>

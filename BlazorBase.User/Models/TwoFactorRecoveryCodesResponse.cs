@@ -7,4 +7,12 @@ namespace BlazorBase.User.Models;
 public class TwoFactorRecoveryCodesResponse
 {
     public List<string> RecoveryCodes { get; set; } = [];
+
+    /// <summary>
+    /// Populated when enabling two-factor rotated the security stamp - see
+    /// <see cref="TwoFactorStatusResponse.RefreshedTokens"/> for why a client must adopt it.
+    /// <see langword="null"/> when this batch came from regenerating recovery codes instead, which
+    /// does not rotate the stamp.
+    /// </summary>
+    public LoginResponse? RefreshedTokens { get; set; }
 }

@@ -1,4 +1,5 @@
 using System.Net;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -77,6 +78,9 @@ public sealed class ForwardedHeadersRateLimitTests
                     app.UseForwardedHeaders();
                     app.UseRouting();
                     app.UseRateLimiter();
+                    app.UseAuthentication();
+                    app.UseBlazorBaseAccessTokenStampValidation();
+                    app.UseAuthorization();
                     app.UseEndpoints(endpoints =>
                     {
                         endpoints.MapGet("/limited", () => Results.Ok())
