@@ -136,14 +136,8 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
         services.TryAddSingleton<AccessTokenStampValidationCache>();
         services.TryAddScoped<IAccessTokenStampValidator, AccessTokenStampValidator<TUser>>();
 
-        // Only when this call claims the authentication default: a host that dispatches its own
-        // schemes (ClaimDefaultScheme = false) has declared it manages that wiring itself - see
-        // BlazorBaseAccessTokenStampValidationStartupGuardFilter.
         if (schemeOptions.ClaimDefaultScheme && stampValidationOptions.Enabled)
-        {
-            services.TryAddSingleton<BlazorBaseAccessTokenStampValidationMiddlewareRegistration>();
-            services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseAccessTokenStampValidationStartupGuardFilter>());
-        }
+            RegisterStampValidationStartupGuard(services);
 
         var rateLimitPermitLimit = configuration.GetValue("AuthTokens:RateLimit:PermitLimit", 10);
         var rateLimitWindowSeconds = configuration.GetValue("AuthTokens:RateLimit:WindowSeconds", 60);
@@ -194,6 +188,19 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
         services.AddHostedService<RefreshTokenCleanupService<TUser>>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Registers the guard that refuses to serve when the host never called
+    /// <c>UseBlazorBaseAccessTokenStampValidation()</c>. Only meaningful when this call also claims
+    /// the authentication default: a host that dispatches its own schemes
+    /// (<see cref="BlazorBaseUserServerOptions.ClaimDefaultScheme"/> set to <see langword="false"/>)
+    /// has declared that it manages that wiring itself.
+    /// </summary>
+    private static void RegisterStampValidationStartupGuard(IServiceCollection services)
+    {
+        services.TryAddSingleton<BlazorBaseAccessTokenStampValidationMiddlewareRegistration>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseAccessTokenStampValidationStartupGuardFilter>());
     }
 
     /// <summary>
