@@ -28,7 +28,7 @@ public sealed class AuthServiceGetSessionTests
         {
             BaseAddress = new Uri("https://localhost/")
         };
-        var authService = new AuthService(httpClient);
+        var authService = new AuthService(httpClient, new NoOpTokenStorage());
 
         var result = await authService.GetSessionAsync();
 
@@ -46,7 +46,7 @@ public sealed class AuthServiceGetSessionTests
         {
             BaseAddress = new Uri("https://localhost/")
         };
-        var authService = new AuthService(httpClient);
+        var authService = new AuthService(httpClient, new NoOpTokenStorage());
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => authService.GetSessionAsync());
 
@@ -60,7 +60,7 @@ public sealed class AuthServiceGetSessionTests
         {
             BaseAddress = new Uri("https://localhost/")
         };
-        var authService = new AuthService(httpClient);
+        var authService = new AuthService(httpClient, new NoOpTokenStorage());
 
         var result = await authService.GetSessionAsync();
 
@@ -74,7 +74,7 @@ public sealed class AuthServiceGetSessionTests
         {
             BaseAddress = new Uri("https://localhost/")
         };
-        var authService = new AuthService(httpClient);
+        var authService = new AuthService(httpClient, new NoOpTokenStorage());
 
         var result = await authService.GetSessionAsync();
 

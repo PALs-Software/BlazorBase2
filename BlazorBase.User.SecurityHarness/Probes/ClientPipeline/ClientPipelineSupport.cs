@@ -28,7 +28,7 @@ internal static class ClientPipelineSupport
         {
             BaseAddress = baseAddress,
         };
-        var authService = new AuthService(authHttpClient);
+        var authService = new AuthService(authHttpClient, tokenStorage);
         var authStateProvider = new BlazorBaseUserAuthStateProvider(tokenStorage, authService, csrfTokenProvider);
 
         var sessionExpiryHandler = new SessionExpiryHandler(authStateProvider) { InnerHandler = new HttpClientHandler { AllowAutoRedirect = false } };

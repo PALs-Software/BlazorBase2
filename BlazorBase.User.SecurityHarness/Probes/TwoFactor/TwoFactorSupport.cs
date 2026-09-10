@@ -39,10 +39,11 @@ internal static partial class TwoFactorSupport
         var secret = secretMatch.Groups[1].Value;
         var code = Totp.ComputeCode(secret, DateTimeOffset.UtcNow);
 
-        var tokensCurrentAfterTheKeyViewRotatedTheStamp = await ReLoginAfterAuthenticatorKeyViewAsync(context, client, email, cancellationToken);
+        if (status?.RefreshedTokens is not { } refreshedTokensFromKeyGeneration)
+            throw new InvalidOperationException($"api/auth/manage/2fa did not return refreshed tokens after generating the authenticator key: {statusExchange.ResponseBody}");
 
         var enableExchange = await CoreSessionSupport.SendAsync(client, HttpMethod.Post, context.BaseAddress, "api/auth/manage/2fa/enable",
-            new TwoFactorEnableRequest { Code = code }, bearerToken: tokensCurrentAfterTheKeyViewRotatedTheStamp.AccessToken, cancellationToken: cancellationToken);
+            new TwoFactorEnableRequest { Code = code }, bearerToken: refreshedTokensFromKeyGeneration.AccessToken, cancellationToken: cancellationToken);
 
         if (enableExchange.StatusCode != HttpStatusCode.OK)
             throw new InvalidOperationException($"Enabling two-factor did not answer 200: {enableExchange.StatusCode} {enableExchange.ResponseBody}");
@@ -50,19 +51,6 @@ internal static partial class TwoFactorSupport
         CoreSessionSupport.TryDeserialize<TwoFactorRecoveryCodesResponse>(enableExchange.ResponseBody, out var recoveryCodes);
 
         return new TwoFactorAccount(email, secret, recoveryCodes?.RecoveryCodes ?? []);
-    }
-
-    /// <summary>
-    /// Logs in again so the token used to submit the enable code post-dates <c>api/auth/manage/2fa</c>'s
-    /// lazy first-time authenticator-key generation - <c>UserManager.ResetAuthenticatorKeyAsync</c>
-    /// rotates the security stamp as part of that, which step 10.8's bearer revalidation now enforces
-    /// on the very next request, so the token obtained before viewing the key no longer authenticates.
-    /// </summary>
-    private static async Task<LoginResponse> ReLoginAfterAuthenticatorKeyViewAsync(ProbeContext context, HttpClient client, string email, CancellationToken cancellationToken)
-    {
-        var (tokens, exchange) = await CoreSessionSupport.LoginAsync(client, context.BaseAddress, email, CoreSessionSupport.SeedPassword, cancellationToken);
-
-        return tokens ?? throw new InvalidOperationException($"The re-login before submitting the enable code did not answer 200: {exchange.StatusCode}.");
     }
 
     /// <summary>Logs in with the account's password, expecting the 202-pending response, and returns its pending token.</summary>

@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using BlazorBase.User.Models;
+using BlazorBase.User.Server.Account;
 using BlazorBase.User.Server.ExternalAuth;
 using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
@@ -157,6 +158,7 @@ public sealed class CookieAuthTokenTransportTests
                         // exists yet for a cross-site page to ride along on.
                         endpoints.MapGroup(string.Empty).AllowBlazorBaseCsrf().MapBlazorBaseExternalAuthEndpoints<TestUser>();
                         endpoints.MapBlazorBaseAuthSessionEndpoint();
+                        endpoints.MapBlazorBaseAccountEndpoints<TestUser>();
                         endpoints.MapGet("/protected", (HttpContext context) => context.User.Identity?.Name ?? "anonymous")
                                  .RequireAuthorization();
                         endpoints.MapPost("/guarded", () => Results.Ok("written"));
@@ -238,6 +240,42 @@ public sealed class CookieAuthTokenTransportTests
 
         var cookies = ReadCookies(response);
         Assert.True(cookies.ContainsKey(SessionCookie));
+    }
+
+    /// <summary>
+    /// A stamp-rotating account operation (here, <c>GET 2fa</c>'s first-time authenticator-key
+    /// generation) must keep working under the cookie transport too: the refreshed pair travels as a
+    /// rewritten session cookie, carries no readable tokens in the body, and the rewritten cookie goes
+    /// on authenticating a later request.
+    /// </summary>
+    [Fact]
+    public async Task A_stamp_rotating_account_operation_rewrites_the_cookie_and_carries_no_tokens_in_the_body()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true);
+        using var _host = host;
+
+        var initialCookies = ReadCookies(await ExchangeAsync(host));
+
+        var statusRequest = new HttpRequestMessage(HttpMethod.Get, "/api/auth/manage/2fa");
+        statusRequest.Headers.Add("Cookie", $"{SessionCookie}={initialCookies[SessionCookie]}");
+
+        var client = host.GetTestClient();
+        var statusResponse = await client.SendAsync(statusRequest);
+        statusResponse.EnsureSuccessStatusCode();
+
+        var body = await statusResponse.Content.ReadFromJsonAsync<TwoFactorStatusResponse>();
+        Assert.NotNull(body?.RefreshedTokens);
+        Assert.Empty(body!.RefreshedTokens!.AccessToken);
+        Assert.Empty(body.RefreshedTokens.RefreshToken);
+
+        var rewrittenCookies = ReadCookies(statusResponse);
+        Assert.True(rewrittenCookies.ContainsKey(SessionCookie));
+
+        var protectedRequest = new HttpRequestMessage(HttpMethod.Get, "/protected");
+        protectedRequest.Headers.Add("Cookie", $"{SessionCookie}={rewrittenCookies[SessionCookie]}");
+        var protectedResponse = await client.SendAsync(protectedRequest);
+
+        Assert.Equal(HttpStatusCode.OK, protectedResponse.StatusCode);
     }
 
     [Fact]

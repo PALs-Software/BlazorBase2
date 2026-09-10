@@ -592,6 +592,19 @@ calling out explicitly:
   that a session obtained without the second factor cannot remove it; it also resets the authenticator
   key on success, so re-enabling always starts a fresh enrolment rather than reusing a key the account
   may no longer control. `2fa/recovery-codes` requires the same proof before minting a fresh batch.
+- **Three of those operations rotate the caller's own security stamp** - `GET 2fa` the first time it
+  generates the authenticator key, `2fa/enable`, and `2fa/disable` - which
+  [Access-token security-stamp revalidation](#access-token-security-stamp-revalidation) now enforces
+  on the very next bearer request. Each of the three mints a fresh token pair through
+  `AuthTokenIssuer<TUser>` and delivers it through the active `IAuthTokenTransport`, exactly the way
+  login does, and carries it back as an optional `RefreshedTokens` field on `TwoFactorStatusResponse`,
+  `TwoFactorRecoveryCodesResponse` and `TwoFactorDisableResponse` respectively - present only when that
+  particular call actually rotated the stamp. `AuthService` on the client adopts it transparently
+  through the same `ITokenStorage` it already uses for login, so a page built against the pre-existing
+  `IAuthService` methods needs no change of its own to keep its session across these calls; a client
+  that ignores the field is signed out on its next request, exactly as it would have been before this
+  mechanism existed. Under the cookie transport the pair travels as a rewritten session cookie instead,
+  with both token strings in the body blanked, the same as every other response this transport touches.
 - **Email delivery goes through `IEmailSender<TUser>`**, registered as `NoOpEmailSender<TUser>` by
   default (logs a warning and sends nothing — a missing mail configuration must not stop the host from
   starting). Call `AddBlazorBaseMailingEmailSender<TUser>()` after `AddBlazorBaseMailing` (see
@@ -834,13 +847,13 @@ POST /api/auth/manage/reset-password       { "email": "...", "token": "...", "ne
 204 No Content   |   400 Bad Request   { "errors": [ "..." ] }
 
 GET  /api/auth/manage/2fa                              (Authorization: Bearer ...)
-200 OK   { "enabled": false, "recoveryCodesRemaining": 0, "authenticatorUri": "otpauth://totp/..." }
+200 OK   { "enabled": false, "recoveryCodesRemaining": 0, "authenticatorUri": "otpauth://totp/...", "refreshedTokens": null }
 
 POST /api/auth/manage/2fa/enable           { "code": "..." }
-200 OK   { "recoveryCodes": [ "...", "..." ] }   |   400 Bad Request   { "message": "Invalid code." }
+200 OK   { "recoveryCodes": [ "...", "..." ], "refreshedTokens": { "accessToken": "...", "refreshToken": "...", "expiresAt": "..." } }   |   400 Bad Request   { "message": "Invalid code." }
 
 POST /api/auth/manage/2fa/disable          { "code": "..." }
-204 No Content   |   400 Bad Request   { "message": "Invalid code." }   |   400 Bad Request   { "message": "Two-factor authentication is not enabled." }
+200 OK   { "refreshedTokens": { "accessToken": "...", "refreshToken": "...", "expiresAt": "..." } }   |   400 Bad Request   { "message": "Invalid code." }   |   400 Bad Request   { "message": "Two-factor authentication is not enabled." }
 
 POST /api/auth/manage/2fa/recovery-codes   { "code": "..." }
 200 OK   { "recoveryCodes": [ "...", "..." ] }   |   400 Bad Request   { "message": "Invalid code." }   |   400 Bad Request   { "message": "Two-factor authentication is not enabled." }

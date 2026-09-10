@@ -12,4 +12,12 @@ public class TwoFactorStatusResponse
     public int RecoveryCodesRemaining { get; set; }
 
     public string? AuthenticatorUri { get; set; }
+
+    /// <summary>
+    /// Populated the first time this call generates the account's authenticator key, since that
+    /// rotates the security stamp and would otherwise invalidate the caller's own access and refresh
+    /// tokens. A client must adopt it the same way it adopts the pair from <c>login</c>; a client that
+    /// ignores it keeps using its now-stale tokens and is signed out on its next request.
+    /// </summary>
+    public LoginResponse? RefreshedTokens { get; set; }
 }

@@ -4,6 +4,8 @@ using System.Security.Cryptography;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.Configuration;
 using BlazorBase.User.Server.Entities;
+using BlazorBase.User.Server.Services;
+using BlazorBase.User.Server.Tokens;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -190,7 +192,11 @@ public static class AccountEndpointMapper
     private static async Task<IResult> GetTwoFactorStatusAsync<TUser>(
         HttpContext httpContext,
         UserManager<TUser> userManager,
-        IOptions<AccountManagementOptions> options)
+        SignInManager<TUser> signInManager,
+        AuthTokenIssuer<TUser> tokenIssuer,
+        IAuthTokenTransport tokenTransport,
+        IOptions<AccountManagementOptions> options,
+        CancellationToken cancellationToken)
         where TUser : BaseUser
     {
         var user = await ResolveCurrentUserAsync(httpContext, userManager);
@@ -200,18 +206,35 @@ public static class AccountEndpointMapper
         var enabled = await userManager.GetTwoFactorEnabledAsync(user);
         var recoveryCodesRemaining = await userManager.CountRecoveryCodesAsync(user);
 
+        string? authenticatorUri = null;
+        LoginResponse? refreshedTokens = null;
+
+        if (!enabled)
+        {
+            var (uri, keyWasJustCreated) = await ResolveAuthenticatorUriAsync(user, userManager, options.Value.Issuer);
+            authenticatorUri = uri;
+
+            if (keyWasJustCreated)
+                refreshedTokens = await RefreshSessionAsync(httpContext, user, signInManager, tokenIssuer, tokenTransport, cancellationToken);
+        }
+
         return Results.Ok(new TwoFactorStatusResponse
         {
             Enabled = enabled,
             RecoveryCodesRemaining = recoveryCodesRemaining,
-            AuthenticatorUri = enabled ? null : await ResolveAuthenticatorUriAsync(user, userManager, options.Value.Issuer),
+            AuthenticatorUri = authenticatorUri,
+            RefreshedTokens = refreshedTokens,
         });
     }
 
     private static async Task<IResult> EnableTwoFactorAsync<TUser>(
         TwoFactorEnableRequest request,
         HttpContext httpContext,
-        UserManager<TUser> userManager)
+        UserManager<TUser> userManager,
+        SignInManager<TUser> signInManager,
+        AuthTokenIssuer<TUser> tokenIssuer,
+        IAuthTokenTransport tokenTransport,
+        CancellationToken cancellationToken)
         where TUser : BaseUser
     {
         var user = await ResolveCurrentUserAsync(httpContext, userManager);
@@ -223,14 +246,19 @@ public static class AccountEndpointMapper
 
         await userManager.SetTwoFactorEnabledAsync(user, true);
         var recoveryCodes = await userManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
+        var refreshedTokens = await RefreshSessionAsync(httpContext, user, signInManager, tokenIssuer, tokenTransport, cancellationToken);
 
-        return Results.Ok(new TwoFactorRecoveryCodesResponse { RecoveryCodes = [.. recoveryCodes ?? []] });
+        return Results.Ok(new TwoFactorRecoveryCodesResponse { RecoveryCodes = [.. recoveryCodes ?? []], RefreshedTokens = refreshedTokens });
     }
 
     private static async Task<IResult> DisableTwoFactorAsync<TUser>(
         TwoFactorVerificationRequest request,
         HttpContext httpContext,
-        UserManager<TUser> userManager)
+        UserManager<TUser> userManager,
+        SignInManager<TUser> signInManager,
+        AuthTokenIssuer<TUser> tokenIssuer,
+        IAuthTokenTransport tokenTransport,
+        CancellationToken cancellationToken)
         where TUser : BaseUser
     {
         var user = await ResolveCurrentUserAsync(httpContext, userManager);
@@ -245,8 +273,31 @@ public static class AccountEndpointMapper
 
         await userManager.SetTwoFactorEnabledAsync(user, false);
         await userManager.ResetAuthenticatorKeyAsync(user);
+        var refreshedTokens = await RefreshSessionAsync(httpContext, user, signInManager, tokenIssuer, tokenTransport, cancellationToken);
 
-        return Results.NoContent();
+        return Results.Ok(new TwoFactorDisableResponse { RefreshedTokens = refreshedTokens });
+    }
+
+    /// <summary>
+    /// Mints a fresh token pair for <paramref name="user"/> and delivers it through the configured
+    /// <see cref="IAuthTokenTransport"/>, exactly as <c>AuthControllerBase.GenerateTokenResponse</c>
+    /// does at login - needed after any operation on this endpoint group that rotates the security
+    /// stamp, so the caller's own session survives an operation it performed on itself. Under the
+    /// cookie transport this rewrites the caller's session cookie and returns a pair with both token
+    /// strings blanked; under the bearer transport it returns the real pair for the caller to adopt.
+    /// </summary>
+    private static async Task<LoginResponse> RefreshSessionAsync<TUser>(
+        HttpContext httpContext,
+        TUser user,
+        SignInManager<TUser> signInManager,
+        AuthTokenIssuer<TUser> tokenIssuer,
+        IAuthTokenTransport tokenTransport,
+        CancellationToken cancellationToken)
+        where TUser : BaseUser
+    {
+        var principal = await signInManager.CreateUserPrincipalAsync(user);
+        var tokens = await tokenIssuer.IssueTokenPairAsync(principal, cancellationToken: cancellationToken);
+        return await tokenTransport.WriteAsync(httpContext, tokens, principal, cancellationToken);
     }
 
     private static async Task<IResult> RegenerateRecoveryCodesAsync<TUser>(
@@ -295,11 +346,17 @@ public static class AccountEndpointMapper
         return string.IsNullOrEmpty(userId) ? null : await userManager.FindByIdAsync(userId);
     }
 
-    private static async Task<string> ResolveAuthenticatorUriAsync<TUser>(TUser user, UserManager<TUser> userManager, string issuer)
+    /// <summary>
+    /// Reports <paramref name="KeyWasJustCreated"/> as well as the URI, since generating a key for the
+    /// first time rotates the security stamp and the caller needs to know whether that happened.
+    /// </summary>
+    private static async Task<(string Uri, bool KeyWasJustCreated)> ResolveAuthenticatorUriAsync<TUser>(TUser user, UserManager<TUser> userManager, string issuer)
         where TUser : BaseUser
     {
         var key = await userManager.GetAuthenticatorKeyAsync(user);
-        if (string.IsNullOrEmpty(key))
+        var keyWasJustCreated = string.IsNullOrEmpty(key);
+
+        if (keyWasJustCreated)
         {
             await userManager.ResetAuthenticatorKeyAsync(user);
             key = await userManager.GetAuthenticatorKeyAsync(user);
@@ -307,8 +364,10 @@ public static class AccountEndpointMapper
 
         var accountName = user.Email ?? user.UserName ?? user.Id;
 
-        return $"otpauth://totp/{Uri.EscapeDataString(issuer)}:{Uri.EscapeDataString(accountName)}" +
+        var uri = $"otpauth://totp/{Uri.EscapeDataString(issuer)}:{Uri.EscapeDataString(accountName)}" +
                $"?secret={key}&issuer={Uri.EscapeDataString(issuer)}&digits=6";
+
+        return (uri, keyWasJustCreated);
     }
 
     private static string BuildLink(string? clientBaseUrl, string relativePath, params (string Key, string Value)[] queryParameters)

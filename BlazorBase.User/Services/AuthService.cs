@@ -4,10 +4,11 @@ using BlazorBase.User.Models;
 
 namespace BlazorBase.User.Services;
 
-public class AuthService(HttpClient httpClient) : IAuthService
+public class AuthService(HttpClient httpClient, ITokenStorage tokenStorage) : IAuthService
 {
     #region Injects
     private readonly HttpClient HttpClient = httpClient;
+    private readonly ITokenStorage TokenStorage = tokenStorage;
     #endregion
 
     public async Task<AuthStatusResponse> GetStatusAsync()
@@ -168,22 +169,36 @@ public class AuthService(HttpClient httpClient) : IAuthService
     {
         var response = await HttpClient.GetAsync("api/auth/manage/2fa");
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<TwoFactorStatusResponse>()
+        var status = await response.Content.ReadFromJsonAsync<TwoFactorStatusResponse>()
             ?? throw new InvalidOperationException("Invalid two-factor status response.");
+
+        if (status.RefreshedTokens is { } refreshedTokens)
+            await TokenStorage.SaveTokensAsync(refreshedTokens);
+
+        return status;
     }
 
     public async Task<TwoFactorRecoveryCodesResponse> EnableTwoFactorAsync(TwoFactorEnableRequest request)
     {
         var response = await HttpClient.PostAsJsonAsync("api/auth/manage/2fa/enable", request);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<TwoFactorRecoveryCodesResponse>()
+        var result = await response.Content.ReadFromJsonAsync<TwoFactorRecoveryCodesResponse>()
             ?? throw new InvalidOperationException("Invalid two-factor enable response.");
+
+        if (result.RefreshedTokens is { } refreshedTokens)
+            await TokenStorage.SaveTokensAsync(refreshedTokens);
+
+        return result;
     }
 
     public async Task DisableTwoFactorAsync(TwoFactorVerificationRequest request)
     {
         var response = await HttpClient.PostAsJsonAsync("api/auth/manage/2fa/disable", request);
         response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<TwoFactorDisableResponse>();
+
+        if (result?.RefreshedTokens is { } refreshedTokens)
+            await TokenStorage.SaveTokensAsync(refreshedTokens);
     }
 
     public async Task<TwoFactorRecoveryCodesResponse> RegenerateRecoveryCodesAsync(TwoFactorVerificationRequest request)
