@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using BlazorBase.User.Models;
@@ -62,19 +63,30 @@ public sealed class ExternalAuthExchangeEndpointTests
     }
 
     private static ClaimsPrincipal BuildExternalPrincipal(string subject) =>
-        new(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, subject)], "External"));
+        new(new ClaimsIdentity(
+            [
+                new Claim(ClaimTypes.NameIdentifier, subject),
+                new Claim("exp", DateTimeOffset.UtcNow.AddMinutes(10).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)),
+            ],
+            "External"));
 
-    private static async Task<(IHost Host, StubExternalTokenValidator Validator)> StartHostAsync()
+    private static async Task<(IHost Host, StubExternalTokenValidator Validator)> StartHostAsync(IDictionary<string, string?>? additionalConfiguration = null)
     {
         var connection = new SqliteConnection("DataSource=:memory:");
         connection.Open();
 
+        var configurationValues = new Dictionary<string, string?>
+        {
+            ["ExternalAuthSettings:Authority"] = "https://example-authority.test",
+            ["ExternalAuthSettings:Audiences:0"] = "example-audience",
+        };
+
+        if (additionalConfiguration is not null)
+            foreach (var (key, value) in additionalConfiguration)
+                configurationValues[key] = value;
+
         var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ExternalAuthSettings:Authority"] = "https://example-authority.test",
-                ["ExternalAuthSettings:Audiences:0"] = "example-audience",
-            })
+            .AddInMemoryCollection(configurationValues)
             .Build();
 
         var validator = new StubExternalTokenValidator();
@@ -250,4 +262,54 @@ public sealed class ExternalAuthExchangeEndpointTests
 
         Assert.Equal(System.Net.HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    [Fact]
+    public async Task The_same_token_exchanged_twice_succeeds_once_and_is_rejected_the_second_time()
+    {
+        var (host, validator) = await StartHostAsync();
+        using var _ = host;
+        await SeedUserAsync(host, "known-subject");
+        validator.Register("valid-external-token", BuildExternalPrincipal("known-subject"));
+
+        using var client = host.GetTestClient();
+        var first = await client.PostAsJsonAsync("/api/auth/external/exchange", new ExternalTokenExchangeRequest { ExternalToken = "valid-external-token" });
+        var second = await client.PostAsJsonAsync("/api/auth/external/exchange", new ExternalTokenExchangeRequest { ExternalToken = "valid-external-token" });
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.Unauthorized, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task Two_different_tokens_for_the_same_user_both_succeed()
+    {
+        var (host, validator) = await StartHostAsync();
+        using var _ = host;
+        await SeedUserAsync(host, "known-subject");
+        validator.Register("first-valid-external-token", BuildExternalPrincipal("known-subject"));
+        validator.Register("second-valid-external-token", BuildExternalPrincipal("known-subject"));
+
+        using var client = host.GetTestClient();
+        var first = await client.PostAsJsonAsync("/api/auth/external/exchange", new ExternalTokenExchangeRequest { ExternalToken = "first-valid-external-token" });
+        var second = await client.PostAsJsonAsync("/api/auth/external/exchange", new ExternalTokenExchangeRequest { ExternalToken = "second-valid-external-token" });
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.OK, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task With_replay_protection_disabled_the_same_token_can_be_exchanged_twice()
+    {
+        var (host, validator) = await StartHostAsync(new Dictionary<string, string?> { ["ExternalAuthSettings:ReplayProtectionEnabled"] = "false" });
+        using var _ = host;
+        await SeedUserAsync(host, "known-subject");
+        validator.Register("valid-external-token", BuildExternalPrincipal("known-subject"));
+
+        using var client = host.GetTestClient();
+        var first = await client.PostAsJsonAsync("/api/auth/external/exchange", new ExternalTokenExchangeRequest { ExternalToken = "valid-external-token" });
+        var second = await client.PostAsJsonAsync("/api/auth/external/exchange", new ExternalTokenExchangeRequest { ExternalToken = "valid-external-token" });
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.OK, second.StatusCode);
+    }
 }
+

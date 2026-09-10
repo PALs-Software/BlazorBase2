@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -180,7 +181,12 @@ public sealed class CookieAuthTokenTransportTests
         Assert.True(result.Succeeded, string.Join("; ", result.Errors.Select(e => e.Description)));
 
         validator.Register("valid-external-token", new ClaimsPrincipal(
-            new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "known-subject")], "External")));
+            new ClaimsIdentity(
+                [
+                    new Claim(ClaimTypes.NameIdentifier, "known-subject"),
+                    new Claim("exp", DateTimeOffset.UtcNow.AddMinutes(10).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)),
+                ],
+                "External")));
 
         return (host, validator);
     }

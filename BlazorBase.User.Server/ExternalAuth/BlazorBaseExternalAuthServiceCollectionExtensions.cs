@@ -13,11 +13,11 @@ namespace BlazorBase.User.Server.ExternalAuth;
 public static class BlazorBaseExternalAuthServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers <see cref="IExternalTokenValidator"/>. Settings are bound from the
-    /// "ExternalAuthSettings" configuration section and then, if given, overridden by
-    /// <paramref name="configureOptions"/> - useful for a host that derives its authority/audience
-    /// from other configuration (e.g. an existing <c>AzureAd:ClientId</c> key) instead of a static
-    /// value in <c>appsettings.json</c>.
+    /// Registers <see cref="IExternalTokenValidator"/> and <see cref="IExternalTokenReplayCache"/>.
+    /// Settings are bound from the "ExternalAuthSettings" configuration section and then, if
+    /// given, overridden by <paramref name="configureOptions"/> - useful for a host that derives
+    /// its authority/audience from other configuration (e.g. an existing <c>AzureAd:ClientId</c>
+    /// key) instead of a static value in <c>appsettings.json</c>.
     /// </summary>
     /// <remarks>
     /// The host must additionally register its own <see cref="IExternalUserResolver{TUser}"/> and
@@ -27,7 +27,10 @@ public static class BlazorBaseExternalAuthServiceCollectionExtensions
     /// rather than the static <see cref="ExternalAuthSettings.AllowedTenantIds"/> list must
     /// register its own <see cref="IExternalTenantAllowList"/> before calling this method, since
     /// the default registration below uses <c>TryAdd…</c> and only applies when nothing else has
-    /// claimed the service yet.
+    /// claimed the service yet. <see cref="TimeProvider.System"/> is registered here with
+    /// <c>TryAdd</c> too, since this method must resolve <see cref="InMemoryExternalTokenReplayCache"/>
+    /// on its own even when a host calls it without also calling <c>AddBlazorBaseUserServer</c>,
+    /// which registers the same default elsewhere.
     /// </remarks>
     public static IServiceCollection AddBlazorBaseExternalAuth(
         this IServiceCollection services,
@@ -44,6 +47,8 @@ public static class BlazorBaseExternalAuthServiceCollectionExtensions
         services.AddOptions<ExternalAuthSettings>().ValidateOnStart();
 
         services.AddSingleton<IExternalTokenValidator, OidcExternalTokenValidator>();
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<IExternalTokenReplayCache, InMemoryExternalTokenReplayCache>();
 
         // The endpoints take a transport from DI; default it here so mapping them without calling
         // AddBlazorBaseUserServer first still resolves.

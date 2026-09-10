@@ -5,9 +5,9 @@ using BlazorBase.User.SecurityHarness.Probes.CoreSession;
 namespace BlazorBase.User.SecurityHarness.Probes.ExternalExchange;
 
 /// <summary>
-/// A measurement, not a verdict: the same valid external token, exchanged several times in a row.
-/// Stopped at a small bound - the point is to establish that no replay protection exists at all, not
-/// to see how many sessions can be minted before something breaks.
+/// The same valid external token, exchanged several times in a row, must mint exactly one local
+/// session - every presentation after the first is the same token being replayed, and must be
+/// rejected the same way an invalid one would be.
 /// </summary>
 internal sealed class ExtReplayProbe : IAuthProbe
 {
@@ -16,8 +16,8 @@ internal sealed class ExtReplayProbe : IAuthProbe
     public string Id => "EXT-REPLAY";
     public string Category => "External token exchange";
     public string Attack => $"The same valid, unexpired external token exchanged {Attempts} times in a row.";
-    public string Expectation => "A measurement, not a verdict: how many distinct local sessions one provider token can mint.";
-    public ProbeSeverity SeverityIfFailed => ProbeSeverity.Info;
+    public string Expectation => "Exactly one of the exchanges succeeds; the rest are rejected the same way an invalid token would be.";
+    public ProbeSeverity SeverityIfFailed => ProbeSeverity.Medium;
     public HarnessProfile Profile => HarnessProfile.External;
 
     public async Task<ProbeResult> RunAsync(ProbeContext context, CancellationToken cancellationToken)
@@ -48,8 +48,10 @@ internal sealed class ExtReplayProbe : IAuthProbe
                 refreshTokens.Add(tokens.RefreshToken);
         }
 
-        return ProbeResult.Inconclusive(
-            $"Measurement: {successfulSessions} of {Attempts} replays of the same provider token were exchanged for a local session, minting {refreshTokens.Count} distinct refresh token(s).",
-            evidence);
+        if (successfulSessions != 1)
+            return ProbeResult.Failed($"{successfulSessions} of {Attempts} replays of the same provider token were exchanged for a local session, minting {refreshTokens.Count} distinct refresh token(s). Expected exactly 1.", evidence);
+
+        return ProbeResult.Passed($"Exactly 1 of {Attempts} replays of the same provider token was exchanged for a local session; the other {Attempts - 1} were rejected.", evidence);
     }
 }
+

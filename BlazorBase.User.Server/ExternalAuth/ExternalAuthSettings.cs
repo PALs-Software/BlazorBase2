@@ -52,6 +52,13 @@ public class ExternalAuthSettings
     public IList<string> RequiredAppRoles { get; set; } = [];
 
     /// <summary>
+    /// Whether the same external token, exchanged more than once, is rejected on every attempt
+    /// after the first. Defaults to <see langword="true"/>. A host whose provider already issues
+    /// single-use tokens may turn this off; the default protects a host whose provider does not.
+    /// </summary>
+    public bool ReplayProtectionEnabled { get; set; } = true;
+
+    /// <summary>
     /// Whether <paramref name="authority"/> is a multi-tenant Entra endpoint whose own issuer
     /// varies per tenant - <c>/common</c>, <c>/organizations</c> or <c>/consumers</c> - as opposed
     /// to a single tenant's fixed issuer. Shared between <see cref="ExternalAuthSettingsValidator"/>
