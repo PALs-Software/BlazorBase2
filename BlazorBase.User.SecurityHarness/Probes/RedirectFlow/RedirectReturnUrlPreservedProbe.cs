@@ -27,8 +27,7 @@ internal sealed class RedirectReturnUrlPreservedProbe : IAuthProbe
 
         if (chain.Final.Exchange.StatusCode is not (HttpStatusCode.Redirect or HttpStatusCode.Found))
             return ProbeResult.Inconclusive(
-                $"The flow did not complete with a redirect (final hop: {(int)chain.Final.Exchange.StatusCode} {chain.Final.Exchange.StatusCode}) - the preserved-returnUrl outcome could not be observed. " +
-                "When the final hop is 401, this is StrictSubjectExternalUserResolver rejecting the caller, not ExternalAuthRedirectEndpointMapper.Complete: it matches the literal 'oid'/'sub' claim names the token-exchange flow's raw JWT validation preserves, but a real AddOpenIdConnect handler remaps 'sub' to ClaimTypes.NameIdentifier and 'oid' to the long .../objectidentifier claim by default - see REDIR-COMPLETE-REPLAY and the step's finding notes.", evidence);
+                $"The flow did not complete with a redirect (final hop: {(int)chain.Final.Exchange.StatusCode} {chain.Final.Exchange.StatusCode}) - the preserved-returnUrl outcome could not be observed.", evidence);
 
         var location = chain.Final.Exchange.ResponseHeaders.TryGetValues("Location", out var values) ? values.FirstOrDefault() : null;
 

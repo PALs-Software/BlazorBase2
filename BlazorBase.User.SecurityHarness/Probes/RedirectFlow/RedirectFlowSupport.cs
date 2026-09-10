@@ -50,10 +50,13 @@ internal static class RedirectFlowSupport
     }
 
     /// <summary>
-    /// Follows the redirect chain starting at <c>GET api/auth/external/challenge</c>, stopping once a
-    /// hop answers something other than a redirect (or the hop limit is hit) - a genuinely completed
-    /// flow ends on <c>complete</c>'s own final redirect or 401.
-    /// </summary>
+    /// Follows the redirect chain starting at <c>GET api/auth/external/challenge</c>, stopping once
+    /// a hop answers something other than a redirect, the hop limit is hit, or the request just sent
+    /// was <c>complete</c> itself - a genuinely completed flow ends on <c>complete</c>'s own response
+    /// (its redirect to the resolved return URL, or a 401), and that response must never be followed
+    /// further: the return URL it redirects to is the application's own client-side route, which this
+    /// harness host never maps, and an attack payload's return URL may not even point back at this
+    /// host at all.</summary>
     public static async Task<RedirectChainResult> RunChallengeAsync(HttpClient client, Uri baseAddress, string? returnUrl, CancellationToken cancellationToken)
     {
         var path = returnUrl is null ? "api/auth/external/challenge" : $"api/auth/external/challenge?returnUrl={Uri.EscapeDataString(returnUrl)}";
@@ -71,7 +74,7 @@ internal static class RedirectFlowSupport
         var hop = await SendHopAsync(client, startUri, cancellationToken);
         hops.Add(hop);
 
-        while (IsRedirect(hop.Exchange) && hops.Count < MaxHops)
+        while (!IsCompleteEndpoint(hop.RequestUri) && IsRedirect(hop.Exchange) && hops.Count < MaxHops)
         {
             var location = ResolveLocation(hop);
 
@@ -84,6 +87,9 @@ internal static class RedirectFlowSupport
 
         return new RedirectChainResult(hops);
     }
+
+    private static bool IsCompleteEndpoint(Uri requestUri) =>
+        requestUri.AbsolutePath.EndsWith("/api/auth/external/complete", StringComparison.OrdinalIgnoreCase);
 
     private static async Task<RedirectHop> SendHopAsync(HttpClient client, Uri requestUri, CancellationToken cancellationToken)
     {

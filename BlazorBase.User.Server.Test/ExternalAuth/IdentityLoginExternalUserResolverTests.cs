@@ -25,7 +25,14 @@ public sealed class IdentityLoginExternalUserResolverTests
             throw new NotSupportedException("Never invoked - only its registered type is asserted on.");
     }
 
-    private static ClaimsPrincipal BuildPrincipal(string? oid = null, string? sub = null, string? email = null)
+    private const string MicrosoftObjectIdentifierClaimType = "http://schemas.microsoft.com/identity/claims/objectidentifier";
+
+    private static ClaimsPrincipal BuildPrincipal(
+        string? oid = null,
+        string? sub = null,
+        string? email = null,
+        string? mappedObjectIdentifier = null,
+        string? mappedNameIdentifier = null)
     {
         var claims = new List<Claim>();
 
@@ -37,6 +44,12 @@ public sealed class IdentityLoginExternalUserResolverTests
 
         if (email is not null)
             claims.Add(new Claim(ClaimTypes.Email, email));
+
+        if (mappedObjectIdentifier is not null)
+            claims.Add(new Claim(MicrosoftObjectIdentifierClaimType, mappedObjectIdentifier));
+
+        if (mappedNameIdentifier is not null)
+            claims.Add(new Claim(ClaimTypes.NameIdentifier, mappedNameIdentifier));
 
         return new ClaimsPrincipal(new ClaimsIdentity(claims, "External"));
     }
@@ -118,6 +131,40 @@ public sealed class IdentityLoginExternalUserResolverTests
         var (_, _, resolver) = await CreateResolverAsync();
 
         var resolution = await resolver.ResolveAsync(BuildPrincipal(email: "no-subject@example.test"), CancellationToken.None);
+
+        Assert.False(resolution.IsAccepted);
+    }
+
+    [Fact]
+    public async Task Uses_the_inbound_mapped_object_identifier_claim_when_the_raw_oid_claim_is_absent()
+    {
+        var (_, users, resolver) = await CreateResolverAsync();
+        var user = await CreateUserAsync(users, "known-mapped-oid-user", linkedProviderKey: "subject-mapped-oid-1");
+
+        var resolution = await resolver.ResolveAsync(BuildPrincipal(mappedObjectIdentifier: "subject-mapped-oid-1"), CancellationToken.None);
+
+        Assert.True(resolution.IsAccepted);
+        Assert.Equal(user.Id, resolution.User!.Id);
+    }
+
+    [Fact]
+    public async Task Uses_the_inbound_mapped_name_identifier_claim_when_none_of_oid_sub_or_the_mapped_object_identifier_are_present()
+    {
+        var (_, users, resolver) = await CreateResolverAsync();
+        var user = await CreateUserAsync(users, "known-mapped-sub-user", linkedProviderKey: "subject-mapped-sub-1");
+
+        var resolution = await resolver.ResolveAsync(BuildPrincipal(mappedNameIdentifier: "subject-mapped-sub-1"), CancellationToken.None);
+
+        Assert.True(resolution.IsAccepted);
+        Assert.Equal(user.Id, resolution.User!.Id);
+    }
+
+    [Fact]
+    public async Task Rejects_a_token_carrying_only_the_mapped_name_identifier_claim_with_no_matching_local_login()
+    {
+        var (_, _, resolver) = await CreateResolverAsync();
+
+        var resolution = await resolver.ResolveAsync(BuildPrincipal(mappedNameIdentifier: "never-linked-subject"), CancellationToken.None);
 
         Assert.False(resolution.IsAccepted);
     }

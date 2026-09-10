@@ -27,8 +27,7 @@ internal sealed class RedirectCompleteReplayProbe : IAuthProbe
 
         if (firstCompletion.Exchange.StatusCode is not (HttpStatusCode.Redirect or HttpStatusCode.Found))
             return ProbeResult.Inconclusive(
-                $"The initial completion did not succeed (final hop: {(int)firstCompletion.Exchange.StatusCode} {firstCompletion.Exchange.StatusCode}) - replay could not be tested. " +
-                "Complete itself now authenticates signInScheme and reaches IExternalUserResolver correctly; the 401 comes from StrictSubjectExternalUserResolver, which matches the literal 'oid'/'sub' claim names the token-exchange flow's raw JWT validation preserves, but a real AddOpenIdConnect handler remaps 'sub' to ClaimTypes.NameIdentifier and 'oid' to the long .../objectidentifier claim by default - a gap in the harness's own resolver, not in the endpoint under test.", evidence);
+                $"The initial completion did not succeed (final hop: {(int)firstCompletion.Exchange.StatusCode} {firstCompletion.Exchange.StatusCode}) - replay could not be tested.", evidence);
 
         var replay = await CoreSessionSupport.SendAsync(client, HttpMethod.Get, firstCompletion.RequestUri, string.Empty, cancellationToken: cancellationToken);
         evidence.Add(replay.ToEvidence("Replaying the same complete URL a second time, with the same client."));

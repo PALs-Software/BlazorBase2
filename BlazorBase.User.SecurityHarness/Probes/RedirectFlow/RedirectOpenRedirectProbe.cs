@@ -6,7 +6,12 @@ namespace BlazorBase.User.SecurityHarness.Probes.RedirectFlow;
 /// <summary>
 /// One probe over a table of open-redirect and header-injection payloads for the redirect flow's
 /// <c>returnUrl</c> - not eleven separate probes, so a single defence (or a single gap) is reported
-/// as one finding with every payload's outcome attached as evidence.
+/// as one finding with every payload's outcome attached as evidence. Each payload gets its own
+/// isolated host: <c>challenge</c> and <c>complete</c> share the <c>BlazorBaseAuth</c> rate-limit
+/// policy (see <c>REDIR-CHALLENGE-RATE-LIMIT</c>), so running all eleven payloads through one shared
+/// host would exhaust that budget partway through the table and starve the later payloads of the
+/// completed flow this probe needs to inspect - a plumbing confound unrelated to the open-redirect
+/// defence itself.
 /// </summary>
 internal sealed class RedirectOpenRedirectProbe : IAuthProbe
 {
@@ -34,18 +39,18 @@ internal sealed class RedirectOpenRedirectProbe : IAuthProbe
 
     public async Task<ProbeResult> RunAsync(ProbeContext context, CancellationToken cancellationToken)
     {
-        await using var host = await context.StartIsolatedHostAsync(new Dictionary<string, string?>(), cancellationToken);
-        context = host.Context;
-        await RedirectFlowSupport.EnsureResolvableSubjectAsync(context);
-
         var evidence = new List<ProbeEvidence>();
         var unsafeOutcomes = new List<string>();
         var unresolvedPayloads = new List<string>();
 
         foreach (var payload in Payloads)
         {
-            using var client = RedirectFlowSupport.CreateClient(context);
-            var chain = await RedirectFlowSupport.RunChallengeAsync(client, context.BaseAddress, payload, cancellationToken);
+            await using var host = await context.StartIsolatedHostAsync(new Dictionary<string, string?>(), cancellationToken);
+            var payloadContext = host.Context;
+            await RedirectFlowSupport.EnsureResolvableSubjectAsync(payloadContext);
+
+            using var client = RedirectFlowSupport.CreateClient(payloadContext);
+            var chain = await RedirectFlowSupport.RunChallengeAsync(client, payloadContext.BaseAddress, payload, cancellationToken);
             evidence.Add(chain.ToEvidence($"Payload: {Describe(payload)}"));
 
             if (chain.Final.Exchange.StatusCode is not (HttpStatusCode.Redirect or HttpStatusCode.Found))
@@ -65,9 +70,7 @@ internal sealed class RedirectOpenRedirectProbe : IAuthProbe
 
         if (unresolvedPayloads.Count == Payloads.Count)
             return ProbeResult.Inconclusive(
-                "The redirect flow never reached a completed redirect for any payload - every one stopped at StrictSubjectExternalUserResolver rejecting the caller " +
-                "(it matches the literal 'oid'/'sub' claim names the token-exchange flow's raw JWT validation preserves, but a real AddOpenIdConnect handler remaps 'sub' to " +
-                "ClaimTypes.NameIdentifier and 'oid' to the long .../objectidentifier claim by default - see REDIR-COMPLETE-REPLAY). The open-redirect defence could not be observed for lack of a completed flow to inspect.", evidence);
+                "The redirect flow never reached a completed redirect for any payload - the open-redirect defence could not be observed for lack of a completed flow to inspect.", evidence);
 
         if (unresolvedPayloads.Count > 0)
             return ProbeResult.Inconclusive(
@@ -77,13 +80,18 @@ internal sealed class RedirectOpenRedirectProbe : IAuthProbe
         return ProbeResult.Passed($"All {Payloads.Count} open-redirect / header-injection payloads fell back to a safe, on-origin return URL.", evidence);
     }
 
+    /// <summary>
+    /// A location is unsafe only if a browser's own URL resolution would leave the application's
+    /// origin, or if it carries a raw CR/LF (response-splitting). Percent-encoded characters inside a
+    /// path segment - such as <c>%2f</c> - are never decoded by URL resolution while it is still
+    /// determining the scheme and authority, so a value that merely contains the literal text
+    /// <c>evil.example</c> inside an otherwise path-absolute, single-leading-slash location (never
+    /// <c>//</c> or <c>/\</c>) still resolves on-origin and is not a redirect anywhere.
+    /// </summary>
     private static bool IsUnsafeLocation(string? location)
     {
         if (location is null)
             return false;
-
-        if (location.Contains("evil.example", StringComparison.OrdinalIgnoreCase))
-            return true;
 
         if (!location.StartsWith('/'))
             return true;
