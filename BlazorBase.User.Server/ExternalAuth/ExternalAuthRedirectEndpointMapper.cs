@@ -21,9 +21,11 @@ namespace BlazorBase.User.Server.ExternalAuth;
 /// and keeps everything that comes with it — including <c>ITokenAcquisition</c> for calling a
 /// downstream API on the user's behalf, which only works while those tokens stay on the server.
 ///
-/// All this adds is the conversion step: take the principal the external handler produced, resolve it
-/// to an application user through the same <see cref="IExternalUserResolver{TUser}"/> the token
-/// exchange uses, and hand the result to the configured <see cref="IAuthTokenTransport"/>.
+/// All this adds is the conversion step: read back the principal the external handler signed into
+/// <c>signInScheme</c> - a remote handler such as <c>AddOpenIdConnect</c> never authenticates its own
+/// scheme outside of the callback request it is currently processing - resolve it to an application
+/// user through the same <see cref="IExternalUserResolver{TUser}"/> the token exchange uses, and hand
+/// the result to the configured <see cref="IAuthTokenTransport"/>.
 ///
 /// Pair with <c>AddBlazorBaseCookieAuthTokens</c>. With the default bearer transport these endpoints
 /// would put the token in a redirect response, which is not useful — see the guard in
@@ -39,13 +41,14 @@ public static class ExternalAuthRedirectEndpointMapper
     /// <c>OpenIdConnectDefaults.AuthenticationScheme</c>.
     /// </param>
     /// <param name="signInScheme">
-    /// The scheme <paramref name="externalScheme"/>'s handler actually uses to persist the
-    /// intermediate sign-in between the challenge and the callback - what
-    /// <c>AddMicrosoftIdentityWebApp</c> and <c>AddOpenIdConnect</c> call <c>SignInScheme</c>, and
-    /// what must be signed out of once the framework session takes over. Defaults to
-    /// <see cref="CookieAuthenticationDefaults.AuthenticationScheme"/>, the value both of those
-    /// calls use unless told otherwise. Signing out of <paramref name="externalScheme"/> itself
-    /// would be wrong: for an OIDC handler that triggers a redirect to the provider's own
+    /// The scheme <paramref name="externalScheme"/>'s handler actually signs into - what
+    /// <c>AddMicrosoftIdentityWebApp</c> and <c>AddOpenIdConnect</c> call <c>SignInScheme</c>. The
+    /// callback for <paramref name="externalScheme"/> only ever produces a principal while it is
+    /// processing its own callback request, so <c>complete</c> reads the principal back from
+    /// <paramref name="signInScheme"/> instead, and signs out of it once the framework session takes
+    /// over. Defaults to <see cref="CookieAuthenticationDefaults.AuthenticationScheme"/>, the value
+    /// both of those calls use unless told otherwise. Signing out of <paramref name="externalScheme"/>
+    /// itself would be wrong: for an OIDC handler that triggers a redirect to the provider's own
     /// <c>end_session_endpoint</c> - a global sign-out at the identity provider, not the local
     /// cleanup this method needs.
     /// </param>
@@ -79,7 +82,7 @@ public static class ExternalAuthRedirectEndpointMapper
                 IAuthTokenTransport tokenTransport,
                 CancellationToken cancellationToken) =>
             {
-                var authenticateResult = await httpContext.AuthenticateAsync(externalScheme);
+                var authenticateResult = await httpContext.AuthenticateAsync(signInScheme);
 
                 if (!authenticateResult.Succeeded || authenticateResult.Principal is null)
                     return Results.Unauthorized();
@@ -87,27 +90,16 @@ public static class ExternalAuthRedirectEndpointMapper
                 var resolution = await userResolver.ResolveAsync(authenticateResult.Principal, cancellationToken);
 
                 if (!resolution.IsAccepted || resolution.User is null)
-                {
-                    // Nothing has written a redirect at this point - safe to sign out before answering.
-                    await httpContext.SignOutAsync(signInScheme);
-                    return Results.Unauthorized();
-                }
+                    return await RejectAndSignOutAsync(httpContext, signInScheme);
 
                 if (!await ExternalAuthEndpointMapper.IsAccountActiveAndNotLockedOutAsync(signInManager, resolution.User))
-                {
-                    await httpContext.SignOutAsync(signInScheme);
-                    return Results.Unauthorized();
-                }
+                    return await RejectAndSignOutAsync(httpContext, signInScheme);
 
                 var principal = await signInManager.CreateUserPrincipalAsync(resolution.User);
                 var tokens = await tokenIssuer.IssueTokenPairAsync(principal, cancellationToken: cancellationToken);
 
                 await tokenTransport.WriteAsync(httpContext, tokens, principal, cancellationToken);
-
-                // Drops the intermediate external sign-in cookie now that the framework session
-                // exists; signing out of externalScheme instead would redirect to the provider's
-                // end_session_endpoint and get overwritten by the LocalRedirect below, doing neither.
-                await httpContext.SignOutAsync(signInScheme);
+                await SignOutOfIntermediateSignInAsync(httpContext, signInScheme);
 
                 return Results.LocalRedirect(ResolveLocalReturnUrl(returnUrl, defaultReturnUrl));
             })
@@ -116,6 +108,25 @@ public static class ExternalAuthRedirectEndpointMapper
 
         return endpoints;
     }
+
+    /// <summary>
+    /// Signs out of <paramref name="signInScheme"/> and answers 401 - safe to call before answering
+    /// since nothing on either rejection path has written a redirect yet.
+    /// </summary>
+    private static async Task<IResult> RejectAndSignOutAsync(HttpContext httpContext, string signInScheme)
+    {
+        await httpContext.SignOutAsync(signInScheme);
+        return Results.Unauthorized();
+    }
+
+    /// <summary>
+    /// Drops the intermediate external sign-in cookie now that the framework session exists. Must
+    /// sign out of <paramref name="signInScheme"/>, never the external scheme itself: for an OIDC
+    /// handler that would redirect to the provider's own <c>end_session_endpoint</c>, overwriting the
+    /// <c>LocalRedirect</c> this method's caller issues right after and doing neither.
+    /// </summary>
+    private static Task SignOutOfIntermediateSignInAsync(HttpContext httpContext, string signInScheme) =>
+        httpContext.SignOutAsync(signInScheme);
 
     /// <summary>
     /// Accepts only a same-application path. A return URL that survives to a redirect unchecked is an
@@ -132,10 +143,13 @@ public static class ExternalAuthRedirectEndpointMapper
         if (returnUrl.Any(char.IsControl) || returnUrl != returnUrl.Trim())
             return defaultReturnUrl;
 
-        // "//host" and "/\host" are protocol-relative and leave the application despite the leading slash.
-        if (!returnUrl.StartsWith('/') || returnUrl.StartsWith("//", StringComparison.Ordinal) || returnUrl.StartsWith("/\\", StringComparison.Ordinal))
+        if (!returnUrl.StartsWith('/') || IsProtocolRelative(returnUrl))
             return defaultReturnUrl;
 
         return returnUrl;
     }
+
+    /// <summary>"//host" and "/\host" are protocol-relative and leave the application despite the leading slash.</summary>
+    private static bool IsProtocolRelative(string returnUrl) =>
+        returnUrl.StartsWith("//", StringComparison.Ordinal) || returnUrl.StartsWith("/\\", StringComparison.Ordinal);
 }

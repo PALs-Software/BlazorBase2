@@ -65,9 +65,9 @@ internal sealed class RedirectOpenRedirectProbe : IAuthProbe
 
         if (unresolvedPayloads.Count == Payloads.Count)
             return ProbeResult.Inconclusive(
-                "The redirect flow never reached a completed redirect for any payload - every one stopped at ExternalAuthRedirectEndpointMapper.Complete's own " +
-                "httpContext.AuthenticateAsync(externalScheme) call, which never succeeds against a real RemoteAuthenticationHandler (OpenIdConnect) outside its own " +
-                "callback processing (see REDIR-COMPLETE-REPLAY). The open-redirect defence could not be observed for lack of a completed flow to inspect.", evidence);
+                "The redirect flow never reached a completed redirect for any payload - every one stopped at StrictSubjectExternalUserResolver rejecting the caller " +
+                "(it matches the literal 'oid'/'sub' claim names the token-exchange flow's raw JWT validation preserves, but a real AddOpenIdConnect handler remaps 'sub' to " +
+                "ClaimTypes.NameIdentifier and 'oid' to the long .../objectidentifier claim by default - see REDIR-COMPLETE-REPLAY). The open-redirect defence could not be observed for lack of a completed flow to inspect.", evidence);
 
         if (unresolvedPayloads.Count > 0)
             return ProbeResult.Inconclusive(
