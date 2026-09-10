@@ -195,6 +195,34 @@ public class AccessTokenService<TContext>(
         if (entity.ExpiresAt.HasValue && entity.ExpiresAt.Value < DateTime.UtcNow)
             return null;
 
+        if (entity.UserId is not null && !await OwnerIsActiveAsync(entity.UserId, cancellationToken))
+            return null;
+
         return new ValidatedAccessToken(entity.Id, entity.Name, entity.UserId, entity);
+    }
+
+    /// <summary>
+    /// Looks the owning account up by its mapped CLR type, not a generic <c>TUser</c> parameter -
+    /// <see cref="AccessTokenService{TContext}"/> is only constrained to <see cref="DbContext"/> and
+    /// has no compile-time knowledge of the concrete user type. A missing owner is treated the same
+    /// as a deactivated one: both must reject the token.
+    /// </summary>
+    /// <remarks>
+    /// Only the root of the user hierarchy is a candidate. A host that adds derived user types maps
+    /// them as table-per-hierarchy children, and looking one of those up by primary key would filter
+    /// on its discriminator and miss every account stored as the base type.
+    /// </remarks>
+    private async Task<bool> OwnerIsActiveAsync(string userId, CancellationToken cancellationToken)
+    {
+        var userEntityType = DbContext.Model
+            .GetEntityTypes()
+            .FirstOrDefault(entityType => entityType.BaseType is null && typeof(BaseUser).IsAssignableFrom(entityType.ClrType));
+
+        if (userEntityType is null)
+            return false;
+
+        var owner = await DbContext.FindAsync(userEntityType.ClrType, [userId], cancellationToken) as BaseUser;
+
+        return owner is { IsActive: true };
     }
 }
