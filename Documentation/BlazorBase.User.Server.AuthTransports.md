@@ -129,10 +129,32 @@ Bound from the `AuthCookies` section, overridable in code.
 | `SameSite` | `Lax` | See below — `Strict` breaks OIDC sign-in |
 | `ExpireTimeSpan` | the framework's refresh-token window | Sliding expiration; renewed on every request |
 | `AllowSameSiteRequests` | `false` | See [split-origin deployment](#split-origin-appapi-deployment) below |
+| `ServerSideSessionStoreEnabled` | `true` | See below |
 
 > **Do not set `SameSite=Strict`.** An OIDC provider returns the user with a cross-site `form_post`,
 > and a strict cookie is not sent on that request. The user lands back on your application logged
 > out, and nothing in the logs says why.
+
+### Logout revokes the session server-side
+
+Signing out of a cookie scheme normally only tells the browser to drop the cookie. The cookie value
+itself stays cryptographically valid, so anyone who captured it can replay it after the user has
+logged out.
+
+`AddBlazorBaseCookieAuthTokens` therefore registers a `BlazorBaseTicketStore` as the scheme's
+`SessionStore`. The cookie then carries only a key, the ticket lives on the server, and
+`SignOutAsync` removes it — so a replayed pre-logout cookie stops authenticating immediately, and
+only that one session is affected. The user's other devices stay signed in.
+
+The default store is **in-process**, with two consequences worth knowing before you ship:
+
+- Sessions do not survive a process restart or a deployment. Everyone signs in again.
+- In a multi-instance deployment, a session established on one instance is unknown to the others.
+
+Register your own `ITicketStore` before calling `AddBlazorBaseCookieAuthTokens` to back it with a
+distributed cache instead; the framework's registration uses `TryAdd` and steps aside. Set
+`ServerSideSessionStoreEnabled` to `false` only if you are wiring `CookieAuthenticationOptions
+.SessionStore` yourself.
 
 ---
 
@@ -486,6 +508,7 @@ them straight back to the script the transport exists to keep them from.
 - [ ] `AddBlazorBaseForwardedHeaders` called when the host sits behind a reverse proxy
 - [ ] The external resolver keys on the subject id, not the email
 - [ ] The external resolver's answer for an unknown subject is a deliberate decision
+- [ ] A distributed `ITicketStore` is registered when more than one instance serves the cookie session
 - [ ] Key management is decided, not defaulted — the keys survive a restart and every instance shares them
 
 ## What is not in the framework yet

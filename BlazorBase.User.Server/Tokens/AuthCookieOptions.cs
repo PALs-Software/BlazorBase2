@@ -75,4 +75,17 @@ public class AuthCookieOptions
     /// the two. Only turn this on when the split-origin deployment is the one actually in use.
     /// </remarks>
     public bool AllowSameSiteRequests { get; set; }
+
+    /// <summary>
+    /// Whether sign-out revokes the session server-side through <see cref="BlazorBaseTicketStore"/>,
+    /// so a cookie value captured before logout no longer authenticates if replayed afterward.
+    /// </summary>
+    /// <remarks>
+    /// Defaults to <see langword="true"/>: the framework's own default must be the one where logout
+    /// means logout. Turn this off only when the host already has its own distributed
+    /// <c>ITicketStore</c> — or another server-side revocation mechanism entirely — and registers it
+    /// through <c>CookieAuthenticationOptions.SessionStore</c> directly; leaving this on as well would
+    /// only mean an unused in-memory store sits beside the one actually in effect.
+    /// </remarks>
+    public bool ServerSideSessionStoreEnabled { get; set; } = true;
 }
