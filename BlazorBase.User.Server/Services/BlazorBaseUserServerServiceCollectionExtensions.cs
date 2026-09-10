@@ -161,6 +161,7 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseAuthNoStoreStartupFilter>());
 
         services.AddScoped<AuthTokenIssuer<TUser>>();
+        services.TryAddSingleton<ITwoFactorPendingTokenStore, InMemoryTwoFactorPendingTokenStore>();
         services.TryAddSingleton(typeof(TwoFactorPendingTokenService<>));
         services.TryAddScoped(typeof(IEmailSender<>), typeof(NoOpEmailSender<>));
         services.Configure<AccountManagementOptions>(configuration.GetSection(AccountManagementOptions.SectionName));

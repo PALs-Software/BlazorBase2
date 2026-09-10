@@ -10,4 +10,3 @@ COOKIE-LOGOUT-CLEARS :: Logout clears the cookie client-side but does not rotate
 CLIENT-401-INVALIDATES :: BlazorBaseUserAuthStateProvider never becomes authenticated under the Bearer transport as the framework's own documentation composes it, because IAuthService's HttpClient deliberately carries no AuthTokenHandler.
 INFO-RESPONSE-HEADERS :: Kestrel's own default Server header is present on every response - an infrastructure default, not application code, and not disabled by the framework.
 EXT-UNVERIFIED-EMAIL-TAKEOVER :: Demonstrates account takeover through the harness's own naive email-matching external-user resolver, which a host could plausibly choose; the framework itself ships no default resolver at all.
-2FA-PENDING-REPLAY :: TwoFactorPendingTokenService has no single-use tracking, so a pending two-factor token can be replayed with a fresh code after already completing a successful login.

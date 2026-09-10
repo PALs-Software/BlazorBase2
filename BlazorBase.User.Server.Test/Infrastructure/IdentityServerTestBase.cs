@@ -93,6 +93,7 @@ public abstract class IdentityServerTestBase : IDisposable
             .AddClaimsPrincipalFactory<BlazorBaseUserClaimsPrincipalFactory<TestUser>>();
 
         services.AddScoped<AuthTokenIssuer<TestUser>>();
+        services.AddSingleton<ITwoFactorPendingTokenStore, InMemoryTwoFactorPendingTokenStore>();
         services.AddSingleton(typeof(TwoFactorPendingTokenService<>));
 
         // The same bridge AddBlazorBaseUserServer registers, so services that take the base
