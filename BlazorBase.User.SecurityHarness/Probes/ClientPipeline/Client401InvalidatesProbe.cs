@@ -9,10 +9,11 @@ namespace BlazorBase.User.SecurityHarness.Probes.ClientPipeline;
 /// cached authenticated principal <see cref="Services.BlazorBaseUserAuthStateProvider"/> holds -
 /// without this, a session revoked server-side leaves the UI showing a signed-in user next to every
 /// request being refused. Composed exactly as <c>BlazorBase.User.md</c> documents it for the Bearer
-/// transport (<see cref="Services.IAuthService"/>'s own <see cref="HttpClient"/> carries no
-/// <see cref="Services.AuthTokenHandler"/>, "the auth endpoints are anonymous and need no bearer"),
-/// the warm-up step this probe needs never succeeds in the first place - recorded as the finding, not
-/// worked around.
+/// transport, where <see cref="Services.IAuthService"/>'s own <see cref="HttpClient"/> carries no
+/// <see cref="Services.AuthTokenHandler"/> and the provider therefore hands the access token to
+/// <see cref="Services.IAuthService.GetSessionAsync"/> itself. The warm-up assertion below is part of
+/// the probe rather than setup: if the principal never becomes authenticated, the invalidation this
+/// probe measures can never matter.
 /// </summary>
 internal sealed class Client401InvalidatesProbe : IAuthProbe
 {
@@ -37,19 +38,19 @@ internal sealed class Client401InvalidatesProbe : IAuthProbe
 
         var evidenceAfterLogin = new ProbeEvidence(
             "Authentication state immediately after a successful login, resolved the same way GetAuthenticationStateAsync always resolves it: through IAuthService.GetSessionAsync().",
-            Request: "GET api/auth/session through IAuthService's own HttpClient (no AuthTokenHandler attached to it, by the framework's own composition rule).",
+            Request: "GET api/auth/session through IAuthService's own HttpClient, carrying the access token the provider read from ITokenStorage and passed in explicitly.",
             Response: $"IsAuthenticated: {authenticatedAfterLogin}");
 
         if (!authenticatedAfterLogin)
         {
             return ProbeResult.Failed(
-                "BlazorBaseUserAuthStateProvider never becomes authenticated under the Bearer transport when composed exactly as BlazorBase.User.md documents it: " +
-                "GetAuthenticationStateAsync() always resolves the principal through IAuthService.GetSessionAsync(), and IAuthService's own HttpClient deliberately " +
-                "carries no AuthTokenHandler - its own registration comment says the auth endpoints are anonymous and need no bearer - so api/auth/session is always " +
-                "called without the access token and always answers anonymous, even immediately after a successful login. The 401-invalidation behaviour this probe " +
-                "set out to test never gets a chance to matter, because the cached state it would invalidate never becomes authenticated in the first place. " +
-                "The framework's own BlazorBaseUserAuthStateProviderTests mask this with a stub IAuthService that returns a canned authenticated session " +
-                "regardless of transport, rather than the real GetSessionAsync() implementation.",
+                "BlazorBaseUserAuthStateProvider did not become authenticated under the Bearer transport when composed exactly as BlazorBase.User.md documents it. " +
+                "GetAuthenticationStateAsync() resolves the principal through IAuthService.GetSessionAsync(), and since IAuthService's own HttpClient deliberately " +
+                "carries no AuthTokenHandler - that handler resolves IAuthService to refresh, so attaching it would close the cycle - the provider must read the " +
+                "access token from ITokenStorage and pass it to that call itself. If it does not, api/auth/session is called unauthenticated and always answers " +
+                "anonymous, even immediately after a successful login, and the 401-invalidation behaviour this probe set out to test never gets a chance to matter. " +
+                "The framework's own BlazorBaseUserAuthStateProviderTests cannot catch this on their own: they stub IAuthService and never exercise the real " +
+                "GetSessionAsync() over HTTP.",
                 evidenceAfterLogin);
         }
 

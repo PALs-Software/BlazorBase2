@@ -28,10 +28,17 @@ public interface IAuthService
     Task<LoginResponse?> DevelopmentLoginAsync();
 
     /// <summary>
-    /// Asks the server who the caller currently is. The only way to obtain the claims under the
-    /// cookie transport, where the access token is deliberately unreadable by script.
+    /// Asks the server who the caller currently is. The only way to obtain the claims under either
+    /// transport, since the access token is opaque to the client.
     /// </summary>
-    Task<AuthSessionResponse> GetSessionAsync();
+    /// <param name="accessToken">
+    /// Attached as a bearer header for this one call. Required under the bearer transport, where
+    /// nothing else identifies the caller: this client deliberately carries no
+    /// <see cref="AuthTokenHandler"/>, because that handler resolves <see cref="IAuthService"/> to
+    /// refresh and attaching it here would close the cycle. Leave it null under the cookie transport,
+    /// where the session cookie already identifies the caller.
+    /// </param>
+    Task<AuthSessionResponse> GetSessionAsync(string? accessToken = null);
 
     Task ConfirmEmailAsync(ConfirmEmailRequest request);
     Task ResendConfirmationAsync(ResendConfirmationRequest request);

@@ -81,6 +81,48 @@ public sealed class AuthServiceGetSessionTests
         Assert.False(result.IsAuthenticated);
     }
 
+    [Fact]
+    public async Task GetSessionAsync_WithAnAccessToken_SendsItAsABearerHeader()
+    {
+        HttpRequestMessage? sentRequest = null;
+        using var httpClient = new HttpClient(new RecordingStubHandler(
+            request => sentRequest = request,
+            () => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new AuthSessionResponse { IsAuthenticated = true })
+            }))
+        {
+            BaseAddress = new Uri("https://localhost/")
+        };
+        var authService = new AuthService(httpClient, new NoOpTokenStorage());
+
+        var result = await authService.GetSessionAsync("an-access-token");
+
+        Assert.True(result.IsAuthenticated);
+        Assert.Equal("Bearer", sentRequest?.Headers.Authorization?.Scheme);
+        Assert.Equal("an-access-token", sentRequest?.Headers.Authorization?.Parameter);
+    }
+
+    [Fact]
+    public async Task GetSessionAsync_WithoutAnAccessToken_SendsNoAuthorizationHeader()
+    {
+        HttpRequestMessage? sentRequest = null;
+        using var httpClient = new HttpClient(new RecordingStubHandler(
+            request => sentRequest = request,
+            () => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(new AuthSessionResponse())
+            }))
+        {
+            BaseAddress = new Uri("https://localhost/")
+        };
+        var authService = new AuthService(httpClient, new NoOpTokenStorage());
+
+        await authService.GetSessionAsync();
+
+        Assert.Null(sentRequest?.Headers.Authorization);
+    }
+
     private sealed class StubHandler(Func<HttpResponseMessage> respond) : HttpMessageHandler
     {
         #region Injects
@@ -90,5 +132,20 @@ public sealed class AuthServiceGetSessionTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(Respond());
+    }
+
+    private sealed class RecordingStubHandler(Action<HttpRequestMessage> record, Func<HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        #region Injects
+        private readonly Action<HttpRequestMessage> Record = record;
+        private readonly Func<HttpResponseMessage> Respond = respond;
+        #endregion
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Record(request);
+            return Task.FromResult(Respond());
+        }
     }
 }

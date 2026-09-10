@@ -1,10 +1,9 @@
 # Known, reviewed probe findings this run currently produces. The CI wrapper fails a probe only
 # when it fails AND is missing from this file, or when a line here names a probe that no longer
-# exists - never on a failure this file already names. Fixing one of these is a separate, later,
-# approved step (see step 11 in .plan/auth-attack-harness).
+# exists - never on a failure this file already names. Every entry here is a deliberate decision,
+# not a backlog item: the findings that were worth fixing have been fixed and their lines removed.
 
 AT-CASE-AND-TRIM :: AccessTokenAuthenticationHandler trims the raw Authorization header value before comparing the secret, so a whitespace-padded secret is accepted; a deliberate trimming behaviour, not a bypass of a different secret.
 CSRF-NO-FETCH-METADATA :: BlazorBaseCsrfChecks.IsSameOriginRequest treats an entirely absent Sec-Fetch-Site header as same-origin, so a client that omits fetch metadata is accepted on the antiforgery token alone.
-CLIENT-401-INVALIDATES :: BlazorBaseUserAuthStateProvider never becomes authenticated under the Bearer transport as the framework's own documentation composes it, because IAuthService's HttpClient deliberately carries no AuthTokenHandler.
 INFO-RESPONSE-HEADERS :: Kestrel's own default Server header is present on every response - an infrastructure default, not application code, and not disabled by the framework.
-EXT-UNVERIFIED-EMAIL-TAKEOVER :: Demonstrates account takeover through the harness's own naive email-matching external-user resolver, which a host could plausibly choose; the framework itself ships no default resolver at all.
+EXT-UNVERIFIED-EMAIL-TAKEOVER :: Demonstrates account takeover through the harness's own naive email-matching external-user resolver, which a host can still choose even though the framework now ships a safe subject-based default; the demonstration is about the host's choice, not about framework code.

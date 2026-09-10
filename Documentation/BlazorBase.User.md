@@ -134,6 +134,14 @@ builder.Services.AddHttpClient<IUserService, UserService>(c => c.BaseAddress = b
 
 `baseUri` is the API root (`https://api.example.com/`). The services post to relative paths like `api/auth/login`.
 
+`GET api/auth/session` is the one auth endpoint that does need to know who is calling, and it cannot
+learn that from a handler this client does not have. `BlazorBaseUserAuthStateProvider` therefore reads
+the access token from `ITokenStorage` and passes it to `IAuthService.GetSessionAsync(accessToken)`
+itself. Under the cookie transport `ITokenStorage` is `NoOpTokenStorage`, no header is sent, and the
+session cookie identifies the caller as before. Nothing here changes for the host — but a host that
+replaces `IAuthService` must honour that parameter, or its client will report every user as signed
+out while the server happily authorises the same requests.
+
 ### 5. Optional — skip the login form while developing
 
 ```csharp

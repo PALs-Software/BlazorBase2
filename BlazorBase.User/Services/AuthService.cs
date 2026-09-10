@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using BlazorBase.User.Models;
@@ -26,11 +27,12 @@ public class AuthService(HttpClient httpClient, ITokenStorage tokenStorage) : IA
     /// the server never mapped this endpoint (a SPA fallback answering with the host page instead), so
     /// it is thrown rather than silently read as "not signed in".
     /// </summary>
-    public async Task<AuthSessionResponse> GetSessionAsync()
+    public async Task<AuthSessionResponse> GetSessionAsync(string? accessToken = null)
     {
         try
         {
-            var response = await HttpClient.GetAsync("api/auth/session");
+            using var request = BuildSessionRequest(accessToken);
+            var response = await HttpClient.SendAsync(request);
 
             if (!response.IsSuccessStatusCode)
                 return new AuthSessionResponse();
@@ -49,6 +51,22 @@ public class AuthService(HttpClient httpClient, ITokenStorage tokenStorage) : IA
         {
             return new AuthSessionResponse();
         }
+    }
+
+    /// <summary>
+    /// Attaches the caller's token by hand rather than through a <see cref="DelegatingHandler"/>. The
+    /// auth endpoints are anonymous and this client carries no <see cref="AuthTokenHandler"/> on
+    /// purpose, since that handler needs this service to refresh; passing the token per call breaks
+    /// the cycle without leaving the session endpoint unable to recognise a bearer caller.
+    /// </summary>
+    private static HttpRequestMessage BuildSessionRequest(string? accessToken)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "api/auth/session");
+
+        if (!string.IsNullOrEmpty(accessToken))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        return request;
     }
 
     public async Task<LoginResponse> SetupAsync(SetupRequest request)
