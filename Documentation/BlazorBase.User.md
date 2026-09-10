@@ -570,6 +570,36 @@ Steps:
 4. **Logout** revokes the refresh token (by its hash) via `/api/auth/logout` and clears `ITokenStorage`. The endpoint is anonymous, so logout still succeeds even if the access token stored locally has already expired.
 5. `Routes.razor` uses `<AuthorizeRouteView>`; non-authenticated users hit `RedirectToLogin`.
 
+### Resolving an external identity to a local account
+
+`AddBlazorBaseExternalAuth` validates an externally issued OIDC token (e.g. Microsoft Entra ID),
+but validating a token only proves who the *provider* thinks the caller is - matching that
+identity to a local account is a separate, host-specific decision, made by whatever
+`IExternalUserResolver<TUser>` is registered.
+
+A host that calls `AddBlazorBaseUserServer<TUser, TContext>` gets a safe default for free:
+`IdentityLoginExternalUserResolver<TUser>` looks the caller up through ASP.NET Core Identity's own
+external-login table via `UserManager<TUser>.FindByLoginAsync`, keyed on the token's `oid` claim
+(falling back to `sub`) - never on `email`, `preferred_username`, `upn` or `name`, none of which are
+stable, provider-issued identifiers a host can safely trust for account linking. An unrecognised
+subject is rejected, not auto-provisioned.
+
+Linking an account is therefore something a host must do explicitly, typically once, at invitation
+or first-login time:
+
+```csharp
+await userManager.AddLoginAsync(user, new UserLoginInfo(
+    loginProvider: ExternalAuthSettings.DefaultLoginProvider,
+    providerKey: entraObjectId,
+    displayName: entraObjectId));
+```
+
+A host with a different linking rule - matching by an internal tenant/subject mapping table, for
+example - registers its own `IExternalUserResolver<TUser>` (with `AddScoped`, before or after
+`AddBlazorBaseUserServer`); that registration always takes precedence over the default. Matching by
+`email` alone is an account-takeover vector: an attacker who controls any external identity with a
+matching, possibly-unverified email claim would take over the existing account.
+
 ---
 
 ## Code Examples

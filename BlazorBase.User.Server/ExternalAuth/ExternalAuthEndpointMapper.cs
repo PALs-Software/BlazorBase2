@@ -29,6 +29,13 @@ public static class ExternalAuthEndpointMapper
     private static readonly TimeSpan TokenValidatorClockSkew = TimeSpan.FromSeconds(30);
 
     /// <summary>
+    /// How long a spent token is remembered when its principal carries no readable <c>exp</c> - long
+    /// enough to cover the lifetime a provider token realistically has, so the replay check still
+    /// holds for a custom <see cref="IExternalTokenValidator"/> that does not surface the claim.
+    /// </summary>
+    private static readonly TimeSpan FallbackReplayRetention = TimeSpan.FromMinutes(15);
+
+    /// <summary>
     /// Maps <c>POST {path}/exchange</c>, rate-limited by the "BlazorBaseAuth" policy registered by
     /// <c>AddBlazorBaseUserServer</c>. Validates the external token via the registered
     /// <see cref="IExternalTokenValidator"/>, rejects a token already exchanged before via the
@@ -54,6 +61,7 @@ public static class ExternalAuthEndpointMapper
                 IExternalTokenValidator tokenValidator,
                 IExternalTokenReplayCache replayCache,
                 IOptions<ExternalAuthSettings> settings,
+                TimeProvider timeProvider,
                 IExternalUserResolver<TUser> userResolver,
                 SignInManager<TUser> signInManager,
                 AuthTokenIssuer<TUser> tokenIssuer,
@@ -67,7 +75,7 @@ public static class ExternalAuthEndpointMapper
                 if (externalPrincipal is null)
                     return Results.Unauthorized();
 
-                if (settings.Value.ReplayProtectionEnabled && !await IsFirstPresentationAsync(replayCache, request.ExternalToken, externalPrincipal, cancellationToken))
+                if (settings.Value.ReplayProtectionEnabled && !await IsFirstPresentationAsync(replayCache, timeProvider, request.ExternalToken, externalPrincipal, cancellationToken))
                     return Results.Unauthorized();
 
                 var resolution = await userResolver.ResolveAsync(externalPrincipal, cancellationToken);
@@ -110,22 +118,24 @@ public static class ExternalAuthEndpointMapper
     /// the token could still validate again.
     /// </summary>
     /// <remarks>
-    /// A principal carrying no readable <c>exp</c> is rejected rather than exempted. There is no
-    /// window to bound the entry with, so remembering it would either leak or expire arbitrarily.
-    /// <see cref="OidcExternalTokenValidator"/> requires <c>exp</c> for the principal to exist at
-    /// all, so this only reaches a host that has replaced <see cref="IExternalTokenValidator"/> with
-    /// one that does not surface it - and that host should surface it rather than lose the check.
+    /// A principal carrying no readable <c>exp</c> is remembered for
+    /// <see cref="FallbackReplayRetention"/> instead of being exempted, so the check still holds for
+    /// a host that has replaced <see cref="IExternalTokenValidator"/> with one that does not surface
+    /// the claim. <see cref="OidcExternalTokenValidator"/> requires <c>exp</c> for the principal to
+    /// exist at all, so the built-in path always has a real window to use.
     /// </remarks>
     private static Task<bool> IsFirstPresentationAsync(
         IExternalTokenReplayCache replayCache,
+        TimeProvider timeProvider,
         string rawToken,
         ClaimsPrincipal principal,
         CancellationToken cancellationToken)
     {
-        if (TryGetExpiryClaimUtc(principal, out var expiresUtc) is false)
-            return Task.FromResult(false);
+        var expiresUtc = TryGetExpiryClaimUtc(principal, out var tokenExpiresUtc)
+            ? tokenExpiresUtc + TokenValidatorClockSkew
+            : timeProvider.GetUtcNow() + FallbackReplayRetention;
 
-        return replayCache.TryRegisterAsync(ComputeReplayKey(rawToken), expiresUtc + TokenValidatorClockSkew, cancellationToken);
+        return replayCache.TryRegisterAsync(ComputeReplayKey(rawToken), expiresUtc, cancellationToken);
     }
 
     private static bool TryGetExpiryClaimUtc(ClaimsPrincipal principal, out DateTimeOffset expiresUtc)

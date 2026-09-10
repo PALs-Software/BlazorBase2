@@ -20,17 +20,22 @@ public static class BlazorBaseExternalAuthServiceCollectionExtensions
     /// key) instead of a static value in <c>appsettings.json</c>.
     /// </summary>
     /// <remarks>
-    /// The host must additionally register its own <see cref="IExternalUserResolver{TUser}"/> and
-    /// call <c>MapBlazorBaseExternalAuthEndpoints</c> - there is no default resolver and no
-    /// endpoint is mapped by this call alone, so an application that does not opt into all three
-    /// sees no change at all. A host that needs its allowed tenants to come from a database
-    /// rather than the static <see cref="ExternalAuthSettings.AllowedTenantIds"/> list must
-    /// register its own <see cref="IExternalTenantAllowList"/> before calling this method, since
-    /// the default registration below uses <c>TryAdd…</c> and only applies when nothing else has
-    /// claimed the service yet. <see cref="TimeProvider.System"/> is registered here with
-    /// <c>TryAdd</c> too, since this method must resolve <see cref="InMemoryExternalTokenReplayCache"/>
-    /// on its own even when a host calls it without also calling <c>AddBlazorBaseUserServer</c>,
-    /// which registers the same default elsewhere.
+    /// This call alone registers no <see cref="IExternalUserResolver{TUser}"/> - it is not generic
+    /// over <c>TUser</c>, so it cannot register a closed one - and maps no endpoint, so an
+    /// application that does not also call <c>MapBlazorBaseExternalAuthEndpoints</c> sees no change
+    /// at all. A host that also calls <c>AddBlazorBaseUserServer&lt;TUser, TContext&gt;</c> gets
+    /// <see cref="IdentityLoginExternalUserResolver{TUser}"/> as a safe default resolver from that
+    /// call instead, via <c>TryAddScoped</c>, so a host's own registration - whether it runs before
+    /// or after either call - always wins; a host that calls this method without
+    /// <c>AddBlazorBaseUserServer</c> must still register its own resolver. A host that needs its
+    /// allowed tenants to come from a database rather than the static
+    /// <see cref="ExternalAuthSettings.AllowedTenantIds"/> list must register its own
+    /// <see cref="IExternalTenantAllowList"/> before calling this method, since the default
+    /// registration below uses <c>TryAdd…</c> and only applies when nothing else has claimed the
+    /// service yet. <see cref="TimeProvider.System"/> is registered here with <c>TryAdd</c> too,
+    /// since this method must resolve <see cref="InMemoryExternalTokenReplayCache"/> on its own
+    /// even when a host calls it without also calling <c>AddBlazorBaseUserServer</c>, which
+    /// registers the same default elsewhere.
     /// </remarks>
     public static IServiceCollection AddBlazorBaseExternalAuth(
         this IServiceCollection services,
