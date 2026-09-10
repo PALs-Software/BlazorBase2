@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.ExternalAuth;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using BlazorBase.User.Server.Tokens;
@@ -144,6 +145,7 @@ public sealed class CookieAuthTokenTransportTests
                     app.UseRouting();
                     app.UseRateLimiter();
                     app.UseAuthentication();
+                    app.UseBlazorBaseAccessTokenStampValidation();
 
                     if (useCookies && useCsrfMiddleware)
                         app.UseBlazorBaseCsrf();

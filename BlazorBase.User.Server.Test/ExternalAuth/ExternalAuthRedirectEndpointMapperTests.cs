@@ -2,6 +2,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using BlazorBase.User.Server.ExternalAuth;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
@@ -120,6 +121,7 @@ public sealed class ExternalAuthRedirectEndpointMapperTests
                     app.UseRouting();
                     app.UseRateLimiter();
                     app.UseAuthentication();
+                    app.UseBlazorBaseAccessTokenStampValidation();
                     app.UseAuthorization();
                     app.UseEndpoints(endpoints => endpoints.MapBlazorBaseExternalAuthRedirectEndpoints<TestUser>(ExternalScheme));
                 });

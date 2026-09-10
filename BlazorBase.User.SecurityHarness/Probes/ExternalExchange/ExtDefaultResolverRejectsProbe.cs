@@ -3,6 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 using BlazorBase.User.SecurityHarness.Hosting;
 using BlazorBase.User.SecurityHarness.IdentityProvider;
 using BlazorBase.User.Server.ExternalAuth;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -137,6 +138,7 @@ internal sealed class ExtDefaultResolverRejectsProbe : IAuthProbe
             app.UseRouting();
             app.UseRateLimiter();
             app.UseAuthentication();
+            app.UseBlazorBaseAccessTokenStampValidation();
             app.UseAuthorization();
             app.MapBlazorBaseExternalAuthEndpoints<HarnessUser>();
 

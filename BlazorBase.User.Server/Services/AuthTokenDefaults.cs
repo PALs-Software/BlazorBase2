@@ -11,4 +11,10 @@ public static class AuthTokenDefaults
 
     /// <summary>How often <see cref="RefreshTokenCleanupService{TUser}"/> sweeps expired and revoked rows.</summary>
     public const int CleanupIntervalHours = 24;
+
+    /// <summary>
+    /// Default for <c>AuthTokens:SecurityStampValidationInterval</c> - re-validate a bearer-authenticated
+    /// caller's security stamp against the database on every request.
+    /// </summary>
+    public static readonly TimeSpan SecurityStampValidationInterval = TimeSpan.Zero;
 }

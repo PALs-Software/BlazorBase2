@@ -4,7 +4,6 @@
 # approved step (see step 11 in .plan/auth-attack-harness).
 
 AT-CASE-AND-TRIM :: AccessTokenAuthenticationHandler trims the raw Authorization header value before comparing the secret, so a whitespace-padded secret is accepted; a deliberate trimming behaviour, not a bypass of a different secret.
-ACCT-RESET-INVALIDATES-SESSIONS :: A password reset rotates the security stamp and revokes the refresh token immediately, but the access token issued before the reset keeps authenticating until its own natural expiry.
 CSRF-NO-FETCH-METADATA :: BlazorBaseCsrfChecks.IsSameOriginRequest treats an entirely absent Sec-Fetch-Site header as same-origin, so a client that omits fetch metadata is accepted on the antiforgery token alone.
 CLIENT-401-INVALIDATES :: BlazorBaseUserAuthStateProvider never becomes authenticated under the Bearer transport as the framework's own documentation composes it, because IAuthService's HttpClient deliberately carries no AuthTokenHandler.
 INFO-RESPONSE-HEADERS :: Kestrel's own default Server header is present on every response - an infrastructure default, not application code, and not disabled by the framework.

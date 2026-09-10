@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using BlazorBase.User.Models;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using BlazorBase.User.Server.Tokens;
@@ -59,6 +60,7 @@ public sealed class AuthSessionEndpointClaimsTests
                     app.UseRouting();
                     app.UseRateLimiter();
                     app.UseAuthentication();
+                    app.UseBlazorBaseAccessTokenStampValidation();
                     app.UseAuthorization();
                     app.UseEndpoints(endpoints => endpoints.MapBlazorBaseAuthSessionEndpoint());
                 });

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.ExternalAuth;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using Microsoft.AspNetCore.Authentication.BearerToken;
@@ -118,6 +119,7 @@ public sealed class ExternalAuthExchangeEndpointTests
                     app.UseRouting();
                     app.UseRateLimiter();
                     app.UseAuthentication();
+                    app.UseBlazorBaseAccessTokenStampValidation();
                     app.UseAuthorization();
                     app.UseEndpoints(endpoints => endpoints.MapBlazorBaseExternalAuthEndpoints<TestUser>());
                 });

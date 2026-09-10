@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using BlazorBase.User.Server.Tokens;
@@ -65,6 +66,7 @@ public sealed class BlazorBaseAuthSessionEndpointStartupGuardTests
                     app.UseRouting();
                     app.UseRateLimiter();
                     app.UseAuthentication();
+                    app.UseBlazorBaseAccessTokenStampValidation();
 
                     if (useCookies)
                         app.UseBlazorBaseCsrf();

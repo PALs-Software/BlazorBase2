@@ -8,6 +8,7 @@ using BlazorBase.User.Server.Configuration;
 using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.ExternalAuth;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Tokens;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -127,6 +128,22 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
             });
 
         services.AddAuthorization();
+
+        var securityStampValidationInterval = configuration.GetValue("AuthTokens:SecurityStampValidationInterval", AuthTokenDefaults.SecurityStampValidationInterval);
+        var stampValidationOptions = new AccessTokenStampValidationOptions { Interval = securityStampValidationInterval };
+
+        services.TryAddSingleton(stampValidationOptions);
+        services.TryAddSingleton<AccessTokenStampValidationCache>();
+        services.TryAddScoped<IAccessTokenStampValidator, AccessTokenStampValidator<TUser>>();
+
+        // Only when this call claims the authentication default: a host that dispatches its own
+        // schemes (ClaimDefaultScheme = false) has declared it manages that wiring itself - see
+        // BlazorBaseAccessTokenStampValidationStartupGuardFilter.
+        if (schemeOptions.ClaimDefaultScheme && stampValidationOptions.Enabled)
+        {
+            services.TryAddSingleton<BlazorBaseAccessTokenStampValidationMiddlewareRegistration>();
+            services.TryAddEnumerable(ServiceDescriptor.Singleton<IStartupFilter, BlazorBaseAccessTokenStampValidationStartupGuardFilter>());
+        }
 
         var rateLimitPermitLimit = configuration.GetValue("AuthTokens:RateLimit:PermitLimit", 10);
         var rateLimitWindowSeconds = configuration.GetValue("AuthTokens:RateLimit:WindowSeconds", 60);

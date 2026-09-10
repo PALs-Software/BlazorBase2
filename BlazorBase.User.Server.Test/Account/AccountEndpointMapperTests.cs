@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.Account;
 using BlazorBase.User.Server.Entities;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Test.Infrastructure;
 using Microsoft.AspNetCore.Builder;
@@ -88,6 +89,7 @@ public sealed class AccountEndpointMapperTests
                     app.UseRouting();
                     app.UseRateLimiter();
                     app.UseAuthentication();
+                    app.UseBlazorBaseAccessTokenStampValidation();
                     app.UseAuthorization();
                     app.UseEndpoints(endpoints => endpoints.MapBlazorBaseAccountEndpoints<TestUser>());
                 });
@@ -422,6 +424,9 @@ public sealed class AccountEndpointMapperTests
 
         await EnableAuthenticatorTwoFactorAsync(host, user.Id);
 
+        var accessTokenAfterStampRotatingReEnable = await IssueAccessTokenAsync(host, user);
+        Authenticate(client, accessTokenAfterStampRotatingReEnable);
+
         var secondAttempt = await client.PostAsJsonAsync("/api/auth/manage/2fa/disable", new TwoFactorVerificationRequest { Code = recoveryCode });
 
         Assert.Equal(HttpStatusCode.BadRequest, secondAttempt.StatusCode);
@@ -497,14 +502,21 @@ public sealed class AccountEndpointMapperTests
     /// <summary>
     /// Mints a real access token through the same issuer the login endpoint uses, since this test
     /// host maps only the account-management group and has no login endpoint of its own to call.
+    /// Re-fetches the user by id first: <paramref name="user"/> is often the value returned by
+    /// <see cref="SeedUserAsync"/> before <see cref="EnableAuthenticatorTwoFactorAsync"/> ran, and
+    /// that call rotates the security stamp - minting from the stale in-memory copy would carry the
+    /// pre-rotation stamp value into the token, exactly the situation a real login endpoint (which
+    /// always loads the current user first) never produces.
     /// </summary>
     private static async Task<string> IssueAccessTokenAsync(IHost host, TestUser user)
     {
         using var scope = host.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
         var signInManager = scope.ServiceProvider.GetRequiredService<SignInManager<TestUser>>();
         var tokenIssuer = scope.ServiceProvider.GetRequiredService<AuthTokenIssuer<TestUser>>();
 
-        var principal = await signInManager.CreateUserPrincipalAsync(user);
+        var currentUser = await userManager.FindByIdAsync(user.Id);
+        var principal = await signInManager.CreateUserPrincipalAsync(currentUser!);
         var tokens = await tokenIssuer.IssueTokenPairAsync(principal);
 
         return tokens.AccessToken;

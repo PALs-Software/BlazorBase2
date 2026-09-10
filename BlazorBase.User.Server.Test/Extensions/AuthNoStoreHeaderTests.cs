@@ -1,4 +1,5 @@
 using BlazorBase.User.Server.Test.Infrastructure;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Tokens;
 using Microsoft.AspNetCore.Builder;
@@ -51,6 +52,7 @@ public sealed class AuthNoStoreHeaderTests
                     app.UseRouting();
                     app.UseRateLimiter();
                     app.UseAuthentication();
+                    app.UseBlazorBaseAccessTokenStampValidation();
                     app.UseAuthorization();
                     app.UseEndpoints(endpoints =>
                     {
