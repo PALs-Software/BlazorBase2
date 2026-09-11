@@ -587,10 +587,18 @@ identity to a local account is a separate, host-specific decision, made by whate
 
 A host that calls `AddBlazorBaseUserServer<TUser, TContext>` gets a safe default for free:
 `IdentityLoginExternalUserResolver<TUser>` looks the caller up through ASP.NET Core Identity's own
-external-login table via `UserManager<TUser>.FindByLoginAsync`, keyed on the token's `oid` claim
-(falling back to `sub`) - never on `email`, `preferred_username`, `upn` or `name`, none of which are
-stable, provider-issued identifiers a host can safely trust for account linking. An unrecognised
-subject is rejected, not auto-provisioned.
+external-login table via `UserManager<TUser>.FindByLoginAsync`, keyed on the caller's subject claim -
+never on `email`, `preferred_username`, `upn` or `name`, none of which are stable, provider-issued
+identifiers a host can safely trust for account linking. An unrecognised subject is rejected, not
+auto-provisioned.
+
+The subject is read under four claim types, in this order of preference: `oid`,
+`http://schemas.microsoft.com/identity/claims/objectidentifier`, `sub`, `ClaimTypes.NameIdentifier`.
+There are four because the redirect flow's OIDC handler applies inbound claim-type mapping to the raw
+JWT claims while token exchange does not, so the same claim arrives under a different name depending
+on the entry point. See
+[Authentication token transports](BlazorBase.User.Server.AuthTransports.md) for the operational detail
+on how the two entry points produce these claim shapes.
 
 Linking an account is therefore something a host must do explicitly, typically once, at invitation
 or first-login time:

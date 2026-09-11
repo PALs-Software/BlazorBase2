@@ -448,7 +448,38 @@ acceptable tenants are rows in its own database registers its own implementation
 `BlazorBase.User.Server`'s XML documentation on `ExternalAuthSettings`,
 `ExternalAuthSettingsValidator` and `IExternalTenantAllowList` for the full contract.
 
+### A provider token is exchangeable once
+
+The exchange endpoint rejects a provider token that has already been exchanged. Without that check, a
+token captured once could be turned into as many independent local sessions as the holder wants, for
+as long as the token itself remains valid — and those local sessions outlive it.
+
+The check runs **after** the token validates and **before** the user is resolved. The cache key is a
+hash of the raw token string; the token itself is never stored. An entry is retained until the
+token's own `exp` plus a 30-second allowance matching the validator's clock skew — the entire window
+in which the token could still validate again. When the principal carries no readable `exp`, the
+entry is held for a bounded 15 minutes instead, so the check still holds behind a custom
+`IExternalTokenValidator` that does not surface the claim.
+
+`ExternalAuthSettings.ReplayProtectionEnabled` (`bool`, default `true`) turns the check off. There is
+no good reason to.
+
+The seam is `IExternalTokenReplayCache`, with one member:
+`TryRegisterAsync(key, expiresUtc, cancellationToken)`, returning `true` the first time a key is seen
+and `false` while it is still retained. The default is `InMemoryExternalTokenReplayCache`, registered
+`TryAddSingleton<IExternalTokenReplayCache, InMemoryExternalTokenReplayCache>()`, so a host
+registration wins regardless of order.
+
+**It is per process.** On more than one instance a token can be exchanged once per instance. A
+multi-instance deployment must supply a distributed implementation.
+
 ### Writing the resolver
+
+The framework registers a default: `AddBlazorBaseUserServer` registers
+`IdentityLoginExternalUserResolver<TUser>` as `IExternalUserResolver<TUser>` using `TryAddScoped`, so
+a host that writes its own still wins whether it registers before or after. A host that writes none
+gets subject-based linking through `UserManager<TUser>.FindByLoginAsync`, which rejects an
+unrecognised subject rather than provisioning an account.
 
 Rejection is a return value, not an exception:
 
@@ -482,6 +513,14 @@ reused. Use the email only once, to link an invited user on first sign-in, and n
 that is bounded to your own directory and is often fine. With a multi-tenant authority (`/common`) it
 means every account in existence can create itself an account in your application. If you have an
 invitation flow, an unknown subject should be a failed sign-in.
+
+**The two entry points hand the resolver two different claim shapes for the same user.** Token
+exchange passes the raw JWT claims: `oid` and `sub`. Redirect goes through the host's own
+`AddOpenIdConnect` handler, which applies inbound claim-type mapping: `sub` arrives as
+`ClaimTypes.NameIdentifier`, `oid` as `http://schemas.microsoft.com/identity/claims/objectidentifier`.
+A resolver that reads only the raw names works under token exchange and rejects every caller under
+redirect. The shipped default reads all four, in this order of preference: `oid`,
+`http://schemas.microsoft.com/identity/claims/objectidentifier`, `sub`, `ClaimTypes.NameIdentifier`.
 
 ---
 
