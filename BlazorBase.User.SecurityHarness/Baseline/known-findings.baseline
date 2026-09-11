@@ -2,8 +2,13 @@
 # when it fails AND is missing from this file, or when a line here names a probe that no longer
 # exists - never on a failure this file already names. Every entry here is a deliberate decision,
 # not a backlog item: the findings that were worth fixing have been fixed and their lines removed.
+#
+# A failed probe is not a failed test. A probe runs an attack and reports what it found, so the
+# raw catalogue run exits non-zero whenever any finding is still present. The CI wrapper is what
+# gates the build, and it only reacts to a finding this file does not already name. Each line
+# below therefore records both the finding and the reason it is accepted rather than fixed.
 
-AT-CASE-AND-TRIM :: AccessTokenAuthenticationHandler trims the raw Authorization header value before comparing the secret, so a whitespace-padded secret is accepted; a deliberate trimming behaviour, not a bypass of a different secret.
-CSRF-NO-FETCH-METADATA :: BlazorBaseCsrfChecks.IsSameOriginRequest treats an entirely absent Sec-Fetch-Site header as same-origin, so a client that omits fetch metadata is accepted on the antiforgery token alone.
-INFO-RESPONSE-HEADERS :: Kestrel's own default Server header is present on every response - an infrastructure default, not application code, and not disabled by the framework.
-EXT-UNVERIFIED-EMAIL-TAKEOVER :: Demonstrates account takeover through the harness's own naive email-matching external-user resolver, which a host can still choose even though the framework now ships a safe subject-based default; the demonstration is about the host's choice, not about framework code.
+AT-CASE-AND-TRIM :: AccessTokenAuthenticationHandler trims the raw Authorization header value before comparing the secret, so a whitespace-padded secret is accepted. Accepted: trimming is deliberate transport hygiene and the compared secret is still the exact issued one, so no different secret gains access.
+CSRF-NO-FETCH-METADATA :: BlazorBaseCsrfChecks.IsSameOriginRequest treats an entirely absent Sec-Fetch-Site header as same-origin, so a client that omits fetch metadata is accepted on the antiforgery token alone. Accepted: fetch metadata is a browser-only signal, and rejecting requests without it would lock out every non-browser client while the antiforgery token still has to be presented and validated.
+INFO-RESPONSE-HEADERS :: Kestrel's own default Server header is present on every response. Accepted: this is a host infrastructure default rather than framework code, and suppressing it belongs in the host's Kestrel configuration, not in BlazorBase.
+EXT-UNVERIFIED-EMAIL-TAKEOVER :: Demonstrates account takeover through the harness's own naive email-matching external-user resolver. Accepted: the framework now ships IdentityLoginExternalUserResolver, which matches on the provider subject, as the registered default; the probe documents what happens when a host deliberately replaces it with an email-matching resolver, which is the host's choice and not framework behaviour.
