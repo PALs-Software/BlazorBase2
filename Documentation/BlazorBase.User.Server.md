@@ -330,6 +330,13 @@ The cost is one indexed primary-key lookup per authenticated request. The altern
 
 A cache *miss* never inserts anything, so probing with random secrets — each producing a distinct, non-existent prefix — cannot grow the dictionary. Without that property the cache would be an unbounded memory sink addressable by anyone who can reach the endpoint.
 
+The same re-read also checks the **owner**. A token created with a `userId` is only valid while that
+account still exists and has `IsActive == true`. Deactivating a user therefore kills their machine
+tokens on the next call, with no separate revocation step. A token created without a `userId` has no
+owner to check and is unaffected. The owner is looked up through the root `BaseUser` entity type in
+the EF model, so a host that derives further user types with table-per-hierarchy still resolves the
+base row.
+
 ### Configuration
 
 ```json
@@ -399,6 +406,33 @@ so validating it later is Identity's job, not this framework's.
 There is no `GenerateAccessToken`/`ValidateAccessToken` pair to call directly any more: validating a
 bearer token is the concern of Identity's own bearer-token authentication handler, invoked
 automatically for every authenticated request, not something a caller does by hand.
+
+### `TwoFactorPendingTokenService<TUser>` and `ITwoFactorPendingTokenStore`
+
+Between `POST api/auth/login` on an account with two-factor enabled and `POST api/auth/login/2fa`, the
+server hands the caller a short-lived opaque **pending token** instead of a session.
+`TwoFactorPendingTokenService<TUser>` mints and validates it; it is data-protected, carries the user id
+and a random single-use id, and lives **5 minutes**.
+
+The token is **single use**. It is consumed only after the submitted code has been verified, so a
+wrong code does not burn it, and the consume result decides the response — two requests racing with
+the same pending token cannot both mint a session.
+
+| Method | Purpose |
+|---|---|
+| `Protect(user)` | Mints the pending token: the user id, a random single-use id, and a 5-minute expiry, data-protected. |
+| `UnprotectAsync(pendingToken, cancellationToken)` | Returns the user id, or `null` when the token is malformed, expired, or has already been consumed. |
+| `ConsumeAsync(pendingToken, cancellationToken)` | Marks the token spent. Returns `true` only for the first caller; a second caller gets `false` and must be rejected. |
+
+`ITwoFactorPendingTokenStore` is what remembers which pending-token ids are spent:
+`IsConsumedAsync(tokenId, cancellationToken)` and `TryConsumeAsync(tokenId, expiresUtc, cancellationToken)`.
+The default is `InMemoryTwoFactorPendingTokenStore`, registered
+`TryAddSingleton<ITwoFactorPendingTokenStore, InMemoryTwoFactorPendingTokenStore>()`, so a host
+registration wins regardless of order.
+
+**It is per process.** On more than one instance, a captured pending token can be replayed against an
+instance that has not seen it spent. A multi-instance deployment must supply a distributed
+implementation.
 
 ### `RefreshTokenCleanupService<TUser>`
 
@@ -877,6 +911,11 @@ Mapped via `app.MapBlazorBaseAuthSessionEndpoint()`. Required by default under b
 see [Authentication token transports](BlazorBase.User.Server.AuthTransports.md) for why any BlazorBase
 client needs this, and `BlazorBaseUserServerOptions.RequiresAuthSessionEndpoint` for the opt-out on a
 host with no BlazorBase client.
+
+The response deliberately omits one claim: the security-stamp claim, whose type is
+`IdentityOptions.ClaimsIdentity.SecurityStampClaimType`. It is server-side bookkeeping used to
+invalidate sessions; it has no client use, and handing it out widens what a cross-site script can
+read. Every other claim on the principal is returned.
 
 ### Admin user CRUD — delegated to BlazorBase.CRUD
 
