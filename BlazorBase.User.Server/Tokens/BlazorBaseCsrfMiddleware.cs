@@ -33,6 +33,16 @@ namespace BlazorBase.User.Server.Tokens;
 ///
 /// Safe methods pass through untouched. That is only sound while <c>GET</c> has no side effects — a
 /// rule the application owns, since no middleware can tell a reading <c>GET</c> from a writing one.
+///
+/// <c>/_blazor/*</c> (the Blazor Server circuit's own negotiate/connect endpoints, mapped by
+/// <c>MapBlazorHub()</c>) keeps the <c>Sec-Fetch-Site</c>/origin half of the check but skips the
+/// antiforgery token half. A first-time visitor's browser opens this connection the instant the page
+/// loads, before any application code has had a chance to mint an antiforgery cookie for them — under
+/// the cookie transport there is no earlier request in the page lifecycle that could have carried one.
+/// Requiring a token here would make every fresh Blazor Server page load 403 on its own circuit before
+/// a single line of application code runs, session or no session. The origin check is what actually
+/// defends this endpoint; the antiforgery token defends the API calls the circuit goes on to make once
+/// it exists, which are unaffected by this exemption.
 /// </remarks>
 public sealed class BlazorBaseCsrfMiddleware(RequestDelegate next, IAntiforgery antiforgery, IOptionsMonitor<AuthCookieOptions> cookieOptions)
 {
@@ -67,6 +77,12 @@ public sealed class BlazorBaseCsrfMiddleware(RequestDelegate next, IAntiforgery 
         if (!BlazorBaseCsrfChecks.IsSameOriginRequest(httpContext, CookieOptions.CurrentValue.AllowSameSiteRequests))
         {
             httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+
+        if (httpContext.Request.Path.StartsWithSegments("/_blazor", StringComparison.OrdinalIgnoreCase))
+        {
+            await Next(httpContext);
             return;
         }
 
