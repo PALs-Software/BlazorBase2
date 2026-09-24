@@ -403,6 +403,22 @@ public interface IBaseDataProvider<TModel>
 }
 ```
 
+### Built-in data provider implementations
+
+- **`DbContextBaseDataProvider<T>`** — server-side, backed by EF Core `DbContext`, with dynamic field projection, PATCH-only updates and optimistic concurrency.
+- **`HttpBaseDataProvider<T>`** — client-side, backed by REST calls over `HttpClient`; used in WASM/MAUI clients.
+- **`InMemoryBaseDataProvider<T>`** — read-only, backed by a host-supplied in-memory list/delegate, for precomputed or statistics-style data with no real backing store.
+
+```csharp
+var provider = new InMemoryBaseDataProvider<ProductStatistic>(() => CurrentStatistics);
+```
+
+```razor
+<BaseList DataProvider="provider" TModel="ProductStatistic">
+    ...
+</BaseList>
+```
+
 `scopeFilter` is a server-only row-level-security predicate, inserted ahead of `CancellationToken` on every read method — callers that previously passed `CancellationToken` positionally must switch to `ct:`/`cancellationToken:`. It is applied by `DbContextBaseDataProvider<T>` (added as a `Where(scopeFilter)` clause), **ignored** by `HttpBaseDataProvider<T>` (clients never scope rows themselves — see [`BaseEndpointOptions.UserFilter`](#rest-endpoints-per-entity) for the server-side equivalent), and **unsupported** by the Identity-backed `UserDataProvider`, which throws `NotSupportedException` when a non-null `scopeFilter` is passed.
 
 ```csharp
