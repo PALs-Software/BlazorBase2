@@ -1,0 +1,148 @@
+.markdown-view ::deep p {
+    margin: 0 0 0.75em 0;
+}
+
+.markdown-view ::deep > :first-child {
+    margin-top: 0;
+}
+
+.markdown-view ::deep > :last-child,
+.markdown-view ::deep p:last-child {
+    margin-bottom: 0;
+}
+
+.markdown-view ::deep ul,
+.markdown-view ::deep ol {
+    margin: 0 0 0.75em 0;
+    padding-left: 1.5em;
+}
+
+.markdown-view ::deep li {
+    margin-bottom: 0.25em;
+}
+
+.markdown-view ::deep a {
+    color: var(--color-accent, var(--accent-foreground-rest));
+    text-decoration: underline;
+}
+
+.markdown-view ::deep a:hover {
+    color: var(--color-accent, var(--accent-foreground-hover));
+}
+
+.markdown-view ::deep strong {
+    font-weight: 600;
+}
+
+.markdown-view ::deep em {
+    font-style: italic;
+}
+
+.markdown-view ::deep h1 {
+    font-size: var(--type-ramp-plus-3-font-size, 28px);
+    line-height: var(--type-ramp-plus-3-line-height, 36px);
+    font-weight: 600;
+    margin: 0 0 0.5em 0;
+}
+
+.markdown-view ::deep h2 {
+    font-size: var(--type-ramp-plus-2-font-size, 20px);
+    line-height: var(--type-ramp-plus-2-line-height, 28px);
+    font-weight: 600;
+    margin: 0 0 0.5em 0;
+}
+
+.markdown-view ::deep h3 {
+    font-size: var(--type-ramp-plus-1-font-size, 16px);
+    line-height: var(--type-ramp-plus-1-line-height, 22px);
+    font-weight: 600;
+    margin: 0 0 0.5em 0;
+}
+
+.markdown-view ::deep h4 {
+    font-size: var(--type-ramp-base-font-size, 14px);
+    line-height: var(--type-ramp-base-line-height, 20px);
+    font-weight: 600;
+    margin: 0 0 0.5em 0;
+}
+
+.markdown-view ::deep blockquote {
+    margin: 0 0 0.75em 0;
+    padding: 0.5em 0 0.5em 1em;
+    border-left: 3px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
+}
+
+.markdown-view ::deep code {
+    font-family: var(--font-monospace, monospace);
+    font-size: 0.875em;
+    background: var(--color-bg-subtle, var(--neutral-layer-2));
+    padding: 0.15em 0.35em;
+    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
+}
+
+.markdown-view ::deep pre {
+    font-family: var(--font-monospace, monospace);
+    font-size: 0.875em;
+    background: var(--color-bg-subtle, var(--neutral-layer-2));
+    padding: 0.75em 1em;
+    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
+    overflow-x: auto;
+    margin: 0 0 0.75em 0;
+}
+
+.markdown-view ::deep pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+}
+
+.markdown-view {
+    overflow-wrap: anywhere;
+}
+
+.markdown-view ::deep h5,
+.markdown-view ::deep h6 {
+    font-size: var(--type-ramp-base-font-size, 14px);
+    line-height: var(--type-ramp-base-line-height, 20px);
+    font-weight: 600;
+    margin: 0 0 0.5em 0;
+}
+
+.markdown-view ::deep pre {
+    white-space: pre;
+    overflow-wrap: normal;
+}
+
+.markdown-view ::deep del {
+    text-decoration: line-through;
+}
+
+.markdown-view ::deep hr {
+    border: none;
+    border-top: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+    margin: 1em 0;
+}
+
+/* Wide tables scroll inside themselves instead of stretching the surrounding layout. */
+.markdown-view ::deep table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    margin: 0 0 0.75em 0;
+    font-size: 0.9375em;
+}
+
+.markdown-view ::deep th,
+.markdown-view ::deep td {
+    padding: 0.35em 0.75em;
+    border: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+    text-align: left;
+    vertical-align: top;
+}
+
+.markdown-view ::deep th {
+    font-weight: 600;
+    background: var(--color-bg-subtle, var(--neutral-layer-2));
+}

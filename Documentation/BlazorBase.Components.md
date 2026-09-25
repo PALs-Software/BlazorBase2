@@ -166,6 +166,7 @@ component owns the appearance of the tabs and the sheet, not where the bar lives
 |---|---|
 | `RichTextEditor` | Content-editable HTML editor. Sanitises through the host's `IHtmlSanitizer` when one is registered. |
 | `SanitizedHtml` | Renders untrusted HTML through the same seam. |
+| `MarkdownView` | Renders Markdown (a language model's answer, a comment) as formatted HTML — safe on its own, host sanitizer applied on top. |
 | `DiffViewer` | Unified or side-by-side file diff with syntax highlighting and per-line comment anchors. |
 | `FileTree` | Collapsible file tree over `FileTreeNode`. |
 
@@ -174,6 +175,17 @@ no sanitizer is registered. `SanitizedHtml` HTML-encodes the value, so it stays 
 the markup as text. `RichTextEditor` passes the value through unchanged, which is correct for content
 an author already owns and a real risk for anything else — register a sanitizer before letting one
 user's markup reach another user.
+
+`MarkdownView` does not depend on the seam for safety. `MarkdownConverter` (Markdig) escapes raw HTML
+instead of passing it through, turns every link whose target is not `http`, `https`, `mailto` or
+relative into plain text — including targets obfuscated with control characters or entities — and
+renders images as links, so displaying text never makes the browser contact a server the text names.
+It enables pipe tables, strikethrough and bare-URL links only; Markdig's `UseAdvancedExtensions()` is
+avoided on purpose, because its generic-attributes extension turns `{onclick=…}` into a real attribute.
+When an `IHtmlSanitizer` is registered its policy is applied on top, so the host's allow-list has the
+last word — which also means it must allow what Markdown produces (`table`, `thead`, `tbody`, `tr`,
+`th`, `td`, `pre`, `code`, `hr`, `del` and `class` for the `language-*` of code blocks), or that
+structure is stripped. The conversion is cached per value, so re-renders with the same text are free.
 
 ---
 

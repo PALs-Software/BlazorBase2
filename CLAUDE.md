@@ -83,7 +83,8 @@ that only needs a data grid should not have to reference the auth stack to get a
   tree drives both `BaseSideNavigation` (desktop rail) and `BaseBottomNavigation` (mobile tab bar with
   an overflow sheet), filtered once by `NavigationVisibility` so role visibility cannot diverge between
   form factors.
-- `Editors/`, `Diff/`, `Files/`, `Html/` — `RichTextEditor`, `DiffViewer`, `FileTree`, `SanitizedHtml`.
+- `Editors/`, `Diff/`, `Files/`, `Html/` — `RichTextEditor`, `DiffViewer`, `FileTree`, `SanitizedHtml`,
+  `MarkdownView` (Markdig, safe without a sanitizer — see the Components documentation before loosening it).
   CRUD consumes them; none of them consumes CRUD.
 - `Services/` — `IThemeService`, `ILanguageService`, `IFormFactor`, `IConfirmationService`.
 - `Routing/` — `QueryStringReader`, a dependency-free query-parameter reader.
