@@ -1,0 +1,20 @@
+@namespace BlazorBase.Speech.Components.PushToTalk
+
+<div class="push-to-talk @Class">
+    <button @ref="ButtonElement"
+            type="button"
+            class="push-to-talk-button @StateClass"
+            disabled="@Disabled"
+            aria-pressed="@(IsRecording ? "true" : "false")"
+            aria-label="@ButtonLabel"
+            aria-describedby="@CaptionId"
+            title="@ButtonLabel">
+        <span class="push-to-talk-level" aria-hidden="true"></span>
+        <FluentIcon Value="@ButtonIcon" Color="Color.Custom" CustomColor="currentColor" Class="push-to-talk-icon" />
+    </button>
+    <span id="@CaptionId" class="push-to-talk-caption @(ShowCaption ? string.Empty : "push-to-talk-caption-hidden")" role="status">@Caption</span>
+    @if (ErrorMessage is not null)
+    {
+        <span class="push-to-talk-error" role="alert">@ErrorMessage</span>
+    }
+</div>

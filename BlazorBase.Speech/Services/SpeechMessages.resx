@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="RecorderPermissionDenied" xml:space="preserve">
+    <value>Microphone access was denied. Allow it in your browser's site settings to talk.</value>
+  </data>
+  <data name="RecorderNoMicrophone" xml:space="preserve">
+    <value>No microphone was found.</value>
+  </data>
+  <data name="RecorderUnsupported" xml:space="preserve">
+    <value>This browser cannot record audio here. Recording needs a current browser and an HTTPS connection.</value>
+  </data>
+  <data name="RecorderFailed" xml:space="preserve">
+    <value>The recording failed. Please try again.</value>
+  </data>
+  <data name="RequestUnavailable" xml:space="preserve">
+    <value>The speech service is not reachable right now.</value>
+  </data>
+  <data name="RequestBusy" xml:space="preserve">
+    <value>The speech service is busy. Please try again in a moment.</value>
+  </data>
+  <data name="RequestTimeout" xml:space="preserve">
+    <value>The speech service took too long to answer.</value>
+  </data>
+  <data name="RequestRejected" xml:space="preserve">
+    <value>The recording could not be processed. It may be too long.</value>
+  </data>
+</root>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="NotConfigured" xml:space="preserve">
+    <value>Spracheingabe und -ausgabe sind auf diesem Server nicht eingerichtet.</value>
+  </data>
+  <data name="RecordingMissing" xml:space="preserve">
+    <value>Es ist keine Aufnahme angekommen.</value>
+  </data>
+  <data name="RecordingTooLarge" xml:space="preserve">
+    <value>Die Aufnahme ist zu lang.</value>
+  </data>
+  <data name="RecordingNotWav" xml:space="preserve">
+    <value>Die Aufnahme ist keine WAV-Datei.</value>
+  </data>
+  <data name="TextMissing" xml:space="preserve">
+    <value>Es gibt keinen Text zum Vorlesen.</value>
+  </data>
+  <data name="TextTooLong" xml:space="preserve">
+    <value>Der Text ist zu lang, um ihn am Stück vorzulesen.</value>
+  </data>
+  <data name="TooManyRequests" xml:space="preserve">
+    <value>Zu viele Sprachanfragen gleichzeitig. Bitte warte einen Moment.</value>
+  </data>
+  <data name="ServiceUnavailable" xml:space="preserve">
+    <value>Der Sprachdienst ist gerade nicht erreichbar.</value>
+  </data>
+  <data name="ServiceBusy" xml:space="preserve">
+    <value>Der Sprachdienst ist ausgelastet. Bitte versuche es gleich noch einmal.</value>
+  </data>
+  <data name="ServiceTimeout" xml:space="preserve">
+    <value>Der Sprachdienst hat zu lange für eine Antwort gebraucht.</value>
+  </data>
+  <data name="ServiceRejected" xml:space="preserve">
+    <value>Der Sprachdienst konnte die Anfrage nicht verarbeiten.</value>
+  </data>
+</root>

@@ -10,6 +10,8 @@
     <File Path="Documentation/BlazorBase.User.Server.md" />
     <File Path="Documentation/BlazorBase.User.Wasm.md" />
     <File Path="Documentation/BlazorBase.User.Maui.md" />
+    <File Path="Documentation/BlazorBase.Speech.md" />
+    <File Path="Documentation/BlazorBase.Speech.Server.md" />
   </Folder>
   <Project Path="BlazorBase.Chart/BlazorBase.Chart.csproj" />
   <Project Path="BlazorBase.Mailing/BlazorBase.Mailing.csproj" />
@@ -26,6 +28,8 @@
   <Project Path="BlazorBase.User.Server/BlazorBase.User.Server.csproj" />
   <Project Path="BlazorBase.User.Wasm/BlazorBase.User.Wasm.csproj" />
   <Project Path="BlazorBase.User.Maui/BlazorBase.User.Maui.csproj" />
+  <Project Path="BlazorBase.Speech/BlazorBase.Speech.csproj" />
+  <Project Path="BlazorBase.Speech.Server/BlazorBase.Speech.Server.csproj" />
   <Folder Name="/Tests/">
     <Project Path="BlazorBase.CRUD.Test/BlazorBase.CRUD.Test.csproj" />
     <Project Path="BlazorBase.DataProtection.Test/BlazorBase.DataProtection.Test.csproj" />
@@ -34,5 +38,7 @@
     <Project Path="BlazorBase.User.Test/BlazorBase.User.Test.csproj" />
     <Project Path="BlazorBase.User.Server.Test/BlazorBase.User.Server.Test.csproj" />
     <Project Path="BlazorBase.Files.Server.Test/BlazorBase.Files.Server.Test.csproj" />
+    <Project Path="BlazorBase.Speech.Test/BlazorBase.Speech.Test.csproj" />
+    <Project Path="BlazorBase.Speech.Server.Test/BlazorBase.Speech.Server.Test.csproj" />
   </Folder>
 </Solution>

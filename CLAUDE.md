@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repository is
 
-**BlazorBase** — a set of reusable Blazor base libraries (CRUD, User/Identity, Charting, Mailing) shared across applications. It is a **standalone git repository** consumed by host apps as a **git submodule**, with the contained `.csproj` files referenced directly via `<ProjectReference>`. In this workspace it sits at `Libs/` inside the CineNote app, which treats these libraries as **editable, first-party code** — fix bugs and add features here directly rather than working around them in the host (no `new`-method-hiding, no parallel routes, no wrapper re-implementations). Only **generic, reusable** logic belongs here; app-specific concerns (wording, branding, role names, business rules) stay in the consuming app.
+**BlazorBase** — a set of reusable Blazor base libraries (CRUD, User/Identity, Charting, Mailing, Speech) shared across applications. It is a **standalone git repository** consumed by host apps as a **git submodule**, with the contained `.csproj` files referenced directly via `<ProjectReference>`. In this workspace it sits at `Libs/` inside the CineNote app, which treats these libraries as **editable, first-party code** — fix bugs and add features here directly rather than working around them in the host (no `new`-method-hiding, no parallel routes, no wrapper re-implementations). Only **generic, reusable** logic belongs here; app-specific concerns (wording, branding, role names, business rules) stay in the consuming app.
 
 The solution is [BlazorBase.slnx](BlazorBase.slnx). Target framework is **.NET 10** for everything except the source generator (`netstandard2.0`, required for Roslyn) and the MAUI library (multi-TFM android/ios/maccatalyst/windows).
 
@@ -18,14 +18,14 @@ The solution is [BlazorBase.slnx](BlazorBase.slnx). Target framework is **.NET 1
 |---|---|
 | Build everything | `dotnet build BlazorBase.slnx` (needs MAUI workloads because of `BlazorBase.User.Maui`) |
 | Build a single library (no MAUI workloads needed) | `dotnet build BlazorBase.CRUD/BlazorBase.CRUD.csproj` |
-| Run all tests | `dotnet test BlazorBase.slnx` (same MAUI caveat; the eight test projects still run if the MAUI target fails to build) |
+| Run all tests | `dotnet test BlazorBase.slnx` (same MAUI caveat; the ten test projects still run if the MAUI target fails to build) |
 | Install MAUI workloads (first-time) | `dotnet workload install maui-android maui-ios maui-maccatalyst` |
 | Run all benchmarks | `dotnet run -c Release --project BlazorBase.CRUD.Benchmarks` |
 | Filter benchmarks | `dotnet run -c Release --project BlazorBase.CRUD.Benchmarks -- --filter "*Read*"` |
 | List benchmarks without running | `dotnet run -c Release --project BlazorBase.CRUD.Benchmarks -- --list flat` |
 
 - **Package versions are managed centrally.** [Directory.Packages.props](Directory.Packages.props) declares every version once; project files carry a bare `<PackageReference Include="…" />` with no `Version`. Adding a package means one `PackageVersion` entry there plus the bare reference in the project that needs it — a `Version` in a `.csproj` is an error (NU1008), which is the point: the same package sat at four versions across the solution before this.
-- **Eight xUnit test projects** cover the libraries (`*.Test`), using bUnit for the component ones. The BenchmarkDotNet suite in `BlazorBase.CRUD.Benchmarks` is separate and deliberately manual: it **only runs in Release** (BenchmarkDotNet refuses Debug), takes minutes, and is intentionally not wrapped in xUnit. See [BlazorBase.CRUD.Benchmarks/README.md](BlazorBase.CRUD.Benchmarks/README.md) for how to add a scenario and the Azure DevOps pipeline.
+- **Ten xUnit test projects** cover the libraries (`*.Test`), using bUnit for the component ones. The BenchmarkDotNet suite in `BlazorBase.CRUD.Benchmarks` is separate and deliberately manual: it **only runs in Release** (BenchmarkDotNet refuses Debug), takes minutes, and is intentionally not wrapped in xUnit. See [BlazorBase.CRUD.Benchmarks/README.md](BlazorBase.CRUD.Benchmarks/README.md) for how to add a scenario and the Azure DevOps pipeline.
 - **This repo owns no EF migrations.** Identity/`RefreshToken` schema comes from `BaseUserDbContext<TUser>`, but migrations are generated and applied by the **host** app against its concrete `DbContext`. The benchmark uses a throw-away SQLite `EnsureCreated()` database, so no migrations are needed there.
 
 ## Architecture: one shared UI layer, many hosts
@@ -38,6 +38,8 @@ BlazorBase.Components       (standalone — layout, navigation, theming, editors
 BlazorBase.Chart            (standalone — Chart.js interop)
 BlazorBase.Mailing          (standalone — SMTP + Razor-rendered email)
 BlazorBase.DataProtection   (standalone — browser-safe encryption)
+BlazorBase.Speech           (standalone — push-to-talk, narrator, Markdown-to-speech)
+BlazorBase.Speech.Server    → BlazorBase.Speech   (ASP.NET Core: authenticated proxy to a speech service)
 BlazorBase.CRUD             → BlazorBase.Components, BlazorBase.Localization, BlazorBase.DataProtection
   └─ BlazorBase.CRUD.Generators   (consumed as an analyzer, optional)
 BlazorBase.User             → BlazorBase.CRUD
@@ -85,6 +87,19 @@ that only needs a data grid should not have to reference the auth stack to get a
   CRUD consumes them; none of them consumes CRUD.
 - `Services/` — `IThemeService`, `ILanguageService`, `IFormFactor`, `IConfirmationService`.
 - `Routing/` — `QueryStringReader`, a dependency-free query-parameter reader.
+
+### Speech: browser audio through an authenticated proxy
+
+`BlazorBase.Speech` records push-to-talk audio (16 kHz mono WAV via an `AudioWorklet`) and reads text
+aloud (`ISpeechNarrator`: Markdown → `SpeechTextPreparer` segments → synthesis of the next segment while
+the current one plays). `BlazorBase.Speech.Server` holds the abstract `SpeechControllerBase`
+(`api/speech/*`) that proxies to an **unauthenticated internal** speech service speaking OpenAI-shaped
+`/v1/audio/*` routes — the browser never reaches that service. Audio crosses the JS boundary as streams,
+not serialized arguments, so it also works under Blazor Server's SignalR size limit. Two traps: the
+microphone is released after every press because Safari on iOS routes playback to the earpiece while a
+microphone is open, and every press primes playback because browsers require a user gesture before
+audio may play. See [Documentation/BlazorBase.Speech.md](Documentation/BlazorBase.Speech.md) and
+[Documentation/BlazorBase.Speech.Server.md](Documentation/BlazorBase.Speech.Server.md).
 
 ### Chart & Mailing (standalone)
 

@@ -1,6 +1,6 @@
 # BlazorBase
 
-Reusable Blazor base libraries (CRUD, User/Identity, Charting, Mailing) shared across
+Reusable Blazor base libraries (CRUD, User/Identity, Charting, Mailing, Speech) shared across
 applications. Open [BlazorBase.slnx](BlazorBase.slnx) in Visual Studio to build all projects.
 
 ## Projects
@@ -14,6 +14,8 @@ applications. Open [BlazorBase.slnx](BlazorBase.slnx) in Visual Studio to build 
 | `BlazorBase.CRUD.Benchmarks` | Benchmarks for the CRUD layer |
 | `BlazorBase.Chart` | Charting components |
 | `BlazorBase.Mailing` | Mailing/notification infrastructure |
+| `BlazorBase.Speech` | Push-to-talk recording, reading text aloud, Markdown-to-speech preparation |
+| `BlazorBase.Speech.Server` | Authenticated proxy controller and client for an internal speech service |
 | `BlazorBase.User` | Shared user/identity components and models |
 | `BlazorBase.User.Server` | Server-side auth controllers and services |
 | `BlazorBase.User.Wasm` | WebAssembly client auth integration |
