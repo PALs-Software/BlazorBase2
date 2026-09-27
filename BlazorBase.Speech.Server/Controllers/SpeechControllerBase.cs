@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using BlazorBase.Speech.Contracts;
 using BlazorBase.Speech.Models;
 using BlazorBase.Speech.Server.Configuration;
@@ -26,7 +27,7 @@ namespace BlazorBase.Speech.Server.Controllers;
 [ApiController]
 [Route(SpeechRoutes.Base)]
 [Authorize]
-public abstract class SpeechControllerBase(
+public abstract partial class SpeechControllerBase(
     ISpeechApiClient speechApiClient,
     SpeechRequestGate requestGate,
     IOptions<SpeechServerOptions> options,
@@ -84,6 +85,23 @@ public abstract class SpeechControllerBase(
         }
     }
 
+    /// <summary>Lists the voices of the speech service, optionally only those of one language.</summary>
+    [HttpGet(SpeechRoutes.Voices)]
+    public virtual async Task<ActionResult<SpeechVoiceCatalog>> GetVoices([FromQuery] string? language, CancellationToken cancellationToken)
+    {
+        if (!Options.Value.IsConfigured)
+            return LocalizedProblem(StatusCodes.Status503ServiceUnavailable, "NotConfigured");
+
+        try
+        {
+            return await SpeechApiClient.GetVoicesAsync(NormalizeLanguage(language), cancellationToken);
+        }
+        catch (SpeechRequestException exception)
+        {
+            return FailureProblem(exception.Kind);
+        }
+    }
+
     /// <summary>Synthesizes WAV audio for plain text.</summary>
     [HttpPost(SpeechRoutes.Speech)]
     public virtual async Task<IActionResult> Synthesize([FromBody] SpeechSynthesisRequest request, CancellationToken cancellationToken)
@@ -97,6 +115,9 @@ public abstract class SpeechControllerBase(
         if (request.Text.Length > Options.Value.MaxTextCharacters)
             return LocalizedProblem(StatusCodes.Status400BadRequest, "TextTooLong");
 
+        if (!string.IsNullOrEmpty(request.Voice) && !VoiceName().IsMatch(request.Voice))
+            return LocalizedProblem(StatusCodes.Status400BadRequest, "VoiceInvalid");
+
         using var lease = RequestGate.TryEnter(ResolveUserKey());
 
         if (lease is null)
@@ -104,7 +125,11 @@ public abstract class SpeechControllerBase(
 
         try
         {
-            var wav = await SpeechApiClient.SynthesizeAsync(request.Text, NormalizeLanguage(request.Language), cancellationToken);
+            var language = NormalizeLanguage(request.Language);
+            var voice = string.IsNullOrEmpty(request.Voice)
+                ? await ResolveDefaultVoiceAsync(language, cancellationToken)
+                : request.Voice;
+            var wav = await SpeechApiClient.SynthesizeAsync(request.Text, language, voice, cancellationToken);
             return File(wav, SpeechAudio.WavContentType);
         }
         catch (SpeechRequestException exception)
@@ -112,6 +137,16 @@ public abstract class SpeechControllerBase(
             return FailureProblem(exception.Kind);
         }
     }
+
+    /// <summary>
+    /// The voice to read with when a request names none - for example a voice an administrator chose per
+    /// language in the host's settings. Returning <see langword="null"/> (the default) leaves the choice to the
+    /// speech service's own default for the language.
+    /// </summary>
+    /// <param name="language">The normalized two-letter language code, or <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels the lookup.</param>
+    protected virtual Task<string?> ResolveDefaultVoiceAsync(string? language, CancellationToken cancellationToken)
+        => Task.FromResult<string?>(null);
 
     /// <summary>
     /// Identifies the caller for the per-user request cap. Override when users are identified by a
@@ -151,4 +186,7 @@ public abstract class SpeechControllerBase(
         var primaryTag = language.Trim().Split('-', '_')[0].ToLowerInvariant();
         return primaryTag.Length is 2 or 3 && primaryTag.All(char.IsAsciiLetterLower) ? primaryTag : null;
     }
+
+    [GeneratedRegex("^[A-Za-z0-9_-]{1,100}$")]
+    private static partial Regex VoiceName();
 }

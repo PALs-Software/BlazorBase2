@@ -190,7 +190,7 @@ public sealed class SpeechControllerBaseTests : IDisposable
             .TranscribeAsync(Arg.Any<Stream>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new SpeechRequestException(kind, "failed"));
         SpeechApiClient
-            .SynthesizeAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .SynthesizeAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new SpeechRequestException(kind, "failed"));
         var controller = CreateController();
 
@@ -204,7 +204,7 @@ public sealed class SpeechControllerBaseTests : IDisposable
     [Fact]
     public async Task Synthesize_ReturnsWavAudio()
     {
-        SpeechApiClient.SynthesizeAsync("Guten Tag", "de", Arg.Any<CancellationToken>()).Returns([1, 2, 3]);
+        SpeechApiClient.SynthesizeAsync("Guten Tag", "de", null, Arg.Any<CancellationToken>()).Returns([1, 2, 3]);
 
         var result = await CreateController().Synthesize(new SpeechSynthesisRequest("Guten Tag", "de-DE"), CancellationToken.None);
 
@@ -221,7 +221,72 @@ public sealed class SpeechControllerBaseTests : IDisposable
 
         AssertProblem(await controller.Synthesize(new SpeechSynthesisRequest("  ", "de"), CancellationToken.None), StatusCodes.Status400BadRequest);
         AssertProblem(await controller.Synthesize(new SpeechSynthesisRequest("zu lang", "de"), CancellationToken.None), StatusCodes.Status400BadRequest);
-        await SpeechApiClient.DidNotReceiveWithAnyArgs().SynthesizeAsync(default!, default, default);
+        await SpeechApiClient.DidNotReceiveWithAnyArgs().SynthesizeAsync(default!, default, default, default);
+    }
+
+    [Fact]
+    public async Task Synthesize_ForwardsTheChosenVoice()
+    {
+        SpeechApiClient.SynthesizeAsync("Hallo", "de", "de_DE-kerstin-low", Arg.Any<CancellationToken>()).Returns([7]);
+
+        var result = await CreateController().Synthesize(new SpeechSynthesisRequest("Hallo", "de", "de_DE-kerstin-low"), CancellationToken.None);
+
+        Assert.Equal([7], Assert.IsType<FileContentResult>(result).FileContents);
+    }
+
+    [Fact]
+    public async Task Synthesize_WithoutVoice_AsksTheHostForItsDefault_AndAnExplicitVoiceWins()
+    {
+        var options = Microsoft.Extensions.Options.Options.Create(Options);
+        var controller = new HostVoiceSpeechController(SpeechApiClient, new SpeechRequestGate(options), options, Localizers.For<SpeechServerText>())
+        {
+            ControllerContext = CreateController().ControllerContext
+        };
+        SpeechApiClient.SynthesizeAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns([1]);
+
+        await controller.Synthesize(new SpeechSynthesisRequest("Hallo", "de-DE"), CancellationToken.None);
+        await controller.Synthesize(new SpeechSynthesisRequest("Hallo", "de", "de_DE-eva_k-x_low"), CancellationToken.None);
+
+        await SpeechApiClient.Received(1).SynthesizeAsync("Hallo", "de", "de_DE-kerstin-low", Arg.Any<CancellationToken>());
+        await SpeechApiClient.Received(1).SynthesizeAsync("Hallo", "de", "de_DE-eva_k-x_low", Arg.Any<CancellationToken>());
+        Assert.Equal(["de"], controller.RequestedLanguages);
+    }
+
+    [Theory]
+    [InlineData("../../etc/passwd")]
+    [InlineData("voice with spaces")]
+    [InlineData("de_DE-thorsten-high?x=1")]
+    public async Task Synthesize_InvalidVoiceName_Is400(string voice)
+    {
+        var result = await CreateController().Synthesize(new SpeechSynthesisRequest("Hallo", "de", voice), CancellationToken.None);
+
+        Assert.Equal("The requested voice name is not valid.", AssertProblem(result, StatusCodes.Status400BadRequest).Detail);
+        await SpeechApiClient.DidNotReceiveWithAnyArgs().SynthesizeAsync(default!, default, default, default);
+    }
+
+    [Fact]
+    public async Task GetVoices_ProxiesTheCatalog_WithANormalizedLanguage()
+    {
+        var catalog = new SpeechVoiceCatalog([new SpeechVoice("de_DE-thorsten-high", "de_DE", null)], new Dictionary<string, string>(), null);
+        SpeechApiClient.GetVoicesAsync("de", Arg.Any<CancellationToken>()).Returns(catalog);
+
+        var result = await CreateController().GetVoices("de-DE", CancellationToken.None);
+
+        Assert.Same(catalog, result.Value);
+    }
+
+    [Fact]
+    public async Task GetVoices_NotConfiguredOrFailing_AnswersAProblem()
+    {
+        SpeechApiClient
+            .GetVoicesAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new SpeechRequestException(SpeechFailureKind.Timeout, "slow"));
+
+        AssertProblem((await CreateController().GetVoices(null, CancellationToken.None)).Result, StatusCodes.Status504GatewayTimeout);
+
+        Options.BaseUrl = null;
+
+        AssertProblem((await CreateController().GetVoices(null, CancellationToken.None)).Result, StatusCodes.Status503ServiceUnavailable);
     }
 
     [Fact]

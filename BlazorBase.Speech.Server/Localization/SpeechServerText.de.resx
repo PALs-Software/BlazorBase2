@@ -45,4 +45,7 @@
   <data name="ServiceRejected" xml:space="preserve">
     <value>Der Sprachdienst konnte die Anfrage nicht verarbeiten.</value>
   </data>
+  <data name="VoiceInvalid" xml:space="preserve">
+    <value>Der angeforderte Stimmenname ist ungültig.</value>
+  </data>
 </root>

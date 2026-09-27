@@ -45,4 +45,7 @@
   <data name="ServiceRejected" xml:space="preserve">
     <value>The speech service could not process the request.</value>
   </data>
+  <data name="VoiceInvalid" xml:space="preserve">
+    <value>The requested voice name is not valid.</value>
+  </data>
 </root>

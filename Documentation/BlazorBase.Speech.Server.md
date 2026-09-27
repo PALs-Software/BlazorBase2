@@ -6,7 +6,8 @@ proxy controller and a typed client for an internal speech service. It is the se
 
 The speech service is expected to speak OpenAI-shaped audio routes — `POST /v1/audio/transcriptions`
 (multipart `file` + `language`, answers `{ "text": … }`) and `POST /v1/audio/speech` (JSON
-`{ "input": …, "language": … }`, answers WAV). The PAL server runs such a service as the internal
+`{ "input": …, "language": …, "voice": … }`, answers WAV) — plus `GET /v1/audio/voices[?language=]`
+(answers `{ "voices": [ { "name", "language", "description" } ], "defaultVoices": { … }, "defaultVoice": … }`). The PAL server runs such a service as the internal
 `speech-api` container (repository `Pipelines/SpeechApi`) in front of Wyoming Whisper and Piper
 engines. It has **no authentication** — network isolation is its boundary — so browsers must never
 reach it directly; this proxy is the only way in.
@@ -68,6 +69,11 @@ public class SpeechController(
     : SpeechControllerBase(speechApiClient, requestGate, options, localizer);
 ```
 
+Override `ResolveDefaultVoiceAsync(language, cancellationToken)` to apply a host-level voice choice
+(for example one per language from an admin settings page): it is asked only when a synthesis request
+names no voice, and returning `null` leaves the speech service's own default in place. Clients then need
+no access to the host's settings — the server applies them.
+
 Override `ResolveUserKey()` when users are identified by something other than the
 `ClaimTypes.NameIdentifier` claim (fallbacks: identity name, then connection id).
 
@@ -79,7 +85,8 @@ Override `ResolveUserKey()` when users are identified by something other than th
 |---|---|---|---|---|
 | `GET` | `/api/speech/availability` | — | `SpeechAvailability` | — |
 | `POST` | `/api/speech/transcriptions` | multipart: `file` (WAV), `language` | `TranscriptionResult` | 400 missing/empty, 413 too large, 415 no RIFF/WAVE signature |
-| `POST` | `/api/speech/speech` | JSON `SpeechSynthesisRequest` | `audio/wav` | 400 empty or too long |
+| `POST` | `/api/speech/speech` | JSON `SpeechSynthesisRequest` (`text`, `language`, optional `voice`) | `audio/wav` | 400 empty or too long text, or a voice name outside `[A-Za-z0-9_-]{1,100}` |
+| `GET` | `/api/speech/voices?language=de` | — | `SpeechVoiceCatalog` | 503 not configured, 502/504 service failure |
 
 Common to both `POST` routes:
 

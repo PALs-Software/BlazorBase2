@@ -26,7 +26,7 @@ public sealed class SpeechNarrator(
     public event Action? SpeakingChanged;
 
     /// <inheritdoc/>
-    public async Task SpeakAsync(string text, string? language = null, CancellationToken cancellationToken = default)
+    public async Task SpeakAsync(string text, string? language = null, string? voice = null, CancellationToken cancellationToken = default)
     {
         await StopAsync().ConfigureAwait(false);
 
@@ -42,7 +42,7 @@ public sealed class SpeechNarrator(
 
         try
         {
-            await ReadSegmentsAsync(segments, voiceLanguage, reading.Token).ConfigureAwait(false);
+            await ReadSegmentsAsync(segments, voiceLanguage, voice, reading.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (reading.IsCancellationRequested)
         {
@@ -88,16 +88,16 @@ public sealed class SpeechNarrator(
         }
     }
 
-    private async Task ReadSegmentsAsync(IReadOnlyList<string> segments, string? language, CancellationToken cancellationToken)
+    private async Task ReadSegmentsAsync(IReadOnlyList<string> segments, string? language, string? voice, CancellationToken cancellationToken)
     {
-        var pendingAudio = SpeechClient.SynthesizeAsync(segments[0], language, cancellationToken);
+        var pendingAudio = SpeechClient.SynthesizeAsync(segments[0], language, voice, cancellationToken);
 
         for (var index = 0; index < segments.Count; index++)
         {
             var audio = await pendingAudio.ConfigureAwait(false);
 
             if (index + 1 < segments.Count)
-                pendingAudio = SpeechClient.SynthesizeAsync(segments[index + 1], language, cancellationToken);
+                pendingAudio = SpeechClient.SynthesizeAsync(segments[index + 1], language, voice, cancellationToken);
 
             var playedToEnd = await AudioPlayer.PlayAsync(audio, cancellationToken).ConfigureAwait(false);
 

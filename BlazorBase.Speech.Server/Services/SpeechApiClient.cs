@@ -20,6 +20,7 @@ public class SpeechApiClient(HttpClient httpClient) : ISpeechApiClient
 
     private const string TranscriptionsRoute = "v1/audio/transcriptions";
     private const string SpeechRoute = "v1/audio/speech";
+    private const string VoicesRoute = "v1/audio/voices";
     private const string RecordingFileName = "recording.wav";
 
     /// <inheritdoc/>
@@ -39,12 +40,22 @@ public class SpeechApiClient(HttpClient httpClient) : ISpeechApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<byte[]> SynthesizeAsync(string text, string? language, CancellationToken cancellationToken)
+    public async Task<byte[]> SynthesizeAsync(string text, string? language, string? voice, CancellationToken cancellationToken)
     {
-        var request = new SpeechApiSpeechRequest(text, language);
+        var request = new SpeechApiSpeechRequest(text, language, voice);
 
         using var response = await SendAsync(() => HttpClient.PostAsJsonAsync(SpeechRoute, request, cancellationToken), cancellationToken).ConfigureAwait(false);
         return await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async Task<SpeechVoiceCatalog> GetVoicesAsync(string? language, CancellationToken cancellationToken)
+    {
+        var route = string.IsNullOrWhiteSpace(language) ? VoicesRoute : $"{VoicesRoute}?language={Uri.EscapeDataString(language)}";
+
+        using var response = await SendAsync(() => HttpClient.GetAsync(route, cancellationToken), cancellationToken).ConfigureAwait(false);
+        var catalog = await response.Content.ReadFromJsonAsync<SpeechVoiceCatalog>(cancellationToken).ConfigureAwait(false);
+        return catalog ?? new SpeechVoiceCatalog([], new Dictionary<string, string>(), null);
     }
 
     private static async Task<HttpResponseMessage> SendAsync(Func<Task<HttpResponseMessage>> send, CancellationToken cancellationToken)

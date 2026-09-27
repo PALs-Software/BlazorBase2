@@ -10,7 +10,7 @@ namespace BlazorBase.Speech.Interop;
 /// <see cref="IJSStreamReference"/> instead of being serialized as one argument, so it works under
 /// Blazor Server's SignalR message size limit as well as under WebAssembly.
 /// </summary>
-public sealed class SpeechRecorderInterop(IJSRuntime jsRuntime) : ISpeechRecorderInterop
+public sealed class SpeechRecorderInterop(IJSRuntime jsRuntime) : ISpeechRecorderInterop, IDisposable
 {
     #region Injects
     private readonly IJSRuntime JsRuntime = jsRuntime;
@@ -63,6 +63,18 @@ public sealed class SpeechRecorderInterop(IJSRuntime jsRuntime) : ISpeechRecorde
         catch (JSDisconnectedException)
         {
         }
+    }
+
+    /// <summary>
+    /// Synchronous disposal for hosts that dispose their container synchronously - the container tracks this
+    /// transient service. Releases the module when that can be done synchronously.
+    /// </summary>
+    public void Dispose()
+    {
+        if (ModuleTask is { IsCompletedSuccessfully: true } && ModuleTask.Result is IDisposable disposableModule)
+            disposableModule.Dispose();
+
+        ModuleTask = null;
     }
 
     private Task<IJSObjectReference> GetModuleAsync()

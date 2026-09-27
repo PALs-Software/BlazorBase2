@@ -55,12 +55,41 @@ public sealed class SpeechApiClientTests
             Content = new ByteArrayContent([4, 5])
         }));
 
-        var audio = await client.SynthesizeAsync("Guten Tag", "de", CancellationToken.None);
+        var audio = await client.SynthesizeAsync("Guten Tag", "de", null, CancellationToken.None);
 
         Assert.Equal([4, 5], audio);
         Assert.Equal("http://speech-api:8080/v1/audio/speech", handler.Requests[0].RequestUri!.ToString());
         Assert.Contains("\"input\":\"Guten Tag\"", handler.RequestBodies[0]);
         Assert.Contains("\"language\":\"de\"", handler.RequestBodies[0]);
+        Assert.DoesNotContain("voice", handler.RequestBodies[0]);
+    }
+
+    [Fact]
+    public async Task SynthesizeAsync_WithVoice_SendsIt()
+    {
+        var (client, handler) = CreateClient(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([1]) }));
+
+        await client.SynthesizeAsync("Hallo", "de", "de_DE-kerstin-low", CancellationToken.None);
+
+        Assert.Contains("\"voice\":\"de_DE-kerstin-low\"", handler.RequestBodies[0]);
+    }
+
+    [Fact]
+    public async Task GetVoicesAsync_ReadsTheServiceCatalog()
+    {
+        const string body = """{"voices":[{"name":"de_DE-thorsten-high","language":"de_DE","description":"Thorsten"}],"defaultVoices":{"de":"de_DE-thorsten-high","en":"en_US-lessac-medium"},"defaultVoice":"de_DE-thorsten-high"}""";
+        var (client, handler) = CreateClient(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
+        }));
+
+        var catalog = await client.GetVoicesAsync("de", CancellationToken.None);
+
+        Assert.Equal("http://speech-api:8080/v1/audio/voices?language=de", handler.Requests[0].RequestUri!.ToString());
+        var voice = Assert.Single(catalog.Voices);
+        Assert.Equal(("de_DE-thorsten-high", "de_DE", "Thorsten"), (voice.Name, voice.Language, voice.Description));
+        Assert.Equal("en_US-lessac-medium", catalog.DefaultVoices["en"]);
+        Assert.Equal("de_DE-thorsten-high", catalog.DefaultVoice);
     }
 
     [Theory]
@@ -73,7 +102,7 @@ public sealed class SpeechApiClientTests
     {
         var (client, _) = CreateClient(_ => Task.FromResult(new HttpResponseMessage(statusCode)));
 
-        var exception = await Assert.ThrowsAsync<SpeechRequestException>(() => client.SynthesizeAsync("x", "de", CancellationToken.None));
+        var exception = await Assert.ThrowsAsync<SpeechRequestException>(() => client.SynthesizeAsync("x", "de", null, CancellationToken.None));
 
         Assert.Equal(expected, exception.Kind);
     }
@@ -84,8 +113,8 @@ public sealed class SpeechApiClientTests
         var (refused, _) = CreateClient(_ => throw new HttpRequestException("refused"));
         var (slow, _) = CreateClient(_ => throw new TaskCanceledException("timeout"));
 
-        var unavailable = await Assert.ThrowsAsync<SpeechRequestException>(() => refused.SynthesizeAsync("x", "de", CancellationToken.None));
-        var timeout = await Assert.ThrowsAsync<SpeechRequestException>(() => slow.SynthesizeAsync("x", "de", CancellationToken.None));
+        var unavailable = await Assert.ThrowsAsync<SpeechRequestException>(() => refused.SynthesizeAsync("x", "de", null, CancellationToken.None));
+        var timeout = await Assert.ThrowsAsync<SpeechRequestException>(() => slow.SynthesizeAsync("x", "de", null, CancellationToken.None));
 
         Assert.Equal(SpeechFailureKind.Unavailable, unavailable.Kind);
         Assert.Equal(SpeechFailureKind.Timeout, timeout.Kind);

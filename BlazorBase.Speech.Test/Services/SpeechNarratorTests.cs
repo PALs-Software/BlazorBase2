@@ -22,7 +22,7 @@ public sealed class SpeechNarratorTests
     {
         AudioPlayer = new RecordingAudioPlayer(Journal);
         SpeechClient
-            .SynthesizeAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .SynthesizeAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
                 var text = call.ArgAt<string>(0);
@@ -54,7 +54,7 @@ public sealed class SpeechNarratorTests
     {
         await Narrator.SpeakAsync(TwoSegments, "en");
 
-        await SpeechClient.Received(2).SynthesizeAsync(Arg.Any<string>(), "en", Arg.Any<CancellationToken>());
+        await SpeechClient.Received(2).SynthesizeAsync(Arg.Any<string>(), "en", Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -64,7 +64,7 @@ public sealed class SpeechNarratorTests
     {
         await Narrator.SpeakAsync(text);
 
-        await SpeechClient.Received().SynthesizeAsync(Arg.Any<string>(), expectedLanguage, Arg.Any<CancellationToken>());
+        await SpeechClient.Received().SynthesizeAsync(Arg.Any<string>(), expectedLanguage, Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -72,8 +72,18 @@ public sealed class SpeechNarratorTests
     {
         await Narrator.SpeakAsync("This is clearly an English answer for you.", "de");
 
-        await SpeechClient.Received().SynthesizeAsync(Arg.Any<string>(), "de", Arg.Any<CancellationToken>());
-        await SpeechClient.DidNotReceive().SynthesizeAsync(Arg.Any<string>(), "en", Arg.Any<CancellationToken>());
+        await SpeechClient.Received().SynthesizeAsync(Arg.Any<string>(), "de", Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        await SpeechClient.DidNotReceive().SynthesizeAsync(Arg.Any<string>(), "en", Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SpeakAsync_WithAVoice_UsesItForEverySegment()
+    {
+        await Narrator.SpeakAsync(LongText(), "de", "de_DE-kerstin-low");
+
+        var calls = SpeechClient.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(ISpeechClient.SynthesizeAsync)).ToList();
+        Assert.True(calls.Count > 1);
+        Assert.All(calls, call => Assert.Equal("de_DE-kerstin-low", call.GetArguments()[2]));
     }
 
     [Fact]
@@ -82,7 +92,7 @@ public sealed class SpeechNarratorTests
         await Narrator.SpeakAsync("---", "de");
         await Narrator.SpeakAsync("   ", "de");
 
-        await SpeechClient.DidNotReceive().SynthesizeAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        await SpeechClient.DidNotReceive().SynthesizeAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
         Assert.False(Narrator.IsSpeaking);
     }
 
@@ -125,7 +135,7 @@ public sealed class SpeechNarratorTests
     public async Task SpeakAsync_SynthesisFailure_PropagatesAndResetsState()
     {
         SpeechClient
-            .SynthesizeAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .SynthesizeAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new SpeechRequestException(SpeechFailureKind.Unavailable, "down"));
 
         var exception = await Assert.ThrowsAsync<SpeechRequestException>(() => Narrator.SpeakAsync(TwoSegments, "de"));

@@ -17,4 +17,7 @@ public static class SpeechRoutes
 
     /// <summary>Reports whether the host has a speech service configured, see <see cref="SpeechAvailability"/>.</summary>
     public const string Availability = "availability";
+
+    /// <summary>Lists the voices of the speech service (<see cref="SpeechVoiceCatalog"/>), optionally for one language.</summary>
+    public const string Voices = "voices";
 }

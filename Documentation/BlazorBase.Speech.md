@@ -23,7 +23,7 @@ SignalR message size limit does not apply.
 | Proxy client | `BlazorBase.Speech.Services.ISpeechClient` / `HttpSpeechClient` |
 | Localized error texts | `BlazorBase.Speech.Services.SpeechMessages` |
 | Recorder JS seam | `BlazorBase.Speech.Interop.ISpeechRecorderInterop` / `SpeechRecorderInterop` |
-| Shared contracts | `BlazorBase.Speech.Contracts` — `SpeechRoutes`, `TranscriptionResult`, `SpeechSynthesisRequest`, `SpeechAvailability`, `SpeechAudio` |
+| Shared contracts | `BlazorBase.Speech.Contracts` — `SpeechRoutes`, `TranscriptionResult`, `SpeechSynthesisRequest`, `SpeechAvailability`, `SpeechVoice`, `SpeechVoiceCatalog`, `SpeechAudio` |
 | DI registration | `AddBlazorBaseSpeech` |
 
 ---
@@ -102,6 +102,9 @@ await Narrator.StopAsync();
 - `SpeakAsync` stops whatever was being read, prepares the text with `SpeechTextPreparer`, and plays
   the segments in order. **While one segment plays, the next is already being synthesized**, so the
   pause between segments stays short without synthesizing a long answer up front.
+- **An explicit `voice`** (a name from `ISpeechClient.GetVoicesAsync`) is used for every segment; without
+  one the service picks its default voice for the language. A voice should match the language it reads,
+  so hosts that let users pick voices keep one per language.
 - **The voice follows the text, not the UI.** Without an explicit `language`, `SpeechLanguageGuesser`
   tells German from English by counting function words that exist in only one of the two languages
   (too little evidence or a tie → `null`, and the UI culture decides). People answer and ask in the
@@ -141,7 +144,8 @@ Turns chat-style Markdown into plain-text segments:
 |---|---|---|
 | `IsAvailableAsync()` | `GET availability` | `false` on any failure — including a non-JSON answer such as a SPA fallback page |
 | `TranscribeAsync(wav, language?)` | `POST transcriptions` (multipart: `file`, `language`) | recognized text |
-| `SynthesizeAsync(text, language?)` | `POST speech` (JSON `SpeechSynthesisRequest`) | WAV bytes |
+| `SynthesizeAsync(text, language?, voice?)` | `POST speech` (JSON `SpeechSynthesisRequest`) | WAV bytes |
+| `GetVoicesAsync(language?)` | `GET voices[?language=de]` | `SpeechVoiceCatalog`: the service's voices plus its default voice per language |
 
 **Language.** For `TranscribeAsync`, leave `language` `null` unless it is really known — the field is
 then omitted and the speech service detects the spoken language itself. Do **not** pass the UI culture:

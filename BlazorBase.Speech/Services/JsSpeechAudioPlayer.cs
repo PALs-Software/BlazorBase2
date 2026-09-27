@@ -7,7 +7,7 @@ namespace BlazorBase.Speech.Services;
 /// <see cref="DotNetStreamReference"/>, so clips are streamed rather than serialized - which keeps
 /// Blazor Server within its SignalR message size limit as well.
 /// </summary>
-public sealed class JsSpeechAudioPlayer(IJSRuntime jsRuntime) : ISpeechAudioPlayer, IAsyncDisposable
+public sealed class JsSpeechAudioPlayer(IJSRuntime jsRuntime) : ISpeechAudioPlayer, IAsyncDisposable, IDisposable
 {
     #region Injects
     private readonly IJSRuntime JsRuntime = jsRuntime;
@@ -63,6 +63,19 @@ public sealed class JsSpeechAudioPlayer(IJSRuntime jsRuntime) : ISpeechAudioPlay
         catch (JSDisconnectedException)
         {
         }
+    }
+
+    /// <summary>
+    /// Synchronous disposal for hosts that dispose their container synchronously. Releases the module when that
+    /// can be done synchronously (WebAssembly's in-process references); a Blazor Server host disposes
+    /// asynchronously and gets <see cref="DisposeAsync"/>, which also stops playback.
+    /// </summary>
+    public void Dispose()
+    {
+        if (ModuleTask is { IsCompletedSuccessfully: true } && ModuleTask.Result is IDisposable disposableModule)
+            disposableModule.Dispose();
+
+        ModuleTask = null;
     }
 
     private Task<IJSObjectReference> GetModuleAsync()

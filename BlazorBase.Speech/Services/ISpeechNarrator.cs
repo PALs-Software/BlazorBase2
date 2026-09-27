@@ -18,9 +18,10 @@ public interface ISpeechNarrator
     /// Two-letter language code choosing the voice. When <see langword="null"/>, the language is guessed from the
     /// text (<see cref="Text.SpeechLanguageGuesser"/>), and only if that does not tell, the UI culture is used.
     /// </param>
+    /// <param name="voice">A specific voice for every segment; the service's default for the language when <see langword="null"/>.</param>
     /// <param name="cancellationToken">Stops reading when cancelled.</param>
     /// <exception cref="SpeechRequestException">Synthesis failed before anything could be played.</exception>
-    Task SpeakAsync(string text, string? language = null, CancellationToken cancellationToken = default);
+    Task SpeakAsync(string text, string? language = null, string? voice = null, CancellationToken cancellationToken = default);
 
     /// <summary>Stops reading immediately.</summary>
     Task StopAsync();

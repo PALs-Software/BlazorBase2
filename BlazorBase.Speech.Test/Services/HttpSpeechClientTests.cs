@@ -80,6 +80,42 @@ public sealed class HttpSpeechClientTests
         Assert.Contains("\"language\":\"de\"", handler.RequestBodies[0]);
     }
 
+    [Fact]
+    public async Task SynthesizeAsync_SendsTheChosenVoice()
+    {
+        var (client, handler) = CreateClient(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([1]) }));
+
+        await client.SynthesizeAsync("Hallo", "de", "de_DE-kerstin-low");
+
+        Assert.Contains("\"voice\":\"de_DE-kerstin-low\"", handler.RequestBodies[0]);
+    }
+
+    [Fact]
+    public async Task GetVoicesAsync_ReadsTheCatalog_FilteredByLanguage()
+    {
+        var catalog = new SpeechVoiceCatalog(
+            [new SpeechVoice("de_DE-kerstin-low", "de_DE", "Kerstin"), new SpeechVoice("de_DE-thorsten-high", "de_DE", null)],
+            new Dictionary<string, string> { ["de"] = "de_DE-thorsten-high" },
+            "de_DE-thorsten-high");
+        var (client, handler) = CreateClient(_ => Json(catalog));
+
+        var result = await client.GetVoicesAsync("de");
+
+        Assert.Equal("https://portal.test/api/speech/voices?language=de", handler.Requests[0].RequestUri!.ToString());
+        Assert.Equal(["de_DE-kerstin-low", "de_DE-thorsten-high"], result.Voices.Select(voice => voice.Name));
+        Assert.Equal("de_DE-thorsten-high", result.DefaultVoices["de"]);
+    }
+
+    [Fact]
+    public async Task GetVoicesAsync_Failure_IsASpeechRequestException()
+    {
+        var (client, _) = CreateClient(_ => Status(HttpStatusCode.BadGateway));
+
+        var exception = await Assert.ThrowsAsync<SpeechRequestException>(() => client.GetVoicesAsync());
+
+        Assert.Equal(SpeechFailureKind.Unavailable, exception.Kind);
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.TooManyRequests, SpeechFailureKind.Busy)]
     [InlineData(HttpStatusCode.ServiceUnavailable, SpeechFailureKind.Busy)]

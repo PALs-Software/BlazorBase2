@@ -1,3 +1,5 @@
+using BlazorBase.Speech.Contracts;
+
 namespace BlazorBase.Speech.Services;
 
 /// <summary>
@@ -26,7 +28,13 @@ public interface ISpeechClient
     /// <summary>Synthesizes speech for plain text.</summary>
     /// <param name="text">The text to speak.</param>
     /// <param name="language">Two-letter language code; the current UI culture when <see langword="null"/>.</param>
+    /// <param name="voice">A voice from <see cref="GetVoicesAsync"/>; the service's default for the language when <see langword="null"/>.</param>
     /// <param name="cancellationToken">Cancels the request.</param>
     /// <returns>WAV audio.</returns>
-    Task<byte[]> SynthesizeAsync(string text, string? language = null, CancellationToken cancellationToken = default);
+    Task<byte[]> SynthesizeAsync(string text, string? language = null, string? voice = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Lists the voices the speech service offers, optionally only those of one language.</summary>
+    /// <param name="language">Two-letter language code to filter by; all voices when <see langword="null"/>.</param>
+    /// <param name="cancellationToken">Cancels the request.</param>
+    Task<SpeechVoiceCatalog> GetVoicesAsync(string? language = null, CancellationToken cancellationToken = default);
 }
