@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="RecorderPermissionDenied" xml:space="preserve">
+    <value>Der Zugriff aufs Mikrofon wurde verweigert. Erlaube ihn in den Website-Einstellungen deines Browsers, um sprechen zu können.</value>
+  </data>
+  <data name="RecorderNoMicrophone" xml:space="preserve">
+    <value>Es wurde kein Mikrofon gefunden.</value>
+  </data>
+  <data name="RecorderUnsupported" xml:space="preserve">
+    <value>Dieser Browser kann hier kein Audio aufnehmen. Dafür braucht es einen aktuellen Browser und eine HTTPS-Verbindung.</value>
+  </data>
+  <data name="RecorderFailed" xml:space="preserve">
+    <value>Die Aufnahme ist fehlgeschlagen. Bitte versuche es noch einmal.</value>
+  </data>
+  <data name="RequestUnavailable" xml:space="preserve">
+    <value>Der Sprachdienst ist gerade nicht erreichbar.</value>
+  </data>
+  <data name="RequestBusy" xml:space="preserve">
+    <value>Der Sprachdienst ist ausgelastet. Bitte versuche es gleich noch einmal.</value>
+  </data>
+  <data name="RequestTimeout" xml:space="preserve">
+    <value>Der Sprachdienst hat zu lange für eine Antwort gebraucht.</value>
+  </data>
+  <data name="RequestRejected" xml:space="preserve">
+    <value>Die Aufnahme konnte nicht verarbeitet werden. Möglicherweise ist sie zu lang.</value>
+  </data>
+</root>

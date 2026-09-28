@@ -1,0 +1,107 @@
+.push-to-talk {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/*
+   Holding is the whole interaction, so everything a long press normally triggers on a touch screen -
+   scrolling, text selection, the iOS callout, the context menu - is switched off on the button itself.
+*/
+.push-to-talk-button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: var(--push-to-talk-size, 56px);
+    height: var(--push-to-talk-size, 56px);
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--color-accent, var(--accent-fill-rest));
+    color: var(--color-text-on-accent, var(--foreground-on-accent-rest, #fff));
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.push-to-talk-button:hover:not(:disabled):not(.push-to-talk-recording) {
+    background: color-mix(in srgb, var(--color-accent, var(--accent-fill-rest)) 85%, black);
+}
+
+.push-to-talk-button:focus-visible {
+    outline: 2px solid var(--color-border-focus, var(--focus-stroke-outer));
+    outline-offset: 3px;
+}
+
+.push-to-talk-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.push-to-talk-button.push-to-talk-recording {
+    background: var(--color-danger, #c42b1c);
+    color: var(--color-text-on-danger, #fff);
+    transform: scale(1.06);
+}
+
+.push-to-talk-button ::deep .push-to-talk-icon {
+    position: relative;
+    z-index: 1;
+    width: 26px;
+    height: 26px;
+    pointer-events: none;
+}
+
+/* The recorder module sets --speech-level (0..1) on the button while recording, so the ring follows the voice. */
+.push-to-talk-level {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--color-danger, #c42b1c);
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(calc(1 + var(--speech-level, 0) * 0.6));
+    transition: transform 0.08s linear, opacity 0.15s ease;
+}
+
+.push-to-talk-recording .push-to-talk-level {
+    opacity: 0.35;
+}
+
+.push-to-talk-caption {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
+}
+
+.push-to-talk-caption-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.push-to-talk-error {
+    flex-basis: 100%;
+    font-size: 0.8125rem;
+    color: var(--color-danger, #c42b1c);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .push-to-talk-button,
+    .push-to-talk-level {
+        transition: none;
+    }
+
+    .push-to-talk-button.push-to-talk-recording {
+        transform: none;
+    }
+}
