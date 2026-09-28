@@ -31,6 +31,7 @@ public sealed class AuthTokenHandlerLogoutExemptionTests
         tokenStorage.GetTokensAsync().Returns(Task.FromResult<LoginResponse?>(currentTokens));
 
         var authService = Substitute.For<IAuthService>();
+        authService.GetSessionAsync(Arg.Any<string?>()).Returns(Task.FromResult(new AuthSessionResponse()));
         authService.RefreshAsync(currentTokens.RefreshToken).Returns(Task.FromResult(new LoginResponse
         {
             AccessToken = "refreshed-access-token",
@@ -38,7 +39,7 @@ public sealed class AuthTokenHandlerLogoutExemptionTests
             ExpiresAt = DateTime.UtcNow.AddHours(1),
         }));
 
-        var authStateProvider = new BlazorBaseUserAuthStateProvider(tokenStorage);
+        var authStateProvider = new BlazorBaseUserAuthStateProvider(tokenStorage, authService, new CsrfTokenProvider());
 
         var handler = new AuthTokenHandler(tokenStorage, authService, authStateProvider)
         {

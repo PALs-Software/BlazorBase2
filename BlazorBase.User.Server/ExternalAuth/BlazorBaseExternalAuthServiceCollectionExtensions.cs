@@ -1,0 +1,64 @@
+using BlazorBase.User.Server.Tokens;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Options;
+
+namespace BlazorBase.User.Server.ExternalAuth;
+
+/// <summary>
+/// Extension methods that register external-token (OIDC) validation for the exchange endpoint
+/// mapped by <c>MapBlazorBaseExternalAuthEndpoints</c>.
+/// </summary>
+public static class BlazorBaseExternalAuthServiceCollectionExtensions
+{
+    /// <summary>
+    /// Registers <see cref="IExternalTokenValidator"/> and <see cref="IExternalTokenReplayCache"/>.
+    /// Settings are bound from the "ExternalAuthSettings" configuration section and then, if
+    /// given, overridden by <paramref name="configureOptions"/> - useful for a host that derives
+    /// its authority/audience from other configuration (e.g. an existing <c>AzureAd:ClientId</c>
+    /// key) instead of a static value in <c>appsettings.json</c>.
+    /// </summary>
+    /// <remarks>
+    /// This call alone registers no <see cref="IExternalUserResolver{TUser}"/> - it is not generic
+    /// over <c>TUser</c>, so it cannot register a closed one - and maps no endpoint, so an
+    /// application that does not also call <c>MapBlazorBaseExternalAuthEndpoints</c> sees no change
+    /// at all. A host that also calls <c>AddBlazorBaseUserServer&lt;TUser, TContext&gt;</c> gets
+    /// <see cref="IdentityLoginExternalUserResolver{TUser}"/> as a safe default resolver from that
+    /// call instead, via <c>TryAddScoped</c>, so a host's own registration - whether it runs before
+    /// or after either call - always wins; a host that calls this method without
+    /// <c>AddBlazorBaseUserServer</c> must still register its own resolver. A host that needs its
+    /// allowed tenants to come from a database rather than the static
+    /// <see cref="ExternalAuthSettings.AllowedTenantIds"/> list must register its own
+    /// <see cref="IExternalTenantAllowList"/> before calling this method, since the default
+    /// registration below uses <c>TryAdd…</c> and only applies when nothing else has claimed the
+    /// service yet. <see cref="TimeProvider.System"/> is registered here with <c>TryAdd</c> too,
+    /// since this method must resolve <see cref="InMemoryExternalTokenReplayCache"/> on its own
+    /// even when a host calls it without also calling <c>AddBlazorBaseUserServer</c>, which
+    /// registers the same default elsewhere.
+    /// </remarks>
+    public static IServiceCollection AddBlazorBaseExternalAuth(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        Action<ExternalAuthSettings>? configureOptions = null)
+    {
+        services.Configure<ExternalAuthSettings>(configuration.GetSection(ExternalAuthSettings.SectionName));
+
+        if (configureOptions is not null)
+            services.Configure(configureOptions);
+
+        services.TryAddSingleton<IExternalTenantAllowList, DefaultExternalTenantAllowList>();
+        services.AddSingleton<IValidateOptions<ExternalAuthSettings>, ExternalAuthSettingsValidator>();
+        services.AddOptions<ExternalAuthSettings>().ValidateOnStart();
+
+        services.AddSingleton<IExternalTokenValidator, OidcExternalTokenValidator>();
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<IExternalTokenReplayCache, InMemoryExternalTokenReplayCache>();
+
+        // The endpoints take a transport from DI; default it here so mapping them without calling
+        // AddBlazorBaseUserServer first still resolves.
+        services.TryAddScoped<IAuthTokenTransport, IdentityBearerAuthTransport>();
+
+        return services;
+    }
+}

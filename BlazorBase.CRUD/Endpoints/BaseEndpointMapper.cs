@@ -4,6 +4,7 @@ using BlazorBase.CRUD.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Security.Claims;
@@ -17,6 +18,21 @@ namespace BlazorBase.CRUD.Endpoints;
 /// </summary>
 public static class BaseEndpointMapper
 {
+    /// <summary>
+    /// Maps the six CRUD endpoints for <typeparamref name="TModel"/>.
+    /// </summary>
+    /// <remarks>
+    /// Configuration is applied in two steps, in this order: the caller's <paramref name="configure"/>
+    /// action runs first, then any <see cref="IBaseEndpointConfigurator{TEntity}"/> registered in DI
+    /// for <typeparamref name="TModel"/> runs last and may further restrict or override anything
+    /// <paramref name="configure"/> set. This ordering is deliberate: a DI-registered configurator is
+    /// how a host declares "this entity is always scoped this way, no matter how the endpoint gets
+    /// mapped" — including from the assembly-scanning overload, which has no <paramref name="configure"/>
+    /// parameter to begin with. If the configurator ran first instead, a call site's own
+    /// <paramref name="configure"/> action could silently clear a security-critical
+    /// <see cref="BaseEndpointOptions{TEntity}.UserFilter"/> the configurator had set, which is exactly
+    /// the failure mode a DI-resolved configurator exists to rule out.
+    /// </remarks>
     public static IEndpointRouteBuilder MapBaseEndpoints<TModel>(
         this IEndpointRouteBuilder endpoints,
         string route,
@@ -25,6 +41,9 @@ public static class BaseEndpointMapper
     {
         var options = new BaseEndpointOptions<TModel>();
         configure?.Invoke(options);
+
+        var configurator = endpoints.ServiceProvider.GetService<IBaseEndpointConfigurator<TModel>>();
+        configurator?.Configure(options);
 
         var prefix = $"{options.RoutePrefix.TrimEnd('/')}/{route}";
 

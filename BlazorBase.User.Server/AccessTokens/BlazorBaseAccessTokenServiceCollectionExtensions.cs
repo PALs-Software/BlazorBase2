@@ -46,4 +46,18 @@ public static class BlazorBaseAccessTokenServiceCollectionExtensions
 
         return services;
     }
+
+    /// <summary>
+    /// Registers a scoped <see cref="IAccessTokenClaimsAugmentor"/> implementation so
+    /// <see cref="AccessTokenAuthenticationHandler"/> appends its claims to every authenticated
+    /// access-token principal. Call once per augmentor type; multiple augmentors are applied in
+    /// registration order. Not registering any augmentor is a no-op - existing consumers of
+    /// <see cref="AddBlazorBaseAccessTokens{TContext}"/> are unaffected until they opt in.
+    /// </summary>
+    public static IServiceCollection AddAccessTokenClaimsAugmentor<TAugmentor>(this IServiceCollection services)
+        where TAugmentor : class, IAccessTokenClaimsAugmentor
+    {
+        services.AddScoped<IAccessTokenClaimsAugmentor, TAugmentor>();
+        return services;
+    }
 }

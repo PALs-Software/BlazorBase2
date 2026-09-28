@@ -617,6 +617,49 @@ public class DbContextBaseDataProviderTests
         Assert.Equal(5, updated.Stock);
     }
 
+    /// <summary>
+    /// An id arriving from a route is always a string, and <c>DbSet.Find</c> rejects one for a Guid
+    /// key instead of coercing it. The read paths convert through the entity's declared key type;
+    /// the write paths must do the same, or every patch by route id fails with an
+    /// <see cref="ArgumentException"/>.
+    /// </summary>
+    [Fact]
+    public async Task PatchAsync_StringId_IsConvertedToTheKeyType()
+    {
+        using var db = new SqliteInMemoryDatabase();
+        var id = Guid.NewGuid();
+        Seed(db, ctx =>
+        {
+            var product = NewProduct("old", stock: 5);
+            product.Id = id;
+            ctx.Products.Add(product);
+        });
+
+        await ProductProvider(db).PatchAsync(id.ToString(), new Dictionary<string, object?> { ["Name"] = "new" });
+
+        await using var ctx = db.CreateContext();
+        Assert.Equal("new", (await ctx.Products.FindAsync(id))!.Name);
+    }
+
+    /// <summary>Same conversion gap as the patch path, on delete.</summary>
+    [Fact]
+    public async Task DeleteAsync_StringId_IsConvertedToTheKeyType()
+    {
+        using var db = new SqliteInMemoryDatabase();
+        var id = Guid.NewGuid();
+        Seed(db, ctx =>
+        {
+            var product = NewProduct("doomed", stock: 1);
+            product.Id = id;
+            ctx.Products.Add(product);
+        });
+
+        await ProductProvider(db).DeleteAsync(id.ToString());
+
+        await using var ctx = db.CreateContext();
+        Assert.Null(await ctx.Products.FindAsync(id));
+    }
+
     [Fact]
     public async Task PatchAsync_IgnoresAlwaysExcludedProperty()
     {

@@ -134,6 +134,14 @@ builder.Services.AddHttpClient<IUserService, UserService>(c => c.BaseAddress = b
 
 `baseUri` is the API root (`https://api.example.com/`). The services post to relative paths like `api/auth/login`.
 
+`GET api/auth/session` is the one auth endpoint that does need to know who is calling, and it cannot
+learn that from a handler this client does not have. `BlazorBaseUserAuthStateProvider` therefore reads
+the access token from `ITokenStorage` and passes it to `IAuthService.GetSessionAsync(accessToken)`
+itself. Under the cookie transport `ITokenStorage` is `NoOpTokenStorage`, no header is sent, and the
+session cookie identifies the caller as before. Nothing here changes for the host — but a host that
+replaces `IAuthService` must honour that parameter, or its client will report every user as signed
+out while the server happily authorises the same requests.
+
 ### 5. Optional — skip the login form while developing
 
 ```csharp
@@ -219,7 +227,8 @@ throws without the dialog provider. See
 |---|---|---|---|
 | `GetStatusAsync()` | GET `api/auth/status` | `AuthStatusResponse` | First-run probe (`HasUsers`) and whether the server offers development authentication |
 | `SetupAsync(SetupRequest)` | POST `api/auth/setup` | `LoginResponse` | Creates first admin and logs in |
-| `LoginAsync(LoginRequest)` | POST `api/auth/login` | `LoginResponse` | |
+| `LoginAsync(LoginRequest)` | POST `api/auth/login` | `AuthServiceLoginOutcome` | A completed login (`Tokens`) or, when the account has two-factor authentication enabled, a pending token (`PendingToken`) to complete with `LoginTwoFactorAsync` — the server answers `202 Accepted` rather than a token pair, so the caller never receives half-authenticated tokens by mistake |
+| `LoginTwoFactorAsync(TwoFactorLoginRequest)` | POST `api/auth/login/two-factor` | `LoginResponse` | Completes a login `LoginAsync` reported as `RequiresTwoFactor` |
 | `RefreshAsync(refreshToken)` | POST `api/auth/refresh` | `LoginResponse` | Single-use rotation — the server revokes the presented token atomically; a replayed/already-used token returns `401` |
 | `LogoutAsync(refreshToken)` | POST `api/auth/logout` | — | Revokes the refresh token by its hash; anonymous endpoint, so it succeeds even if the access token has already expired |
 | `DevelopmentLoginAsync()` | POST `api/auth/development-login` | `LoginResponse?` | Signs in as the server's development account; `null` when the server does not offer it, which is every environment but Development |
@@ -242,7 +251,10 @@ public interface ITokenStorage
 }
 ```
 
-Implemented by `BrowserTokenStorage` (WASM, localStorage) and `SecureTokenStorage` (MAUI, `SecureStorage`).
+Implemented by `InMemoryTokenStorage` — the WASM default, since anything in `localStorage` survives a
+reload and is readable by any script that gets injected into the page — `BrowserTokenStorage` (WASM,
+`localStorage`, an explicit opt-in set with `AddBlazorBaseUserWasm(..., persistTokensInBrowserStorage: true)`
+for a host that has decided that trade-off is acceptable) and `SecureTokenStorage` (MAUI, `SecureStorage`).
 
 ### `IAppConfigService`
 
@@ -565,6 +577,44 @@ Steps:
 3. **Token refresh** is automatic: `AuthTokenHandler` refreshes when `ExpiresAt - UtcNow < 1 minute`, or after a `401`. Refresh rotation is single-use — the server revokes the presented refresh token atomically while issuing the new pair, so a replayed or concurrently-lost refresh token gets a `401` instead of a token pair.
 4. **Logout** revokes the refresh token (by its hash) via `/api/auth/logout` and clears `ITokenStorage`. The endpoint is anonymous, so logout still succeeds even if the access token stored locally has already expired.
 5. `Routes.razor` uses `<AuthorizeRouteView>`; non-authenticated users hit `RedirectToLogin`.
+
+### Resolving an external identity to a local account
+
+`AddBlazorBaseExternalAuth` validates an externally issued OIDC token (e.g. Microsoft Entra ID),
+but validating a token only proves who the *provider* thinks the caller is - matching that
+identity to a local account is a separate, host-specific decision, made by whatever
+`IExternalUserResolver<TUser>` is registered.
+
+A host that calls `AddBlazorBaseUserServer<TUser, TContext>` gets a safe default for free:
+`IdentityLoginExternalUserResolver<TUser>` looks the caller up through ASP.NET Core Identity's own
+external-login table via `UserManager<TUser>.FindByLoginAsync`, keyed on the caller's subject claim -
+never on `email`, `preferred_username`, `upn` or `name`, none of which are stable, provider-issued
+identifiers a host can safely trust for account linking. An unrecognised subject is rejected, not
+auto-provisioned.
+
+The subject is read under four claim types, in this order of preference: `oid`,
+`http://schemas.microsoft.com/identity/claims/objectidentifier`, `sub`, `ClaimTypes.NameIdentifier`.
+There are four because the redirect flow's OIDC handler applies inbound claim-type mapping to the raw
+JWT claims while token exchange does not, so the same claim arrives under a different name depending
+on the entry point. See
+[Authentication token transports](BlazorBase.User.Server.AuthTransports.md) for the operational detail
+on how the two entry points produce these claim shapes.
+
+Linking an account is therefore something a host must do explicitly, typically once, at invitation
+or first-login time:
+
+```csharp
+await userManager.AddLoginAsync(user, new UserLoginInfo(
+    loginProvider: ExternalAuthSettings.DefaultLoginProvider,
+    providerKey: entraObjectId,
+    displayName: entraObjectId));
+```
+
+A host with a different linking rule - matching by an internal tenant/subject mapping table, for
+example - registers its own `IExternalUserResolver<TUser>` (with `AddScoped`, before or after
+`AddBlazorBaseUserServer`); that registration always takes precedence over the default. Matching by
+`email` alone is an account-takeover vector: an attacker who controls any external identity with a
+matching, possibly-unverified email claim would take over the existing account.
 
 ---
 

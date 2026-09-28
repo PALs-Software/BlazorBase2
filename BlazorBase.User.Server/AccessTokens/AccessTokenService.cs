@@ -62,6 +62,34 @@ public class AccessTokenService<TContext>(
         return new CreatedAccessToken(entity.Id, entity.Name, generated.Secret, entity.ExpiresAt);
     }
 
+    public async Task<CreatedAccessToken> CreateAsync<TToken>(
+        string name, DateTime? expiresAt, Action<TToken> configure, string? userId = null,
+        CancellationToken cancellationToken = default)
+        where TToken : AccessToken, new()
+    {
+        var generated = SecretGenerator.Generate();
+
+        var entity = new TToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Prefix = generated.Prefix,
+            TokenHash = generated.Hash,
+            Name = name,
+            ExpiresAt = expiresAt,
+            IsRevoked = false
+        };
+
+        configure(entity);
+
+        DbContext.Set<TToken>().Add(entity);
+        await DbContext.SaveChangesAsync(cancellationToken);
+
+        Cache.Set(new CachedAccessToken(entity.Id, entity.Prefix, entity.TokenHash, entity.Name, entity.UserId));
+
+        return new CreatedAccessToken(entity.Id, entity.Name, generated.Secret, entity.ExpiresAt);
+    }
+
     public async Task<ValidatedAccessToken?> ValidateAsync(string secret, CancellationToken cancellationToken = default)
     {
         var prefix = SecretGenerator.ExtractPrefix(secret);
@@ -149,24 +177,52 @@ public class AccessTokenService<TContext>(
     }
 
     /// <summary>
-    /// Re-reads <c>IsRevoked</c>/<c>ExpiresAt</c> straight from the database for a hash-matched
-    /// candidate - never from the cache - so a revocation made by another process takes effect on
-    /// the very next request.
+    /// Re-reads the row straight from the database for a hash-matched candidate - never from the
+    /// cache - so a revocation made by another process takes effect on the very next request. Loads
+    /// the full entity, rather than a narrow projection, so a host's TPH-derived <see cref="AccessToken"/>
+    /// type is resolved with its own columns intact; this is still the one primary-key lookup the
+    /// narrower projection used to perform, not an additional query.
     /// </summary>
     private async Task<ValidatedAccessToken?> VerifyCurrentStateAsync(CachedAccessToken candidate, CancellationToken cancellationToken)
     {
-        var currentState = await AccessTokens
+        var entity = await AccessTokens
             .AsNoTracking()
-            .Where(accessToken => accessToken.Id == candidate.Id)
-            .Select(accessToken => new { accessToken.IsRevoked, accessToken.ExpiresAt, accessToken.UserId })
-            .FirstOrDefaultAsync(cancellationToken);
+            .FirstOrDefaultAsync(accessToken => accessToken.Id == candidate.Id, cancellationToken);
 
-        if (currentState is null || currentState.IsRevoked)
+        if (entity is null || entity.IsRevoked)
             return null;
 
-        if (currentState.ExpiresAt.HasValue && currentState.ExpiresAt.Value < DateTime.UtcNow)
+        if (entity.ExpiresAt.HasValue && entity.ExpiresAt.Value < DateTime.UtcNow)
             return null;
 
-        return new ValidatedAccessToken(candidate.Id, candidate.Name, currentState.UserId);
+        if (entity.UserId is not null && !await OwnerIsActiveAsync(entity.UserId, cancellationToken))
+            return null;
+
+        return new ValidatedAccessToken(entity.Id, entity.Name, entity.UserId, entity);
+    }
+
+    /// <summary>
+    /// Looks the owning account up by its mapped CLR type, not a generic <c>TUser</c> parameter -
+    /// <see cref="AccessTokenService{TContext}"/> is only constrained to <see cref="DbContext"/> and
+    /// has no compile-time knowledge of the concrete user type. A missing owner is treated the same
+    /// as a deactivated one: both must reject the token.
+    /// </summary>
+    /// <remarks>
+    /// Only the root of the user hierarchy is a candidate. A host that adds derived user types maps
+    /// them as table-per-hierarchy children, and looking one of those up by primary key would filter
+    /// on its discriminator and miss every account stored as the base type.
+    /// </remarks>
+    private async Task<bool> OwnerIsActiveAsync(string userId, CancellationToken cancellationToken)
+    {
+        var userEntityType = DbContext.Model
+            .GetEntityTypes()
+            .FirstOrDefault(entityType => entityType.BaseType is null && typeof(BaseUser).IsAssignableFrom(entityType.ClrType));
+
+        if (userEntityType is null)
+            return false;
+
+        var owner = await DbContext.FindAsync(userEntityType.ClrType, [userId], cancellationToken) as BaseUser;
+
+        return owner is { IsActive: true };
     }
 }

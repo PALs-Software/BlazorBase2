@@ -34,12 +34,12 @@ error (NU1008).
 From `AppTemplate.Server`:
 
 ```bash
-dotnet user-secrets set "JwtSettings:Secret" "<a long random value>"
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "<your connection string>"
 ```
 
 `appsettings.json` ships a `Trusted_Connection` placeholder, so the connection string is only needed
-if yours differs. The JWT secret has no usable default and must be set.
+if yours differs. There is no signing secret to set: access and refresh tokens are protected by the
+ASP.NET Core Data Protection key ring, which the framework manages for you.
 
 ## 3. Create the database
 

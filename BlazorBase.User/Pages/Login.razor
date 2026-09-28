@@ -11,6 +11,36 @@
         {
             <FluentProgressRing />
         }
+        else if (PendingTwoFactorToken is not null)
+        {
+            <h2>@Localizer["TwoFactorTitle"]</h2>
+            <p>@Localizer["TwoFactorDescription"]</p>
+
+            <FluentStack Orientation="Orientation.Vertical" Class="form-stack">
+                <FluentTextField @bind-Value="TwoFactorCode"
+                                Immediate="true"
+                                Label="@Localizer["TwoFactorCode"]"
+                                Required="true"
+                                AutoComplete="one-time-code"
+                                Class="full-width" />
+
+                <FluentCheckbox @bind-Value="TwoFactorCodeIsRecoveryCode" Label="@Localizer["TwoFactorUseRecoveryCode"]" />
+
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <FluentMessageBar Intent="MessageIntent.Error" Title="@Localizer["Error"]">
+                        @ErrorMessage
+                    </FluentMessageBar>
+                }
+
+                <FluentButton Appearance="Appearance.Accent"
+                              Loading="IsSubmitting"
+                              Class="full-width"
+                              @onclick="HandleTwoFactorSubmit">
+                    @Localizer["TwoFactorSubmit"]
+                </FluentButton>
+            </FluentStack>
+        }
         else if (IsSetupMode)
         {
             <h2>@Localizer["Welcome"]</h2>

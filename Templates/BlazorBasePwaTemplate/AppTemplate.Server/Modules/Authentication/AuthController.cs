@@ -1,4 +1,3 @@
-using AppTemplate.Server.Data;
 using AppTemplate.Server.Entities;
 using AppTemplate.Shared.Modules.Authentication;
 using BlazorBase.User.Server.Controllers;
@@ -14,11 +13,11 @@ namespace AppTemplate.Server.Modules.Authentication;
 [ApiController]
 public class AuthController(
     UserManager<AppUser> users,
+    SignInManager<AppUser> signIn,
     RoleManager<IdentityRole> roles,
-    TokenService<AppUser> tokens,
-    AppTemplateDbContext dbContext,
-    IConfiguration configuration)
-    : AuthControllerBase<AppUser>(users, roles, tokens, dbContext, configuration)
+    AuthTokenIssuer<AppUser> tokenIssuer,
+    TwoFactorPendingTokenService<AppUser> pendingTokens)
+    : AuthControllerBase<AppUser>(users, signIn, roles, tokenIssuer, pendingTokens)
 {
     protected override IReadOnlyList<string> RolesToSeed => RoleConstants.All;
 }

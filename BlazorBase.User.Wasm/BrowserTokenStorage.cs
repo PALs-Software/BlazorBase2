@@ -5,6 +5,15 @@ using Microsoft.JSInterop;
 
 namespace BlazorBase.User.Wasm;
 
+/// <summary>
+/// Persists both tokens in <c>localStorage</c>, surviving a browser reload.
+/// </summary>
+/// <remarks>
+/// Not the default — see <see cref="BlazorBaseUserWasmServiceCollectionExtensions.AddBlazorBaseUserWasm"/>.
+/// <c>localStorage</c> is readable by any script running on the origin, so this trades that exposure
+/// for a session that survives a reload; register it only through the explicit
+/// <c>persistTokensInBrowserStorage</c> opt-in, and prefer the cookie transport in a browser instead.
+/// </remarks>
 public class BrowserTokenStorage(IJSRuntime jsRuntime) : ITokenStorage
 {
     #region Injects

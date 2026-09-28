@@ -10,7 +10,8 @@ public static class BlazorBaseUserServiceCollectionExtensions
     /// <summary>
     /// Registers the shared client-side user/auth infrastructure:
     /// <see cref="BlazorBaseUserAuthStateProvider"/> as <see cref="AuthenticationStateProvider"/>,
-    /// <see cref="AuthTokenHandler"/> as a <see cref="DelegatingHandler"/> for typed clients,
+    /// <see cref="CsrfTokenProvider"/>, <see cref="AuthTokenHandler"/> and
+    /// <see cref="SessionExpiryHandler"/> as <see cref="DelegatingHandler"/>s for typed clients,
     /// <see cref="ILanguageService"/>, <see cref="IThemeService"/>, and the FallbackPolicy that
     /// requires authenticated users. Also registers <see cref="BlazorBaseUserClientOptions"/>
     /// with default values; override individual flags with
@@ -21,7 +22,9 @@ public static class BlazorBaseUserServiceCollectionExtensions
     /// must be registered separately via AddBlazorBaseUserWasm or AddBlazorBaseUserMaui.
     /// <see cref="IAuthService"/> and <see cref="IUserService"/> must be registered by the caller
     /// using AddHttpClient&lt;IAuthService, AuthService&gt;(...) etc., because they need a host-configured
-    /// <see cref="HttpClient"/>.
+    /// <see cref="HttpClient"/>. <see cref="CsrfTokenProvider"/> is registered here rather than only
+    /// under the cookie transport, because <see cref="BlazorBaseUserAuthStateProvider"/> reads the
+    /// antiforgery token from every session response regardless of which transport is in use.
     /// </remarks>
     public static IServiceCollection AddBlazorBaseUserClient(this IServiceCollection services)
     {
@@ -32,10 +35,12 @@ public static class BlazorBaseUserServiceCollectionExtensions
                 .Build();
         });
 
+        services.AddScoped<CsrfTokenProvider>();
         services.AddScoped<BlazorBaseUserAuthStateProvider>();
         services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<BlazorBaseUserAuthStateProvider>());
 
         services.AddScoped<AuthTokenHandler>();
+        services.AddScoped<SessionExpiryHandler>();
         services.AddBlazorBaseComponents();
 
         services.AddOptions<BlazorBaseUserClientOptions>();

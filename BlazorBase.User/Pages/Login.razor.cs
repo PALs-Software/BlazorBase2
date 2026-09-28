@@ -33,6 +33,16 @@ public partial class Login(IAuthService authService, BlazorBaseUserAuthStateProv
     private bool IsSetupMode { get; set; }
     private bool IsSubmitting { get; set; }
 
+    /// <summary>
+    /// Set once <see cref="AuthService.LoginAsync"/> answers with a pending token, switching the form
+    /// to the second-factor prompt. Cleared on a failed code so the caller can retry without
+    /// re-entering the password.
+    /// </summary>
+    private string? PendingTwoFactorToken { get; set; }
+
+    private string TwoFactorCode { get; set; } = string.Empty;
+    private bool TwoFactorCodeIsRecoveryCode { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         if (!CollectHouseholdName)
@@ -85,13 +95,50 @@ public partial class Login(IAuthService authService, BlazorBaseUserAuthStateProv
 
         try
         {
-            var response = await AuthService.LoginAsync(LoginModel);
-            await AuthStateProvider.MarkUserAsAuthenticated(response);
+            var outcome = await AuthService.LoginAsync(LoginModel);
+
+            if (outcome.RequiresTwoFactor)
+            {
+                PendingTwoFactorToken = outcome.PendingToken;
+                return;
+            }
+
+            await AuthStateProvider.MarkUserAsAuthenticated(outcome.Tokens!);
             Navigation.NavigateTo(ResolveReturnUrl(), forceLoad: await SignedInAccountUsesAnotherLanguageAsync());
         }
         catch (HttpRequestException)
         {
             ErrorMessage = Localizer["InvalidCredentials"];
+        }
+        finally
+        {
+            IsSubmitting = false;
+        }
+    }
+
+    private async Task HandleTwoFactorSubmit()
+    {
+        if (PendingTwoFactorToken is null)
+            return;
+
+        ErrorMessage = null;
+        IsSubmitting = true;
+
+        try
+        {
+            var response = await AuthService.LoginTwoFactorAsync(new TwoFactorLoginRequest
+            {
+                PendingToken = PendingTwoFactorToken,
+                Code = TwoFactorCode,
+                IsRecoveryCode = TwoFactorCodeIsRecoveryCode,
+            });
+
+            await AuthStateProvider.MarkUserAsAuthenticated(response);
+            Navigation.NavigateTo(ResolveReturnUrl(), forceLoad: await SignedInAccountUsesAnotherLanguageAsync());
+        }
+        catch (HttpRequestException)
+        {
+            ErrorMessage = Localizer["InvalidTwoFactorCode"];
         }
         finally
         {

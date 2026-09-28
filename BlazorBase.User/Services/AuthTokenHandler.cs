@@ -26,6 +26,13 @@ public class AuthTokenHandler(
     /// still refreshed twice. Refresh tokens rotate and the server treats a second use of a rotated
     /// token as theft — it revokes the whole family, which signs the user out everywhere. Two
     /// parallel calls made with the same token were therefore enough to end the session.
+    ///
+    /// This is correct only where one process serves one user - a WASM or MAUI client. Hosted in a
+    /// Blazor Server or other server-rendered circuit, where one process serves every concurrently
+    /// connected user, a single process-wide gate would serialise every user's refresh behind
+    /// whichever one happens to be renewing, turning a per-user lock into a global bottleneck. Do not
+    /// reuse this handler as-is in that hosting model — scope the gate per user (for example, keyed
+    /// on the circuit or the user id) instead of a static field.
     /// </remarks>
     private static readonly SemaphoreSlim RefreshGate = new(1, 1);
 
@@ -120,7 +127,7 @@ public class AuthTokenHandler(
         => exception.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
 
     private static bool IsAboutToExpire(LoginResponse tokens)
-        => tokens.ExpiresAt - DateTime.UtcNow < RefreshThreshold;
+        => tokens.ExpiresAt - DateTimeOffset.UtcNow < RefreshThreshold;
 
     private static bool IsAuthEndpoint(Uri? uri)
     {

@@ -180,9 +180,15 @@ public class UserDataProvider<TUser>(
                         if (!passResult.Succeeded)
                             throw new InvalidOperationException(string.Join("; ", passResult.Errors.Select(e => e.Description)));
 
+                        // Kills every outstanding bearer token and cookie session for the account,
+                        // not merely the ones a revocation table would have tracked.
+                        await UserManager.UpdateSecurityStampAsync(user);
+
+                        // The stamp rotation above already makes every outstanding refresh token
+                        // unusable; revoking the rows too keeps the table from holding dead ones.
                         await DbContext.RefreshTokens
-                            .Where(r => r.UserId == user.Id && !r.IsRevoked)
-                            .ExecuteUpdateAsync(setters => setters.SetProperty(r => r.IsRevoked, true), cancellationToken);
+                            .Where(token => token.UserId == user.Id && !token.IsRevoked)
+                            .ExecuteUpdateAsync(setters => setters.SetProperty(token => token.IsRevoked, true), cancellationToken);
                     }
                     break;
             }

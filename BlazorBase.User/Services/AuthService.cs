@@ -1,13 +1,15 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using BlazorBase.User.Models;
 
 namespace BlazorBase.User.Services;
 
-public class AuthService(HttpClient httpClient) : IAuthService
+public class AuthService(HttpClient httpClient, ITokenStorage tokenStorage) : IAuthService
 {
     #region Injects
     private readonly HttpClient HttpClient = httpClient;
+    private readonly ITokenStorage TokenStorage = tokenStorage;
     #endregion
 
     public async Task<AuthStatusResponse> GetStatusAsync()
@@ -16,6 +18,55 @@ public class AuthService(HttpClient httpClient) : IAuthService
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<AuthStatusResponse>()
             ?? new AuthStatusResponse();
+    }
+
+    /// <summary>
+    /// A failure here means "not signed in", never an exception: this is called on every render of a
+    /// guarded page, and throwing would turn a transient network blip into a broken application
+    /// rather than a login prompt. A success response that is not JSON is a different matter: it means
+    /// the server never mapped this endpoint (a SPA fallback answering with the host page instead), so
+    /// it is thrown rather than silently read as "not signed in".
+    /// </summary>
+    public async Task<AuthSessionResponse> GetSessionAsync(string? accessToken = null)
+    {
+        try
+        {
+            using var request = BuildSessionRequest(accessToken);
+            var response = await HttpClient.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+                return new AuthSessionResponse();
+
+            var mediaType = response.Content.Headers.ContentType?.MediaType;
+            if (!string.Equals(mediaType, "application/json", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"GET api/auth/session returned a successful {mediaType ?? "unknown"} response instead of JSON. " +
+                    "This usually means the server never called MapBlazorBaseAuthSessionEndpoint() and a SPA fallback " +
+                    "answered the request instead, which would otherwise show up as every user being signed out.");
+
+            return await response.Content.ReadFromJsonAsync<AuthSessionResponse>()
+                ?? new AuthSessionResponse();
+        }
+        catch (HttpRequestException)
+        {
+            return new AuthSessionResponse();
+        }
+    }
+
+    /// <summary>
+    /// Attaches the caller's token by hand rather than through a <see cref="DelegatingHandler"/>. The
+    /// auth endpoints are anonymous and this client carries no <see cref="AuthTokenHandler"/> on
+    /// purpose, since that handler needs this service to refresh; passing the token per call breaks
+    /// the cycle without leaving the session endpoint unable to recognise a bearer caller.
+    /// </summary>
+    private static HttpRequestMessage BuildSessionRequest(string? accessToken)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, "api/auth/session");
+
+        if (!string.IsNullOrEmpty(accessToken))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+        return request;
     }
 
     public async Task<LoginResponse> SetupAsync(SetupRequest request)
@@ -42,12 +93,45 @@ public class AuthService(HttpClient httpClient) : IAuthService
             ?? throw new InvalidOperationException("Invalid setup response.");
     }
 
-    public async Task<LoginResponse> LoginAsync(LoginRequest request)
+    public async Task<AuthServiceLoginOutcome> LoginAsync(LoginRequest request)
     {
         var response = await HttpClient.PostAsJsonAsync("api/auth/login", request);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Accepted)
+        {
+            var pending = await response.Content.ReadFromJsonAsync<TwoFactorRequiredResponse>()
+                ?? throw new InvalidOperationException("Invalid two-factor response.");
+            return AuthServiceLoginOutcome.TwoFactorRequired(pending.PendingToken);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync();
+            try
+            {
+                using var doc = JsonDocument.Parse(body);
+                if (doc.RootElement.TryGetProperty("errors", out var errors))
+                    throw new HttpRequestException(string.Join(" ", errors.EnumerateArray().Select(e => e.GetString())));
+                if (doc.RootElement.TryGetProperty("message", out var message))
+                    throw new HttpRequestException(message.GetString());
+            }
+            catch (JsonException) { }
+
+            response.EnsureSuccessStatusCode();
+        }
+
+        var tokens = await response.Content.ReadFromJsonAsync<LoginResponse>()
+            ?? throw new InvalidOperationException("Invalid login response.");
+
+        return AuthServiceLoginOutcome.Completed(tokens);
+    }
+
+    public async Task<LoginResponse> LoginTwoFactorAsync(TwoFactorLoginRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/login/2fa", request);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<LoginResponse>()
-            ?? throw new InvalidOperationException("Invalid login response.");
+            ?? throw new InvalidOperationException("Invalid two-factor login response.");
     }
 
     public async Task<LoginResponse> RefreshAsync(string refreshToken)
@@ -73,5 +157,73 @@ public class AuthService(HttpClient httpClient) : IAuthService
             return null;
 
         return await response.Content.ReadFromJsonAsync<LoginResponse>();
+    }
+
+    public async Task ConfirmEmailAsync(ConfirmEmailRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/confirm-email", request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task ResendConfirmationAsync(ResendConfirmationRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/resend-confirmation", request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/forgot-password", request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/reset-password", request);
+        response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<TwoFactorStatusResponse> GetTwoFactorStatusAsync()
+    {
+        var response = await HttpClient.GetAsync("api/auth/manage/2fa");
+        response.EnsureSuccessStatusCode();
+        var status = await response.Content.ReadFromJsonAsync<TwoFactorStatusResponse>()
+            ?? throw new InvalidOperationException("Invalid two-factor status response.");
+
+        if (status.RefreshedTokens is { } refreshedTokens)
+            await TokenStorage.SaveTokensAsync(refreshedTokens);
+
+        return status;
+    }
+
+    public async Task<TwoFactorRecoveryCodesResponse> EnableTwoFactorAsync(TwoFactorEnableRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/2fa/enable", request);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<TwoFactorRecoveryCodesResponse>()
+            ?? throw new InvalidOperationException("Invalid two-factor enable response.");
+
+        if (result.RefreshedTokens is { } refreshedTokens)
+            await TokenStorage.SaveTokensAsync(refreshedTokens);
+
+        return result;
+    }
+
+    public async Task DisableTwoFactorAsync(TwoFactorVerificationRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/2fa/disable", request);
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<TwoFactorDisableResponse>();
+
+        if (result?.RefreshedTokens is { } refreshedTokens)
+            await TokenStorage.SaveTokensAsync(refreshedTokens);
+    }
+
+    public async Task<TwoFactorRecoveryCodesResponse> RegenerateRecoveryCodesAsync(TwoFactorVerificationRequest request)
+    {
+        var response = await HttpClient.PostAsJsonAsync("api/auth/manage/2fa/recovery-codes", request);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<TwoFactorRecoveryCodesResponse>()
+            ?? throw new InvalidOperationException("Invalid recovery-codes response.");
     }
 }

@@ -27,6 +27,7 @@ public sealed class AuthTokenHandlerSessionTests
 
         var refreshCalls = 0;
         var authService = Substitute.For<IAuthService>();
+        authService.GetSessionAsync(Arg.Any<string?>()).Returns(Task.FromResult(new AuthSessionResponse()));
         authService.RefreshAsync(Arg.Any<string>()).Returns(async _ =>
         {
             Interlocked.Increment(ref refreshCalls);
@@ -35,7 +36,7 @@ public sealed class AuthTokenHandlerSessionTests
             return stored;
         });
 
-        var authStateProvider = new BlazorBaseUserAuthStateProvider(tokenStorage);
+        var authStateProvider = new BlazorBaseUserAuthStateProvider(tokenStorage, authService, new CsrfTokenProvider());
 
         using var first = new HttpMessageInvoker(new AuthTokenHandler(tokenStorage, authService, authStateProvider)
         {
@@ -63,10 +64,11 @@ public sealed class AuthTokenHandlerSessionTests
     {
         var tokenStorage = TokenStorageWith(NearExpiryTokens());
         var authService = Substitute.For<IAuthService>();
+        authService.GetSessionAsync(Arg.Any<string?>()).Returns(Task.FromResult(new AuthSessionResponse()));
         authService.RefreshAsync(Arg.Any<string>())
             .Returns<Task<LoginResponse>>(_ => throw new HttpRequestException("Kein Netz"));
 
-        var authStateProvider = new BlazorBaseUserAuthStateProvider(tokenStorage);
+        var authStateProvider = new BlazorBaseUserAuthStateProvider(tokenStorage, authService, new CsrfTokenProvider());
         using var invoker = new HttpMessageInvoker(new AuthTokenHandler(tokenStorage, authService, authStateProvider)
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK)
@@ -86,10 +88,11 @@ public sealed class AuthTokenHandlerSessionTests
     {
         var tokenStorage = TokenStorageWith(NearExpiryTokens());
         var authService = Substitute.For<IAuthService>();
+        authService.GetSessionAsync(Arg.Any<string?>()).Returns(Task.FromResult(new AuthSessionResponse()));
         authService.RefreshAsync(Arg.Any<string>())
             .Returns<Task<LoginResponse>>(_ => throw new HttpRequestException("abgelehnt", null, HttpStatusCode.Unauthorized));
 
-        var authStateProvider = new BlazorBaseUserAuthStateProvider(tokenStorage);
+        var authStateProvider = new BlazorBaseUserAuthStateProvider(tokenStorage, authService, new CsrfTokenProvider());
         using var invoker = new HttpMessageInvoker(new AuthTokenHandler(tokenStorage, authService, authStateProvider)
         {
             InnerHandler = new StubHandler(HttpStatusCode.OK)

@@ -57,6 +57,11 @@ volume so they survive restarts and redeploys:
 dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo("/keys"));
 ```
 
+It has to be a volume that outlives the *container*, not just the process: a named volume, a bind
+mount or a `PersistentVolumeClaim`. An anonymous volume disappears with `docker compose down` and a
+Kubernetes `emptyDir` disappears when the pod is rescheduled, so both look fine across a restart and
+fail on the next deployment. Verify after a redeploy, not after a restart.
+
 ### Farm guidance — a stable application name and a shared key store
 
 Across a farm of nodes, ASP.NET Core derives the key ring's isolation identity from the application
@@ -80,9 +85,19 @@ another `ProtectKeysWith*` call:
 dataProtectionBuilder.ProtectKeysWithCertificate(myKeyEncryptionCertificate);
 ```
 
+For an Azure-hosted application there is a ready-made option that combines encryption at rest with a
+shared store: [BlazorBase.DataProtection.AzureKeyVault](BlazorBase.DataProtection.AzureKeyVault.md)
+persists the key ring in the application's own database and wraps it with a Key Vault key. Note that
+a `ProtectKeysWith*` call on its own only encrypts the keys — it does not store them anywhere, so it
+never replaces a `PersistKeysTo*` call.
+
 Omitting `configure` entirely uses ASP.NET Core's default key management — acceptable for local
 development and single-instance hosts with a durable filesystem, but **not safe** for containers
 (ephemeral keys) or multi-node farms (unshared keys per node).
+
+Under BlazorBase2 that is an authentication concern, not only a data one: the key ring protects the
+Identity bearer tokens, the application cookie, the antiforgery token and the two-factor pending
+ticket. Losing it signs everyone out; not sharing it makes instances reject each other's sessions.
 
 ---
 

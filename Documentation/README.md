@@ -14,11 +14,13 @@ This folder contains the documentation for all reusable BlazorBase libraries shi
 | **BlazorBase.CRUD.Generators** | Roslyn Source Generator (netstandard2.0) | [BlazorBase.CRUD.Generators.md](BlazorBase.CRUD.Generators.md) |
 | **BlazorBase.Chart** | Razor Class Library (net10.0) | [BlazorBase.Chart.md](BlazorBase.Chart.md) |
 | **BlazorBase.DataProtection** | .NET library (net10.0, browser-safe) | [BlazorBase.DataProtection.md](BlazorBase.DataProtection.md) |
+| **BlazorBase.DataProtection.AzureKeyVault** | .NET library (net10.0), opt-in | [BlazorBase.DataProtection.AzureKeyVault.md](BlazorBase.DataProtection.AzureKeyVault.md) |
 | **BlazorBase.Mailing** | .NET library (net10.0) | [BlazorBase.Mailing.md](BlazorBase.Mailing.md) |
 | **BlazorBase.Files** | Razor Class Library (net10.0, browser-safe) | [BlazorBase.Files.md](BlazorBase.Files.md) |
 | **BlazorBase.Files.Server** | ASP.NET Core library (net10.0) | [BlazorBase.Files.Server.md](BlazorBase.Files.Server.md) |
 | **BlazorBase.User** | Razor Class Library (net10.0) | [BlazorBase.User.md](BlazorBase.User.md) |
 | **BlazorBase.User.Server** | ASP.NET Core library (net10.0) | [BlazorBase.User.Server.md](BlazorBase.User.Server.md) |
+| ↳ *auth token transports* | topic guide | [BlazorBase.User.Server.AuthTransports.md](BlazorBase.User.Server.AuthTransports.md) |
 | **BlazorBase.User.Wasm** | WebAssembly library (net10.0) | [BlazorBase.User.Wasm.md](BlazorBase.User.Wasm.md) |
 | **BlazorBase.User.Maui** | MAUI library (net10.0-android/ios/maccatalyst/windows) | [BlazorBase.User.Maui.md](BlazorBase.User.Maui.md) |
 
@@ -45,8 +47,9 @@ All BlazorBase libraries follow the same architectural principle: a shared UI/ab
    │ BlazorBase.User. │  │ BlazorBase.User. │  │ BlazorBase.User. │
    │   Server         │  │   Wasm           │  │   Maui           │
    │                  │  │                  │  │                  │
-   │ EF Core, JWT,    │  │ localStorage,    │  │ SecureStorage,   │
-   │ Identity         │  │ HttpClient       │  │ HttpClient       │
+   │ EF Core,         │  │ in-memory or     │  │ SecureStorage,   │
+   │ ASP.NET Identity │  │ cookie session,  │  │ HttpClient       │
+   │                  │  │ HttpClient       │  │                  │
    └──────────────────┘  └──────────────────┘  └──────────────────┘
                                   │
                                   ▼
@@ -163,9 +166,9 @@ References:
 | Localizer chaining and the empty fallback | BlazorBase.Localization |
 | Chart.js wrapper (Bar/Line/Pie) | BlazorBase.Chart |
 | Login / Setup / User management UI | BlazorBase.User |
-| JWT auth state, token refresh handler, language service | BlazorBase.User |
-| Identity, JWT issuance, Auth/User controllers | BlazorBase.User.Server |
-| `localStorage` tokens, same-origin config | BlazorBase.User.Wasm |
+| Auth state read from the server, session expiry handling, language service | BlazorBase.User |
+| Identity, token issuance, account management and two-factor, Auth/User controllers | BlazorBase.User.Server |
+| Bearer or cookie transport, in-memory tokens by default, same-origin config | BlazorBase.User.Wasm |
 | `SecureStorage` tokens, configurable server URL | BlazorBase.User.Maui |
 
 ---

@@ -1,0 +1,95 @@
+@page "/account/two-factor"
+@attribute [Authorize]
+
+<PageTitle>@Localizer["PageTitle"]</PageTitle>
+
+<div>
+<FluentStack Orientation="Orientation.Vertical" HorizontalAlignment="HorizontalAlignment.Center"
+             Class="two-factor-container">
+    <FluentCard Class="two-factor-card">
+        <h2>@Localizer["PageTitle"]</h2>
+
+        @if (IsLoading)
+        {
+            <FluentProgressRing />
+        }
+        else if (Status is not null)
+        {
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <FluentMessageBar Intent="MessageIntent.Error" Title="@Localizer["Error"]">
+                    @ErrorMessage
+                </FluentMessageBar>
+            }
+
+            @if (RecoveryCodes is not null)
+            {
+                <FluentMessageBar Intent="MessageIntent.Warning" Title="@Localizer["RecoveryCodesTitle"]">
+                    @Localizer["RecoveryCodesDescription"]
+                </FluentMessageBar>
+
+                <ul>
+                    @foreach (var recoveryCode in RecoveryCodes)
+                    {
+                        <li><code>@recoveryCode</code></li>
+                    }
+                </ul>
+            }
+
+            @if (Status.Enabled)
+            {
+                <p>@Localizer["Enabled"]</p>
+                <p>@string.Format(Localizer["RecoveryCodesRemaining"], Status.RecoveryCodesRemaining)</p>
+
+                <FluentStack Orientation="Orientation.Vertical" Class="form-stack">
+                    <FluentTextField @bind-Value="VerificationCode"
+                                    Immediate="true"
+                                    Label="@Localizer["VerificationCode"]"
+                                    Required="true"
+                                    AutoComplete="one-time-code"
+                                    Class="full-width" />
+                    <p>@Localizer["VerificationCodeHint"]</p>
+
+                    <FluentButton Appearance="Appearance.Accent"
+                                  Loading="IsSubmitting"
+                                  @onclick="HandleRegenerateRecoveryCodes">
+                        @Localizer["RegenerateRecoveryCodes"]
+                    </FluentButton>
+
+                    <FluentButton Appearance="Appearance.Outline"
+                                  Loading="IsSubmitting"
+                                  @onclick="HandleDisable">
+                        @Localizer["Disable"]
+                    </FluentButton>
+                </FluentStack>
+            }
+            else
+            {
+                <p>@Localizer["Disabled"]</p>
+
+                @if (!string.IsNullOrEmpty(Status.AuthenticatorUri))
+                {
+                    <p>@Localizer["ScanInstructions"]</p>
+                    <p><code>@Status.AuthenticatorUri</code></p>
+                }
+
+                <FluentStack Orientation="Orientation.Vertical" Class="form-stack">
+                    <FluentTextField @bind-Value="EnableCode"
+                                    Immediate="true"
+                                    Label="@Localizer["Code"]"
+                                    Required="true"
+                                    AutoComplete="one-time-code"
+                                    Class="full-width" />
+
+                    <FluentButton Appearance="Appearance.Accent"
+                                  Loading="IsSubmitting"
+                                  Class="full-width"
+                                  @onclick="HandleEnable">
+                        @Localizer["Enable"]
+                    </FluentButton>
+                </FluentStack>
+            }
+        }
+    </FluentCard>
+</FluentStack>
+</div>

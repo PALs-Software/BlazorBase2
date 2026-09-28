@@ -109,4 +109,22 @@
   <data name="HouseholdName" xml:space="preserve">
     <value>Household Name</value>
   </data>
+  <data name="TwoFactorTitle" xml:space="preserve">
+    <value>Two-Factor Verification</value>
+  </data>
+  <data name="TwoFactorDescription" xml:space="preserve">
+    <value>Enter the code from your authenticator app, or one of your recovery codes.</value>
+  </data>
+  <data name="TwoFactorCode" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="TwoFactorUseRecoveryCode" xml:space="preserve">
+    <value>This is a recovery code</value>
+  </data>
+  <data name="TwoFactorSubmit" xml:space="preserve">
+    <value>Verify</value>
+  </data>
+  <data name="InvalidTwoFactorCode" xml:space="preserve">
+    <value>Invalid code.</value>
+  </data>
 </root>
