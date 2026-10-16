@@ -1,0 +1,12 @@
+.push-settings-toggle {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 420px;
+}
+
+.push-settings-toggle-caption {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
+}

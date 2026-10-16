@@ -18,6 +18,8 @@ This folder contains the documentation for all reusable BlazorBase libraries shi
 | **BlazorBase.Mailing** | .NET library (net10.0) | [BlazorBase.Mailing.md](BlazorBase.Mailing.md) |
 | **BlazorBase.Files** | Razor Class Library (net10.0, browser-safe) | [BlazorBase.Files.md](BlazorBase.Files.md) |
 | **BlazorBase.Files.Server** | ASP.NET Core library (net10.0) | [BlazorBase.Files.Server.md](BlazorBase.Files.Server.md) |
+| **BlazorBase.Notifications** | Razor Class Library (net10.0, browser-safe) | [BlazorBase.Notifications.md](BlazorBase.Notifications.md) |
+| **BlazorBase.Notifications.Server** | ASP.NET Core library (net10.0) | [BlazorBase.Notifications.md](BlazorBase.Notifications.md) |
 | **BlazorBase.Speech** | Razor Class Library (net10.0, browser-safe) | [BlazorBase.Speech.md](BlazorBase.Speech.md) |
 | **BlazorBase.Speech.Server** | ASP.NET Core library (net10.0) | [BlazorBase.Speech.Server.md](BlazorBase.Speech.Server.md) |
 | **BlazorBase.User** | Razor Class Library (net10.0) | [BlazorBase.User.md](BlazorBase.User.md) |
