@@ -21,6 +21,8 @@
   <Project Path="BlazorBase.CRUD/BlazorBase.CRUD.csproj" />
   <Project Path="BlazorBase.Files/BlazorBase.Files.csproj" />
   <Project Path="BlazorBase.Files.Server/BlazorBase.Files.Server.csproj" />
+  <Project Path="BlazorBase.Notifications/BlazorBase.Notifications.csproj" />
+  <Project Path="BlazorBase.Notifications.Server/BlazorBase.Notifications.Server.csproj" />
   <Project Path="BlazorBase.CRUD.Generators/BlazorBase.CRUD.Generators.csproj" />
   <Project Path="BlazorBase.Components.Test/BlazorBase.Components.Test.csproj" />
   <Project Path="BlazorBase.Components/BlazorBase.Components.csproj" />
@@ -43,6 +45,7 @@
     <Project Path="BlazorBase.User.Test/BlazorBase.User.Test.csproj" />
     <Project Path="BlazorBase.User.Server.Test/BlazorBase.User.Server.Test.csproj" />
     <Project Path="BlazorBase.Files.Server.Test/BlazorBase.Files.Server.Test.csproj" />
+    <Project Path="BlazorBase.Notifications.Server.Test/BlazorBase.Notifications.Server.Test.csproj" />
     <Project Path="BlazorBase.User.SecurityHarness.Test/BlazorBase.User.SecurityHarness.Test.csproj" />
     <Project Path="BlazorBase.Speech.Test/BlazorBase.Speech.Test.csproj" />
     <Project Path="BlazorBase.Speech.Server.Test/BlazorBase.Speech.Server.Test.csproj" />

@@ -61,6 +61,8 @@
     <PackageVersion Include="Markdig" Version="1.4.0" />
     <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <PackageVersion Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <!-- web-push-libs/web-push-csharp - actively maintained (last release 2026-04), targets net10.0 directly. -->
+    <PackageVersion Include="WebPush" Version="1.0.13" />
   </ItemGroup>
 
   <ItemGroup Label="Tests and benchmarks">
