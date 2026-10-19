@@ -1,0 +1,41 @@
+@implements IDialogContentComponent<FileInputDialogContent>
+
+<FluentDialogBody>
+    <FluentStack Orientation="Orientation.Vertical" VerticalGap="12">
+        <FluentLabel Typo="Typography.Body">@Content.Message</FluentLabel>
+
+        <FluentInputFile Accept="@Content.FileFilter"
+                         MaximumFileSize="@ResolvedMaxFileSize"
+                         OnFileUploaded="@OnFileUploadedAsync"
+                         Mode="InputFileMode.Stream"
+                         Multiple="false">
+            <ChildContent>
+                <div class="base-file-input-dialog-drop-area">
+                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ArrowUpload())" />
+                    <span>@Content.FileInputCaption</span>
+                </div>
+            </ChildContent>
+        </FluentInputFile>
+
+        @if (SelectedFileName is not null)
+        {
+            <FluentLabel Typo="Typography.Body">@SelectedFileName</FluentLabel>
+        }
+
+        @if (ErrorMessage is not null)
+        {
+            <FluentMessageBar Intent="MessageIntent.Error">@ErrorMessage</FluentMessageBar>
+        }
+
+        <FluentStack Orientation="Orientation.Horizontal" HorizontalGap="8">
+            <FluentButton Appearance="Appearance.Accent"
+                         Disabled="@(SelectedFileContent is null)"
+                         OnClick="@ConfirmAsync">
+                @Content.ConfirmButtonText
+            </FluentButton>
+            <FluentButton Appearance="Appearance.Outline" OnClick="@CancelAsync">
+                @Content.CancelButtonText
+            </FluentButton>
+        </FluentStack>
+    </FluentStack>
+</FluentDialogBody>

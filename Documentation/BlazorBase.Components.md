@@ -205,6 +205,29 @@ from `AddBlazorBaseComponents()`: a pure hosting backend that never renders inte
 made to supply an `IDialogService`. Register it yourself with `TryAddScoped` if you want it without the
 CRUD layer.
 
+### File and date input dialogs
+
+Two more FluentUI dialogs live next to `IConfirmationService`, for the two inputs a destructive or
+import-style page action tends to need and that FluentUI has no ready-made dialog for: picking one file
+and picking one date.
+
+- `dialogService.ShowFileInputDialogAsync(title, new FileInputDialogContent { Message = ..., FileInputCaption = ..., FileFilter = ".xlsx", MaxFileSize = 20 * 1024 * 1024 })`
+  opens `BaseFileInputDialog`, a FluentUI `FluentInputFile` (stream mode) wrapped in Confirm/Cancel
+  buttons. The confirm button stays disabled until a file both matches `FileFilter` (comma separated
+  extensions, e.g. `.csv,.txt`) and is at or under `MaxFileSize` (0 or negative disables the size
+  check); the validation itself lives in the dependency-free `FileInputValidator.Validate(...)`, reused
+  here and safe to call again server-side so the two checks can never drift apart. The dialog result
+  (`dialog.Result` on the returned `IDialogReference`) carries a `FileInputDialogResult` with the file
+  name and its content already buffered into a `byte[]`, or `Cancelled: true` if the user backed out.
+- `dialogService.ShowDateInputDialogAsync(title, new DateInputDialogContent { Message = ..., InitialDate = ... })`
+  opens `BaseDateInputDialog`, a single `FluentDatePicker` with the same Confirm/Cancel shape; the
+  result is a `DateInputDialogResult` with the picked `DateTime`. Typical use: "pick any day in the
+  month whose imported data should be deleted" before a purge action, where the month is derived from
+  the picked date by the caller.
+
+Both dialogs need FluentUI's `IDialogService`, exactly like `IConfirmationService` above, and are plain
+Razor components with no CRUD dependency — usable from any page, not only `BaseList`/`BaseCard` actions.
+
 ---
 
 ## Routing
