@@ -19,7 +19,11 @@ namespace BlazorBase.User.Server.Test.Infrastructure;
 /// Spins up a real Identity stack (Identity Core + roles + EF stores) over an in-memory SQLite
 /// database, wired exactly like <see cref="BlazorBaseUserServerServiceCollectionExtensions"/>, so the
 /// server services and controllers can be exercised end-to-end. One instance per test (xUnit creates
-/// a fresh instance per fact), giving each test an isolated database.
+/// a fresh instance per fact), giving each test an isolated database. Also registers the
+/// <see cref="IdentityConstants.ApplicationScheme"/> cookie handler - not wired by
+/// <c>AddBlazorBaseUserServer</c> itself, but required for <c>SignInManager.RefreshSignInAsync</c> to
+/// have somewhere to write the reissued cookie, exactly as the real host wires it via
+/// <c>AddBlazorBaseCookieAuthTokens</c>.
 /// </summary>
 public abstract class IdentityServerTestBase : IDisposable
 {
@@ -67,7 +71,9 @@ public abstract class IdentityServerTestBase : IDisposable
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddDataProtection();
-        services.AddAuthentication().AddBearerToken(IdentityConstants.BearerScheme, options =>
+        services.AddAuthentication()
+            .AddCookie(IdentityConstants.ApplicationScheme)
+            .AddBearerToken(IdentityConstants.BearerScheme, options =>
         {
             options.BearerTokenExpiration = TimeSpan.FromMinutes(Configuration.GetValue("AuthTokens:AccessTokenMinutes", 60));
             options.RefreshTokenExpiration = TimeSpan.FromDays(Configuration.GetValue("AuthTokens:RefreshTokenDays", 30));
@@ -139,15 +145,29 @@ public abstract class IdentityServerTestBase : IDisposable
         return controller;
     }
 
+    /// <summary>
+    /// <see cref="RequestServices"/> is set because <c>UpdateSettings</c> calls
+    /// <c>SignInManager.RefreshSignInAsync</c>, which resolves <c>IAuthenticationService</c> (and the
+    /// registered cookie handler) from it. The singleton <see cref="IHttpContextAccessor"/> is pointed
+    /// at the same context too, because <c>SignInManager</c> reads its own context from the accessor,
+    /// not from <see cref="ControllerBase.HttpContext"/>.
+    /// </summary>
     protected TestUserController CreateUserController(IServiceScope scope, ClaimsPrincipal? principal = null)
     {
         var provider = scope.ServiceProvider;
-        var controller = new TestUserController(provider.GetRequiredService<UserManager<TestUser>>());
+        var controller = new TestUserController(
+            provider.GetRequiredService<UserManager<TestUser>>(),
+            provider.GetRequiredService<SignInManager<TestUser>>());
 
-        controller.ControllerContext = new ControllerContext
+        var httpContext = new DefaultHttpContext
         {
-            HttpContext = new DefaultHttpContext { User = principal ?? new ClaimsPrincipal(new ClaimsIdentity()) },
+            User = principal ?? new ClaimsPrincipal(new ClaimsIdentity()),
+            RequestServices = provider,
         };
+
+        provider.GetRequiredService<IHttpContextAccessor>().HttpContext = httpContext;
+
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
         return controller;
     }
 

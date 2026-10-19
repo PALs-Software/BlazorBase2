@@ -362,6 +362,8 @@ public abstract class AuthControllerBase<TUser>(
         if (user is null)
             return Problem(detail: "The development account could not be provisioned. See the server log.", statusCode: StatusCodes.Status500InternalServerError);
 
+        await OnAfterDevelopmentLoginAsync(user);
+
         return Ok(await GenerateTokenResponse(user));
     }
 
@@ -371,6 +373,15 @@ public abstract class AuthControllerBase<TUser>(
     /// </summary>
     private IDevelopmentSessionService<TUser>? ResolveDevelopmentSession()
         => HttpContext.RequestServices?.GetService<IDevelopmentSessionService<TUser>>();
+
+    /// <summary>
+    /// Hook called every time the development account is resolved (created or reused), before token
+    /// generation. Override to provision or link host-specific data by email — such as a domain user
+    /// row that is otherwise only ever created through the real sign-up or external sign-in paths —
+    /// so a fresh development account behaves like one as soon as it signs in once.
+    /// </summary>
+    /// <param name="user">The resolved development account. Already exists in <see cref="UserManager{TUser}"/>.</param>
+    protected virtual Task OnAfterDevelopmentLoginAsync(TUser user) => Task.CompletedTask;
 
     /// <summary>
     /// Hook called after the setup user has been created and assigned the Admin role,

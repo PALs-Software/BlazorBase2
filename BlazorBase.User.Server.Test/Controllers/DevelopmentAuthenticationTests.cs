@@ -56,6 +56,49 @@ public sealed class DevelopmentAuthenticationTests : IdentityServerTestBase
         Assert.Equal("Development User", user!.DisplayName);
     }
 
+    /// <summary>
+    /// The hook is the seam a host uses to provision its own domain-specific data (e.g. a separate
+    /// "app user" row looked up by email) for a development account exactly as it would for a real
+    /// sign-in, every time the account is resolved - not just the first time it is created.
+    /// </summary>
+    [Fact]
+    public async Task DevelopmentLogin_InvokesTheAfterDevelopmentLoginHook_EveryTime()
+    {
+        var invocationCount = 0;
+        TestUser? hookUser = null;
+
+        using (var firstScope = CreateScope())
+        {
+            var controller = CreateAuthController(firstScope);
+            controller.DevelopmentLoginHook = user =>
+            {
+                invocationCount++;
+                hookUser = user;
+                return Task.CompletedTask;
+            };
+
+            await controller.DevelopmentLogin(CancellationToken.None);
+        }
+
+        Assert.Equal(1, invocationCount);
+        Assert.NotNull(hookUser);
+        Assert.Equal(DevelopmentEmail, hookUser!.Email);
+
+        using (var secondScope = CreateScope())
+        {
+            var controller = CreateAuthController(secondScope);
+            controller.DevelopmentLoginHook = _ =>
+            {
+                invocationCount++;
+                return Task.CompletedTask;
+            };
+
+            await controller.DevelopmentLogin(CancellationToken.None);
+        }
+
+        Assert.Equal(2, invocationCount);
+    }
+
     [Fact]
     public async Task DevelopmentLogin_PutsTheConfiguredRolesIntoTheToken()
     {

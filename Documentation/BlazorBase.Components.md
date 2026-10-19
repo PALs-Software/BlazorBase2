@@ -198,6 +198,14 @@ structure is stripped. The conversion is cached per value, so re-renders with th
 | `IFormFactor` | Reports the host platform and form factor. The seam only; the WebAssembly and MAUI packages each register their own implementation. |
 | `IConfirmationService` | Asks the user to confirm an action and reports whether they accepted. `FluentUiConfirmationService` is the default and needs FluentUI's `IDialogService`. |
 
+`LanguageService` stamps `<html lang>` with the active language on every culture change (startup,
+claim-driven resolve, and an explicit `SetLanguageAsync` call), not only `CultureInfo.CurrentUICulture`.
+Without it the document stays on whatever the static markup shipped with (typically `en`) for the whole
+session, which is wrong for assistive technology and any other tooling that reads the attribute. A
+native browser control such as the built-in required-field validation bubble follows the browser's own
+UI language instead of the page's `lang` attribute, so this does not and cannot change that one - no web
+app can.
+
 `IConfirmationService` lives here because opening a dialog is a UI concern, not a CRUD one — an
 application that never touches the data grid can still use it. The convenience registration currently
 rides along with `AddBlazorBaseCrudComponents()` in `BlazorBase.CRUD`, which is deliberately separate

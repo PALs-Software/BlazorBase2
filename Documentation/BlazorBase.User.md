@@ -359,6 +359,25 @@ builder.Services.Configure<BlazorBaseUserClientOptions>(o =>
 
 The field is optional — the user may leave it blank. The value travels in `SetupRequest.HouseholdName` to the server's `POST /api/auth/setup` endpoint, where the host's `AuthController` override can read it in `OnAfterUserCreatedAsync`. When neither opt-in path is used, the field is not rendered and `HouseholdName` is `null`; existing hosts are unaffected.
 
+#### Development login — provisioning host-specific data on first use
+
+`POST api/auth/development-login` resolves (creating on first call, reusing afterwards) the account
+configured under `DevelopmentAuthentication` and signs it in. A host that provisions additional data by
+email on real sign-in — a separate domain user row created from `IExternalUserResolver<TUser>` on first
+external sign-in, for instance — needs the same thing to happen for a development account, or it 404s
+on any endpoint that reads that other table. Override
+`AuthControllerBase<TUser>.OnAfterDevelopmentLoginAsync(user)`, called every time the development
+account is resolved (not only when it is first created), to run that provisioning:
+
+```csharp
+public class AuthController(..., IDomainUserProvisioningService provisioning)
+    : AuthControllerBase<AppUser>(...)
+{
+    protected override Task OnAfterDevelopmentLoginAsync(AppUser user) =>
+        provisioning.EnsureDomainUserAsync(user.Email!, user.DisplayName);
+}
+```
+
 #### `Login` — `returnUrl` round-trip
 
 After a successful **login**, `Login` reads the `returnUrl` query parameter (URL-encoded, set by `RedirectToLogin`), validates it is app-relative (starts with `/`, not an absolute URI), and navigates there. Absolute or missing values fall back to `/`. After a successful **setup** (first-run), the component always navigates to `/` regardless of `returnUrl` — there is no meaningful prior destination for the first user.
@@ -692,6 +711,36 @@ private async Task SaveSettingsAsync()
         Language        = SelectedLanguage // "de" | "en"
     });
     await LanguageService.SetLanguageAsync(SelectedLanguage);
+}
+```
+
+`UpdateSettings` (`PUT api/user/me/settings`) reissues the caller's cookie session via
+`SignInManager.RefreshSignInAsync` right after persisting the new values, so the `language`/
+`themePreference` claims on the *active* session are current immediately — without this, a user who
+changes their language would keep seeing the old one (and `UseBlazorBaseLanguageAsync` would keep
+resolving the stale claim) until signing out and back in. Under the bearer-token transport there is no
+cookie to rewrite, so this is a no-op from the caller's point of view; the client still has to refresh
+its own token pair the way `UserPreferencesPanel.razor.cs` does above.
+
+A host that keeps a separate, host-specific preference store (e.g. a domain user table distinct from
+the Identity `AspNetUsers` row) overrides `UserControllerBase<TUser>.OnSettingsUpdatedAsync(user,
+request)` — called after the new values are persisted and before the cookie is refreshed — to keep that
+store in sync with the same choice:
+
+```csharp
+public class UserController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, IDbContextFactory<AppDbContext> dbContextFactory)
+    : UserControllerBase<AppUser>(userManager, signInManager)
+{
+    protected override async Task OnSettingsUpdatedAsync(AppUser user, UpdateUserSettingsRequest request)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+        var domainUser = await dbContext.Set<DomainUser>().FirstOrDefaultAsync(u => u.Email == user.Email);
+        if (domainUser is not null)
+        {
+            domainUser.PreferredCulture = CultureToLcid(request.Language);
+            await dbContext.SaveChangesAsync();
+        }
+    }
 }
 ```
 

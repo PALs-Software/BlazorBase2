@@ -311,6 +311,50 @@ public sealed class CookieAuthTokenTransportTests
     }
 
     /// <summary>
+    /// Reproduces the exact defect <c>UserControllerBase.UpdateSettings</c> used to have: persisting a
+    /// new language to the database is not enough while a cookie session is active, because the
+    /// session's claims were minted once at sign-in and never read the database again. Proves the fix
+    /// end-to-end through the real pipeline - <c>PUT api/user/me/settings</c>, then a later request on
+    /// the (possibly rewritten) cookie sees the new <c>language</c> claim without signing out and back
+    /// in.
+    /// </summary>
+    [Fact]
+    public async Task Updating_the_language_setting_refreshes_the_session_so_a_later_request_sees_the_new_claim()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true, useControllers: true);
+        using var _host = host;
+
+        var client = host.GetTestClient();
+
+        var sessionCookie = ReadCookies(await ExchangeAsync(host))[SessionCookie];
+
+        var initialSessionRequest = new HttpRequestMessage(HttpMethod.Get, "/api/auth/session");
+        initialSessionRequest.Headers.Add("Cookie", $"{SessionCookie}={sessionCookie}");
+        var initialSession = await (await client.SendAsync(initialSessionRequest)).Content.ReadFromJsonAsync<AuthSessionResponse>();
+        Assert.Contains(initialSession!.Claims, claim => claim.Type == "language" && claim.Value == "en");
+
+        var (settingsToken, settingsCookieHeader) = await GetCsrfAsync(host, $"{SessionCookie}={sessionCookie}");
+        var updateRequest = new HttpRequestMessage(HttpMethod.Put, "/api/user/me/settings")
+        {
+            Content = JsonContent.Create(new UpdateUserSettingsRequest { ThemePreference = "System", Language = "de" }),
+        };
+        updateRequest.Headers.Add("Cookie", settingsCookieHeader);
+        updateRequest.Headers.Add(CsrfHeader, settingsToken);
+
+        var updateResponse = await client.SendAsync(updateRequest);
+        Assert.Equal(HttpStatusCode.NoContent, updateResponse.StatusCode);
+
+        var rewrittenCookies = ReadCookies(updateResponse);
+        var sessionCookieAfterUpdate = rewrittenCookies.TryGetValue(SessionCookie, out var rewritten) ? rewritten : sessionCookie;
+
+        var finalSessionRequest = new HttpRequestMessage(HttpMethod.Get, "/api/auth/session");
+        finalSessionRequest.Headers.Add("Cookie", $"{SessionCookie}={sessionCookieAfterUpdate}");
+        var finalSession = await (await client.SendAsync(finalSessionRequest)).Content.ReadFromJsonAsync<AuthSessionResponse>();
+
+        Assert.Contains(finalSession!.Claims, claim => claim.Type == "language" && claim.Value == "de");
+    }
+
+    /// <summary>
     /// A bearer client and a cookie client must be able to share one server, so a presented header is
     /// never overridden by whatever cookie happens to be lying around.
     /// </summary>
