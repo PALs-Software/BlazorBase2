@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using BlazorBase.Notifications.Server.Configuration;
 using BlazorBase.Notifications.Server.Services;
 using BlazorBase.Notifications.Server.Test.Infrastructure;
@@ -60,6 +61,35 @@ public sealed class BlazorBaseNotificationsServerServiceCollectionExtensionsTest
         Assert.IsType<EfPushSubscriptionStore>(scope.ServiceProvider.GetRequiredService<IPushSubscriptionStore>());
         Assert.IsType<WebPushSender>(scope.ServiceProvider.GetRequiredService<IWebPushSender>());
         Assert.IsType<PushNotifier>(scope.ServiceProvider.GetRequiredService<IPushNotifier>());
+    }
+
+    [Fact]
+    public void AddBlazorBaseNotificationsServer_RegistersTheClaimsUserIdResolver_ByDefault()
+    {
+        using var provider = BuildProvider(ConfigurationWith(ValidSettings()));
+        using var scope = provider.CreateScope();
+
+        Assert.IsType<ClaimsNotificationUserIdResolver>(scope.ServiceProvider.GetRequiredService<INotificationUserIdResolver>());
+    }
+
+    [Fact]
+    public void AddBlazorBaseNotificationsServer_KeepsAHostRegisteredUserIdResolver()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDbContext<TestNotificationsDbContext>(options => options.UseSqlite(Connection));
+        services.AddScoped<INotificationUserIdResolver, FixedNotificationUserIdResolver>();
+        services.AddBlazorBaseNotificationsServer<TestNotificationsDbContext>(ConfigurationWith(ValidSettings()));
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        Assert.IsType<FixedNotificationUserIdResolver>(scope.ServiceProvider.GetRequiredService<INotificationUserIdResolver>());
+    }
+
+    private sealed class FixedNotificationUserIdResolver : INotificationUserIdResolver
+    {
+        public Task<Guid?> ResolveUserIdAsync(ClaimsPrincipal user, CancellationToken cancellationToken) =>
+            Task.FromResult<Guid?>(Guid.Empty);
     }
 
     [Fact]

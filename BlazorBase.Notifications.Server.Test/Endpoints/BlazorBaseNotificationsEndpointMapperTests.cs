@@ -49,7 +49,7 @@ public sealed class BlazorBaseNotificationsEndpointMapperTests
         }
     }
 
-    private static async Task<NotificationsTestHost> StartHostAsync()
+    private static async Task<NotificationsTestHost> StartHostAsync(INotificationUserIdResolver? userIdResolver = null)
     {
         var connection = new SqliteConnection("DataSource=:memory:");
         connection.Open();
@@ -74,6 +74,8 @@ public sealed class BlazorBaseNotificationsEndpointMapperTests
                     services.AddRouting();
                     services.AddSingleton<IConfiguration>(configuration);
                     services.AddDbContext<TestNotificationsDbContext>(options => options.UseSqlite(connection));
+                    if (userIdResolver is not null)
+                        services.AddSingleton(userIdResolver);
                     services.AddBlazorBaseNotificationsServer<TestNotificationsDbContext>(configuration);
                     services.AddSingleton<INotificationInboxStore>(inboxStore);
                     services.AddAuthentication(TestUserAuthenticationHandler.SchemeName)
@@ -317,5 +319,84 @@ public sealed class BlazorBaseNotificationsEndpointMapperTests
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
         Assert.Equal([(userId, 42L)], testHost.InboxStore.DismissCalls);
+    }
+
+    public static TheoryData<HttpMethod, string, HttpContent?> UserScopedEndpoints() => new()
+    {
+        { HttpMethod.Post, "/api/notifications/push/subscription", JsonContent.Create(new PushSubscriptionDto("https://push.example.test/unresolved", "p256dh", "auth", null)) },
+        { HttpMethod.Delete, "/api/notifications/push/subscription?endpoint=https://push.example.test/x", null },
+        { HttpMethod.Put, "/api/notifications/push/subscription/enabled", JsonContent.Create(new SetPushSubscriptionEnabledRequest("https://push.example.test/x", false)) },
+        { HttpMethod.Get, "/api/notifications/unread", null },
+        { HttpMethod.Get, "/api/notifications/unread/count", null },
+        { HttpMethod.Post, "/api/notifications/1/read", null },
+        { HttpMethod.Post, "/api/notifications/1/dismiss", null },
+    };
+
+    [Theory]
+    [MemberData(nameof(UserScopedEndpoints))]
+    public async Task EveryUserScopedEndpoint_RejectsTheCaller_WhenTheRegisteredResolverCannotResolveAnId(HttpMethod method, string path, HttpContent? content)
+    {
+        var resolver = new MappingNotificationUserIdResolver(new Dictionary<Guid, Guid>());
+        using var testHost = await StartHostAsync(resolver);
+        using var client = testHost.CreateClient();
+
+        var response = await SendAsync(client, method, path, Guid.NewGuid(), content);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SubscribeAsync_StoresTheSubscription_UnderTheResolverSUserId_NotTheIdentityId()
+    {
+        var identityUserId = Guid.NewGuid();
+        var domainUserId = Guid.NewGuid();
+        var resolver = new MappingNotificationUserIdResolver(new Dictionary<Guid, Guid> { [identityUserId] = domainUserId });
+        using var testHost = await StartHostAsync(resolver);
+        using var client = testHost.CreateClient();
+        var dto = new PushSubscriptionDto("https://push.example.test/resolved", "p256dh", "auth", null);
+
+        var response = await SendAsync(client, HttpMethod.Post, "/api/notifications/push/subscription", identityUserId, JsonContent.Create(dto));
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Single(await testHost.GetSubscriptionsForUserAsync(domainUserId));
+        Assert.Empty(await testHost.GetSubscriptionsForUserAsync(identityUserId));
+    }
+
+    [Fact]
+    public async Task UnsubscribeAsync_RemovesTheSubscription_UnderTheResolverSUserId_NotTheIdentityId()
+    {
+        var identityUserId = Guid.NewGuid();
+        var domainUserId = Guid.NewGuid();
+        var resolver = new MappingNotificationUserIdResolver(new Dictionary<Guid, Guid> { [identityUserId] = domainUserId });
+        using var testHost = await StartHostAsync(resolver);
+        using var client = testHost.CreateClient();
+        await SendAsync(client, HttpMethod.Post, "/api/notifications/push/subscription", identityUserId,
+            JsonContent.Create(new PushSubscriptionDto("https://push.example.test/resolved-remove", "p256dh", "auth", null)));
+
+        var response = await SendAsync(client, HttpMethod.Delete, "/api/notifications/push/subscription?endpoint=https://push.example.test/resolved-remove", identityUserId);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Empty(await testHost.GetSubscriptionsForUserAsync(domainUserId));
+    }
+
+    [Fact]
+    public async Task InboxEndpoints_UseTheResolverSUserId_NotTheIdentityId()
+    {
+        var identityUserId = Guid.NewGuid();
+        var domainUserId = Guid.NewGuid();
+        var resolver = new MappingNotificationUserIdResolver(new Dictionary<Guid, Guid> { [identityUserId] = domainUserId });
+        using var testHost = await StartHostAsync(resolver);
+        using var client = testHost.CreateClient();
+        testHost.InboxStore.UnreadByUser[domainUserId] = [new InboxNotificationDto(1, "Title", "Message", "Info", DateTime.UtcNow, false)];
+
+        var unreadResponse = await SendAsync(client, HttpMethod.Get, "/api/notifications/unread", identityUserId);
+        var markReadResponse = await SendAsync(client, HttpMethod.Post, "/api/notifications/1/read", identityUserId);
+
+        Assert.Equal(HttpStatusCode.OK, unreadResponse.StatusCode);
+        Assert.Single(await unreadResponse.Content.ReadFromJsonAsync<List<InboxNotificationDto>>() ?? []);
+        Assert.Equal(HttpStatusCode.NoContent, markReadResponse.StatusCode);
+        Assert.Equal([domainUserId], testHost.InboxStore.GetUnreadCalls);
+        Assert.Equal([(domainUserId, 1L)], testHost.InboxStore.MarkReadCalls);
+        Assert.DoesNotContain(identityUserId, testHost.InboxStore.GetUnreadCalls);
     }
 }

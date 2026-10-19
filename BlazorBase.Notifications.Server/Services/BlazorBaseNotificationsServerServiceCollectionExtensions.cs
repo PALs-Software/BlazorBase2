@@ -31,6 +31,11 @@ public static class BlazorBaseNotificationsServerServiceCollectionExtensions
     /// host must additionally register its own <see cref="INotificationInboxStore"/> implementation
     /// and call <c>MapBlazorBaseNotifications()</c> to expose the REST surface.
     /// <para>
+    /// A default <see cref="INotificationUserIdResolver"/> (<see cref="ClaimsNotificationUserIdResolver"/>)
+    /// is registered with <c>TryAdd</c>, so a host whose identity user id and domain user id differ
+    /// can register its own implementation before calling this method to have it used instead.
+    /// </para>
+    /// <para>
     /// VAPID configuration: add a <c>BlazorBaseNotifications:WebPush:Subject/PublicKey/PrivateKey</c>
     /// section (generate a key pair once with <see cref="VapidKeyGenerator.Generate"/> and keep it
     /// stable) to application secrets or environment variables, or use the
@@ -52,6 +57,7 @@ public static class BlazorBaseNotificationsServerServiceCollectionExtensions
     {
         services.AddScoped<DbContext>(serviceProvider => serviceProvider.GetRequiredService<TContext>());
         services.AddScoped<IPushSubscriptionStore, EfPushSubscriptionStore>();
+        services.TryAddScoped<INotificationUserIdResolver, ClaimsNotificationUserIdResolver>();
 
         services.AddSingleton<IWebPushClient, WebPushClient>();
         services.AddSingleton<IWebPushSender, WebPushSender>();

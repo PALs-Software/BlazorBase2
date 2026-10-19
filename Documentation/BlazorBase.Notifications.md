@@ -67,6 +67,7 @@ app loads the detail itself after the user clicks through.
 | Push notifier | `BlazorBase.Notifications.Server.Services.IPushNotifier` / `PushNotifier` |
 | Subscription store | `BlazorBase.Notifications.Server.Services.IPushSubscriptionStore` / `EfPushSubscriptionStore` |
 | Host inbox contract | `BlazorBase.Notifications.Server.Services.INotificationInboxStore` (implemented by the host) |
+| Acting user id resolution | `BlazorBase.Notifications.Server.Services.INotificationUserIdResolver` / `ClaimsNotificationUserIdResolver` (default, overridable by the host) |
 | VAPID key generation | `BlazorBase.Notifications.Server.Services.VapidKeyGenerator` |
 | DI registration | `AddBlazorBaseNotificationsServer<TContext>(IConfiguration, string, Action<WebPushOptions>?)` |
 | Endpoint mapping | `BlazorBase.Notifications.Server.Endpoints.BlazorBaseNotificationsEndpointMapper.MapBlazorBaseNotifications` |
@@ -146,6 +147,38 @@ app.MapBlazorBaseNotifications(); // defaults to "api/notifications"
 scoped registration (the same pattern `BlazorBase.Files.Server` uses), so `EfPushSubscriptionStore`
 needs no separate registration, and wires `IWebPushSender`, `IPushNotifier` and the `WebPushOptions`
 validator.
+
+### Optional: resolve the acting user id against a different identity than the claims principal
+
+Every endpoint resolves the acting user id through `INotificationUserIdResolver`, not by reading the
+`ClaimTypes.NameIdentifier` claim directly. `AddBlazorBaseNotificationsServer` registers a default
+implementation, `ClaimsNotificationUserIdResolver`, with `TryAdd` — it parses the
+`ClaimTypes.NameIdentifier` claim as a `Guid` and returns it, or `null` if the claim is missing or
+not a `Guid`, which the endpoint turns into a 401.
+
+That default is enough as long as the claims principal's `NameIdentifier` already carries the id the
+host's own stores (`INotificationInboxStore`, `IPushSubscriptionStore`) use as `userId`. A host that
+keeps a **separate identity user id and domain user id** — for example an Entra ID object id in the
+claim, and a different primary key on its own `User` table that `PushSubscription` and the inbox
+rows actually reference — registers its own resolver **before** calling
+`AddBlazorBaseNotificationsServer`, so `TryAdd` keeps it instead of the default:
+
+```csharp
+public class DomainUserIdResolver(IdentityUserResolver identityUserResolver) : INotificationUserIdResolver
+{
+    public async Task<Guid?> ResolveUserIdAsync(ClaimsPrincipal user, CancellationToken cancellationToken) =>
+        await identityUserResolver.ResolveDomainUserIdAsync(user, cancellationToken);
+}
+```
+
+```csharp
+// Server Program.cs
+builder.Services.AddScoped<INotificationUserIdResolver, DomainUserIdResolver>();
+builder.Services.AddBlazorBaseNotificationsServer<AppDbContext>(builder.Configuration);
+```
+
+With this in place, `INotificationInboxStore` and `IPushSubscriptionStore` implementations only ever
+see the domain user id and never need their own identity-to-domain translation.
 
 ### 5. Call `IPushNotifier` when a notification is created
 
@@ -243,9 +276,9 @@ browser always sees it as triggered by the user gesture that caused it.
 
 ## REST endpoints (`MapBlazorBaseNotifications`, default prefix `api/notifications`)
 
-Every endpoint requires an authenticated caller; the acting user id always comes from the
-`ClaimTypes.NameIdentifier` claim, never from the request body — a caller can only ever act on their
-own notifications and subscriptions.
+Every endpoint requires an authenticated caller; the acting user id always comes from
+`INotificationUserIdResolver` (by default, the `ClaimTypes.NameIdentifier` claim), never from the
+request body — a caller can only ever act on their own notifications and subscriptions.
 
 | Method | Route | Body | Success | Notes |
 |---|---|---|---|---|
