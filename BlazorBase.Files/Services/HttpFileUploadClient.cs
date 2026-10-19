@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 using BlazorBase.Files.Models;
 
 namespace BlazorBase.Files.Services;
@@ -48,7 +49,11 @@ public class HttpFileUploadClient(HttpClient httpClient) : IFileUploadClient
     /// <inheritdoc/>
     public async Task<string> GetAccessTokenAsync(Guid id, CancellationToken cancellationToken)
     {
-        var token = await HttpClient.GetFromJsonAsync<string>($"{id}/token", cancellationToken).ConfigureAwait(false);
-        return token ?? string.Empty;
+        var content = await HttpClient.GetStringAsync($"{id}/token", cancellationToken).ConfigureAwait(false);
+        var token = content.Trim();
+        if (token.Length >= 2 && token[0] == '"' && token[^1] == '"')
+            token = JsonSerializer.Deserialize<string>(token) ?? string.Empty;
+
+        return token;
     }
 }
