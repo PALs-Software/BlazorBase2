@@ -7,8 +7,11 @@ using BlazorBase.CRUD.Test.Infrastructure;
 using BlazorBase.CRUD.Test.Infrastructure.CustomProperties;
 using BlazorBase.CRUD.Test.Infrastructure.TestEntities;
 using BlazorBase.CRUD.Validation;
+using Microsoft.AspNetCore.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using System.Text.Json.Serialization;
 using Xunit;
 
 namespace BlazorBase.CRUD.Test.Extensions;
@@ -24,6 +27,19 @@ public class BaseServiceCollectionExtensionsTests
 
         Assert.Contains(services, d => d.ServiceType == typeof(BaseValidationService<>)
             && d.Lifetime == ServiceLifetime.Scoped);
+    }
+
+    [Fact]
+    public void AddBlazorBaseCrud_ConfiguresHttpJsonOptionsToIgnoreReferenceCycles()
+    {
+        var services = new ServiceCollection();
+
+        services.AddBlazorBaseCrud();
+        using var serviceProvider = services.BuildServiceProvider();
+
+        var jsonOptions = serviceProvider.GetRequiredService<IOptions<JsonOptions>>().Value;
+
+        Assert.Equal(ReferenceHandler.IgnoreCycles, jsonOptions.SerializerOptions.ReferenceHandler);
     }
 
     [Fact]

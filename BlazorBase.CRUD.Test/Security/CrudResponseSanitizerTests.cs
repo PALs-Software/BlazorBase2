@@ -99,4 +99,18 @@ public class CrudResponseSanitizerTests
 
         Assert.Equal(0m, entity.Salary);
     }
+
+    [Fact]
+    public void Strip_CyclicGraphWhereEveryHopIsAFreshInstanceSharingTheSameKey_StopsAtTheRepeatedKey()
+    {
+        SharedKeyCyclicEntity.RelatedAccessCount = 0;
+        var entity = new SharedKeyCyclicEntity { Id = 1 };
+
+        CrudResponseSanitizer.Strip(entity, TestPrincipals.Anonymous());
+
+        Assert.True(
+            SharedKeyCyclicEntity.RelatedAccessCount <= 2,
+            $"Expected the (type, key) cycle guard to stop after the first repeated key, " +
+            $"but Related was accessed {SharedKeyCyclicEntity.RelatedAccessCount} times.");
+    }
 }
