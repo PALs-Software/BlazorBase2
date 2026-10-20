@@ -104,6 +104,9 @@ public partial class BasePropertyInput<TModel> : IDisposable
         || PropertyType == typeof(double) || PropertyType == typeof(double?)
         || PropertyType == typeof(float) || PropertyType == typeof(float?);
 
+    private bool IsNullableEnum =>
+        PropertyType.IsEnum && PropertyInfo is not null && Nullable.GetUnderlyingType(PropertyInfo.PropertyType) is not null;
+
     #region Navigation Property Support
 
     private bool NavigationResolved { get; set; }
@@ -635,6 +638,21 @@ public partial class BasePropertyInput<TModel> : IDisposable
     {
         get => CurrentValue?.ToString();
         set => _ = OnValueChangedAsync(value);
+    }
+
+    private string? EnumStringValue
+    {
+        get => CurrentValue?.ToString() ?? string.Empty;
+        set
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                _ = OnValueChangedAsync(null);
+                return;
+            }
+
+            _ = OnValueChangedAsync(Enum.Parse(PropertyType, value));
+        }
     }
 
     private bool BoolValue

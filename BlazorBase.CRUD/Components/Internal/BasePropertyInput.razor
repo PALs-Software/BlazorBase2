@@ -54,9 +54,13 @@
     else if (PropertyType.IsEnum)
     {
         <FluentSelect TOption="string"
-                      @bind-Value="StringValue"
+                      @bind-Value="EnumStringValue"
                       Disabled="@(!IsEditing)"
                       Label="@ResolvedLabel">
+            @if (IsNullableEnum)
+            {
+                <FluentOption Value="">@FrameworkLocalizer["SelectEmpty"]</FluentOption>
+            }
             @foreach (var enumValue in Enum.GetValues(PropertyType))
             {
                 <FluentOption Value="@enumValue.ToString()">@enumValue</FluentOption>

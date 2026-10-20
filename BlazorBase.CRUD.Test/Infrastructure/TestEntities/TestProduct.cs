@@ -29,6 +29,8 @@ public class TestProduct
 
     public ProductKind Kind { get; set; }
 
+    public ProductKind? PreferredKind { get; set; }
+
     public string? Description { get; set; }
 
     [CrudAccess("Admin", "RM")]

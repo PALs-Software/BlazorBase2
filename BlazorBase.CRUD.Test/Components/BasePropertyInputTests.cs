@@ -69,6 +69,59 @@ public class BasePropertyInputTests : BunitTestContextBase
     }
 
     [Fact]
+    public void NonNullableEnumProperty_DoesNotRenderBlankOption()
+    {
+        var cut = RenderInput(new TestProduct { Kind = ProductKind.Digital }, Field(p => p.Kind));
+
+        var select = cut.FindComponent<FluentSelect<string>>();
+        Assert.Equal(nameof(ProductKind.Digital), select.Instance.Value);
+        Assert.Equal(Enum.GetValues<ProductKind>().Length, cut.FindComponents<FluentOption<string>>().Count);
+    }
+
+    [Fact]
+    public void NullableEnumProperty_WithNullValue_RendersBlankSelectedOption()
+    {
+        var cut = RenderInput(new TestProduct { PreferredKind = null }, Field(p => p.PreferredKind));
+
+        var select = cut.FindComponent<FluentSelect<string>>();
+        Assert.Equal(string.Empty, select.Instance.Value);
+        Assert.Equal(Enum.GetValues<ProductKind>().Length + 1, cut.FindComponents<FluentOption<string>>().Count);
+    }
+
+    [Fact]
+    public void NullableEnumProperty_WithValue_RendersThatValueSelected()
+    {
+        var cut = RenderInput(new TestProduct { PreferredKind = ProductKind.Service }, Field(p => p.PreferredKind));
+
+        var select = cut.FindComponent<FluentSelect<string>>();
+        Assert.Equal(nameof(ProductKind.Service), select.Instance.Value);
+    }
+
+    [Fact]
+    public void NullableEnumProperty_SelectingBlankOption_SetsModelPropertyToNull()
+    {
+        var model = new TestProduct { PreferredKind = ProductKind.Service };
+        var cut = RenderInput(model, Field(p => p.PreferredKind));
+
+        var select = cut.FindComponent<FluentSelect<string>>();
+        select.InvokeAsync(() => select.Instance.ValueChanged.InvokeAsync(string.Empty));
+
+        Assert.Null(model.PreferredKind);
+    }
+
+    [Fact]
+    public void NullableEnumProperty_SelectingAValue_SetsModelProperty()
+    {
+        var model = new TestProduct { PreferredKind = null };
+        var cut = RenderInput(model, Field(p => p.PreferredKind));
+
+        var select = cut.FindComponent<FluentSelect<string>>();
+        select.InvokeAsync(() => select.Instance.ValueChanged.InvokeAsync(nameof(ProductKind.Physical)));
+
+        Assert.Equal(ProductKind.Physical, model.PreferredKind);
+    }
+
+    [Fact]
     public void NavigationProperty_WithRegisteredProvider_RendersSelectWithLookupOptions()
     {
         var authorization = this.AddAuthorization();
