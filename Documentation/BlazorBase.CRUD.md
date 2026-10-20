@@ -458,6 +458,9 @@ public interface IBaseValidator<TModel>
 }
 ```
 
+`OnBeforePatchAsync` receives CLR-typed values, not raw `JsonElement`s. `DbContextBaseDataProvider<T>.PatchAsync` converts every value whose field name resolves to a writable, patchable property of `TModel` (that is, the same fields `ApplyPatchFields` would later write — not excluded via `[CrudAccess]`, not a navigation property, not an `AuditModel` property) from `JsonElement` to that property's declared type **before** any interceptor runs: a JSON string becomes a `string`, a JSON number/boolean becomes the matching numeric/`bool` type, a nullable enum, `Guid?`, `decimal?` or `DateTime?` field is deserialized into its CLR type, and a JSON `null` becomes a CLR `null`. A field name that does not resolve to such a property (unknown name, read-only, excluded, navigation or audit property) is left as the original `JsonElement` so existing skip behavior is unchanged. An interceptor that assigns a new value to `changedFields` (e.g. `changedFields["Name"] = trimmed`) keeps working — typed or `JsonElement`, the value is applied the same way afterwards. The conversion is centralized in `PatchFieldValueConverter`, which `ApplyPatchFields` also calls for the same `JsonElement` branch, so both call sites share one conversion.
+
+
 ### BaseValidationException
 
 Throw `BaseValidationException` from an `IBaseDataInterceptor<TModel>` method to signal a business-rule violation. The server endpoint catches it and returns **400 Bad Request** with a JSON body `{ error: "validation", message: "…" }`. `HttpBaseDataProvider` translates the 400 back into a `BaseValidationException`, and `BaseCard` shows the message in its error area — the same `FluentMessageBar` used for concurrency conflicts.

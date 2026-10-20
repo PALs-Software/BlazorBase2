@@ -174,7 +174,7 @@ public class DbContextBaseDataProvider<TEntity>(
 
     public async Task<TEntity> PatchAsync(object id, Dictionary<string, object?> changedFields, string? concurrencyStamp = null, CancellationToken cancellationToken = default)
     {
-        var interceptedFields = changedFields;
+        var interceptedFields = PatchFieldValueConverter.ConvertToClrTypes(typeof(TEntity), changedFields);
         foreach (var interceptor in Interceptors)
             interceptedFields = await interceptor.OnBeforePatchAsync(id, interceptedFields, cancellationToken);
 
@@ -437,8 +437,7 @@ public class DbContextBaseDataProvider<TEntity>(
 
             if (value is JsonElement jsonElement)
             {
-                var deserialized = JsonSerializer.Deserialize(jsonElement.GetRawText(), property.PropertyType);
-                property.SetValue(entity, deserialized);
+                property.SetValue(entity, PatchFieldValueConverter.ConvertValue(jsonElement, property.PropertyType));
                 continue;
             }
 
