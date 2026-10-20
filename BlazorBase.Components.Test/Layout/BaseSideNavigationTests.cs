@@ -62,4 +62,39 @@ public sealed class BaseSideNavigationTests : ComponentsBunitTestContextBase
         Assert.Contains("base-side-nav-section", cut.Markup);
         Assert.Contains("href=\"/admin/users\"", cut.Markup);
     }
+
+    [Fact]
+    public void CollapsedLayoutContext_ShowsIconsOnlyWithoutSectionLabels()
+    {
+        var auth = AddAuthorization();
+        auth.SetAuthorized("admin");
+        auth.SetRoles("Admin");
+        Services.AddLocalization();
+
+        var cut = Render<BaseSideNavigation>(parameters => parameters
+            .Add(p => p.Items, SampleItems())
+            .AddCascadingValue(new NavigationLayoutContext(true, () => Task.CompletedTask)));
+
+        Assert.Contains("collapsed", cut.Find("nav.base-side-nav").ClassList);
+        Assert.DoesNotContain("base-side-nav-section", cut.Markup);
+    }
+
+    [Fact]
+    public void ClickingTheNavigation_AsksTheLayoutToCloseTheDrawer()
+    {
+        var closed = 0;
+        Services.AddLocalization();
+
+        var cut = Render<BaseSideNavigation>(parameters => parameters
+            .Add(p => p.Items, SampleItems())
+            .AddCascadingValue(new NavigationLayoutContext(false, () =>
+            {
+                closed++;
+                return Task.CompletedTask;
+            })));
+
+        cut.Find("nav.base-side-nav").Click();
+
+        Assert.Equal(1, closed);
+    }
 }

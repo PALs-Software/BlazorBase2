@@ -1,6 +1,7 @@
 .notification-bell {
     position: relative;
     display: inline-flex;
+    font-weight: 400;
 }
 
 .notification-bell-button {
@@ -20,18 +21,33 @@
     pointer-events: none;
 }
 
+.notification-bell-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+}
+
 .notification-bell-panel {
     position: absolute;
     top: calc(100% + 8px);
-    right: 0;
+    inset-inline-end: 0;
     z-index: 100;
+    box-sizing: border-box;
     width: 340px;
-    max-height: 420px;
+    max-width: calc(100vw - 16px);
+    max-height: min(420px, calc(100dvh - 80px));
+    overflow-x: hidden;
     overflow-y: auto;
     border-radius: 8px;
-    background: var(--color-surface, var(--neutral-layer-1));
-    box-shadow: var(--color-shadow, 0 8px 24px rgba(0, 0, 0, 0.2));
+    background: var(--color-bg-elevated, var(--neutral-layer-1));
+    color: var(--color-text-primary, var(--neutral-foreground-rest));
+    border: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
     padding: 8px 0;
+}
+
+.notification-bell-panel:focus {
+    outline: none;
 }
 
 .notification-bell-empty {
@@ -59,7 +75,12 @@
     display: flex;
     justify-content: space-between;
     gap: 8px;
+}
+
+.notification-bell-item-title {
+    min-width: 0;
     font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 .notification-bell-item-time {
@@ -72,10 +93,22 @@
 .notification-bell-item-message {
     margin-top: 4px;
     font-size: 0.875rem;
+    overflow-wrap: anywhere;
 }
 
 .notification-bell-item-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     margin-top: 4px;
+}
+
+@media (max-width: 1024px) {
+    .notification-bell-panel {
+        position: fixed;
+        top: calc(var(--base-header-height, 56px) + 8px);
+        inset-inline: auto 8px;
+        width: min(360px, calc(100vw - 16px));
+        max-height: calc(100dvh - var(--base-header-height, 56px) - 24px);
+    }
 }

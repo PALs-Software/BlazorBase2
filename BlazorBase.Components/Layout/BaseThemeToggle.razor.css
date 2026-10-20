@@ -1,10 +1,11 @@
 /*
-  FluentUI sizes its buttons at 32px, below the 44px a thumb needs — and this control sits in the
-  header, which is exactly where it gets tapped. The host's --tap-target wins when it defines one.
+  The toggle takes its size from the header the layout draws (--base-header-control-size: 40px, 44px
+  on touch screens) so it matches the neighbouring header buttons; outside a header it falls back to
+  the host's --tap-target or FluentUI's own 32px.
 */
 ::deep .base-theme-toggle {
-    min-width: var(--tap-target, 44px);
-    min-height: var(--tap-target, 44px);
+    min-width: var(--base-header-control-size, var(--tap-target, 32px));
+    min-height: var(--base-header-control-size, var(--tap-target, 32px));
 }
 
 ::deep .base-theme-toggle:focus-visible {

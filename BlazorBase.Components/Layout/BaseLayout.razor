@@ -1,33 +1,68 @@
-@implements IDisposable
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
 
 <FluentDesignTheme Mode="@CurrentMode" CustomColor="@ThemeService.AccentColor" NeutralBaseColor="@ThemeService.NeutralBaseColor" />
 
 <div class="layout-root">
-<FluentLayout>
-    <FluentHeader>
-        @AppTitle
+    <button type="button" class="base-skip-link" @onclick="FocusMainAsync">@Localizer["SkipToContent"]</button>
+
+    <header class="base-header">
+        @if (Navigation is not null)
+        {
+            <FluentButton Appearance="Appearance.Stealth"
+                          Class="base-nav-toggle"
+                          Title="@NavigationToggleLabel"
+                          aria-label="@NavigationToggleLabel"
+                          aria-controls="base-navigation"
+                          aria-expanded="@NavigationExpandedValue"
+                          @ref="NavigationToggle"
+                          OnClick="ToggleNavigationAsync">
+                <FluentIcon Value="@(new Size20.Navigation())" Color="Color.Neutral" />
+            </FluentButton>
+        }
+        @if (Brand is not null)
+        {
+            <span class="base-header-brand">@Brand</span>
+        }
+        else
+        {
+            <span class="base-header-title">@AppTitle</span>
+        }
         <FluentSpacer />
         @if (HeaderContent is not null)
         {
             @HeaderContent
         }
-    </FluentHeader>
+    </header>
 
-    <FluentStack Orientation="Orientation.Horizontal" Class="main-content">
+    <div class="main-content">
         @if (Navigation is not null)
         {
-            @Navigation
+            <aside id="base-navigation"
+                   class="base-nav-host @(IsDrawerOpen ? "open" : null)"
+                   tabindex="-1"
+                   role="@(IsDrawerOpen && IsCompact ? "dialog" : null)"
+                   aria-modal="@(IsDrawerOpen && IsCompact ? "true" : null)"
+                   aria-label="@(IsDrawerOpen && IsCompact ? Localizer["NavigationDrawer"].Value : null)"
+                   @ref="NavigationHost"
+                   @onkeydown="OnNavigationKeyDownAsync">
+                <CascadingValue Value="NavigationContext">
+                    @Navigation
+                </CascadingValue>
+            </aside>
+            @if (IsDrawerOpen && IsCompact)
+            {
+                <div class="base-nav-overlay" @onclick="CloseDrawerWithFocusAsync"></div>
+            }
         }
 
-        <FluentBodyContent Class="body-content">
+        <main id="base-main" class="body-content" tabindex="-1" @ref="MainContent" inert="@IsMainInert">
             @if (Banner is not null)
             {
                 @Banner
             }
             @ChildContent
-        </FluentBodyContent>
-    </FluentStack>
-</FluentLayout>
+        </main>
+    </div>
 </div>
 
 <FluentToastProvider />

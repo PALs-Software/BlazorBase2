@@ -5,6 +5,7 @@ using BlazorBase.Notifications.Services;
 using BlazorBase.Notifications.Test.Infrastructure;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.JSInterop;
 using NSubstitute;
@@ -94,6 +95,64 @@ public sealed class NotificationBellTests : BunitContext
         cut.Find(".notification-bell-button").Click();
 
         Assert.Empty(cut.FindAll(".notification-bell-panel"));
+    }
+
+    [Fact]
+    public void OpenPanel_MarksTheButtonExpandedAndRendersABackdrop()
+    {
+        var cut = Render<NotificationBell>();
+
+        cut.Find(".notification-bell-button").Click();
+
+        Assert.Equal("true", cut.Find(".notification-bell-button").GetAttribute("aria-expanded"));
+        Assert.Single(cut.FindAll(".notification-bell-backdrop"));
+    }
+
+    [Fact]
+    public void ClickingTheBackdrop_ClosesThePanel()
+    {
+        var cut = Render<NotificationBell>();
+        cut.Find(".notification-bell-button").Click();
+
+        cut.Find(".notification-bell-backdrop").Click();
+
+        Assert.Empty(cut.FindAll(".notification-bell-panel"));
+        Assert.Equal("false", cut.Find(".notification-bell-button").GetAttribute("aria-expanded"));
+    }
+
+    [Fact]
+    public void PressingEscape_ClosesThePanel()
+    {
+        var cut = Render<NotificationBell>();
+        cut.Find(".notification-bell-button").Click();
+
+        cut.Find(".notification-bell").KeyDown(new KeyboardEventArgs { Key = "Escape" });
+
+        Assert.Empty(cut.FindAll(".notification-bell-panel"));
+    }
+
+    [Fact]
+    public void PressingAnotherKey_KeepsThePanelOpen()
+    {
+        var cut = Render<NotificationBell>();
+        cut.Find(".notification-bell-button").Click();
+
+        cut.Find(".notification-bell").KeyDown(new KeyboardEventArgs { Key = "Tab" });
+
+        Assert.Single(cut.FindAll(".notification-bell-panel"));
+    }
+
+    [Fact]
+    public void OpenPanel_FormatsTheTimestampWithoutSeconds()
+    {
+        var created = new DateTime(2026, 3, 4, 13, 45, 59, DateTimeKind.Utc);
+        InboxClient.GetUnreadAsync(Arg.Any<CancellationToken>())
+            .Returns([new InboxNotificationDto(1, "Hello", "World", "Info", created, false)]);
+
+        var cut = Render<NotificationBell>();
+        cut.Find(".notification-bell-button").Click();
+
+        Assert.Equal(created.ToLocalTime().ToString("g"), cut.Find(".notification-bell-item-time").TextContent);
     }
 
     [Fact]

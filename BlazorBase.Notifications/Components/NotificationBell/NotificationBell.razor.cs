@@ -2,6 +2,7 @@ using BlazorBase.Notifications.Interop;
 using BlazorBase.Notifications.Models;
 using BlazorBase.Notifications.Services;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Localization;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -41,6 +42,12 @@ public partial class NotificationBell(
 
     private bool IsOpen { get; set; }
 
+    private FluentButton? ToggleButton;
+
+    private ElementReference Panel;
+
+    private bool FocusPanelAfterRender;
+
     private DotNetObjectReference<NotificationBell>? CallbackReference;
 
     private ITimer? PollTimer;
@@ -51,6 +58,12 @@ public partial class NotificationBell(
     /// <inheritdoc/>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (FocusPanelAfterRender)
+        {
+            FocusPanelAfterRender = false;
+            await Panel.FocusAsync();
+        }
+
         if (!firstRender)
             return;
 
@@ -78,7 +91,31 @@ public partial class NotificationBell(
         StateHasChanged();
     }
 
-    private void ToggleOpen() => IsOpen = !IsOpen;
+    private async Task ToggleOpenAsync()
+    {
+        if (IsOpen)
+        {
+            await CloseAsync();
+            return;
+        }
+
+        IsOpen = true;
+        FocusPanelAfterRender = true;
+    }
+
+    private async Task CloseAsync()
+    {
+        IsOpen = false;
+
+        if (ToggleButton?.Element is { } toggle)
+            await toggle.FocusAsync();
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape" && IsOpen)
+            await CloseAsync();
+    }
 
     private async Task MarkReadAsync(InboxNotificationDto notification)
     {

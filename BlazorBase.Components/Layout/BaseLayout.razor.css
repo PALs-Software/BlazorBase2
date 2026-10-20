@@ -1,29 +1,205 @@
-::deep .main-content {
-    height: calc(100vh - 50px);
+.layout-root {
+    --base-header-height: 56px;
+    --base-header-control-size: 40px;
+    --base-nav-width: 260px;
+
+    position: fixed;
+    inset: 0;
+    height: 100dvh;
+    display: grid;
+    grid-template-rows: var(--base-header-height) minmax(0, 1fr);
+    overflow: hidden;
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
 }
 
-::deep .body-content {
-    padding: 1rem 1.5rem;
-    overflow-y: auto;
+.base-skip-link {
+    position: absolute;
+    top: -100px;
+    inset-inline-start: 8px;
+    z-index: 100;
+    padding: 8px 16px;
+    border: 1px solid var(--color-border-focus);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    font: inherit;
+    cursor: pointer;
 }
 
-/*
-   FluentUI paints its header in its own brand blue, which has nothing to do with the application's
-   palette — every host would otherwise start by overriding it. Take the colours from the theme
-   tokens instead, so the shell matches whatever palette is linked.
-*/
-::deep header.header {
+.base-skip-link:focus-visible {
+    top: 8px;
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.base-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 0 12px;
+    z-index: 50;
     background: var(--color-bg-elevated);
     color: var(--color-text-primary);
     border-bottom: 1px solid var(--color-border);
     font-family: var(--font-display);
+    font-weight: 600;
 }
 
-::deep header.header a {
+.base-header-title {
+    white-space: nowrap;
+    margin-inline-start: 4px;
+}
+
+.base-header-brand {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin-inline-start: 4px;
+}
+
+.base-header ::deep a {
     color: var(--color-text-primary);
 }
 
-.layout-root {
-    background: var(--color-bg-surface);
-    color: var(--color-text-primary);
+.base-header ::deep fluent-button,
+.base-header ::deep fluent-anchor,
+.base-header ::deep .base-header-control {
+    min-width: var(--base-header-control-size);
+    min-height: var(--base-header-control-size);
+}
+
+.base-header ::deep fluent-button:focus-visible,
+.base-header ::deep fluent-anchor:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.main-content {
+    position: relative;
+    display: flex;
+    min-height: 0;
+    min-width: 0;
+}
+
+.base-nav-host {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--color-bg-elevated);
+    border-inline-end: 1px solid var(--color-border);
+}
+
+.base-nav-host > ::deep .base-side-nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.base-nav-host > ::deep .base-nav-narrow-only {
+    flex: none;
+}
+
+.base-nav-host:focus {
+    outline: none;
+}
+
+.base-nav-host ::deep .base-nav-narrow-only {
+    display: none;
+}
+
+.base-nav-overlay {
+    display: none;
+}
+
+.body-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    padding: 1rem 1.5rem;
+}
+
+.body-content:focus {
+    outline: none;
+}
+
+.body-content ::deep h1[tabindex="-1"]:focus-visible {
+    width: fit-content;
+    max-width: 100%;
+    outline: 1px solid color-mix(in srgb, var(--color-border-focus) 45%, transparent);
+    outline-offset: 3px;
+    border-radius: var(--radius-sm);
+}
+
+@media (max-width: 1024px) {
+    .base-nav-host {
+        position: absolute;
+        inset-block: 0;
+        inset-inline-start: 0;
+        z-index: 40;
+        width: min(320px, calc(100vw - 48px));
+        border-inline-end: 1px solid var(--color-border);
+        box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+        transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform 0.2s ease, visibility 0s linear 0.2s;
+    }
+
+    .base-nav-host.open {
+        transform: translateX(0);
+        visibility: visible;
+        transition: transform 0.2s ease;
+    }
+
+    .base-nav-host ::deep .fluent-nav-menu {
+        width: 100% !important;
+    }
+
+    .base-nav-overlay {
+        display: block;
+        position: absolute;
+        inset: 0;
+        z-index: 30;
+        background: rgb(0 0 0 / 0.45);
+    }
+}
+
+@media (max-width: 768px) {
+    .base-header {
+        padding: 0 8px;
+    }
+
+    .base-header-title {
+        display: none;
+    }
+
+    .base-header ::deep .base-header-wide-only {
+        display: none;
+    }
+
+    .base-nav-host ::deep .base-nav-narrow-only {
+        display: block;
+    }
+
+    .body-content {
+        padding: 12px;
+    }
+}
+
+@media (pointer: coarse) {
+    .layout-root {
+        --base-header-control-size: 44px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .base-nav-host,
+    .base-nav-host.open {
+        transition: none;
+    }
 }

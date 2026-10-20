@@ -1,7 +1,6 @@
 .base-side-nav {
     display: flex;
     flex-direction: column;
-    height: 100%;
 }
 
 ::deep .base-side-nav-divider {
@@ -18,13 +17,25 @@
     color: var(--color-text-muted);
 }
 
-::deep fluent-nav-link[active],
-::deep fluent-nav-link[aria-current] {
-    background: var(--color-bg-selected);
-    border-left: 3px solid var(--color-accent);
+.base-side-nav ::deep .content-region {
+    white-space: normal;
 }
 
-::deep fluent-nav-link:focus-visible {
+.base-side-nav ::deep .fluent-nav-text {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-block: 6px;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+}
+
+.base-side-nav ::deep .fluent-nav-link.active .positioning-region {
+    background: var(--color-bg-selected);
+}
+
+::deep .fluent-nav-link:focus-visible {
     outline: 2px solid var(--color-border-focus);
     outline-offset: -2px;
 }

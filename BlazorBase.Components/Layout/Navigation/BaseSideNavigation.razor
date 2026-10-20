@@ -1,13 +1,13 @@
 @namespace BlazorBase.Components.Layout.Navigation
 
-<nav class="base-side-nav @(IsCollapsed ? "collapsed" : null)" aria-label="@AriaLabel">
-    <FluentNavMenu Width="220" Collapsible="false" Title="@Title">
+<nav class="base-side-nav @(IsIconOnly ? "collapsed" : null)" aria-label="@AriaLabel" @onclick="CloseDrawerAsync">
+    <FluentNavMenu Width="@(IsIconOnly ? 48 : ExpandedWidth)" Expanded="@(!IsIconOnly)" Collapsible="false" Title="@Title">
         @foreach (var item in VisibleItems)
         {
             @if (item.IsGroup)
             {
                 <FluentDivider Class="base-side-nav-divider" />
-                @if (!IsCollapsed)
+                @if (!IsIconOnly)
                 {
                     <div class="base-side-nav-section">@item.Label</div>
                 }

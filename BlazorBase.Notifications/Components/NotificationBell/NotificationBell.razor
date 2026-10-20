@@ -1,11 +1,14 @@
 @namespace BlazorBase.Notifications.Components.NotificationBell
 
-<div class="notification-bell @Class">
+<div class="notification-bell @Class" @onkeydown="OnKeyDownAsync">
     <FluentButton Appearance="Appearance.Stealth"
                   Class="notification-bell-button"
                   aria-label="@Localizer["BellLabel"]"
+                  aria-haspopup="dialog"
+                  aria-expanded="@(IsOpen ? "true" : "false")"
                   title="@Localizer["BellLabel"]"
-                  OnClick="ToggleOpen">
+                  @ref="ToggleButton"
+                  OnClick="ToggleOpenAsync">
         <FluentIcon Value="@BellIcon" Color="Color.Custom" CustomColor="currentColor" Class="notification-bell-icon" />
         @if (UnreadCount > 0)
         {
@@ -14,7 +17,8 @@
     </FluentButton>
     @if (IsOpen)
     {
-        <div class="notification-bell-panel" role="dialog" aria-label="@Localizer["PanelLabel"]">
+        <div class="notification-bell-backdrop" @onclick="CloseAsync"></div>
+        <div class="notification-bell-panel" role="dialog" tabindex="-1" aria-label="@Localizer["PanelLabel"]" @ref="Panel">
             @if (Notifications.Count == 0)
             {
                 <p class="notification-bell-empty">@Localizer["Empty"]</p>
@@ -27,7 +31,7 @@
                         <li class="notification-bell-item" @key="notification.Id">
                             <div class="notification-bell-item-header">
                                 <span class="notification-bell-item-title">@notification.Title</span>
-                                <span class="notification-bell-item-time">@notification.CreatedAt.ToLocalTime()</span>
+                                <span class="notification-bell-item-time">@notification.CreatedAt.ToLocalTime().ToString("g")</span>
                             </div>
                             <div class="notification-bell-item-message">
                                 <SanitizedHtml Value="@notification.Message" />
