@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Text.Json.Serialization;
 using BlazorBase.CRUD.Attributes;
 using BlazorBase.CRUD.Components.CustomProperties;
 using BlazorBase.CRUD.Core;
@@ -20,22 +19,12 @@ namespace BlazorBase.CRUD.Extensions;
 public static class BaseServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the core CRUD services every host needs, including a JSON safety net for the
-    /// endpoints mapped by <see cref="BaseApplicationBuilderExtensions.MapBlazorBaseCrudEndpoints{TModel}"/>:
-    /// a possible reference cycle in an entity graph (for example two entities whose navigations
-    /// point back to each other) is serialized as <c>null</c> at the point the cycle closes instead
-    /// of throwing. This only changes the wire format at the exact point a cycle would otherwise be
-    /// detected - a plain, non-cyclic graph is serialized exactly as before. <see cref="Security.CrudResponseSanitizer"/>
-    /// is the primary defense against such a cycle (it also stops an EF Core lazy-loading proxy from
-    /// recursing into one before JSON serialization is ever reached); this is the secondary net for
-    /// any entity graph that reaches the serializer directly.
+    /// Registers the core CRUD services every host needs, including
+    /// <see cref="BaseValidationService{TModel}"/> as an open generic.
     /// </summary>
     public static IServiceCollection AddBlazorBaseCrud(this IServiceCollection services)
     {
         services.AddScoped(typeof(BaseValidationService<>));
-
-        services.ConfigureHttpJsonOptions(options =>
-            options.SerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles);
 
         return services;
     }
