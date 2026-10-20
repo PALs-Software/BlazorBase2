@@ -131,3 +131,15 @@ body {
     color: var(--color-text-primary);
     font-family: var(--font-base);
 }
+
+/*
+   A FluentUI select or combobox sizes its popup from --max-height, which the component computes from the room
+   left in the viewport and writes onto the host. Blazor renders the host's style attribute again and drops that
+   value, which leaves the popup without any limit: a list of thirty options ran past the bottom of the window
+   and the options below it could not be reached with the mouse. This is the fallback that applies whenever the
+   component's own value is missing; a value it does set still wins, being inline.
+*/
+fluent-select,
+fluent-combobox {
+    --max-height: min(24rem, 50dvh);
+}

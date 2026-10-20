@@ -283,12 +283,23 @@ Key parameters:
 | `AllowAdd` / `AllowEdit` / `AllowDelete` | `bool` | Default: `true` |
 | `NavigationFilters` | `IList<NavigationFilter>?` | Filtered includes |
 | `ActionGroups` | `IList<CrudActionGroup<TModel>>?` | Dynamic action groups |
+| `PageSize` | `int` | Rows per page. Default: `50` |
+| `DefaultSorts` | `List<SortDescriptor>?` | The order shown until the user sorts; see "Order and paging" below |
 
 UI features:
 - **Click-to-edit row** + hover highlight + pointer cursor
 - **Right-click context menu** (Edit / Delete / Select / custom actions). The menu acts on the row the
   pointer is over, which the list learns from cell focus — a data-grid row is a `tr` with
-  `display: contents` and cannot be focused itself.
+  `display: contents` and cannot be focused itself. The menu is clamped into the viewport: it flips
+  above and to the left of its anchor when there is no room, and a menu taller than the viewport scrolls
+  inside itself (`BaseListContextMenuPlacement`).
+- **Per-row "more" button** (`⋯`, last, sticky column) — opens the same menu from a button, for touch
+  screens and narrow windows that have no right mouse button. Every context action is therefore reachable
+  without a right-click.
+- **Delete confirmation** names the row (its `[DisplayKey]`, a card display key, otherwise the first value the
+  row shows) and uses the destructive presentation: warning icon, danger-styled button, focus on Cancel.
+- **One Tab stop per grid** — the cell that has focus stays in the Tab order and the arrow keys move between
+  cells, instead of every cell being a Tab stop.
 - **Empty state** — with no items the grid is not rendered at all and only `EmptyText` (default:
   the framework's localized "no items found") is shown, so FluentUI's own untranslated message never
   appears beside it.
@@ -296,13 +307,26 @@ UI features:
   the same wording the filter panel offers for the property — not the raw CLR `True`/`False`.
 - **Column width** — a column's `Width` (markup `Width="120px"` or fluent `.Width("120px")`) is any
   valid CSS grid track. Columns left without one share the remaining space equally but never shrink
-  below what their content needs (`--base-list-column-min-width`, default `max-content`), so a narrow
-  viewport scrolls the grid sideways instead of truncating every column to an ellipsis. Give a column
-  holding long prose an explicit `Width`, or set the custom property to a fixed length.
+  below `--base-list-column-min-width` (default `9rem`), so a narrow viewport scrolls the grid sideways
+  inside its container. A cell clips what does not fit with an ellipsis and carries the full text as a
+  tooltip, and a header carries its title as a tooltip, so one long value cannot widen a column and
+  columns do not jump while a virtualized grid scrolls.
 - **Shift+Click multi-select** + auto-appearing selection-indicator column
 - **Bulk delete** with confirmation
 - **Per-column** `Sortable` / `Filterable` (default: both `true`)
 - **Role-based column visibility** via `[CrudAccess]` on the entity or `.Access(roles, rights)` on the column builder
+
+#### Order and paging
+
+The list loads `PageSize` rows (default 50) and loads the next page when the grid is scrolled to its end or
+the **Load more** button under it is pressed; the line beside the button says how many of the total are
+loaded. Loading keeps the active filter.
+
+Rows never come back in an arbitrary order. The list asks for, in order of precedence: `DefaultSorts` on the
+list, `BaseListConfiguration.DefaultSorts` (`BaseListBuilder.DefaultSort(x => x.CreatedOn, descending: true)`),
+the entity's `[DefaultSort(nameof(CreatedOn), Descending = true)]` attributes. Whatever was asked for,
+`DbContextBaseDataProvider` appends the primary key as the last tie-breaker (and keeps an order the query
+customizer imposed when none was asked for), so `Skip`/`Take` pages are deterministic.
 
 ### `BaseCard<TModel>`
 

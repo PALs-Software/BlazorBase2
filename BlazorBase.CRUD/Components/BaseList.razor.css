@@ -7,18 +7,40 @@
 
 .base-list-header {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
     align-items: center;
     gap: 8px;
     padding: 8px 0;
 }
 
+.base-list-header ::deep fluent-button {
+    flex: 0 0 auto;
+    min-height: 36px;
+}
+
 .base-list-filter-toggle {
     margin-right: auto;
 }
 
-.base-list-filter-badge {
-    margin-left: 6px;
+/*
+   The count is plain inline text, not a FluentUI badge: a badge positions itself relative to its own
+   box and sat on top of the button caption it was supposed to follow.
+*/
+.base-list-filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    margin-inline-start: 8px;
+    padding: 0 6px;
+    border-radius: var(--radius-pill, 999px);
+    background: var(--color-accent, var(--accent-fill-rest));
+    color: var(--color-text-on-accent, var(--foreground-on-accent-rest));
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
 }
 
 /*
@@ -86,7 +108,69 @@
 */
 ::deep th.base-list-column-flexible,
 ::deep td.base-list-column-flexible {
-    min-width: var(--base-list-column-min-width, max-content);
+    min-width: 0;
+}
+
+::deep td.base-list-cell {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 48px;
+}
+
+::deep th.base-list-cell {
+    overflow: hidden;
+}
+
+/*
+   The per-row more button is the touch and narrow-window route to the context menu, so it has to stay
+   reachable however far the grid is scrolled sideways: the column sticks to the right edge.
+*/
+::deep th.base-list-actions-column,
+::deep td.base-list-actions-column {
+    position: sticky;
+    right: 0;
+    min-width: 0;
+    padding-inline: 0;
+    text-align: center;
+    background: var(--color-bg-surface, var(--neutral-layer-1));
+}
+
+::deep th.base-list-actions-column {
+    z-index: 3;
+    background: var(--color-bg-elevated, var(--neutral-fill-secondary-rest));
+}
+
+::deep td.base-list-actions-column {
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+}
+
+.base-list-row-menu {
+    min-width: 40px;
+    min-height: 40px;
+}
+
+.base-list-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    padding: 4px 0;
+}
+
+.base-list-count {
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    font-size: 0.875rem;
+}
+
+.base-list-footer ::deep .base-list-load-more {
+    min-height: 36px;
 }
 
 ::deep tr.fluent-data-grid-row:not([row-type]) td {
@@ -96,6 +180,10 @@
 }
 
 ::deep tr.fluent-data-grid-row:not([row-type]):hover td {
+    background-color: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
+}
+
+::deep tr.fluent-data-grid-row:not([row-type]):hover td.base-list-actions-column {
     background-color: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
 }
 
@@ -156,6 +244,18 @@
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.14);
     padding: 4px 0;
     min-width: 180px;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+/*
+   The menu is measured before it is placed, so it first renders at its anchor and stays invisible until
+   the placement is known; otherwise it would flash at the click point and jump.
+*/
+.context-menu-measuring {
+    visibility: hidden;
 }
 
 .context-menu ::deep [role="menuitem"] {
@@ -181,4 +281,10 @@
     height: 1px;
     background: var(--color-border, var(--neutral-stroke-divider-rest));
     margin: 4px 0;
+}
+
+@media (pointer: coarse), (max-width: 640px) {
+    .context-menu ::deep [role="menuitem"] {
+        min-height: 44px;
+    }
 }

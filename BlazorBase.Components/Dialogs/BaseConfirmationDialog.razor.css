@@ -1,0 +1,51 @@
+.base-confirmation {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-top: 4px;
+}
+
+.base-confirmation-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.base-confirmation-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+}
+
+.base-confirmation ::deep .base-confirmation-icon {
+    flex: 0 0 auto;
+}
+
+.base-confirmation-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.base-confirmation-actions ::deep fluent-button {
+    min-height: 36px;
+}
+
+.base-confirmation-actions ::deep .base-confirmation-danger {
+    --accent-fill-rest: var(--color-danger, var(--error));
+    --accent-fill-hover: color-mix(in srgb, var(--color-danger, var(--error)) 88%, var(--color-text-primary, black));
+    --accent-fill-active: color-mix(in srgb, var(--color-danger, var(--error)) 76%, var(--color-text-primary, black));
+    --accent-fill-focus: var(--color-danger, var(--error));
+    --foreground-on-accent-rest: var(--color-text-on-danger, white);
+    --foreground-on-accent-hover: var(--color-text-on-danger, white);
+    --foreground-on-accent-active: var(--color-text-on-danger, white);
+    --foreground-on-accent-focus: var(--color-text-on-danger, white);
+}
+
+@media (pointer: coarse) {
+    .base-confirmation-actions ::deep fluent-button {
+        min-height: 44px;
+    }
+}

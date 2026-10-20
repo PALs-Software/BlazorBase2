@@ -12,4 +12,10 @@ public class BaseListConfiguration<TModel> where TModel : class
     public List<CrudActionGroup<TModel>> ActionGroups { get; set; } = [];
 
     public FilterConfiguration<TModel>? Filter { get; set; }
+
+    /// <summary>
+    /// The order the list shows until the user sorts it. Empty falls back to
+    /// <see cref="Attributes.DefaultSortAttribute"/> on the entity, then to the primary key.
+    /// </summary>
+    public List<SortDescriptor> DefaultSorts { get; set; } = [];
 }

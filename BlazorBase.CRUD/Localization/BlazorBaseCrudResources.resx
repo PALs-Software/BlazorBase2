@@ -286,4 +286,16 @@
   <data name="RequiredMarkTitle" xml:space="preserve">
     <value>Required</value>
   </data>
+  <data name="ConfirmDeleteNamed" xml:space="preserve">
+    <value>Do you really want to delete "{0}"? This cannot be undone.</value>
+  </data>
+  <data name="MoreActions" xml:space="preserve">
+    <value>More actions</value>
+  </data>
+  <data name="LoadMore" xml:space="preserve">
+    <value>Load more</value>
+  </data>
+  <data name="LoadedOfTotal" xml:space="preserve">
+    <value>{0} of {1} loaded</value>
+  </data>
 </root>

@@ -1,3 +1,4 @@
+using BlazorBase.Components.Dialogs;
 using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace BlazorBase.Components.Services;
@@ -13,9 +14,23 @@ public sealed class FluentUiConfirmationService(IDialogService dialogService) : 
 
     #endregion
 
-    public async Task<bool> ConfirmAsync(string message, string title, string confirmButtonText, string cancelButtonText)
+    public Task<bool> ConfirmAsync(string message, string title, string confirmButtonText, string cancelButtonText)
+        => ShowAsync(message, title, confirmButtonText, cancelButtonText, isDestructive: false);
+
+    public Task<bool> ConfirmDestructiveAsync(string message, string title, string confirmButtonText, string cancelButtonText)
+        => ShowAsync(message, title, confirmButtonText, cancelButtonText, isDestructive: true);
+
+    private async Task<bool> ShowAsync(string message, string title, string confirmButtonText, string cancelButtonText, bool isDestructive)
     {
-        var dialog = await DialogService.ShowConfirmationAsync(message, confirmButtonText, cancelButtonText, title);
+        var content = new ConfirmationDialogContent
+        {
+            Message = message,
+            ConfirmButtonText = confirmButtonText,
+            CancelButtonText = cancelButtonText,
+            IsDestructive = isDestructive
+        };
+
+        var dialog = await DialogService.ShowConfirmationDialogAsync(title, content);
         var result = await dialog.Result;
         return !result.Cancelled;
     }

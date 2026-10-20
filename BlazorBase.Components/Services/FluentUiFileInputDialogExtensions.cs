@@ -18,8 +18,8 @@ public static class FluentUiFileInputDialogExtensions
             PrimaryAction = string.Empty,
             SecondaryAction = string.Empty,
             ShowDismiss = false,
-            PreventDismissOnOverlayClick = true,
-            Width = "500px"
+            PreventDismissOnOverlayClick = false,
+            Width = "min(500px, calc(100vw - 2rem))"
         };
 
         return dialogService.ShowDialogAsync<BaseFileInputDialog>(content, dialogParameters);
@@ -33,8 +33,8 @@ public static class FluentUiFileInputDialogExtensions
             PrimaryAction = string.Empty,
             SecondaryAction = string.Empty,
             ShowDismiss = false,
-            PreventDismissOnOverlayClick = true,
-            Width = "400px"
+            PreventDismissOnOverlayClick = false,
+            Width = "min(400px, calc(100vw - 2rem))"
         };
 
         return dialogService.ShowDialogAsync<BaseDateInputDialog>(content, dialogParameters);

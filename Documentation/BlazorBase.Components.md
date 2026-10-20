@@ -196,7 +196,7 @@ structure is stripped. The conversion is cached per value, so re-renders with th
 | `IThemeService` | Light/dark/system preference, see above. |
 | `ILanguageService` | Current UI language and switching. |
 | `IFormFactor` | Reports the host platform and form factor. The seam only; the WebAssembly and MAUI packages each register their own implementation. |
-| `IConfirmationService` | Asks the user to confirm an action and reports whether they accepted. `FluentUiConfirmationService` is the default and needs FluentUI's `IDialogService`. |
+| `IConfirmationService` | Asks the user to confirm an action and reports whether they accepted (`ConfirmAsync`). `ConfirmDestructiveAsync` is the same question for an action that cannot be undone, shown with a warning icon and a danger-styled confirm button; an implementation that does not override it falls back to `ConfirmAsync`. `FluentUiConfirmationService` is the default and needs FluentUI's `IDialogService`. |
 
 `LanguageService` stamps `<html lang>` with the active language on every culture change (startup,
 claim-driven resolve, and an explicit `SetLanguageAsync` call), not only `CultureInfo.CurrentUICulture`.
@@ -235,6 +235,22 @@ and picking one date.
 
 Both dialogs need FluentUI's `IDialogService`, exactly like `IConfirmationService` above, and are plain
 Razor components with no CRUD dependency — usable from any page, not only `BaseList`/`BaseCard` actions.
+Escape closes either of them.
+
+### Confirmation dialog and dialog behavior
+
+`dialogService.ShowConfirmationDialogAsync(title, new ConfirmationDialogContent { Message = ..., ConfirmButtonText = ..., CancelButtonText = ..., IsDestructive = true })`
+opens `BaseConfirmationDialog`; `IConfirmationService` uses it. A destructive confirmation shows a warning
+icon and a danger-styled confirm button, and starts on **Cancel** so a stray Enter cannot confirm it. Escape
+closes it, also when it is open on top of another dialog (the discard prompt over a card).
+
+`DialogBehavior` is the wrapper that gives a dialog the keyboard behavior a modal owes: focus moves into it
+when it opens (to the element marked `data-autofocus`, otherwise the first field), everything outside it is
+made `inert` so Tab cannot leave it and the page behind cannot be clicked, `CommitPendingEditOnEscape`
+commits a half-typed field before Escape is handled (so an unsaved-changes check sees it), and focus is handed
+back to the opener when the dialog closes and left on nothing. `DismissOnEscape` closes the dialog on
+Escape. FluentUI's own focus trap is not used for dialogs that can host another dialog: two traps fight over
+focus.
 
 ---
 

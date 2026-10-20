@@ -60,6 +60,8 @@
                     @if (CanDelete && item is not null)
                     {
                         <FluentButton Appearance="Appearance.Stealth"
+                                      Title="@FrameworkLocalizer["Delete"].Value"
+                                      aria-label="@FrameworkLocalizer["Delete"].Value"
                                       OnClick="@(() => OnRemoveItemAsync(item))"
                                       IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Delete())" />
                     }

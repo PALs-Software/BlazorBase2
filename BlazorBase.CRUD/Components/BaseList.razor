@@ -14,12 +14,13 @@
         {
             <FluentButton Appearance="Appearance.Stealth"
                           Class="base-list-filter-toggle"
+                          aria-label="@FilterButtonLabel"
                           OnClick="@OpenFilterPanelAsync"
                           IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Filter())">
                 @FrameworkLocalizer["Filter"]
                 @if (ActiveFilterCount > 0)
                 {
-                    <FluentBadge Appearance="Appearance.Accent" Class="base-list-filter-badge">@ActiveFilterCount</FluentBadge>
+                    <span class="base-list-filter-count" aria-hidden="true">@ActiveFilterCount</span>
                 }
             </FluentButton>
         }
@@ -77,7 +78,7 @@
 
                 @if (IsSelectionActive)
                 {
-                    <TemplateColumn Title="" Class="base-list-select-column" Width="@SelectionColumnWidth">
+                    <TemplateColumn Title="" Class="base-list-select-column" Width="@SelectionColumnWidth" MinWidth="@SelectionColumnWidth">
                         <div class="select-circle @(IsSelected(context) ? "selected" : "")"
                              @onclick="() => ToggleSelection(context)" @onclick:stopPropagation>
                         </div>
@@ -90,6 +91,7 @@
                     {
                         <TemplateColumn Title="@ResolveColumnTitle(column)"
                                         HeaderTooltip="@ResolveColumnTooltip(column)"
+                                        Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
                                         SortBy="@(column.Sortable ? CreateSortBy(column) : null)">
@@ -100,6 +102,7 @@
                     {
                         <TemplateColumn Title="@ResolveColumnTitle(column)"
                                         HeaderTooltip="@ResolveColumnTooltip(column)"
+                                        Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
                                         SortBy="@(column.Sortable ? CreateSortBy(column) : null)">
@@ -110,8 +113,10 @@
                     {
                         <TemplateColumn Title="@ResolveColumnTitle(column)"
                                         HeaderTooltip="@ResolveColumnTooltip(column)"
+                                        Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
+                                        TooltipText="@(item => ResolveCellText(column, item))"
                                         Sortable="@column.Sortable"
                                         SortBy="@(column.Sortable ? CreateSortBy(column) : null)">
                             @FormatColumnValue(column, context)
@@ -121,8 +126,10 @@
                     {
                         <TemplateColumn Title="@ResolveColumnTitle(column)"
                                         HeaderTooltip="@ResolveColumnTooltip(column)"
+                                        Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
+                                        TooltipText="@(item => ResolveCellText(column, item))"
                                         Sortable="@column.Sortable"
                                         SortBy="@(column.Sortable ? CreateSortBy(column) : null)">
                             @BooleanColumnText(column, context)
@@ -133,11 +140,25 @@
                         <PropertyColumn Property="@column.Property"
                                         Title="@ResolveColumnTitle(column)"
                                         HeaderTooltip="@ResolveColumnTooltip(column)"
+                                        Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
+                                        TooltipText="@(item => ResolveCellText(column, item))"
                                         Sortable="@column.Sortable" />
                     }
                 }
+
+                <TemplateColumn Title="" Class="base-list-actions-column" Width="@ActionsColumnWidth" MinWidth="@ActionsColumnWidth">
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Class="base-list-row-menu"
+                                  Title="@FrameworkLocalizer["MoreActions"].Value"
+                                  aria-label="@FrameworkLocalizer["MoreActions"].Value"
+                                  aria-haspopup="menu"
+                                  tabindex="-1"
+                                  StopPropagation="true"
+                                  IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.MoreHorizontal())"
+                                  OnClick="@(e => OnRowMenuButtonClickedAsync(context, e))" />
+                </TemplateColumn>
             </FluentDataGrid>
         }
     </div>
@@ -147,12 +168,12 @@
         <div class="context-menu-overlay"
              @onclick="DismissContextMenu"
              @oncontextmenu="DismissContextMenu" @oncontextmenu:preventDefault></div>
-        <nav class="context-menu"
+        <nav class="context-menu @(ContextMenuPositioned ? null : "context-menu-measuring")"
              role="menu"
              tabindex="-1"
              @ref="ContextMenuElement"
              @onkeydown="OnContextMenuKeyDown"
-             style="left: @(ContextMenuX)px; top: @(ContextMenuY)px;">
+             style="@ContextMenuStyle">
             @if (CanEdit && ContextMenuItem is not null)
             {
                 <div role="menuitem" @onclick="OnContextMenuEditAsync">
@@ -226,6 +247,19 @@
     {
         <div class="base-list-loading">
             <FluentProgressRing />
+        </div>
+    }
+
+    @if (LoadedItems.Count > 0 && HasMoreItems)
+    {
+        <div class="base-list-footer">
+            <span class="base-list-count" role="status">@string.Format(FrameworkLocalizer["LoadedOfTotal"].Value, LoadedItems.Count, TotalCount)</span>
+            <FluentButton Appearance="Appearance.Outline"
+                          Class="base-list-load-more"
+                          Disabled="@IsLoading"
+                          OnClick="@LoadMoreAsync">
+                @FrameworkLocalizer["LoadMore"]
+            </FluentButton>
         </div>
     }
 

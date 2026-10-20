@@ -11,6 +11,7 @@ public class BaseListBuilder<TModel> where TModel : class
 {
     private readonly List<PropertyColumnConfig<TModel>> columns = [];
     private readonly List<CrudActionGroup<TModel>> actionGroups = [];
+    private readonly List<SortDescriptor> defaultSorts = [];
     private FilterConfiguration<TModel>? filterConfiguration;
     private int orderCounter;
     private int actionGroupOrderCounter;
@@ -55,13 +56,28 @@ public class BaseListBuilder<TModel> where TModel : class
         return this;
     }
 
+    /// <summary>
+    /// Adds a default sort: the order the list shows until the user sorts it. Call repeatedly for a
+    /// tie-breaker.
+    /// </summary>
+    public BaseListBuilder<TModel> DefaultSort(Expression<Func<TModel, object?>> property, bool descending = false)
+    {
+        defaultSorts.Add(new SortDescriptor
+        {
+            PropertyName = ExpressionHelper.GetPropertyName(property),
+            Direction = descending ? SortDirection.Descending : SortDirection.Ascending
+        });
+        return this;
+    }
+
     public BaseListConfiguration<TModel> Build()
     {
         return new BaseListConfiguration<TModel>
         {
             Columns = [.. columns],
             ActionGroups = [.. actionGroups],
-            Filter = filterConfiguration
+            Filter = filterConfiguration,
+            DefaultSorts = [.. defaultSorts]
         };
     }
 }

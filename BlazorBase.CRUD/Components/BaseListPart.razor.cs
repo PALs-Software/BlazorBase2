@@ -304,7 +304,7 @@ public partial class BaseListPart<TModel> : ComponentBase, IListPartFlushable wh
             Title = string.Empty,
             PrimaryAction = string.Empty,
             SecondaryAction = string.Empty,
-            Width = "600px",
+            Width = "min(600px, calc(100vw - 2rem))",
             PreventDismissOnOverlayClick = true,
             ShowDismiss = false
         };

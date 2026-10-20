@@ -1,0 +1,61 @@
+.base-dialog {
+    max-height: calc(100dvh - 9rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+}
+
+.base-dialog ::deep .base-card {
+    padding-bottom: 0;
+}
+
+.base-dialog ::deep .base-card-header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    padding-block: 8px;
+    background: var(--fill-color, var(--color-bg-elevated));
+}
+
+.base-dialog ::deep .base-card-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    padding-bottom: 16px;
+    background: var(--fill-color, var(--color-bg-elevated));
+}
+
+/*
+   A grid track sized 1fr cannot shrink below its content, and a select or text field has an intrinsic
+   minimum width of its own, so a field in the last column pushed out past the dialog edge. Letting the
+   track and the control shrink to the column keeps every field inside the dialog.
+*/
+.base-dialog ::deep .base-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.base-dialog ::deep .base-card-field fluent-select,
+.base-dialog ::deep .base-card-field fluent-combobox,
+.base-dialog ::deep .base-card-field fluent-text-field,
+.base-dialog ::deep .base-card-field fluent-number-field {
+    min-width: 0;
+    width: 100%;
+}
+
+@media (max-width: 640px) {
+    .base-dialog {
+        max-height: calc(100dvh - 6rem);
+    }
+}
+
+@media (min-width: 640px) {
+    .base-dialog ::deep .base-card-grid {
+        grid-template-columns: repeat(min(2, var(--max-columns, 3)), minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1024px) {
+    .base-dialog ::deep .base-card-grid {
+        grid-template-columns: repeat(var(--max-columns, 3), minmax(0, 1fr));
+    }
+}

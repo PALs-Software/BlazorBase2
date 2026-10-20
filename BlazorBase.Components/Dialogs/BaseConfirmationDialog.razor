@@ -1,0 +1,31 @@
+@implements IDialogContentComponent<ConfirmationDialogContent>
+
+<FluentDialogBody>
+    <DialogBehavior CommitPendingEditOnEscape="false" DismissOnEscape="true">
+        <div class="base-confirmation">
+            <div class="base-confirmation-message">
+                @if (Content.IsDestructive)
+                {
+                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Filled.Size24.Warning())"
+                                Color="Color.Custom"
+                                CustomColor="var(--color-warning, var(--warning))"
+                                Class="base-confirmation-icon" />
+                }
+                <span class="base-confirmation-text">@Content.Message</span>
+            </div>
+
+            <div class="base-confirmation-actions">
+                <FluentButton Appearance="Appearance.Outline"
+                              OnClick="@CancelAsync"
+                              data-autofocus="true">
+                    @Content.CancelButtonText
+                </FluentButton>
+                <FluentButton Appearance="Appearance.Accent"
+                              Class="@(Content.IsDestructive ? "base-confirmation-danger" : null)"
+                              OnClick="@ConfirmAsync">
+                    @Content.ConfirmButtonText
+                </FluentButton>
+            </div>
+        </div>
+    </DialogBehavior>
+</FluentDialogBody>
