@@ -158,6 +158,29 @@ public sealed class NotificationBellTests : BunitContext
     }
 
     [Fact]
+    public void FirstRender_WhenTheServerIsUnreachable_KeepsTheBellRenderedWithoutABadge()
+    {
+        InboxClient.GetUnreadAsync(Arg.Any<CancellationToken>()).Returns<Task<IReadOnlyList<InboxNotificationDto>>>(_ => throw new HttpRequestException("offline"));
+
+        var cut = Render<NotificationBell>();
+
+        Assert.Single(cut.FindAll(".notification-bell-button"));
+        Assert.Empty(cut.FindAll(".notification-bell-badge"));
+    }
+
+    [Fact]
+    public async Task OnRefreshRequested_WhenTheServerIsUnreachable_KeepsTheLastKnownCount()
+    {
+        InboxClient.GetUnreadCountAsync(Arg.Any<CancellationToken>()).Returns(3);
+        var cut = Render<NotificationBell>();
+        InboxClient.GetUnreadAsync(Arg.Any<CancellationToken>()).Returns<Task<IReadOnlyList<InboxNotificationDto>>>(_ => throw new HttpRequestException("offline"));
+
+        await cut.InvokeAsync(() => cut.Instance.OnRefreshRequested());
+
+        Assert.Equal("3", cut.Find(".notification-bell-badge").TextContent.Trim());
+    }
+
+    [Fact]
     public async Task OnRefreshRequested_RefreshesTheList()
     {
         var cut = Render<NotificationBell>();

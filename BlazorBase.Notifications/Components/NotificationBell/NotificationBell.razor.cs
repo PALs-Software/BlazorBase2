@@ -65,8 +65,16 @@ public partial class NotificationBell(
 
     private async Task RefreshAsync()
     {
-        Notifications = await InboxClient.GetUnreadAsync();
-        UnreadCount = await InboxClient.GetUnreadCountAsync();
+        try
+        {
+            Notifications = await InboxClient.GetUnreadAsync();
+            UnreadCount = await InboxClient.GetUnreadCountAsync();
+        }
+        catch (HttpRequestException)
+        {
+            return;
+        }
+
         StateHasChanged();
     }
 
