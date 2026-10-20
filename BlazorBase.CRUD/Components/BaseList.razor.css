@@ -222,6 +222,10 @@
     padding: 16px;
 }
 
+.base-list-delete-error {
+    margin-bottom: 8px;
+}
+
 .base-list-empty {
     display: flex;
     justify-content: center;

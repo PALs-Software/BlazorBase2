@@ -1054,6 +1054,12 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         return GetItemId(item)?.ToString() ?? string.Empty;
     }
 
+    private string? DeleteErrorMessage;
+
+    /// <summary>
+    /// Deletes one row. A rule that refuses the delete, such as a category that is still in use, is shown above the list
+    /// in the list's own language instead of surfacing as an unhandled error.
+    /// </summary>
     private async Task OnDeleteItemAsync(TModel item)
     {
         var eventArgs = new ItemEventArgs<TModel> { Item = item };
@@ -1076,7 +1082,17 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         if (id is null)
             return;
 
-        await ResolvedDataProvider.DeleteAsync(id);
+        try
+        {
+            await ResolvedDataProvider.DeleteAsync(id);
+        }
+        catch (BaseValidationException ex)
+        {
+            DeleteErrorMessage = ResolvedLocalizer[ex.Message].Value;
+            return;
+        }
+
+        DeleteErrorMessage = null;
 
         if (OnAfterItemDeleted.HasDelegate)
             await OnAfterItemDeleted.InvokeAsync(item);

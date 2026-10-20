@@ -143,3 +143,23 @@ fluent-select,
 fluent-combobox {
     --max-height: min(24rem, 50dvh);
 }
+
+/*
+   A FluentUI message bar is as wide as its container plus its own padding and border, because the component sizes it
+   with width: 100% while leaving box-sizing at content-box. In a narrower column - next to a sidebar, in a dialog - it
+   ran past the container's edge and under whatever sat beside it.
+*/
+.fluent-messagebar {
+    box-sizing: border-box;
+}
+
+/*
+   FocusOnNavigate moves focus to the page heading so a screen reader announces the new page. The heading is
+   not interactive and cannot be reached with Tab, but Chromium matches :focus-visible for focus that a script
+   moves while nothing had focus yet, which drew a ring around the title after every navigation. Neither :focus nor
+   :focus-visible paints one here; every control the user can actually tab to keeps its own ring.
+*/
+h1[tabindex="-1"]:focus,
+h1[tabindex="-1"]:focus-visible {
+    outline: none;
+}

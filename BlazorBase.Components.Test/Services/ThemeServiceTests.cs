@@ -4,6 +4,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
 using Microsoft.Extensions.DependencyInjection;
+using NSubstitute;
 using Xunit;
 
 namespace BlazorBase.Components.Test.Services;
@@ -184,6 +185,70 @@ public class ThemeServiceTests : BunitContext
         Assert.Single(watchHandler.Invocations);
     }
 
+    /// <summary>
+    /// A choice made while signed in has to reach the account, or it is lost in a new browser or on another
+    /// device, which is where the profile seed is supposed to carry it.
+    /// </summary>
+    [Fact]
+    public async Task SetTheme_StoresTheChoiceOnTheAccount()
+    {
+        var module = SetupModule(stored: null);
+        module.SetupVoid("apply", _ => true).SetVoidResult();
+        var sync = Substitute.For<IThemePreferenceSync>();
+        var service = CreateService(claim: "Light", sync: sync);
+
+        await service.SetThemeAsync(ThemePreference.Dark);
+
+        await sync.Received(1).SaveAsync(ThemePreference.Dark);
+    }
+
+    /// <summary>
+    /// The preferences panel saves the whole profile itself, so it must be able to apply the choice without a
+    /// second request for the same value.
+    /// </summary>
+    [Fact]
+    public async Task SetTheme_SkipsTheAccount_WhenTheCallerSavesTheProfileItself()
+    {
+        var module = SetupModule(stored: null);
+        module.SetupVoid("apply", _ => true).SetVoidResult();
+        var sync = Substitute.For<IThemePreferenceSync>();
+        var service = CreateService(claim: null, sync: sync);
+
+        await service.SetThemeAsync(ThemePreference.Dark, persistToAccount: false);
+
+        Assert.Equal(ThemePreference.Dark, service.CurrentTheme);
+        await sync.DidNotReceive().SaveAsync(Arg.Any<ThemePreference>());
+    }
+
+    [Fact]
+    public async Task SetTheme_AppliesTheChoice_WhenNoAccountSyncIsRegistered()
+    {
+        var module = SetupModule(stored: null);
+        var applyHandler = module.SetupVoid("apply", _ => true);
+        applyHandler.SetVoidResult();
+        var service = CreateService(claim: null);
+
+        await service.SetThemeAsync(ThemePreference.Dark);
+
+        Assert.Equal("Dark", Assert.Single(applyHandler.Invocations).Arguments[0]);
+    }
+
+    /// <summary>
+    /// Loading the page must never write to the account: the value was only just read from it.
+    /// </summary>
+    [Fact]
+    public async Task Apply_DoesNotWriteToTheAccount()
+    {
+        var module = SetupModule(stored: null);
+        module.SetupVoid("apply", _ => true).SetVoidResult();
+        var sync = Substitute.For<IThemePreferenceSync>();
+        var service = CreateService(claim: "Dark", sync: sync);
+
+        await service.InitializeAsync();
+        await service.ApplyAsync();
+
+        await sync.DidNotReceive().SaveAsync(Arg.Any<ThemePreference>());
+    }
     private BunitJSModuleInterop SetupModule(string? stored)
     {
         var module = JSInterop.SetupModule(ModulePath);
@@ -194,7 +259,7 @@ public class ThemeServiceTests : BunitContext
         return module;
     }
 
-    private ThemeService CreateService(string? claim)
+    private ThemeService CreateService(string? claim, IThemePreferenceSync? sync = null)
     {
         var authorization = this.AddAuthorization();
 
@@ -207,6 +272,6 @@ public class ThemeServiceTests : BunitContext
         }
 
         var provider = Services.GetRequiredService<AuthenticationStateProvider>();
-        return new ThemeService(provider, Services.GetRequiredService<IJSRuntime>());
+        return new ThemeService(provider, Services.GetRequiredService<IJSRuntime>(), sync);
     }
 }

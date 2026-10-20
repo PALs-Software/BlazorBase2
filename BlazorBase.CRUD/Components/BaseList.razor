@@ -62,6 +62,10 @@
                      OnClose="@CloseFilterPanel" />
     }
 
+    @if (DeleteErrorMessage is not null)
+    {
+        <FluentMessageBar Intent="MessageIntent.Error" Class="base-list-delete-error" role="alert" OnDismiss="@(() => DeleteErrorMessage = null)">@DeleteErrorMessage</FluentMessageBar>
+    }
     <div class="base-list-grid" @ref="GridContainerRef"
          @onmousedown="OnMouseDown"
          @oncontextmenu="OnContextMenuAsync" @oncontextmenu:preventDefault>

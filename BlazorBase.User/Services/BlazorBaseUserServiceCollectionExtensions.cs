@@ -42,6 +42,7 @@ public static class BlazorBaseUserServiceCollectionExtensions
         services.AddScoped<AuthTokenHandler>();
         services.AddScoped<SessionExpiryHandler>();
         services.AddBlazorBaseComponents();
+        services.AddScoped<IThemePreferenceSync, UserThemePreferenceSync>();
 
         services.AddOptions<BlazorBaseUserClientOptions>();
 

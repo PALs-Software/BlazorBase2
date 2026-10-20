@@ -87,6 +87,7 @@ This registers:
 - `AuthTokenHandler` (DelegatingHandler) as scoped
 - `ILanguageService` → `LanguageService`
 - `IThemeService` → `ThemeService`
+- `IThemePreferenceSync` → `UserThemePreferenceSync` (stores the theme choice of a signed-in user via `PUT api/user/me/settings`; fails soft when offline)
 - `AuthorizationCore` with a `FallbackPolicy` requiring authenticated users
 - `BlazorBaseUserClientOptions` with default values (all flags off)
 

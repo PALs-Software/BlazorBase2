@@ -17,12 +17,16 @@ namespace BlazorBase.Components.Services;
 /// the profile seeded, and that value would then outrank the profile from then on — changing the
 /// preference on another device would never reach this browser again.
 /// </remarks>
-public class ThemeService(AuthenticationStateProvider authenticationStateProvider, IJSRuntime jsRuntime) : IThemeService, IAsyncDisposable
+public class ThemeService(
+    AuthenticationStateProvider authenticationStateProvider,
+    IJSRuntime jsRuntime,
+    IThemePreferenceSync? preferenceSync = null) : IThemeService, IAsyncDisposable
 {
     #region Injects
 
     private readonly AuthenticationStateProvider AuthenticationStateProvider = authenticationStateProvider;
     private readonly IJSRuntime JsRuntime = jsRuntime;
+    private readonly IThemePreferenceSync? PreferenceSync = preferenceSync;
 
     #endregion
 
@@ -98,7 +102,18 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
         await module.InvokeVoidAsync("watchSystem", SelfReference);
     }
 
-    public async Task SetThemeAsync(ThemePreference preference)
+    public Task SetThemeAsync(ThemePreference preference) => SetThemeAsync(preference, persistToAccount: true);
+
+    /// <summary>
+    /// Applies the preference and writes it to local storage, then, when <paramref name="persistToAccount"/> is set
+    /// and an <see cref="IThemePreferenceSync"/> is registered, stores it on the signed-in user's account as well.
+    /// </summary>
+    /// <remarks>
+    /// The account write comes last and cannot fail the call: the choice is already visible, and a user who is
+    /// offline or signed out simply keeps the local-only behaviour. A caller that saves the whole profile itself,
+    /// such as the preferences panel, passes <c>false</c> to avoid a second request.
+    /// </remarks>
+    public async Task SetThemeAsync(ThemePreference preference, bool persistToAccount)
     {
         CurrentTheme = preference;
 
@@ -107,6 +122,9 @@ public class ThemeService(AuthenticationStateProvider authenticationStateProvide
         await ReadSeedColorsAsync(module);
 
         ThemeChanged?.Invoke();
+
+        if (persistToAccount && PreferenceSync is not null)
+            await PreferenceSync.SaveAsync(preference);
     }
 
     /// <summary>

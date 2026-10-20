@@ -12,36 +12,11 @@
 }
 
 /*
-  The framework components render themselves; where they sit is the host's call. The rail owns the
-  space beside the body on a desktop, and below the breakpoint it gives way to the bar docked at the
-  bottom edge.
-
-  The bar itself is positioned, not a wrapper around it: a fixed wrapper would open a stacking context
-  and cap the "More" sheet, which the component renders as a sibling and lifts above the page.
+  The framework components render themselves; where they sit is the host's call. BaseLayout shows the
+  navigation as a rail beside the body and, at 1024 px and below, as an off-canvas drawer behind the
+  header button, so the navigation only needs to fill the space the layout gives it.
 */
 .side-nav {
     display: block;
     height: 100%;
-}
-
-.bottom-nav ::deep .base-bottom-nav {
-    display: none;
-}
-
-@media (max-width: 640px) {
-    .side-nav {
-        display: none;
-    }
-
-    .bottom-nav ::deep .base-bottom-nav {
-        display: flex;
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 30;
-        padding-bottom: env(safe-area-inset-bottom);
-        background: var(--color-bg-elevated);
-        border-top: 1px solid var(--color-border);
-    }
 }

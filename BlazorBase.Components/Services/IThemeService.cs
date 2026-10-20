@@ -32,5 +32,15 @@ public interface IThemeService
     /// </summary>
     Task ApplyAsync();
 
+    /// <summary>
+    /// Applies the preference, remembers it in the browser and, for a signed-in user, stores it on the account
+    /// so it follows them to other devices.
+    /// </summary>
     Task SetThemeAsync(ThemePreference preference);
+
+    /// <summary>
+    /// Like <see cref="SetThemeAsync(ThemePreference)"/>, but lets a caller that saves the account profile itself
+    /// skip the account write. An implementation without an account concept ignores the flag.
+    /// </summary>
+    Task SetThemeAsync(ThemePreference preference, bool persistToAccount) => SetThemeAsync(preference);
 }

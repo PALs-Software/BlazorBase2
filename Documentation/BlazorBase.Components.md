@@ -59,9 +59,16 @@ on the user stack needs nothing extra.
 
 Where the preference comes from: the signed-in user's profile claim seeds a browser that has no choice
 of its own, so the setting follows the user to a new device. An explicit choice made here wins from
-then on, which is also what makes it survive a reload. Only `SetThemeAsync` writes to local storage —
-persisting the choice to the profile is the host's call, which `UserPreferencesPanel` in
-`BlazorBase.User` does.
+then on, which is also what makes it survive a reload. Only `SetThemeAsync` writes to local storage.
+
+A choice made while signed in is also stored on the account, so it follows the user to a new browser:
+after applying it, `SetThemeAsync` calls the registered `IThemePreferenceSync`. `AddBlazorBaseUserClient()`
+registers `UserThemePreferenceSync`, which sends `PUT api/user/me/settings` (it reads the profile first,
+because the endpoint replaces theme and language together). It does nothing for an anonymous visitor, skips
+the request when the account already holds the value, and swallows a failed request, so an offline user
+keeps the local-only behavior. `SetThemeAsync(preference, persistToAccount: false)` skips the account
+write for a caller that saves the whole profile itself, as `UserPreferencesPanel` does. An application
+without the user package registers nothing and stays local-only.
 
 While the preference is `System`, a `matchMedia` listener watches the operating system and re-reads the
 tokens when it flips. The stylesheet repaints on its own — what needs the listener is everything derived
@@ -158,6 +165,59 @@ component owns the appearance of the tabs and the sheet, not where the bar lives
 > The sheet renders as a sibling of the bar so its backdrop covers the viewport. Do not place the
 > component inside a `position: fixed` or transformed wrapper.
 
+### BaseLayout parameters and behavior
+
+| Parameter | Purpose |
+|---|---|
+| `AppTitle` | Plain text at the start of the header. |
+| `Brand` | A `RenderFragment` that replaces `AppTitle`, for example a logo image. The brand is also what stays visible on a phone, where `AppTitle` is hidden. Give an image an `alt` text. |
+| `Navigation` | The navigation content, usually `BaseSideNavigation`. Without it the header shows no navigation button. |
+| `HeaderContent` | Controls on the right of the header: theme toggle, language select, account button. |
+| `Banner` | Content shown above the page, inside the scrolling main area. |
+| `ChildContent` | The routed page. |
+
+**Responsive behavior.** The shell fills the dynamic viewport (`100dvh`, so a phone's collapsing address
+bar does not cut it off) and only the `<main>` area scrolls; the header stays put. The header height is
+the `--base-header-height` custom property on `.layout-root` (56 px). Page css that needs the room left
+for content should use `height: 100%` or `calc(100dvh - var(--base-header-height))`, not `100vh` minus a
+guess, otherwise the page scrolls although its content fits.
+
+| Viewport width | Navigation | Header |
+|---|---|---|
+| above 1024 px | Persistent rail; the header button collapses it to icons. | Everything visible. |
+| 1024 px and below | Off-canvas drawer opened by the same button. It closes on navigation, Escape, a click on the overlay and when the viewport grows past the breakpoint. Focus moves into the drawer on open and back to the button on close; the page behind it is `inert`. | Everything visible. |
+| 768 px and below | Same drawer. | `AppTitle` is hidden (a `Brand` stays), padding shrinks, the body padding drops to 12 px. |
+| coarse pointer | Header controls grow from 40 px to 44 px (`--base-header-control-size`). | |
+
+**Helper classes.** Two classes let a host move controls that do not fit a phone header into the
+drawer without writing its own media queries:
+
+- `base-header-wide-only` — put it on an element inside `HeaderContent`; it is hidden at 768 px and below.
+- `base-nav-narrow-only` — put it on an element inside `Navigation`; it is hidden on wide screens and
+  shown at 768 px and below, at the bottom of the drawer.
+
+```razor
+<BaseLayout AppTitle="Notes">
+    <Brand><img src="images/logo.svg" alt="Notes" height="28" /></Brand>
+    <HeaderContent>
+        <BaseThemeToggle />
+        <FluentAnchor Href="/account" Class="base-header-wide-only">Account</FluentAnchor>
+    </HeaderContent>
+    <Navigation>
+        <BaseSideNavigation Items="Items" />
+        <div class="base-nav-narrow-only"><a href="/account">Account</a></div>
+    </Navigation>
+    <ChildContent>@Body</ChildContent>
+</BaseLayout>
+```
+
+**Services.** `BaseLayout` resolves `IThemeService` and `ILanguageService` (registered by
+`AddBlazorBaseComponents()`), and, since the shell rework, also `IJSRuntime` (it loads
+`_content/BlazorBase.Components/js/layout.js` to watch the breakpoint) and `NavigationManager` (to close
+the drawer when the location changes). A bUnit test of a page that hosts the layout therefore needs the
+JS interop set to loose mode or the `layout.js` module set up. Navigation placed in the `Navigation`
+slot receives a cascading `NavigationLayoutContext` (collapsed state and a function that closes the
+drawer), which `BaseSideNavigation` uses.
 ---
 
 ## Editors and viewers

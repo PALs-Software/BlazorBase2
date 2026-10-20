@@ -128,14 +128,6 @@
     outline: none;
 }
 
-.body-content ::deep h1[tabindex="-1"]:focus-visible {
-    width: fit-content;
-    max-width: 100%;
-    outline: 1px solid color-mix(in srgb, var(--color-border-focus) 45%, transparent);
-    outline-offset: 3px;
-    border-radius: var(--radius-sm);
-}
-
 @media (max-width: 1024px) {
     .base-nav-host {
         position: absolute;
