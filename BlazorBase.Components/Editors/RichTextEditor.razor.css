@@ -2,6 +2,8 @@
     display: flex;
     flex-direction: column;
     gap: 0;
+    width: 100%;
+    min-width: 0;
 }
 
 .rte-label {
@@ -27,8 +29,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 28px;
-    height: 28px;
+    min-width: 32px;
+    height: 32px;
     padding: 0 6px;
     background: transparent;
     border: 1px solid transparent;
@@ -64,7 +66,9 @@
 }
 
 .rte-surface {
-    min-height: 120px;
+    min-height: 200px;
+    max-height: 60dvh;
+    resize: vertical;
     padding: 8px 10px;
     background: var(--color-bg-surface, var(--neutral-layer-1));
     border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
@@ -80,6 +84,13 @@
 .rte-surface:focus {
     border-color: var(--color-border-focus, var(--accent-stroke-control-rest));
     box-shadow: 0 0 0 1px var(--color-border-focus, var(--accent-stroke-control-rest));
+}
+
+@media (pointer: coarse) {
+    .rte-btn {
+        min-width: 44px;
+        height: 44px;
+    }
 }
 
 .rte-disabled .rte-toolbar {

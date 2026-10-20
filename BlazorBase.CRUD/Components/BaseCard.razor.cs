@@ -118,6 +118,33 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
     private string? ResolveListPartTooltip(BaseListPartConfiguration<TModel> listPart) =>
         LocalizerResolver.ResolveOptional(ResolvedLocalizer, $"{listPart.PropertyName}_Tooltip");
 
+    private CardFieldErrors FieldErrors { get; } = new();
+
+    private bool FocusFirstErrorPending { get; set; }
+
+    private string ResolveFieldLabel(string propertyName)
+    {
+        var configuredLabel = ResolvedFields.FirstOrDefault(field => field.PropertyName == propertyName)?.Label;
+        if (configuredLabel is not null)
+            return configuredLabel;
+
+        var result = ResolvedLocalizer[propertyName];
+        return result.ResourceNotFound ? propertyName : result.Value;
+    }
+
+    /// <summary>
+    /// Whether the field takes a whole grid row: explicitly requested, a multi-line editor, or a column span that
+    /// covers every column the card can have.
+    /// </summary>
+    private bool IsFullRowField(PropertyFieldConfig<TModel> field) =>
+        field.FullWidth || field.Lines > 1 || field.ColSpan >= MaxColumns;
+
+    private Task OnInvalidSubmitAsync()
+    {
+        FocusFirstErrorPending = true;
+        return Task.CompletedTask;
+    }
+
     #region Events
 
     [Parameter]
@@ -388,6 +415,9 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (FocusFirstErrorPending)
+            await FocusFirstErrorAsync();
+
         if (!firstRender)
             return;
 
@@ -402,6 +432,22 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
         SelfReference = DotNetObjectReference.Create(this);
         DismissToken = await DismissModule.InvokeAsync<string?>("register", CardRootElement, SelfReference);
+    }
+
+    private async Task FocusFirstErrorAsync()
+    {
+        FocusFirstErrorPending = false;
+
+        if (DismissModule is null)
+            return;
+
+        try
+        {
+            await DismissModule.InvokeVoidAsync("focusFirstError", CardRootElement);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
     }
 
     /// <summary>

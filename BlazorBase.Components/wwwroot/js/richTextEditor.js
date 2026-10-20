@@ -126,10 +126,19 @@ export function initEditor(elementId, dotNetRef, readOnly, placeholder, insertLi
 
     function notifyChange() {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            const html = sanitizeHtml(surface.innerHTML);
-            dotNetRef.invokeMethodAsync('OnContentChangedAsync', html);
-        }, 200);
+        debounceTimer = setTimeout(flushChange, 200);
+    }
+
+    function flushChange() {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+        const html = sanitizeHtml(surface.innerHTML);
+        dotNetRef.invokeMethodAsync('OnContentChangedAsync', html);
+    }
+
+    function handleBlur() {
+        if (debounceTimer !== null)
+            flushChange();
     }
 
     function handleInput() {
@@ -170,11 +179,13 @@ export function initEditor(elementId, dotNetRef, readOnly, placeholder, insertLi
     }
 
     surface.addEventListener('input', handleInput);
+    surface.addEventListener('blur', handleBlur);
 
     editors.set(elementId, {
         surface,
         toolbar,
         handleInput,
+        handleBlur,
         handleToolbarMousedown,
         handleToolbarClick,
         dotNetRef,
@@ -217,6 +228,7 @@ export function destroyEditor(elementId) {
 
     clearTimeout(entry.debounceTimer);
     entry.surface.removeEventListener('input', entry.handleInput);
+    entry.surface.removeEventListener('blur', entry.handleBlur);
 
     if (entry.toolbar) {
         entry.toolbar.removeEventListener('mousedown', entry.handleToolbarMousedown);

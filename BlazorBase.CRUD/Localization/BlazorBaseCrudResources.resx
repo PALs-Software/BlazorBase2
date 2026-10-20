@@ -247,4 +247,43 @@
   <data name="KeepEditing" xml:space="preserve">
     <value>Keep editing</value>
   </data>
+  <data name="Validation_Required" xml:space="preserve">
+    <value>The {0} field is required.</value>
+  </data>
+  <data name="Validation_StringLength" xml:space="preserve">
+    <value>The {0} field must be at most {1} characters long.</value>
+  </data>
+  <data name="Validation_StringLengthRange" xml:space="preserve">
+    <value>The {0} field must be between {2} and {1} characters long.</value>
+  </data>
+  <data name="Validation_MinLength" xml:space="preserve">
+    <value>The {0} field must be at least {1} characters long.</value>
+  </data>
+  <data name="Validation_MaxLength" xml:space="preserve">
+    <value>The {0} field must be at most {1} characters long.</value>
+  </data>
+  <data name="Validation_Range" xml:space="preserve">
+    <value>The {0} field must be between {1} and {2}.</value>
+  </data>
+  <data name="Validation_EmailAddress" xml:space="preserve">
+    <value>The {0} field is not a valid e-mail address.</value>
+  </data>
+  <data name="Validation_Phone" xml:space="preserve">
+    <value>The {0} field is not a valid phone number.</value>
+  </data>
+  <data name="Validation_Url" xml:space="preserve">
+    <value>The {0} field is not a valid URL.</value>
+  </data>
+  <data name="Validation_RegularExpression" xml:space="preserve">
+    <value>The {0} field has an invalid format.</value>
+  </data>
+  <data name="Validation_NotANumber" xml:space="preserve">
+    <value>The {0} field must be a number.</value>
+  </data>
+  <data name="Validation_NotAWholeNumber" xml:space="preserve">
+    <value>The {0} field must be a whole number.</value>
+  </data>
+  <data name="RequiredMarkTitle" xml:space="preserve">
+    <value>Required</value>
+  </data>
 </root>

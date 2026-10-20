@@ -42,6 +42,14 @@ public class PropertyField<TModel> : ComponentBase
     [Parameter]
     public int ColSpan { get; set; } = 1;
 
+    /// <summary>Makes the field span a whole row of the card grid regardless of the column count.</summary>
+    [Parameter]
+    public bool FullWidth { get; set; }
+
+    /// <summary>Suppresses the framework label above a custom template that renders its own heading.</summary>
+    [Parameter]
+    public bool HideLabel { get; set; }
+
     [Parameter]
     public int? Lines { get; set; }
 
@@ -107,6 +115,8 @@ public class PropertyField<TModel> : ComponentBase
             Group = Group,
             Order = Order,
             ColSpan = ColSpan,
+            FullWidth = FullWidth,
+            HideLabel = HideLabel,
             Lines = Lines,
             EditorTemplate = EditorTemplate,
             DisplayTemplate = DisplayTemplate

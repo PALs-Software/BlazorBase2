@@ -1,5 +1,6 @@
 .base-property-input {
     width: 100%;
+    min-width: 0;
 }
 
 .base-property-input ::deep fluent-text-field,
@@ -7,12 +8,70 @@
 .base-property-input ::deep fluent-select,
 .base-property-input ::deep fluent-date-picker {
     width: 100%;
+    min-width: 0;
+}
+
+.base-template-field {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.base-template-field ::deep fluent-select,
+.base-template-field ::deep fluent-text-field,
+.base-template-field ::deep fluent-combobox {
+    width: 100%;
+    min-width: 0;
+}
+
+.base-field-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: var(--type-ramp-base-font-size, 14px);
+    line-height: var(--type-ramp-base-line-height, 20px);
+    color: var(--color-text-primary, var(--neutral-foreground-rest));
+}
+
+.base-required-mark {
+    color: var(--color-danger, var(--error));
+}
+
+.base-field-errors {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 4px;
+}
+
+.base-field-error {
+    color: var(--color-danger, var(--error));
+    font-size: var(--type-ramp-minus-1-font-size, 12px);
+    line-height: var(--type-ramp-minus-1-line-height, 16px);
+    overflow-wrap: anywhere;
+}
+
+.base-property-input-invalid ::deep fluent-text-field::part(root),
+.base-property-input-invalid ::deep fluent-text-area::part(control),
+.base-property-input-invalid ::deep fluent-select::part(control),
+.base-property-input-invalid ::deep fluent-date-picker::part(root) {
+    border-color: var(--color-danger, var(--error));
 }
 
 .base-bool-field {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+}
+
+.base-bool-field ::deep fluent-switch {
+    min-height: 32px;
+    align-items: center;
+}
+
+@media (pointer: coarse) {
+    .base-bool-field ::deep fluent-switch {
+        min-height: 44px;
+    }
 }
 
 .base-navigation-browse {

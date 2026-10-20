@@ -247,4 +247,43 @@
   <data name="KeepEditing" xml:space="preserve">
     <value>Weiter bearbeiten</value>
   </data>
+  <data name="Validation_Required" xml:space="preserve">
+    <value>Das Feld „{0}“ ist erforderlich.</value>
+  </data>
+  <data name="Validation_StringLength" xml:space="preserve">
+    <value>Das Feld „{0}“ darf höchstens {1} Zeichen lang sein.</value>
+  </data>
+  <data name="Validation_StringLengthRange" xml:space="preserve">
+    <value>Das Feld „{0}“ muss zwischen {2} und {1} Zeichen lang sein.</value>
+  </data>
+  <data name="Validation_MinLength" xml:space="preserve">
+    <value>Das Feld „{0}“ muss mindestens {1} Zeichen lang sein.</value>
+  </data>
+  <data name="Validation_MaxLength" xml:space="preserve">
+    <value>Das Feld „{0}“ darf höchstens {1} Zeichen lang sein.</value>
+  </data>
+  <data name="Validation_Range" xml:space="preserve">
+    <value>Das Feld „{0}“ muss zwischen {1} und {2} liegen.</value>
+  </data>
+  <data name="Validation_EmailAddress" xml:space="preserve">
+    <value>Das Feld „{0}“ enthält keine gültige E-Mail-Adresse.</value>
+  </data>
+  <data name="Validation_Phone" xml:space="preserve">
+    <value>Das Feld „{0}“ enthält keine gültige Telefonnummer.</value>
+  </data>
+  <data name="Validation_Url" xml:space="preserve">
+    <value>Das Feld „{0}“ enthält keine gültige URL.</value>
+  </data>
+  <data name="Validation_RegularExpression" xml:space="preserve">
+    <value>Das Feld „{0}“ hat ein ungültiges Format.</value>
+  </data>
+  <data name="Validation_NotANumber" xml:space="preserve">
+    <value>Das Feld „{0}“ muss eine Zahl sein.</value>
+  </data>
+  <data name="Validation_NotAWholeNumber" xml:space="preserve">
+    <value>Das Feld „{0}“ muss eine ganze Zahl sein.</value>
+  </data>
+  <data name="RequiredMarkTitle" xml:space="preserve">
+    <value>Pflichtfeld</value>
+  </data>
 </root>

@@ -2,26 +2,43 @@
 @using BlazorBase.CRUD.Configuration
 @typeparam TModel
 
-<div class="base-property-input" id="@TooltipAnchorId">
+<div class="base-property-input @(ValidationMessages.Count > 0 ? "base-property-input-invalid" : null)" id="@TooltipAnchorId">
     @if (FieldConfig.EditorTemplate is not null && IsEditing)
     {
-        @FieldConfig.EditorTemplate(new PropertyFieldContext<TModel>
-        {
-            Model = Model,
-            Value = CurrentValue,
-            IsEditing = true,
-            ValueChanged = EventCallback.Factory.Create<object?>(this, OnValueChangedAsync)
-        })
+        <div class="base-template-field" role="group" aria-labelledby="@LabelElementId">
+            @if (ShowTemplateLabel)
+            {
+                <label class="base-field-label" id="@LabelElementId">@ResolvedLabel@if (IsRequired)
+                {<span class="base-required-mark" aria-hidden="true">&#160;*</span>}</label>
+            }
+            @FieldConfig.EditorTemplate(new PropertyFieldContext<TModel>
+            {
+                Model = Model,
+                Value = CurrentValue,
+                IsEditing = true,
+                Label = ResolvedLabel,
+                Required = IsRequired,
+                ValueChanged = EventCallback.Factory.Create<object?>(this, OnValueChangedAsync)
+            })
+        </div>
     }
     else if (FieldConfig.DisplayTemplate is not null && !IsEditing)
     {
-        @FieldConfig.DisplayTemplate(new PropertyFieldContext<TModel>
-        {
-            Model = Model,
-            Value = CurrentValue,
-            IsEditing = false,
-            ValueChanged = EventCallback.Factory.Create<object?>(this, OnValueChangedAsync)
-        })
+        <div class="base-template-field" role="group" aria-labelledby="@LabelElementId">
+            @if (ShowTemplateLabel)
+            {
+                <label class="base-field-label" id="@LabelElementId">@ResolvedLabel</label>
+            }
+            @FieldConfig.DisplayTemplate(new PropertyFieldContext<TModel>
+            {
+                Model = Model,
+                Value = CurrentValue,
+                IsEditing = false,
+                Label = ResolvedLabel,
+                Required = IsRequired,
+                ValueChanged = EventCallback.Factory.Create<object?>(this, OnValueChangedAsync)
+            })
+        </div>
     }
     else if (ResolvedCustomInput is not null)
     {
@@ -30,10 +47,10 @@
     else if (PropertyType == typeof(bool) || PropertyType == typeof(bool?))
     {
         <div class="base-bool-field">
-            <FluentInputLabel Label="@ResolvedLabel" ForId="@FieldElementId" />
             <FluentSwitch @bind-Value="BoolValue"
                           ReadOnly="@(!IsEditing)"
-                          Id="@FieldElementId" />
+                          Id="@FieldElementId"
+                          Label="@ResolvedLabel" />
         </div>
     }
     else if (PropertyType == typeof(DateTime) || PropertyType == typeof(DateTime?) ||
@@ -41,6 +58,7 @@
     {
         <FluentDatePicker @bind-Value="DateValue"
                           ReadOnly="@(!IsEditing)"
+                          Required="@IsRequired"
                           Label="@ResolvedLabel" />
     }
     else if (IsNumericType)
@@ -49,13 +67,15 @@
                          ReadOnly="@(!IsEditing)"
                          Label="@ResolvedLabel"
                          Placeholder="@ResolvedPlaceholder"
-                         InputMode="InputMode.Numeric" />
+                         Required="@IsRequired"
+                         InputMode="@NumericInputMode" />
     }
     else if (PropertyType.IsEnum)
     {
         <FluentSelect TOption="string"
                       @bind-Value="EnumStringValue"
                       Disabled="@(!IsEditing)"
+                      Required="@IsRequired"
                       Label="@ResolvedLabel">
             @if (IsNullableEnum)
             {
@@ -63,7 +83,7 @@
             }
             @foreach (var enumValue in Enum.GetValues(PropertyType))
             {
-                <FluentOption Value="@enumValue.ToString()">@enumValue</FluentOption>
+                <FluentOption Value="@enumValue.ToString()">@ResolveEnumLabel(enumValue)</FluentOption>
             }
         </FluentSelect>
     }
@@ -74,6 +94,7 @@
                       Value="@CurrentFkStringValue"
                       ValueChanged="@OnNavigationSelectChangedAsync"
                       Disabled="@(!IsEditing)"
+                      Required="@IsRequired"
                       Label="@ResolvedLabel">
             <FluentOption Value="">@FrameworkLocalizer["SelectEmpty"]</FluentOption>
             @foreach (var item in LookupItems)
@@ -87,6 +108,7 @@
         <div class="base-navigation-browse">
             <FluentTextField Value="@SelectedDisplayText"
                              ReadOnly="true"
+                             Required="@IsRequired"
                              Label="@ResolvedLabel" />
             @if (IsEditing)
             {
@@ -133,6 +155,7 @@
                         ReadOnly="@(!IsEditing)"
                         Label="@ResolvedLabel"
                         Placeholder="@ResolvedPlaceholder"
+                        Required="@IsRequired"
                         Rows="@FieldConfig.Lines" />
     }
     else
@@ -141,7 +164,17 @@
                          ReadOnly="@(!IsEditing)"
                          Label="@ResolvedLabel"
                          Placeholder="@ResolvedPlaceholder"
-                         Required="@FieldConfig.Required" />
+                         Required="@IsRequired" />
+    }
+
+    @if (ValidationMessages.Count > 0)
+    {
+        <div class="base-field-errors" id="@ErrorElementId" role="alert">
+            @foreach (var message in ValidationMessages)
+            {
+                <div class="base-field-error">@message</div>
+            }
+        </div>
     }
 
     @if (ResolvedTooltip is not null)

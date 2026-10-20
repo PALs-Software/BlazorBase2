@@ -45,3 +45,27 @@ export function unregister(token) {
     if (stack.length === 0)
         document.removeEventListener('keydown', onKeyDown, true);
 }
+
+const FocusableSelector = 'fluent-text-field, fluent-text-area, fluent-select, fluent-date-picker, fluent-switch, fluent-number-field, input, textarea, select, [contenteditable="true"]';
+
+export function focusFirstError(root) {
+    const message = root && root.querySelector('.base-field-errors');
+    if (!message)
+        return;
+
+    const accordionItem = message.closest('fluent-accordion-item');
+    if (accordionItem && !accordionItem.expanded)
+        accordionItem.expanded = true;
+
+    const field = message.closest('.base-property-input');
+    const control = field && field.querySelector(FocusableSelector);
+
+    if (control) {
+        control.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        control.focus({ preventScroll: true });
+        return;
+    }
+
+    message.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
