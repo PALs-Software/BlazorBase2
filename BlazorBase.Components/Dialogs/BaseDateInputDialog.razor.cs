@@ -1,10 +1,14 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Localization;
 using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace BlazorBase.Components.Dialogs;
 
 public partial class BaseDateInputDialog : ComponentBase, IDialogContentComponent<DateInputDialogContent>
 {
+    [Inject]
+    private IStringLocalizer<BaseDateInputDialog> Localizer { get; set; } = default!;
+
     [Parameter]
     public DateInputDialogContent Content { get; set; } = default!;
 
@@ -12,6 +16,10 @@ public partial class BaseDateInputDialog : ComponentBase, IDialogContentComponen
     private FluentDialog? Dialog { get; set; }
 
     private DateTime? SelectedDate;
+
+    private string ConfirmText => Content.ConfirmButtonText ?? Localizer["Confirm"];
+
+    private string CancelText => Content.CancelButtonText ?? Localizer["Cancel"];
 
     protected override void OnInitialized()
     {

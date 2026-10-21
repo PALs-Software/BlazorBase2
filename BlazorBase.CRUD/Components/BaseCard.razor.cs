@@ -96,6 +96,26 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
     public bool DeferSave { get; set; }
 
     /// <summary>
+    /// Whether the header shows the close ("X") button. Left unset, the button is shown when something can act on a
+    /// close request — a dialog hosts the card or <see cref="OnCancelled"/> has a consumer — and hidden on a card
+    /// shown standalone on a page, where closing has no meaning.
+    /// </summary>
+    [Parameter]
+    public bool? ShowCloseButton { get; set; }
+
+    /// <summary>
+    /// The dialog hosting the card, if any; its presence is what tells a dialog card from one shown on a page.
+    /// </summary>
+    [CascadingParameter]
+    private FluentDialog? HostingDialog { get; set; }
+
+    private bool IsInline => HostingDialog is null;
+
+    private bool HasCloseConsumer => HostingDialog is not null || OnCancelled.HasDelegate;
+
+    private bool IsCloseButtonVisible => ShowCloseButton ?? HasCloseConsumer;
+
+    /// <summary>
     /// Separator placed between multiple display-key values in the header title.
     /// Overridden by <see cref="BaseCardConfiguration{TModel}.DisplayKeySeparator"/>;
     /// null falls back to <see cref="DisplayKeyResolver.DefaultSeparator"/>.
@@ -182,6 +202,7 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
     private string? ErrorMessage { get; set; }
     private bool IsConfirmDialogOpen { get; set; }
     private bool InitialSnapshotTaken { get; set; }
+    private TModel? SnapshotParameterModel { get; set; }
     private int LoadedNavigationFields { get; set; }
 
     private IBaseDataProvider<TModel> ResolvedDataProvider =>
@@ -399,10 +420,11 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
                 displayKey.ResolvePropertyName();
         }
 
-        if (InitialSnapshotTaken)
+        if (InitialSnapshotTaken && ReferenceEquals(SnapshotParameterModel, Model))
             return;
 
         InitialSnapshotTaken = true;
+        SnapshotParameterModel = Model;
         SnapshotOriginalValues();
     }
 
@@ -553,6 +575,8 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
             if (OnDeferredSave.HasDelegate)
                 await OnDeferredSave.InvokeAsync(deferredChangedFields);
 
+            SnapshotOriginalValues();
+
             foreach (var participant in SaveParticipants)
                 await participant.OnAfterSaveAsync(saveContext);
 
@@ -679,6 +703,8 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
     private void RevertToSnapshot()
     {
+        ErrorMessage = null;
+
         foreach (var property in typeof(TModel).GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
             if (!property.CanWrite)

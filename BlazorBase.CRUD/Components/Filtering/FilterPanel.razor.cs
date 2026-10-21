@@ -1,4 +1,5 @@
 using BlazorBase.CRUD.Filtering;
+using BlazorBase.CRUD.SavedFilters;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Localization;
@@ -18,6 +19,12 @@ public partial class FilterPanel
 
     [Parameter]
     public EventCallback<FilterGroupModel> OnApply { get; set; }
+
+    /// <summary>
+    /// Saved filters, presets and default of the list. Null or unavailable hides the saved-filter section.
+    /// </summary>
+    [Parameter]
+    public SavedFilterContext? SavedFilters { get; set; }
 
     [Parameter]
     public EventCallback OnReset { get; set; }
@@ -56,6 +63,18 @@ public partial class FilterPanel
     }
 
     private async Task ApplyAsync() => await OnApply.InvokeAsync(Root);
+
+    /// <summary>
+    /// Replaces the filter being edited with the one the user chose in the saved-filter section and applies it, so
+    /// choosing a saved filter is one tap.
+    /// </summary>
+    private async Task OnSavedFilterLoadedAsync(FilterGroupModel filter)
+    {
+        Root.Logic = filter.Logic;
+        Root.Conditions = filter.Conditions;
+        Root.Groups = filter.Groups;
+        await OnApply.InvokeAsync(Root);
+    }
 
     private async Task ResetAsync() => await OnReset.InvokeAsync();
 }

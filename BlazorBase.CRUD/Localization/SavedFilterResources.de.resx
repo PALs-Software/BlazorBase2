@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="SavedFilters" xml:space="preserve">
+    <value>Gespeicherte Filter</value>
+  </data>
+  <data name="SavedFiltersPresets" xml:space="preserve">
+    <value>Vorlagen</value>
+  </data>
+  <data name="SavedFiltersMine" xml:space="preserve">
+    <value>Meine Filter</value>
+  </data>
+  <data name="SavedFiltersEmpty" xml:space="preserve">
+    <value>Sie haben noch keine Filter gespeichert.</value>
+  </data>
+  <data name="SavedFiltersLoading" xml:space="preserve">
+    <value>Wird geladen …</value>
+  </data>
+  <data name="SavedFiltersNameLabel" xml:space="preserve">
+    <value>Aktuellen Filter speichern als</value>
+  </data>
+  <data name="SavedFiltersNamePlaceholder" xml:space="preserve">
+    <value>Filtername</value>
+  </data>
+  <data name="SavedFiltersSave" xml:space="preserve">
+    <value>Speichern</value>
+  </data>
+  <data name="SavedFiltersOverwrite" xml:space="preserve">
+    <value>Überschreiben</value>
+  </data>
+  <data name="SavedFiltersCancel" xml:space="preserve">
+    <value>Abbrechen</value>
+  </data>
+  <data name="SavedFiltersLoad" xml:space="preserve">
+    <value>Filter „{0}“ anwenden</value>
+  </data>
+  <data name="SavedFiltersDefaultTag" xml:space="preserve">
+    <value>Standard</value>
+  </data>
+  <data name="SavedFiltersSetDefault" xml:space="preserve">
+    <value>„{0}“ als Standardfilter verwenden</value>
+  </data>
+  <data name="SavedFiltersClearDefault" xml:space="preserve">
+    <value>„{0}“ nicht mehr als Standardfilter verwenden</value>
+  </data>
+  <data name="SavedFiltersRename" xml:space="preserve">
+    <value>„{0}“ umbenennen</value>
+  </data>
+  <data name="SavedFiltersDelete" xml:space="preserve">
+    <value>„{0}“ löschen</value>
+  </data>
+  <data name="SavedFiltersDeleteConfirm" xml:space="preserve">
+    <value>„{0}“ löschen?</value>
+  </data>
+  <data name="SavedFiltersDeleteYes" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="SavedFiltersNameExists" xml:space="preserve">
+    <value>Ein gespeicherter Filter mit diesem Namen existiert bereits.</value>
+  </data>
+  <data name="SavedFiltersInvalid" xml:space="preserve">
+    <value>Der Filter konnte nicht gespeichert werden. Bitte den Namen prüfen.</value>
+  </data>
+  <data name="SavedFiltersGone" xml:space="preserve">
+    <value>Dieser Filter existiert nicht mehr.</value>
+  </data>
+  <data name="SavedFiltersUnavailable" xml:space="preserve">
+    <value>Gespeicherte Filter sind derzeit nicht verfügbar.</value>
+  </data>
+</root>

@@ -2,7 +2,7 @@
 @using BlazorBase.CRUD.Configuration
 @typeparam TModel
 
-<div class="base-list">
+<div class="base-list @(IsMobileLayout ? "base-list-mobile" : null)">
     <CascadingValue Value="@((IColumnCollector<TModel>)this)" IsFixed="true">
         <CascadingValue Value="@((IActionGroupCollector<TModel>)this)" IsFixed="true">
             @ChildContent
@@ -57,6 +57,7 @@
         <FilterPanel Fields="@FilterFields"
                      Root="@WorkingFilterModel"
                      Localizer="@FrameworkLocalizer"
+                     SavedFilters="@SavedFilters"
                      OnApply="@OnFilterApplyAsync"
                      OnReset="@OnFilterResetAsync"
                      OnClose="@CloseFilterPanel" />
@@ -69,12 +70,16 @@
     <div class="base-list-grid" @ref="GridContainerRef"
          @onmousedown="OnMouseDown"
          @oncontextmenu="OnContextMenuAsync" @oncontextmenu:preventDefault>
-        @if (LoadedItems.Count > 0 || IsLoading)
+        @if (IsMobileLayout)
+        {
+            <BaseListCardView TModel="TModel" View="@BuildMobileView()" />
+        }
+        else if (LoadedItems.Count > 0 || IsLoading)
         {
             <FluentDataGrid @ref="DataGrid"
                             ItemsProvider="@CaptureRenderedProvider()"
                             TGridItem="TModel"
-                            Virtualize="true"
+                            Virtualize="false"
                             ItemSize="48"
                             GenerateHeader="GenerateHeaderOption.Sticky"
                             OnRowClick="@OnRowClickedAsync"
@@ -84,6 +89,9 @@
                 {
                     <TemplateColumn Title="" Class="base-list-select-column" Width="@SelectionColumnWidth" MinWidth="@SelectionColumnWidth">
                         <div class="select-circle @(IsSelected(context) ? "selected" : "")"
+                             role="checkbox"
+                             aria-checked="@(IsSelected(context) ? "true" : "false")"
+                             aria-label="@(IsSelected(context) ? FrameworkLocalizer["Deselect"].Value : FrameworkLocalizer["Select"].Value)"
                              @onclick="() => ToggleSelection(context)" @onclick:stopPropagation>
                         </div>
                     </TemplateColumn>
@@ -154,6 +162,8 @@
                     }
                 }
 
+                @if (HasContextMenuEntries)
+                {
                 <TemplateColumn Title="" Class="base-list-actions-column" Width="@ActionsColumnWidth" MinWidth="@ActionsColumnWidth">
                     <FluentButton Appearance="Appearance.Stealth"
                                   Class="base-list-row-menu"
@@ -165,9 +175,11 @@
                                   IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.MoreHorizontal())"
                                   OnClick="@(e => OnRowMenuButtonClickedAsync(context, e))" />
                 </TemplateColumn>
+                }
             </FluentDataGrid>
         }
     </div>
+    <div class="base-list-hscroll" aria-hidden="true" tabindex="-1"><div></div></div>
 
     @if (ContextMenuOpen)
     {
@@ -194,11 +206,11 @@
                     <span>@(SelectedItems.Count > 1 && IsSelected(ContextMenuItem) ? string.Format(FrameworkLocalizer["DeleteCount"].Value, SelectedItems.Count) : FrameworkLocalizer["Delete"].Value)</span>
                 </div>
             }
-            @if ((CanEdit || CanDelete) && ContextMenuItem is not null)
+            @if ((CanEdit || CanDelete) && IsSelectionAvailable && ContextMenuItem is not null)
             {
                 <div class="context-menu-divider"></div>
             }
-            @if (ContextMenuItem is not null)
+            @if (IsSelectionAvailable && ContextMenuItem is not null)
             {
                 <div role="menuitem" @onclick="OnContextMenuToggleSelectAsync">
                     @if (IsSelected(ContextMenuItem))
@@ -213,10 +225,13 @@
                     }
                 </div>
             }
+            @if (IsSelectionAvailable)
+            {
             <div role="menuitem" @onclick="SelectAll">
                 <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.SelectAllOn())" />
                 <span>@FrameworkLocalizer["SelectAll"]</span>
             </div>
+            }
             @if (IsSelectionActive)
             {
                 <div role="menuitem" @onclick="DeselectAll">
@@ -226,16 +241,24 @@
             }
             @if (ContextMenuActions is not null && ContextMenuItem is not null)
             {
-                <div class="context-menu-divider"></div>
+                @if (HasContextMenuBaseEntries)
+                {
+                    <div class="context-menu-divider"></div>
+                }
                 <div @onclick="CloseContextMenu">
                     @ContextMenuActions(ContextMenuItem)
                 </div>
             }
             @if (HasContextMenuActionGroups && ContextMenuItem is not null)
             {
+                var needsDivider = HasContextMenuBaseEntries || ContextMenuActions is not null;
                 @foreach (var group in ContextMenuActionGroups)
                 {
-                    <div class="context-menu-divider"></div>
+                    @if (needsDivider)
+                    {
+                        <div class="context-menu-divider"></div>
+                    }
+                    needsDivider = true;
                     @foreach (var action in group.Actions.Where(a => IsActionVisibleInContextMenu(a)).OrderBy(a => a.Order))
                     {
                         <div role="menuitem" @onclick="() => OnContextMenuActionClickedAsync(action)">

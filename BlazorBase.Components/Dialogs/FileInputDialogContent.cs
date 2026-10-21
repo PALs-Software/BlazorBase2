@@ -21,7 +21,9 @@ public sealed class FileInputDialogContent
     /// <summary>Maximum accepted file size in bytes. Zero or negative disables the check.</summary>
     public required long MaxFileSize { get; init; }
 
-    public string ConfirmButtonText { get; init; } = "Import";
+    /// <summary>Caption of the confirm button; the dialog's localized "Import" when null.</summary>
+    public string? ConfirmButtonText { get; init; }
 
-    public string CancelButtonText { get; init; } = "Cancel";
+    /// <summary>Caption of the cancel button; the dialog's localized "Cancel" when null.</summary>
+    public string? CancelButtonText { get; init; }
 }

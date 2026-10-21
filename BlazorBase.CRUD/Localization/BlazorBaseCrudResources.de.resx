@@ -331,4 +331,16 @@
   <data name="Validation_DeniedValues" xml:space="preserve">
     <value>Das Feld „{0}“ enthält einen nicht zulässigen Wert.</value>
   </data>
+  <data name="SortBy" xml:space="preserve">
+    <value>Sortieren nach</value>
+  </data>
+  <data name="SortDefault" xml:space="preserve">
+    <value>Standardreihenfolge</value>
+  </data>
+  <data name="SortAscending" xml:space="preserve">
+    <value>Aufsteigend sortieren</value>
+  </data>
+  <data name="SortDescending" xml:space="preserve">
+    <value>Absteigend sortieren</value>
+  </data>
 </root>

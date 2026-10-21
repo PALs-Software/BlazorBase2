@@ -3,14 +3,17 @@
 @using BlazorBase.CRUD.Validation
 @typeparam TModel
 
-<div class="base-card" @ref="CardRootElement">
+<div class="base-card @(IsInline ? "base-card-inline" : null)" @ref="CardRootElement">
     <div class="base-card-header">
         <h2 class="base-card-title">@CardTitle</h2>
-        <FluentButton Appearance="Appearance.Stealth"
-                      Class="base-card-close"
-                      Title="@FrameworkLocalizer["Close"].Value"
-                      IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())"
-                      OnClick="@TryCloseAsync" />
+        @if (IsCloseButtonVisible)
+        {
+            <FluentButton Appearance="Appearance.Stealth"
+                          Class="base-card-close"
+                          Title="@FrameworkLocalizer["Close"].Value"
+                          IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())"
+                          OnClick="@TryCloseAsync" />
+        }
     </div>
 
     @if (IsContentLoading)

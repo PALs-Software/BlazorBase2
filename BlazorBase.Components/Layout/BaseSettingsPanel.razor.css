@@ -1,0 +1,115 @@
+.base-settings-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    background: rgb(0 0 0 / 0.45);
+}
+
+.base-settings-panel {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-end: 0;
+    z-index: 71;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: min(400px, 100vw);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-inline-end: env(safe-area-inset-right, 0px);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    border-inline-start: 1px solid var(--color-border);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+    animation: base-settings-slide-in 0.2s ease;
+}
+
+.base-settings-panel:focus {
+    outline: none;
+}
+
+.base-settings-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex: none;
+    padding: 8px 8px 8px 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.base-settings-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.base-settings-header ::deep .base-settings-close {
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.base-settings-body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 16px 20px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.base-settings-body ::deep .base-settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.base-settings-body ::deep .base-settings-section:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.base-settings-body ::deep .base-settings-heading {
+    margin: 0;
+    font-family: var(--font-body, inherit);
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--color-text-primary);
+}
+
+.base-settings-section ::deep fluent-radio {
+    min-height: 32px;
+}
+
+@media (pointer: coarse) {
+    .base-settings-section ::deep fluent-radio {
+        min-height: 44px;
+    }
+}
+
+@media (max-width: 480px) {
+    .base-settings-panel {
+        width: 100vw;
+        border-inline-start: none;
+    }
+}
+
+@keyframes base-settings-slide-in {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .base-settings-panel {
+        animation: none;
+    }
+}

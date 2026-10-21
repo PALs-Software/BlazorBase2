@@ -35,6 +35,17 @@ public class PropertyColumnConfig<TModel>
     public string? Width { get; set; }
 
     /// <summary>
+    /// The part this column plays on the tile shown on a narrow screen; undecided by default, see
+    /// <see cref="Configuration.MobileRole"/>.
+    /// </summary>
+    public MobileRole MobileRole { get; set; } = MobileRole.Auto;
+
+    /// <summary>
+    /// Position among the columns of the same mobile role (lower comes first); the column order when null.
+    /// </summary>
+    public int? MobilePriority { get; set; }
+
+    /// <summary>
     /// View-level access rules that further restrict the effective rights for this column.
     /// Combined with class/property-level attributes via intersection.
     /// </summary>

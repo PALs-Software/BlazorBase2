@@ -1,24 +1,10 @@
+@using BlazorBase.Components.Layout.Navigation
 @using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
 
 <FluentDesignTheme Mode="@CurrentMode" CustomColor="@ThemeService.AccentColor" NeutralBaseColor="@ThemeService.NeutralBaseColor" />
 
-<div class="layout-root">
-    <button type="button" class="base-skip-link" @onclick="FocusMainAsync">@Localizer["SkipToContent"]</button>
-
-    <header class="base-header">
-        @if (Navigation is not null)
-        {
-            <FluentButton Appearance="Appearance.Stealth"
-                          Class="base-nav-toggle"
-                          Title="@NavigationToggleLabel"
-                          aria-label="@NavigationToggleLabel"
-                          aria-controls="base-navigation"
-                          aria-expanded="@NavigationExpandedValue"
-                          @ref="NavigationToggle"
-                          OnClick="ToggleNavigationAsync">
-                <FluentIcon Value="@(new Size20.Navigation())" Color="Color.Neutral" />
-            </FluentButton>
-        }
+@{
+    RenderFragment brand = @<text>
         @if (Brand is not null)
         {
             <span class="base-header-brand">@Brand</span>
@@ -27,11 +13,64 @@
         {
             <span class="base-header-title">@AppTitle</span>
         }
-        <FluentSpacer />
-        @if (HeaderContent is not null)
+    </text>;
+}
+
+<div class="layout-root @(HasBottomBar ? "has-bottom-bar" : null)">
+    <button type="button" class="base-skip-link" @onclick="FocusMainAsync">@Localizer["SkipToContent"]</button>
+
+    <header class="base-header @(IsBrandCentered ? "brand-centered" : "brand-start")">
+        <div class="base-header-start">
+            @if (Navigation is not null)
+            {
+                <FluentButton Appearance="Appearance.Stealth"
+                              Class="base-nav-toggle"
+                              Title="@NavigationToggleLabel"
+                              aria-label="@NavigationToggleLabel"
+                              aria-controls="base-navigation"
+                              aria-expanded="@NavigationExpandedValue"
+                              @ref="NavigationToggle"
+                              OnClick="ToggleNavigationAsync">
+                    <FluentIcon Value="@(new Size20.Navigation())" Color="Color.Neutral" />
+                </FluentButton>
+            }
+            @if (!IsBrandCentered)
+            {
+                @brand
+            }
+        </div>
+        @if (IsBrandCentered)
         {
-            @HeaderContent
+            <div class="base-header-center">
+                @brand
+            </div>
         }
+        <div class="base-header-end">
+            @if (HeaderContent is not null)
+            {
+                @HeaderContent
+            }
+            @if (ShowThemeToggle)
+            {
+                <span class="base-header-theme">
+                    <BaseThemeToggle />
+                </span>
+            }
+            @if (ShowSettings)
+            {
+                <FluentButton Appearance="Appearance.Stealth"
+                              Class="base-settings-toggle"
+                              Title="@Localizer["Settings"]"
+                              aria-label="@Localizer["Settings"]"
+                              aria-haspopup="dialog"
+                              aria-controls="@SettingsPanelId"
+                              aria-expanded="@(IsSettingsOpen ? "true" : "false")"
+                              @ref="SettingsToggle"
+                              OnClick="OpenSettingsAsync">
+                    <FluentIcon Value="@(new Size20.Settings())" Color="Color.Neutral" />
+                </FluentButton>
+            }
+        </div>
     </header>
 
     <div class="main-content">
@@ -63,7 +102,28 @@
             @ChildContent
         </main>
     </div>
+
+    @if (HasBottomBar)
+    {
+        <div class="base-bottom-host" inert="@IsSettingsOpen">
+            <BaseBottomNavigation Items="BottomNavigationItems!"
+                                  MaxPrimaryItems="MaxBottomBarItems"
+                                  OnMore="MoreCallback"
+                                  IsMoreExpanded="IsDrawerOpen"
+                                  MoreControls="base-navigation" />
+        </div>
+    }
 </div>
+
+@if (ShowSettings)
+{
+    <BaseSettingsPanel PanelId="@SettingsPanelId"
+                       IsOpen="IsSettingsOpen"
+                       OnClose="CloseSettingsAsync"
+                       LanguageOptions="LanguageOptions"
+                       OnLanguageSelected="OnLanguageSelected"
+                       ChildContent="SettingsContent" />
+}
 
 <FluentToastProvider MaxToastCount="3" />
 <FluentDialogProvider />

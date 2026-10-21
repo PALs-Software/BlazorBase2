@@ -6,21 +6,47 @@
         {
             @if (item.IsGroup)
             {
+                var expanded = IsExpanded(item);
+                var itemsId = GroupItemsId(item);
+
                 <FluentDivider Class="base-side-nav-divider" />
-                @if (!IsIconOnly)
-                {
-                    <div class="base-side-nav-section">@item.Label</div>
-                }
-                @foreach (var child in item.Children)
-                {
-                    <FluentNavLink Href="@child.Href"
-                                   Match="@(child.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)"
-                                   Icon="@child.Icon"
-                                   IconColor="Color.Neutral"
-                                   Title="@child.Label">
-                        <span class="base-side-nav-text">@child.Label</span>
-                    </FluentNavLink>
-                }
+                <button type="button"
+                        class="base-side-nav-group-toggle @(ContainsActiveChild(item) ? "contains-active" : null)"
+                        aria-expanded="@(expanded ? "true" : "false")"
+                        aria-controls="@itemsId"
+                        title="@item.Label"
+                        @onclick="@(() => ToggleGroupAsync(item))"
+                        @onclick:stopPropagation="true">
+                    @if (IsIconOnly)
+                    {
+                        <span class="base-side-nav-group-icon">
+                            @if (item.Icon is not null)
+                            {
+                                <FluentIcon Value="@item.Icon" Color="Color.Neutral" />
+                            }
+                        </span>
+                        <span class="base-side-nav-sr">@item.Label</span>
+                    }
+                    else
+                    {
+                        <span class="base-side-nav-group-label">@item.Label</span>
+                        <span class="base-side-nav-group-chevron" aria-hidden="true">
+                            <FluentIcon Value="@ChevronIcon" Color="Color.Neutral" />
+                        </span>
+                    }
+                </button>
+                <div id="@itemsId" class="base-side-nav-group-items" role="group" aria-label="@item.Label" hidden="@(!expanded)">
+                    @foreach (var child in item.Children)
+                    {
+                        <FluentNavLink Href="@child.Href"
+                                       Match="@(child.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)"
+                                       Icon="@child.Icon"
+                                       IconColor="Color.Neutral"
+                                       Title="@child.Label">
+                            <span class="base-side-nav-text">@child.Label</span>
+                        </FluentNavLink>
+                    }
+                </div>
             }
             else if (item.IsAction)
             {

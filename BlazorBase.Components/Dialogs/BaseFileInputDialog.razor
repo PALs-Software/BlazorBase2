@@ -34,10 +34,10 @@
                 <FluentButton Appearance="Appearance.Accent"
                              Disabled="@(SelectedFileContent is null)"
                              OnClick="@ConfirmAsync">
-                    @Content.ConfirmButtonText
+                    @ConfirmText
                 </FluentButton>
                 <FluentButton Appearance="Appearance.Outline" OnClick="@CancelAsync">
-                    @Content.CancelButtonText
+                    @CancelText
                 </FluentButton>
             </FluentStack>
         </FluentStack>

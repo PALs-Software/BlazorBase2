@@ -1,28 +1,9 @@
 .base-dialog {
-    max-height: calc(100dvh - 9rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     overflow-y: auto;
     overflow-x: hidden;
     overscroll-behavior: contain;
-}
-
-.base-dialog ::deep .base-card {
-    padding-bottom: 0;
-}
-
-.base-dialog ::deep .base-card-header {
-    position: sticky;
-    top: 0;
-    z-index: 3;
-    padding-block: 8px;
-    background: var(--fill-color, var(--color-bg-elevated));
-}
-
-.base-dialog ::deep .base-card-actions {
-    position: sticky;
-    bottom: 0;
-    z-index: 3;
-    padding-bottom: 16px;
-    background: var(--fill-color, var(--color-bg-elevated));
 }
 
 /*
@@ -39,22 +20,8 @@
     width: 100%;
 }
 
-@media (max-width: 640px) {
-    .base-dialog {
-        max-height: calc(100dvh - 6rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-    }
-}
-
 @media (max-height: 500px) {
     .base-dialog {
-        max-height: calc(100dvh - 4.5rem);
-    }
-
-    .base-dialog ::deep .base-card-header {
-        padding-block: 4px;
-    }
-
-    .base-dialog ::deep .base-card-actions {
-        padding-bottom: 8px;
+        max-height: calc(100dvh - 1rem);
     }
 }

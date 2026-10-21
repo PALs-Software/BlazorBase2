@@ -1,0 +1,145 @@
+@using BlazorBase.CRUD.SavedFilters
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+@using FilledIcons = Microsoft.FluentUI.AspNetCore.Components.Icons.Filled
+
+<div class="saved-filters">
+    <button type="button"
+            class="saved-filters-toggle"
+            aria-expanded="@(Expanded ? "true" : "false")"
+            aria-controls="@BodyId"
+            @onclick="ToggleAsync">
+        <FluentIcon Value="@(new Size20.Bookmark())" Color="Color.Neutral" />
+        <span class="saved-filters-toggle-text">@T("SavedFilters")</span>
+        <FluentIcon Value="@(Expanded ? (Microsoft.FluentUI.AspNetCore.Components.Icon)new Size16.ChevronUp() : new Size16.ChevronDown())" Color="Color.Neutral" />
+    </button>
+
+    @if (Expanded)
+    {
+        <div class="saved-filters-body" id="@BodyId">
+            @if (Error is not null)
+            {
+                <FluentMessageBar Intent="MessageIntent.Error" Class="saved-filters-error" role="alert" OnDismiss="@(() => Error = null)">@Error</FluentMessageBar>
+            }
+
+            @if (Saved.Presets.Count > 0)
+            {
+                <div class="saved-filters-heading">@T("SavedFiltersPresets")</div>
+                <ul class="saved-filters-list">
+                    @foreach (var preset in Saved.Presets)
+                    {
+                        <li class="saved-filters-row">
+                            <button type="button"
+                                    class="saved-filters-load @(IsCurrent(preset.Filter) ? "is-active" : "")"
+                                    title="@T("SavedFiltersLoad", preset.Name)"
+                                    disabled="@Busy"
+                                    @onclick="() => LoadAsync(preset.Filter)">
+                                <span class="saved-filters-name">@preset.Name</span>
+                                @if (preset.IsDefault && !HasUserDefault)
+                                {
+                                    <span class="saved-filters-tag">@T("SavedFiltersDefaultTag")</span>
+                                }
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+
+            @if (Saved.Store is not null)
+            {
+                <div class="saved-filters-heading">@T("SavedFiltersMine")</div>
+
+                @if (Loading)
+                {
+                    <div class="saved-filters-hint">@T("SavedFiltersLoading")</div>
+                }
+                else if (Items.Count == 0)
+                {
+                    <div class="saved-filters-hint">@T("SavedFiltersEmpty")</div>
+                }
+                else
+                {
+                    <ul class="saved-filters-list">
+                        @foreach (var item in Items)
+                        {
+                            <li class="saved-filters-row">
+                                @if (EditingId == item.Id)
+                                {
+                                    <div class="saved-filters-edit" @onkeydown="args => OnEditKeyDownAsync(args, item)">
+                                        <FluentTextField @bind-Value="EditName"
+                                                         Immediate="true"
+                                                         MaxLength="@ListFilterValidator.MaxNameLength"
+                                                         Class="saved-filters-input"
+                                                         aria-label="@T("SavedFiltersRename", item.Name)" />
+                                        <FluentButton Appearance="Appearance.Accent"
+                                                      Disabled="@(Busy || String.IsNullOrWhiteSpace(EditName))"
+                                                      OnClick="() => RenameAsync(item)">@T("SavedFiltersSave")</FluentButton>
+                                        <FluentButton Appearance="Appearance.Stealth" OnClick="CancelEdit">@T("SavedFiltersCancel")</FluentButton>
+                                    </div>
+                                }
+                                else if (ConfirmDeleteId == item.Id)
+                                {
+                                    <div class="saved-filters-edit">
+                                        <span class="saved-filters-confirm" role="alert">@T("SavedFiltersDeleteConfirm", item.Name)</span>
+                                        <FluentButton Appearance="Appearance.Accent"
+                                                      Disabled="@Busy"
+                                                      OnClick="() => DeleteAsync(item)">@T("SavedFiltersDeleteYes")</FluentButton>
+                                        <FluentButton Appearance="Appearance.Stealth" OnClick="CancelEdit">@T("SavedFiltersCancel")</FluentButton>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <button type="button"
+                                            class="saved-filters-load @(IsCurrent(item.Filter) ? "is-active" : "")"
+                                            title="@T("SavedFiltersLoad", item.Name)"
+                                            disabled="@Busy"
+                                            @onclick="() => LoadAsync(item.Filter)">
+                                        <span class="saved-filters-name">@item.Name</span>
+                                        @if (item.IsDefault)
+                                        {
+                                            <span class="saved-filters-tag">@T("SavedFiltersDefaultTag")</span>
+                                        }
+                                    </button>
+                                    <FluentButton Appearance="Appearance.Stealth"
+                                                  Class="saved-filters-icon"
+                                                  Disabled="@Busy"
+                                                  Title="@(item.IsDefault ? T("SavedFiltersClearDefault", item.Name) : T("SavedFiltersSetDefault", item.Name))"
+                                                  aria-label="@(item.IsDefault ? T("SavedFiltersClearDefault", item.Name) : T("SavedFiltersSetDefault", item.Name))"
+                                                  aria-pressed="@(item.IsDefault ? "true" : "false")"
+                                                  OnClick="() => ToggleDefaultAsync(item)"
+                                                  IconStart="@(item.IsDefault ? new FilledIcons.Size20.Star() : new Size20.Star())" />
+                                    <FluentButton Appearance="Appearance.Stealth"
+                                                  Class="saved-filters-icon"
+                                                  Disabled="@Busy"
+                                                  Title="@T("SavedFiltersRename", item.Name)"
+                                                  aria-label="@T("SavedFiltersRename", item.Name)"
+                                                  OnClick="() => BeginEdit(item)"
+                                                  IconStart="@(new Size20.Edit())" />
+                                    <FluentButton Appearance="Appearance.Stealth"
+                                                  Class="saved-filters-icon"
+                                                  Disabled="@Busy"
+                                                  Title="@T("SavedFiltersDelete", item.Name)"
+                                                  aria-label="@T("SavedFiltersDelete", item.Name)"
+                                                  OnClick="() => BeginDelete(item)"
+                                                  IconStart="@(new Size20.Delete())" />
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+
+                <div class="saved-filters-save" @onkeydown="OnSaveKeyDownAsync">
+                    <FluentTextField @bind-Value="NewName"
+                                     Immediate="true"
+                                     MaxLength="@ListFilterValidator.MaxNameLength"
+                                     Label="@T("SavedFiltersNameLabel")"
+                                     Placeholder="@T("SavedFiltersNamePlaceholder")"
+                                     Class="saved-filters-input" />
+                    <FluentButton Appearance="Appearance.Accent"
+                                  Class="saved-filters-save-button"
+                                  Disabled="@(Busy || String.IsNullOrWhiteSpace(NewName))"
+                                  OnClick="SaveAsync">@(NameExists ? T("SavedFiltersOverwrite") : T("SavedFiltersSave"))</FluentButton>
+                </div>
+            }
+        </div>
+    }
+</div>

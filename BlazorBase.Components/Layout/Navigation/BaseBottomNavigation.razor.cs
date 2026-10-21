@@ -35,6 +35,25 @@ public partial class BaseBottomNavigation(
     [Parameter]
     public RenderFragment? MoreSheetContent { get; set; }
 
+    /// <summary>
+    /// When set, the "More" tab raises this callback instead of opening the built-in sheet — the host decides
+    /// what "More" reveals, typically the full navigation drawer of <see cref="BaseLayout"/>.
+    /// </summary>
+    [Parameter]
+    public EventCallback OnMore { get; set; }
+
+    /// <summary>Whether what <see cref="OnMore"/> reveals is currently open; mirrored on the tab as <c>aria-expanded</c>.</summary>
+    [Parameter]
+    public bool IsMoreExpanded { get; set; }
+
+    /// <summary>Id of the element <see cref="OnMore"/> reveals, exposed on the tab as <c>aria-controls</c>.</summary>
+    [Parameter]
+    public string? MoreControls { get; set; }
+
+    /// <summary>The most quick links shown as tabs; the "More" tab comes on top of them.</summary>
+    [Parameter]
+    public int MaxPrimaryItems { get; set; } = 4;
+
     [CascadingParameter]
     private Task<AuthenticationState>? AuthenticationState { get; set; }
 
@@ -53,7 +72,11 @@ public partial class BaseBottomNavigation(
     private static readonly Icon ChevronRightIcon = new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ChevronRight();
     private static readonly Icon ChevronLeftIcon = new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.ChevronLeft();
 
-    private bool HasMore => MoreItems.Count > 0 || MoreSheetContent is not null;
+    private bool HasMore => OnMore.HasDelegate || MoreItems.Count > 0 || MoreSheetContent is not null;
+
+    private bool UsesHostMore => OnMore.HasDelegate;
+
+    private bool IsMoreTabExpanded => UsesHostMore ? IsMoreExpanded : IsMoreOpen;
 
     /// <summary>
     /// Marks the tab or sheet entry that leads to the page currently shown.
@@ -85,7 +108,7 @@ public partial class BaseBottomNavigation(
     protected override async Task OnParametersSetAsync()
     {
         VisibleItems = await NavigationVisibility.FilterAsync(Items, AuthenticationState);
-        PrimaryItems = VisibleItems.Where(item => item.IsMobilePrimary && !item.IsGroup && !item.IsAction).ToList();
+        PrimaryItems = BottomBarSelector.Select(VisibleItems, MaxPrimaryItems);
         MoreItems = VisibleItems.Where(item => !PrimaryItems.Contains(item)).ToList();
 
         if (OpenGroup is null)
@@ -93,6 +116,17 @@ public partial class BaseBottomNavigation(
 
         var stillPresent = MoreItems.FirstOrDefault(item => item.IsGroup && item.Label == OpenGroup.Label);
         OpenGroup = stillPresent;
+    }
+
+    private async Task OnMoreClickedAsync()
+    {
+        if (UsesHostMore)
+        {
+            await OnMore.InvokeAsync();
+            return;
+        }
+
+        ToggleMoreSheet();
     }
 
     private void ToggleMoreSheet()

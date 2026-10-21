@@ -44,12 +44,15 @@
 }
 
 /*
-   The grid scrolls itself instead of letting the page grow with it, so both scrollbars stay
-   inside the viewport no matter how many rows are loaded. Hosts that give .base-list a height
-   (flex chain) get an exact fit through flex; everywhere else the viewport-relative cap applies.
-   Override --base-list-grid-max-height (or set it to none) to adapt the cap per host or page.
-*/
-/*
+   The list never scrolls vertically on its own: the page (the layout's main area) does, and a long list simply
+   grows. Sideways the grid scrolls inside its own box. A scroll container swallows sticky positioning, so a
+   grid that fits its box ("fits", set by baseListInterop.js) is not a scroll container at all and its header
+   sticks by plain CSS; a wider grid ("scroll", also the state before the script ran) keeps its scroll box and
+   the script moves the header along with the page (--base-list-sticky-offset). With a fine pointer the
+   grid's own scrollbar sits at the end of a possibly very long list, so it is hidden there and replaced by
+   the pinned .base-list-hscroll below, which stays at the bottom of the visible area; touch devices scroll by
+   swiping and keep the native (overlay) scrollbar.
+
    A sortable column header is a Fluent UI stealth button, and "stealth" resolves to
    --neutral-fill-stealth-rest, which Fluent UI derives to match its own default layer - not the
    surface underneath it here. The button therefore paints a filled box inset in every header cell,
@@ -59,12 +62,45 @@
 */
 .base-list-grid {
     --neutral-fill-stealth-rest: transparent;
-    flex: 1 1 auto;
-    min-height: 0;
-    max-height: var(--base-list-grid-max-height, calc(100dvh - 14rem));
-    overflow: auto;
+    flex: 0 0 auto;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
     background: var(--color-bg-surface, var(--neutral-layer-1));
     border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px));
+}
+
+.base-list-grid[data-mode="fits"] {
+    overflow: visible;
+}
+
+.base-list-hscroll {
+    display: none;
+    position: sticky;
+    bottom: var(--base-list-sticky-bottom, 0px);
+    z-index: 4;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: var(--color-bg-surface, var(--neutral-layer-1));
+    border-top: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+}
+
+.base-list-hscroll > div {
+    height: 1px;
+}
+
+@media (pointer: fine) {
+    .base-list-grid[data-mode="scroll"] {
+        scrollbar-width: none;
+    }
+
+    .base-list-grid[data-mode="scroll"]::-webkit-scrollbar {
+        display: none;
+    }
+
+    .base-list-grid[data-mode="scroll"] + .base-list-hscroll {
+        display: block;
+    }
 }
 
 /*
@@ -76,11 +112,15 @@
 ::deep .fluent-data-grid tr[row-type='sticky-header'] > th,
 ::deep .fluent-data-grid tr[row-type='header'] > th {
     position: sticky;
-    top: 0;
+    top: var(--base-list-sticky-top, 0px);
     z-index: 2;
+    box-sizing: border-box;
     display: grid;
     align-items: center;
-    padding: 10px 14px 10px 6px;
+    align-content: center;
+    min-height: var(--base-list-header-height, 44px) !important;
+    padding: 0 14px 0 6px;
+    transform: translateY(var(--base-list-sticky-offset, 0px));
     text-align: left;
     font-size: 0.875rem;
     font-weight: 600;
@@ -160,10 +200,17 @@
 
 ::deep td.base-list-cell {
     display: block;
+    box-sizing: border-box;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    line-height: 48px;
+    padding-block: 0;
+    line-height: calc(var(--base-list-row-height, 48px) - 1px);
+}
+
+::deep tr.fluent-data-grid-row:not([row-type]) > td {
+    box-sizing: border-box;
+    min-height: var(--base-list-row-height, 48px);
 }
 
 ::deep th.base-list-cell {
@@ -266,14 +313,47 @@
     text-align: center;
 }
 
+/*
+   The select cell is a content-box block, so its 16 px of cell padding came on top of the 40 px column and the
+   cell was 72 px wide in a 40 px track: the next cell started inside it and, painting its hover background
+   after it, covered the right half of the circle. The cell fills exactly its track now and centres the circle.
+*/
+::deep td.base-list-select-column {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-inline: 0;
+    overflow: visible;
+}
+
+::deep td.base-list-cell,
+::deep td.base-list-select-column,
+::deep td.base-list-actions-column {
+    scroll-margin-block: 48px 16px;
+}
+
 .select-circle {
+    position: relative;
+    flex: none;
+    box-sizing: border-box;
     width: 20px;
     height: 20px;
     border-radius: 50%;
     border: 2px solid var(--color-border-strong, var(--neutral-stroke-rest));
     cursor: pointer;
     transition: all 0.15s ease;
-    margin: 0 auto;
+}
+
+.select-circle::after {
+    content: "";
+    position: absolute;
+    inset: -10px;
+}
+
+.select-circle:focus-visible {
+    outline: 2px solid var(--color-border-focus, var(--focus-stroke-outer));
+    outline-offset: 2px;
 }
 
 .select-circle.selected {
@@ -324,6 +404,7 @@
     min-width: 180px;
     max-width: calc(100vw - 16px);
     max-height: calc(100dvh - 16px);
+    overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior: contain;
 }
@@ -340,6 +421,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    box-sizing: border-box;
     padding: 8px 12px;
     cursor: pointer;
     color: var(--color-text-primary, var(--neutral-foreground-rest));

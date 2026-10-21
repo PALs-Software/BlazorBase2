@@ -1,0 +1,55 @@
+@namespace BlazorBase.Components.Layout
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+
+@if (IsOpen)
+{
+    <div class="base-settings-overlay" @onclick="CloseAsync"></div>
+    <aside id="@PanelId"
+           class="base-settings-panel"
+           role="dialog"
+           aria-modal="true"
+           aria-labelledby="@TitleId"
+           tabindex="-1"
+           @ref="PanelElement"
+           @onkeydown="OnKeyDownAsync">
+        <div class="base-settings-header">
+            <h2 id="@TitleId" class="base-settings-title">@Localizer["Title"]</h2>
+            <FluentButton Appearance="Appearance.Stealth"
+                          Class="base-settings-close"
+                          Title="@Localizer["Close"]"
+                          aria-label="@Localizer["Close"]"
+                          OnClick="CloseAsync">
+                <FluentIcon Value="@(new Size20.Dismiss())" Color="Color.Neutral" />
+            </FluentButton>
+        </div>
+        <div class="base-settings-body">
+            @if (LanguageChoices.Count > 0)
+            {
+                <section class="base-settings-section">
+                    <FluentRadioGroup TValue="string"
+                                      Label="@Localizer["Language"]"
+                                      Orientation="Orientation.Vertical"
+                                      Value="@LanguageService.CurrentLanguage"
+                                      ValueChanged="SelectLanguageAsync">
+                        @foreach (var option in LanguageChoices)
+                        {
+                            <FluentRadio Value="@option.Key">@option.Value</FluentRadio>
+                        }
+                    </FluentRadioGroup>
+                </section>
+            }
+            <section class="base-settings-section">
+                <FluentRadioGroup TValue="string"
+                                  Label="@Localizer["Theme"]"
+                                  Orientation="Orientation.Vertical"
+                                  Value="@ThemeService.CurrentTheme.ToString()"
+                                  ValueChanged="SelectThemeAsync">
+                    <FluentRadio Value="@nameof(ThemePreference.System)">@Localizer["System"]</FluentRadio>
+                    <FluentRadio Value="@nameof(ThemePreference.Light)">@Localizer["Light"]</FluentRadio>
+                    <FluentRadio Value="@nameof(ThemePreference.Dark)">@Localizer["Dark"]</FluentRadio>
+                </FluentRadioGroup>
+            </section>
+            @ChildContent?.Invoke(Context)
+        </div>
+    </aside>
+}

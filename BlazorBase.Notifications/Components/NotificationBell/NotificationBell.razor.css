@@ -109,6 +109,6 @@
         top: calc(var(--base-header-height, 56px) + env(safe-area-inset-top, 0px) + 8px);
         inset-inline: auto max(8px, env(safe-area-inset-right, 0px));
         width: min(360px, calc(100vw - 16px));
-        max-height: calc(100dvh - var(--base-header-height, 56px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
+        max-height: calc(100dvh - var(--base-header-height, 56px) - env(safe-area-inset-top, 0px) - max(env(safe-area-inset-bottom, 0px), var(--base-bottom-bar-offset, 0px)) - 24px);
     }
 }

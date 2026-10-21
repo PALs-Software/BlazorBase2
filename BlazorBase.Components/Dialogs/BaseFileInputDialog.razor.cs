@@ -1,10 +1,14 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Localization;
 using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace BlazorBase.Components.Dialogs;
 
 public partial class BaseFileInputDialog : ComponentBase, IDialogContentComponent<FileInputDialogContent>
 {
+    [Inject]
+    private IStringLocalizer<BaseFileInputDialog> Localizer { get; set; } = default!;
+
     [Parameter]
     public FileInputDialogContent Content { get; set; } = default!;
 
@@ -18,6 +22,10 @@ public partial class BaseFileInputDialog : ComponentBase, IDialogContentComponen
     private long ResolvedMaxFileSize =>
         Content.MaxFileSize > 0 ? Content.MaxFileSize : long.MaxValue;
 
+    private string ConfirmText => Content.ConfirmButtonText ?? Localizer["Import"];
+
+    private string CancelText => Content.CancelButtonText ?? Localizer["Cancel"];
+
     private async Task OnFileUploadedAsync(FluentInputFileEventArgs fileArgs)
     {
         SelectedFileName = null;
@@ -29,11 +37,11 @@ public partial class BaseFileInputDialog : ComponentBase, IDialogContentComponen
 
         if (fileArgs.Stream is null)
         {
-            ErrorMessage = "The selected file could not be read.";
+            ErrorMessage = Localizer["FileUnreadable"];
             return;
         }
 
-        var validationError = FileInputValidator.Validate(fileArgs.Name, fileArgs.Size, Content.FileFilter, Content.MaxFileSize);
+        var validationError = FileInputValidator.Validate(fileArgs.Name, fileArgs.Size, Content.FileFilter, Content.MaxFileSize, Localizer);
         if (validationError is not null)
         {
             ErrorMessage = validationError;

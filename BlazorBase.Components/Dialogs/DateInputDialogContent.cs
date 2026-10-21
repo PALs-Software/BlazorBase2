@@ -10,7 +10,9 @@ public sealed class DateInputDialogContent
 
     public DateTime? InitialDate { get; init; }
 
-    public string ConfirmButtonText { get; init; } = "Confirm";
+    /// <summary>Caption of the confirm button; the dialog's localized "Confirm" when null.</summary>
+    public string? ConfirmButtonText { get; init; }
 
-    public string CancelButtonText { get; init; } = "Cancel";
+    /// <summary>Caption of the cancel button; the dialog's localized "Cancel" when null.</summary>
+    public string? CancelButtonText { get; init; }
 }

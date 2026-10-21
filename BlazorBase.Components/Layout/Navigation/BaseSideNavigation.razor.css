@@ -17,6 +17,105 @@
     color: var(--color-text-muted);
 }
 
+::deep .base-side-nav-group-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 36px;
+    padding: 4px 16px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: start;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+}
+
+::deep .base-side-nav-group-toggle:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+::deep .base-side-nav-group-toggle:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+::deep .base-side-nav-group-toggle.contains-active {
+    color: var(--color-accent);
+}
+
+::deep .base-side-nav-group-label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+::deep .base-side-nav-group-chevron {
+    display: inline-flex;
+    flex: none;
+    transition: transform 0.15s ease;
+}
+
+::deep .base-side-nav-group-toggle[aria-expanded="false"] .base-side-nav-group-chevron {
+    transform: rotate(-90deg);
+}
+
+::deep .base-side-nav-group-items {
+    display: flex;
+    flex-direction: column;
+}
+
+::deep .base-side-nav-group-items[hidden] {
+    display: none;
+}
+
+::deep .base-side-nav-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.base-side-nav.collapsed ::deep .base-side-nav-group-toggle {
+    justify-content: center;
+    min-height: 40px;
+    padding: 4px 0;
+}
+
+.base-side-nav.collapsed ::deep .base-side-nav-group-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.base-side-nav.collapsed ::deep .base-side-nav-group-toggle[aria-expanded="true"] {
+    background: var(--color-bg-selected);
+}
+
+@media (pointer: coarse) {
+    ::deep .base-side-nav-group-toggle {
+        min-height: 44px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    ::deep .base-side-nav-group-chevron {
+        transition: none;
+    }
+}
+
 .base-side-nav ::deep .content-region {
     white-space: normal;
 }

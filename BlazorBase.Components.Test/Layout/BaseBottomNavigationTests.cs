@@ -203,4 +203,127 @@ public sealed class BaseBottomNavigationTests : ComponentsBunitTestContextBase
 
         Assert.Empty(cut.FindAll("button.base-more-item[aria-current]"));
     }
+
+    private IRenderedComponent<BaseBottomNavigation> RenderWith(
+        IReadOnlyList<NavigationItem> items,
+        Action<ComponentParameterCollectionBuilder<BaseBottomNavigation>>? configure = null)
+    {
+        Services.AddLocalization();
+        return Render<BaseBottomNavigation>(parameters =>
+        {
+            parameters.Add(p => p.Items, items);
+            configure?.Invoke(parameters);
+        });
+    }
+
+    private static IReadOnlyList<string> TabHrefs(IRenderedComponent<BaseBottomNavigation> cut) =>
+        cut.FindAll("a.base-bottom-tab").Select(tab => tab.GetAttribute("href")!).ToList();
+
+    [Fact]
+    public void Tabs_AreOrderedByBottomBarOrder_ThenByListOrder()
+    {
+        var cut = RenderWith(
+        [
+            new() { Href = "/a", Label = "A", IsMobilePrimary = true, BottomBarOrder = 2 },
+            new() { Href = "/b", Label = "B", IsMobilePrimary = true, BottomBarOrder = 1 },
+            new() { Href = "/c", Label = "C", IsMobilePrimary = true, BottomBarOrder = 1 },
+        ]);
+
+        Assert.Equal(["/b", "/c", "/a"], TabHrefs(cut));
+    }
+
+    [Fact]
+    public void FlaggedItemsInsideAGroup_BecomeTabsToo_AndRespectTheRoleFilter()
+    {
+        var auth = AddAuthorization();
+        auth.SetAuthorized("user");
+        var items = new List<NavigationItem>
+        {
+            new() { Href = "/", Label = "Home", MatchAll = true, IsMobilePrimary = true },
+            new()
+            {
+                Label = "Copilot",
+                Children =
+                [
+                    new() { Href = "/budgets", Label = "Budgets", IsMobilePrimary = true, RequiredRole = "Admin" },
+                    new() { Href = "/usage", Label = "Usage", IsMobilePrimary = true },
+                ],
+            },
+        };
+
+        var cut = RenderWith(items);
+
+        Assert.Equal(["/", "/usage"], TabHrefs(cut));
+    }
+
+    [Fact]
+    public void Tabs_AreCappedAtMaxPrimaryItems()
+    {
+        var items = Enumerable.Range(1, 6)
+            .Select(i => new NavigationItem { Href = $"/p{i}", Label = $"P{i}", IsMobilePrimary = true })
+            .ToList();
+
+        var cut = RenderWith(items, parameters => parameters.Add(p => p.MaxPrimaryItems, 3));
+
+        Assert.Equal(3, TabHrefs(cut).Count);
+    }
+
+    [Fact]
+    public void WithoutAnyFlaggedItem_TheFirstTopLevelLinksFillTheBar()
+    {
+        var items = new List<NavigationItem>
+        {
+            new() { Label = "Logout", OnClick = () => Task.CompletedTask },
+            new() { Href = "/a", Label = "A" },
+            new() { Label = "Group", Children = [new() { Href = "/nested", Label = "Nested" }] },
+            new() { Href = "/b", Label = "B" },
+            new() { Href = "/c", Label = "C" },
+            new() { Href = "/d", Label = "D" },
+            new() { Href = "/e", Label = "E" },
+        };
+
+        var cut = RenderWith(items);
+
+        Assert.Equal(["/a", "/b", "/c", "/d"], TabHrefs(cut));
+    }
+
+    [Fact]
+    public void ShortLabel_IsShownOnTheTab_WhileTheFullLabelStaysAsTitle()
+    {
+        var cut = RenderWith([new() { Href = "/stats", Label = "My AI Statistics", ShortLabel = "AI Stats", IsMobilePrimary = true }]);
+
+        var tab = cut.Find("a.base-bottom-tab");
+        Assert.Equal("AI Stats", tab.QuerySelector(".base-bottom-tab-label")!.TextContent);
+        Assert.Equal("My AI Statistics", tab.GetAttribute("title"));
+    }
+
+    [Fact]
+    public async Task OnMore_ReplacesTheSheet_AndMirrorsTheExpandedStateOfWhatItReveals()
+    {
+        var raised = 0;
+        var cut = RenderWith(SampleItems(), parameters => parameters
+            .Add(p => p.OnMore, EventCallback.Factory.Create(this, () => raised++))
+            .Add(p => p.IsMoreExpanded, true)
+            .Add(p => p.MoreControls, "base-navigation"));
+
+        var more = cut.Find("button.base-bottom-more");
+        Assert.Equal("true", more.GetAttribute("aria-expanded"));
+        Assert.Equal("base-navigation", more.GetAttribute("aria-controls"));
+        Assert.Null(more.GetAttribute("aria-haspopup"));
+
+        await cut.InvokeAsync(() => more.Click());
+
+        Assert.Equal(1, raised);
+        Assert.DoesNotContain("base-more-sheet", cut.Markup);
+    }
+
+    [Fact]
+    public void OnMore_ShowsTheMoreTabEvenWithoutSecondaryItems()
+    {
+        var cut = RenderWith(
+            [new() { Href = "/", Label = "Home", IsMobilePrimary = true }],
+            parameters => parameters.Add(p => p.OnMore, EventCallback.Factory.Create(this, () => { })));
+
+        Assert.Single(cut.FindAll("button.base-bottom-more"));
+    }
 }

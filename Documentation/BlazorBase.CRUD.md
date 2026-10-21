@@ -285,6 +285,12 @@ Key parameters:
 | `ActionGroups` | `IList<CrudActionGroup<TModel>>?` | Dynamic action groups |
 | `PageSize` | `int` | Rows per page. Default: `50` |
 | `DefaultSorts` | `List<SortDescriptor>?` | The order shown until the user sorts; see "Order and paging" below |
+| `FilterDefaults` | `ListFilterDefaults?` | Presets, default filter and storage key declared in code; see "Saved filters, presets and defaults" below |
+| `EnableSavedFilters` | `bool` | Lets users save/load their own filters when an `IListFilterStore` is registered. Default: `true` |
+| `MobileLayout` | `BaseListMobileLayout` | `Auto` (default): tiles below the breakpoint, table above; `Always`; `Never`. See "Smartphone tiles" below |
+| `MobileBreakpoint` | `int?` | Container width in px below which tiles replace the table. Default `700` (`MobileCardPlanResolver.DefaultBreakpoint`); `0` keeps the table |
+| `MobileCard` | `MobileCardConfiguration<TModel>?` | Which properties a tile shows and the part each plays (also `BaseListConfiguration.MobileCard`) |
+| `MobileTemplate` | `RenderFragment<TModel>?` | Custom markup for the body of a tile |
 
 UI features:
 - **Click-to-edit row** + hover highlight + pointer cursor
@@ -344,6 +350,85 @@ Clicking a sortable column header replaces that order: the sort goes to the data
 top rows of the whole data set, not the best of the pages loaded so far. The database, the HTTP endpoint and
 the in-memory provider all sort every row; a second click reverses the direction.
 
+#### Smartphone tiles
+
+A wide table that scrolls sideways is a poor phone experience, so below a container width a list shows **one
+tile per item** instead of the table. Everything else stays: paging and infinite scroll, load more, sorting,
+filtering, the add button, row click (the card opens, deep link included), the context menu, selection and the
+row actions.
+
+**Switching.** A `ResizeObserver` (`baseListMobile.js`) watches the width of the list itself - the container,
+not the window, so a list in a narrow side panel of a wide screen switches too - and tells the list when it
+crosses `MobileBreakpoint` (default 700 px). Only one of the two layouts is ever rendered, so the virtualized
+grid is not built while tiles are shown and the other way round; the first answer arrives before the first page is
+loaded, so there is no flash of the wrong layout. `MobileLayout = Always` / `Never` bypasses the script. The
+root element carries `base-list-mobile` while tiles are shown, so a page can react in CSS
+(`.page:has(.base-list-mobile) .scroll-hint { display: none }`).
+
+**The tile.** A title, an optional subtitle, badges (chips), up to a few label and value pairs, an optional action
+row and a trailing **more button** (44 x 44 px) that opens the same menu as the table row (also reachable by a
+long press where the browser sends a `contextmenu` event). Tapping the tile does what clicking a row does; while a
+selection is going on it toggles the selection instead, because a touch screen has no Shift key (the selection
+marks appear once something is selected - start it from the more menu). A value that is empty is left off the
+tile, and so is a column with a template whose property is `null`. Above the tiles a sticky **sort bar** offers the
+sortable columns plus "Default order" and a direction button; like a header click it sorts on the data provider,
+not on the loaded page. The filter button of the list header opens the filter panel as usual.
+
+**What the tile shows** - four ways, strongest first:
+
+1. The list's tile configuration (fluent builder, or the `MobileCard` parameter):
+
+```csharp
+var list = new BaseListBuilder<User>()
+    .Column(u => u.Email).Column(u => u.UserName).Column(u => u.IsInactive).Column(u => u.CreatedOn)
+    .MobileCard(card => card
+        .Title(u => u.Email)
+        .Subtitle(u => u.UserName)
+        .Badge(u => u.IsInactive)               // a chip with the column title while true
+        .Field(u => u.CreatedOn)                // label and value; add "Label" as 2nd argument to override the label
+        .Field(u => u.NumberOfSessionsCreated)  // a property without a list column is read from the item
+        .MaxFields(3))                          // optional cap, also for explicit declarations
+    .MobileBreakpoint(600)
+    .Build();
+```
+
+2. A role on the column - in markup `<BaseColumn Property="..." MobileRole="MobileRole.Title" />` (with an
+   optional `MobilePriority="2"` to order columns of the same role), in the builder
+   `.Column(u => u.Email, c => c.Mobile(MobileRole.Title))`.
+3. A role on the entity property: `[MobileVisible(Role = MobileRole.Title)]`, `[MobileVisible(Order = 1)]`
+   (a plain field), `[MobileVisible(Role = MobileRole.Hidden)]`.
+4. **Automatic fallback** when nothing declares a title, subtitle, field or badge: the title is the first text
+   column, the subtitle the second, up to two boolean or enum columns become badges, and at most four more columns
+   follow - text before dates before numbers. Raw identifiers (`Id`, `...Id`), `Guid`s, binary data, collections
+   and untemplated objects are never chosen; a column whose template shows a foreign key as a name is.
+
+As soon as any source declares a title, subtitle, field or badge, the tile shows exactly the declared columns
+(plus action columns); undecided columns are ignored. A tile without a title column falls back to the first
+undecided text column, then to the item's display key.
+
+`MobileRole` values: `Auto`, `Hidden`, `Title`, `Subtitle`, `Field`, `Badge`, `Actions`.
+
+**Row action buttons.** A column with the role `Actions` is not a label and value pair: its template becomes the
+tile's action row (Accept / Reject, Run now, Apply ...), with 44 px buttons. An unsortable column with a template
+bound to `Id` is taken for such a column without a role. `MobileCardBuilder.Actions(item => ...)` adds a row
+without a column. Whatever else the context menu offers (`ContextMenuActions`) is behind the more button.
+
+**Full control.** `MobileTemplate` (or `MobileCardBuilder.Template`) replaces the body of the tile; the tile keeps
+its frame (tap, more button, selection mark, action row):
+
+```razor
+<BaseList TModel="Order" MobileLayout="BaseListMobileLayout.Auto">
+    <MobileTemplate Context="order"><strong>@order.Number</strong> <span>@order.Customer</span></MobileTemplate>
+    <ChildContent>...</ChildContent>
+</BaseList>
+```
+
+Notes: a tile list scrolls inside the list's own scroll area, like the table, so reaching the end loads the
+next page. A sort picked on the tile list is dropped again when the list switches back to the table (the table
+starts from its header state). All strings are localized (`SortBy`, `SortDefault`, `SortAscending`,
+`SortDescending` in `BlazorBaseCrudResources`). The pieces are public and testable on their own:
+`MobileCardPlanResolver.Resolve(...)` computes the plan, `BaseListCardView<TModel>` draws it.
+
 #### Filter panel fields
 
 The filter panel offers the scalar properties of the entity that the user may read, except the technical
@@ -351,6 +436,100 @@ ones: the primary key (`Id`, `[Key]`) and the foreign keys that only reference a
 or `<Navigation>Id` next to a reference navigation). Naming a technical property explicitly in the filter
 configuration (`Include`, `Field`) still offers it. Enum members are listed with the same display text the
 cards use (`EnumLabelResolver`), while the filter itself keeps comparing by member name.
+
+#### Saved filters, presets and defaults
+
+The filter drawer has a **Saved filters** section (hidden when there is nothing to show) with two parts:
+
+- **Presets** — named filters a developer declares in code and offers to every user ("Only pending").
+- **My filters** — filters the user saved under a name: load, save (new / overwrite / rename), delete and mark one as
+  the **default** (star). Saved filters are stored per user, so they follow the user across browsers and devices.
+
+Choosing a preset or a saved filter applies it immediately and closes the drawer; the drawer's *Reset* clears the
+active filter. On the first load of a list the filter is resolved in this order:
+
+1. the user's **saved default** for the list (an empty saved filter, for example "All", is a valid default and
+   suppresses the code default),
+2. the code default: the preset declared with `isDefault: true`, otherwise the unnamed `DefaultFilter`,
+3. no filter.
+
+A stored filter that names a field the list no longer offers, an operator the field no longer allows, or has
+incomplete conditions is pruned (`FilterModelPruner`) before it is applied, so an outdated filter cannot break the
+query. A store that cannot be reached falls back to the code default instead of failing the list.
+
+**Declaring presets and defaults** (all in `BlazorBase.CRUD.SavedFilters`):
+
+```csharp
+// Fluent: BaseListBuilder
+var config = new BaseListBuilder<Order>()
+    .Column(o => o.Number)
+    .Column(o => o.Status)
+    .FilterPreset("pending", "Only pending", f => f.Is(o => o.Status, OrderStatus.Pending), isDefault: true)
+    .FilterPreset("active", "Only active", f => f.Is(o => o.IsActive, true))
+    .FilterPreset("big-open", "Large open orders", f => f
+        .Is(o => o.Status, OrderStatus.Pending)
+        .Where(o => o.Total, FilterOperator.GreaterThan, 1000m))
+    .Build();
+```
+
+```razor
+@* Markup: one parameter on the list *@
+<BaseList TModel="Order" FilterDefaults="@FilterDefaults"> ... </BaseList>
+
+@code {
+    private static ListFilterDefaults FilterDefaults { get; } = new ListFilterDefaultsBuilder<Order>()
+        .Preset("pending", "Only pending", f => f.Is(o => o.Status, OrderStatus.Pending))
+        .Build();
+}
+```
+
+| Member | Purpose |
+|---|---|
+| `FilterPreset(id, name, configure, isDefault = false)` / `ListFilterDefaultsBuilder.Preset(...)` | Offers a named filter. `id` is unique per list and stable; `isDefault` applies it on first load (only one per list). |
+| `DefaultFilter(configure)` | An unnamed default applied on first load, not offered as a preset. |
+| `FilterListKey(key)` / `ListKey(key)` | Storage key of the users' saved filters. Default: the model type's full name. Give two lists over the same model different keys when their saved filters should not mix. |
+| `FilterGroupBuilder<T>` | `Is(x => x.P, value)`, `Where(x => x.P, FilterOperator.…, value)`, `Or()`, `Group(g => …)`; values are written as the drawer writes them (enum member name, `true`/`false`, `yyyy-MM-dd`). |
+
+Preset names are localizable: the display text is looked up as `FilterPreset_<id>` in the model's resources
+(`<Model>.resx` / `.de.resx`, the usual model-near localization) and falls back to the `name` passed in code.
+
+**Storing user filters.** The list resolves an optional `IListFilterStore` from DI (no store: presets and code defaults
+still work, the "My filters" part is hidden). Register one:
+
+| Host | Registration | Storage |
+|---|---|---|
+| WASM / MAUI with a server | `services.AddBlazorBaseListFiltersClient(c => c.BaseAddress = new Uri(api, "api/list-filters/"), b => b.AddHttpMessageHandler<…>())` | Server, per user (`HttpListFilterStore`) |
+| Server | `services.AddBlazorBaseListFilters<TContext>()` + `app.MapBlazorBaseListFilters()` + `modelBuilder.ApplySavedListFilterConfiguration()` in `OnModelCreating` (then add an EF migration) | EF Core table `SavedListFilters` (`EfListFilterRepository<TContext>`) |
+| No server storage | `services.AddBlazorBaseListFiltersLocalStorage()` or `AddBlazorBaseListFiltersInMemory()` | Browser `localStorage` (per browser profile, not per user) / process memory |
+
+`TContext` must be registered with `AddDbContextFactory<TContext>`. Server-only types
+(`BlazorBase.CRUD.SavedFilters.Server`: `SavedListFilter`, `IListFilterRepository`, `EfListFilterRepository`,
+`MapBlazorBaseListFilters`, `AddBlazorBaseListFilters`, `ApplySavedListFilterConfiguration`) are never referenced by
+the client-side code path; the client only uses `IListFilterStore`, `HttpListFilterStore` and the DTOs.
+
+`IListFilterStore` (`GetAsync`, `SaveAsync`, `DeleteAsync`, `SetDefaultAsync`, all keyed by list key) has the
+semantics: `SaveAsync` with an `Id` renames/overwrites that filter, without one it overwrites the filter of the same
+name (case-insensitive) or creates one; renaming onto another filter's name throws `ListFilterNameConflictException`;
+an unknown id throws `KeyNotFoundException`; `SetAsDefault` / `SetDefaultAsync` keep exactly one default per list.
+
+**Endpoints** (`MapBlazorBaseListFilters(route = "api/list-filters")`, every one `RequireAuthorization()`):
+
+| Verb and path | Purpose | Result |
+|---|---|---|
+| `GET {route}?listKey=` | The caller's filters for the list | `200` list |
+| `POST {route}?listKey=` body `SavedListFilterInput` | Create / overwrite / rename | `200` filter, `400` invalid, `404` unknown id, `409` name taken |
+| `PUT {route}/default?listKey=` body `{ "id": guid? }` | Set or clear the default | `204`, `404` unknown id |
+| `DELETE {route}/{id}?listKey=` | Delete | `204`, `404` |
+
+The user is taken from the authenticated principal (`NameIdentifier`, else `sub`), never from the request; every
+query is restricted to that user, so another user's filters are neither listed nor reachable by id (`404`, not
+`403`). Limits (`ListFilterValidator`): name ≤ 100 characters, list key ≤ 256, ≤ 100 filters per user and list,
+filter depth ≤ 6, ≤ 100 conditions, value ≤ 1000 characters. Mutating calls are subject to the host's CSRF
+protection like every other cookie-authenticated API call, so register the client with the same message handler as
+the CRUD client. There is no foreign key to the user table (the user is the identifier string), so deleting a user
+leaves their rows behind; a host that cares removes them in its user-deletion path.
+
+Localized UI strings live in `SavedFilterResources.resx` / `.de.resx`.
 
 ### `BaseCard<TModel>`
 
@@ -436,6 +615,7 @@ once in `OnAfterSaveAsync`).
 | `BaseEntityAttribute` | class | Triggers DTO source generator |
 | `DefaultSortAttribute(property)` | class | The order a list shows until the user sorts; repeatable, `Descending`, `Order` |
 | `UtcDateTimeAttribute` | property | Marks a `DateTime` without a kind as a UTC instant, so lists show it in the viewer's local time |
+| `MobileVisibleAttribute` | property | The part (`Role`) and `Order` of the property on the tile a list shows on a narrow screen, see "Smartphone tiles" |
 
 ### Core interfaces
 

@@ -104,13 +104,35 @@ export function getRowMenuButtonRect(clientX, clientY) {
 
 const grids = new WeakMap();
 
-function isNearEnd(grid) {
-    const remaining = grid.scrollHeight - grid.scrollTop - grid.clientHeight;
-    return remaining <= Math.max(160, grid.clientHeight * 0.25);
+// The list does not scroll by itself: the page does. The nearest ancestor that scrolls vertically is the
+// scroll container (the layout's main area); a list outside any such container follows the document.
+function findScrollParent(element) {
+    for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+        const overflowY = getComputedStyle(parent).overflowY;
+
+        if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay')
+            return parent;
+    }
+
+    return null;
+}
+
+function viewportBox(scroller) {
+    if (!scroller)
+        return { top: 0, bottom: window.innerHeight };
+
+    const box = scroller.getBoundingClientRect();
+    return { top: box.top + scroller.clientTop, bottom: box.top + scroller.clientTop + scroller.clientHeight };
+}
+
+function isNearEnd(state) {
+    const view = viewportBox(state.scroller);
+    const remaining = state.grid.getBoundingClientRect().bottom - view.bottom;
+    return remaining <= Math.max(160, (view.bottom - view.top) * 0.25);
 }
 
 function requestMoreIfNeeded(state) {
-    if (!state.hasMore || state.requesting || !isNearEnd(state.grid))
+    if (!state.hasMore || state.requesting || !isNearEnd(state))
         return;
 
     state.requesting = true;
@@ -135,11 +157,84 @@ function applyRovingTabindex(state) {
     }
 }
 
+// The grid never scrolls vertically, so the browser cannot keep its header on screen while the page scrolls
+// whenever the grid has to scroll sideways (a scroll container swallows sticky positioning). A grid that
+// fits its box therefore keeps plain CSS sticky ("fits"); a wider one scrolls inside its box ("scroll") and
+// the header follows the page by a translation set here, with a pinned scrollbar mirroring the grid's own.
+function updateStickyHeader(state) {
+    const header = state.grid.querySelector('tr[row-type]');
+    if (!header)
+        return;
+
+    let offset = 0;
+
+    if (state.grid.dataset.mode === 'scroll') {
+        const view = viewportBox(state.scroller);
+        const box = state.grid.getBoundingClientRect();
+        const cell = header.querySelector('th');
+        const headerHeight = cell ? cell.offsetHeight : 0;
+        offset = Math.max(0, Math.min(view.top - box.top, box.height - headerHeight));
+    }
+
+    const value = offset + 'px';
+
+    if (header.style.getPropertyValue('--base-list-sticky-offset') !== value)
+        header.style.setProperty('--base-list-sticky-offset', value);
+}
+
+function updateLayout(state) {
+    const grid = state.grid;
+    const table = grid.querySelector('table');
+
+    if (table !== state.table) {
+        if (state.table)
+            state.resizeObserver.unobserve(state.table);
+
+        state.table = table;
+
+        if (table)
+            state.resizeObserver.observe(table);
+    }
+
+    const wanted = grid.scrollWidth > grid.clientWidth + 1 ? 'scroll' : 'fits';
+
+    if (grid.dataset.mode !== wanted)
+        grid.dataset.mode = wanted;
+
+    if (state.proxyContent) {
+        const width = grid.scrollWidth + 'px';
+
+        if (state.proxyContent.style.width !== width)
+            state.proxyContent.style.width = width;
+    }
+
+    const sticky = state.scroller ? -parseFloat(getComputedStyle(state.scroller).paddingTop) || 0 : 0;
+    const stickyValue = sticky + 'px';
+
+    if (grid.style.getPropertyValue('--base-list-sticky-top') !== stickyValue)
+        grid.style.setProperty('--base-list-sticky-top', stickyValue);
+
+    const stickyBottom = state.scroller ? -parseFloat(getComputedStyle(state.scroller).paddingBottom) || 0 : 0;
+    const stickyBottomValue = stickyBottom + 'px';
+
+    if (state.proxy && state.proxy.style.getPropertyValue('--base-list-sticky-bottom') !== stickyBottomValue)
+        state.proxy.style.setProperty('--base-list-sticky-bottom', stickyBottomValue);
+
+    updateStickyHeader(state);
+}
+
 export function observeGrid(grid, dotNetRef, restoreFocusKey) {
     if (!grid || grids.has(grid))
         return;
 
-    const state = { grid, dotNetRef, hasMore: false, requesting: false, current: null, scheduled: false, pendingRestoreKey: restoreFocusKey || null };
+    const proxy = grid.nextElementSibling && grid.nextElementSibling.classList.contains('base-list-hscroll')
+        ? grid.nextElementSibling
+        : null;
+
+    const state = {
+        grid, dotNetRef, proxy, proxyContent: proxy ? proxy.firstElementChild : null, scroller: findScrollParent(grid),
+        table: null, hasMore: false, requesting: false, current: null, scheduled: false, pendingRestoreKey: restoreFocusKey || null
+    };
 
     const schedule = () => {
         if (state.scheduled)
@@ -149,10 +244,29 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
         requestAnimationFrame(() => {
             state.scheduled = false;
             applyRovingTabindex(state);
+            updateLayout(state);
         });
     };
 
-    state.onScroll = () => requestMoreIfNeeded(state);
+    state.onPageScroll = () => {
+        updateStickyHeader(state);
+        requestMoreIfNeeded(state);
+    };
+
+    state.onResize = () => {
+        updateLayout(state);
+        requestMoreIfNeeded(state);
+    };
+
+    state.onGridScroll = () => {
+        if (state.proxy && Math.abs(state.proxy.scrollLeft - grid.scrollLeft) >= 1)
+            state.proxy.scrollLeft = grid.scrollLeft;
+    };
+
+    state.onProxyScroll = () => {
+        if (Math.abs(state.proxy.scrollLeft - grid.scrollLeft) >= 1)
+            grid.scrollLeft = state.proxy.scrollLeft;
+    };
 
     state.onFocusIn = event => {
         const cell = event.target && event.target.closest ? event.target.closest('td[role="gridcell"]') : null;
@@ -170,16 +284,37 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
     state.observer = new MutationObserver(schedule);
     state.observer.observe(grid, { childList: true, subtree: true });
 
-    grid.addEventListener('scroll', state.onScroll, { passive: true });
+    state.resizeObserver = new ResizeObserver(schedule);
+    state.resizeObserver.observe(grid);
+
+    state.scrollTarget = state.scroller || window;
+    state.scrollTarget.addEventListener('scroll', state.onPageScroll, { passive: true });
+    window.addEventListener('resize', state.onResize, { passive: true });
+    grid.addEventListener('scroll', state.onGridScroll, { passive: true });
     grid.addEventListener('focusin', state.onFocusIn);
+
+    if (state.proxy)
+        state.proxy.addEventListener('scroll', state.onProxyScroll, { passive: true });
+
     grids.set(grid, state);
 
     schedule();
 }
 
 export function scrollGridToTop(grid) {
-    if (grid)
-        grid.scrollTop = 0;
+    const state = grids.get(grid);
+    if (!state)
+        return;
+
+    const delta = grid.getBoundingClientRect().top - viewportBox(state.scroller).top;
+
+    if (delta >= 0)
+        return;
+
+    if (state.scroller)
+        state.scroller.scrollTop += delta;
+    else
+        window.scrollBy(0, delta);
 }
 
 export function updateGrid(grid, hasMore) {
@@ -188,6 +323,11 @@ export function updateGrid(grid, hasMore) {
         return;
 
     state.hasMore = hasMore;
+
+    requestAnimationFrame(() => {
+        updateLayout(state);
+        requestMoreIfNeeded(state);
+    });
 
     if (state.pendingRestoreKey) {
         const key = state.pendingRestoreKey;
@@ -202,7 +342,14 @@ export function disposeGrid(grid) {
         return;
 
     state.observer.disconnect();
-    grid.removeEventListener('scroll', state.onScroll);
+    state.resizeObserver.disconnect();
+    state.scrollTarget.removeEventListener('scroll', state.onPageScroll);
+    window.removeEventListener('resize', state.onResize);
+    grid.removeEventListener('scroll', state.onGridScroll);
     grid.removeEventListener('focusin', state.onFocusIn);
+
+    if (state.proxy)
+        state.proxy.removeEventListener('scroll', state.onProxyScroll);
+
     grids.delete(grid);
 }

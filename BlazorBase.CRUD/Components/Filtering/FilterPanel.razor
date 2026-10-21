@@ -14,6 +14,13 @@
                       IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())" />
     </div>
 
+    @if (SavedFilters is { IsAvailable: true })
+    {
+        <div class="filter-panel-saved">
+            <SavedFilterMenu Saved="SavedFilters" Current="Root" OnLoad="@OnSavedFilterLoadedAsync" />
+        </div>
+    }
+
     <div class="filter-panel-body">
         @if (Fields.Count == 0)
         {

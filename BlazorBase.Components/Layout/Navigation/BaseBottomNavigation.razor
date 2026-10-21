@@ -7,6 +7,7 @@
                  Match="@(item.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)"
                  class="base-bottom-tab"
                  ActiveClass="active"
+                 title="@(item.ShortLabel is null ? null : item.Label)"
                  aria-current="@AriaCurrent(item)">
             <span class="base-bottom-tab-icon">
                 @if (item.Icon is not null)
@@ -14,17 +15,18 @@
                     <FluentIcon Value="@item.Icon" />
                 }
             </span>
-            <span class="base-bottom-tab-label">@item.Label</span>
+            <span class="base-bottom-tab-label">@(item.ShortLabel ?? item.Label)</span>
         </NavLink>
     }
     @if (HasMore)
     {
         <button type="button"
-                class="base-bottom-tab base-bottom-more @(IsMoreOpen ? "more-active" : null)"
+                class="base-bottom-tab base-bottom-more @(IsMoreTabExpanded ? "more-active" : null)"
                 @ref="MoreButtonElement"
-                @onclick="ToggleMoreSheet"
-                aria-expanded="@IsMoreOpen.ToString().ToLowerInvariant()"
-                aria-haspopup="dialog">
+                @onclick="OnMoreClickedAsync"
+                aria-expanded="@IsMoreTabExpanded.ToString().ToLowerInvariant()"
+                aria-controls="@(UsesHostMore ? MoreControls : null)"
+                aria-haspopup="@(UsesHostMore ? null : "dialog")">
             <span class="base-bottom-tab-icon">
                 <FluentIcon Value="@MoreIcon" />
             </span>

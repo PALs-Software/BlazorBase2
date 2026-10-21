@@ -22,6 +22,11 @@ namespace BlazorBase.Components.Layout;
 /// Header content can mark elements with <c>base-header-wide-only</c> to hide them at 768 px and below,
 /// and navigation content can mark elements with <c>base-nav-narrow-only</c> to show them only in the
 /// drawer at that width — the place to move controls that do not fit a phone header.
+/// The brand is centered in the header by default (<see cref="BrandPosition"/>). A settings button at the end of
+/// the header opens a <see cref="BaseSettingsPanel"/> with the language and theme plus the host's own sections
+/// (<see cref="SettingsContent"/>), next to a quick theme toggle. Given <see cref="BottomNavigationItems"/>, a phone
+/// (768 px and below) also gets a bottom bar with quick links and a "More" tab that opens the drawer; the bar is a
+/// row of the shell, so the content never runs behind it, and it steps aside while the on-screen keyboard is open.
 /// </remarks>
 public partial class BaseLayout(
     IThemeService themeService,
@@ -43,9 +48,16 @@ public partial class BaseLayout(
     [Parameter]
     public string AppTitle { get; set; } = string.Empty;
 
-    /// <summary>Replaces the plain <see cref="AppTitle"/> text at the start of the header, e.g. with a logo.</summary>
+    /// <summary>Replaces the plain <see cref="AppTitle"/> text in the header, e.g. with a logo.</summary>
     [Parameter]
     public RenderFragment? Brand { get; set; }
+
+    /// <summary>
+    /// Where the brand (or the title) sits in the header: centered between the navigation button and the actions,
+    /// or at its start next to the button.
+    /// </summary>
+    [Parameter]
+    public BrandPosition BrandPosition { get; set; } = BrandPosition.Center;
 
     [Parameter]
     public RenderFragment? Navigation { get; set; }
@@ -56,20 +68,67 @@ public partial class BaseLayout(
     [Parameter]
     public RenderFragment? HeaderContent { get; set; }
 
+    /// <summary>Shows the quick theme toggle in the header, in front of the settings button.</summary>
+    [Parameter]
+    public bool ShowThemeToggle { get; set; } = true;
+
+    /// <summary>Shows the settings button in the header and the <see cref="BaseSettingsPanel"/> it opens.</summary>
+    [Parameter]
+    public bool ShowSettings { get; set; } = true;
+
+    /// <summary>Sections the host adds to the settings panel, below the language and the theme.</summary>
+    [Parameter]
+    public RenderFragment<SettingsPanelContext>? SettingsContent { get; set; }
+
+    /// <summary>The languages the settings panel offers; null offers English and German.</summary>
+    [Parameter]
+    public IReadOnlyList<KeyValuePair<string, string>>? LanguageOptions { get; set; }
+
+    /// <summary>
+    /// Raised with the language code chosen in the settings panel instead of changing the language directly, so the
+    /// host can store the choice before it calls <see cref="ILanguageService.SetLanguageAsync"/> itself.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnLanguageSelected { get; set; }
+
+    /// <summary>
+    /// The navigation entries a phone's bottom bar draws its quick links from — normally the list the side
+    /// navigation shows. The bar appears at 768 px and below and is left out while this is null or empty.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<NavigationItem>? BottomNavigationItems { get; set; }
+
+    /// <summary>The most quick links in the bottom bar, not counting its "More" tab.</summary>
+    [Parameter]
+    public int MaxBottomBarItems { get; set; } = 4;
+
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
     private IJSObjectReference? Module;
     private DotNetObjectReference<BaseLayout>? SelfReference;
     private FluentButton? NavigationToggle;
+    private FluentButton? SettingsToggle;
     private ElementReference NavigationHost;
     private ElementReference MainContent;
     private bool IsCompact;
+    private bool IsPhone;
     private bool IsDrawerOpen;
+    private bool IsSettingsOpen;
     private bool IsCollapsed;
     private bool BrowserStateApplied;
     private bool FocusDrawerAfterRender;
     private bool RestoreFocusAfterRender;
+
+    private const string SettingsPanelId = "base-settings";
+
+    private bool IsBrandCentered => BrandPosition == BrandPosition.Center;
+
+    private bool HasBottomBar => IsPhone && BottomNavigationItems is { Count: > 0 };
+
+    private EventCallback MoreCallback => Navigation is null
+        ? default
+        : EventCallback.Factory.Create(this, ToggleNavigationAsync);
 
     private DesignThemeModes CurrentMode => ThemeService.CurrentTheme switch
     {
@@ -80,7 +139,7 @@ public partial class BaseLayout(
 
     private NavigationLayoutContext NavigationContext => new(IsCollapsed && !IsCompact, CloseDrawerAsync);
 
-    private bool IsMainInert => IsDrawerOpen && IsCompact;
+    private bool IsMainInert => (IsDrawerOpen && IsCompact) || IsSettingsOpen;
 
     private string NavigationExpandedValue => (IsCompact ? IsDrawerOpen : !IsCollapsed) ? "true" : "false";
 
@@ -147,6 +206,16 @@ public partial class BaseLayout(
     });
 
     /// <summary>
+    /// Called from the browser when the viewport crosses the phone breakpoint, where the bottom bar takes over.
+    /// </summary>
+    [JSInvokable]
+    public Task OnPhoneChanged(bool isPhone) => InvokeAsync(() =>
+    {
+        IsPhone = isPhone;
+        StateHasChanged();
+    });
+
+    /// <summary>
     /// Called from the browser when Escape is pressed while the drawer is open and the focus is outside it.
     /// </summary>
     [JSInvokable]
@@ -180,6 +249,23 @@ public partial class BaseLayout(
         var module = await LoadModuleAsync();
         SelfReference ??= DotNetObjectReference.Create(this);
         IsCompact = await module.InvokeAsync<bool>("watchCompact", SelfReference);
+        IsPhone = await module.InvokeAsync<bool>("watchPhone", SelfReference);
+    }
+
+    private async Task OpenSettingsAsync()
+    {
+        if (IsDrawerOpen)
+            await CloseDrawerAsync();
+
+        IsSettingsOpen = true;
+    }
+
+    private async Task CloseSettingsAsync()
+    {
+        IsSettingsOpen = false;
+
+        if (SettingsToggle?.Element is { } toggle)
+            await toggle.FocusAsync();
     }
 
     private async Task ToggleNavigationAsync()
@@ -234,12 +320,13 @@ public partial class BaseLayout(
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
     {
-        if (!IsDrawerOpen)
+        if (!IsDrawerOpen && !IsSettingsOpen)
             return;
 
         _ = InvokeAsync(() =>
         {
             IsDrawerOpen = false;
+            IsSettingsOpen = false;
             RestoreFocusAfterRender = true;
             StateHasChanged();
         });
@@ -260,6 +347,7 @@ public partial class BaseLayout(
             try
             {
                 await Module.InvokeVoidAsync("unwatchCompact");
+                await Module.InvokeVoidAsync("unwatchPhone");
                 await Module.DisposeAsync();
             }
             catch (JSDisconnectedException)

@@ -243,4 +243,182 @@ public sealed class BaseLayoutTests : ComponentsBunitTestContextBase
         Assert.DoesNotContain("open", cut.Find("aside#base-navigation").ClassList);
         Assert.False(cut.Find("main").HasAttribute("inert"));
     }
+
+    private void SimulatePhoneViewport(bool alsoCompact = false)
+    {
+        var module = JSInterop.SetupModule("./_content/BlazorBase.Components/js/layout.js");
+        module.Setup<bool>("watchPhone", _ => true).SetResult(true);
+
+        if (alsoCompact)
+            module.Setup<bool>("watchCompact", _ => true).SetResult(true);
+    }
+
+    private static IReadOnlyList<NavigationItem> QuickLinks() =>
+    [
+        new() { Href = "/", Label = "Home", MatchAll = true, IsMobilePrimary = true },
+        new() { Href = "/projects", Label = "Projects", IsMobilePrimary = true },
+    ];
+
+    private IRenderedComponent<BaseLayout> RenderWithBottomBar(IReadOnlyList<NavigationItem>? items)
+    {
+        var navigationItems = new List<NavigationItem> { new() { Href = "/projects", Label = "Projects" } };
+
+        return Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.BottomNavigationItems, items)
+            .Add(p => p.Navigation, builder =>
+            {
+                builder.OpenComponent<BaseSideNavigation>(0);
+                builder.AddAttribute(1, nameof(BaseSideNavigation.Items), (IReadOnlyList<NavigationItem>)navigationItems);
+                builder.CloseComponent();
+            }));
+    }
+
+    [Fact]
+    public void Brand_IsCenteredByDefault_AndCanStayAtTheStart()
+    {
+        var centered = Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.Brand, "<img alt=\"logo\" />"));
+        var atStart = Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.BrandPosition, BrandPosition.Start)
+            .Add(p => p.Brand, "<img alt=\"logo\" />"));
+
+        Assert.Contains("brand-centered", centered.Find("header").ClassList);
+        Assert.Single(centered.FindAll(".base-header-center .base-header-brand"));
+        Assert.Contains("brand-start", atStart.Find("header").ClassList);
+        Assert.Empty(atStart.FindAll(".base-header-center"));
+        Assert.Single(atStart.FindAll(".base-header-start .base-header-brand"));
+    }
+
+    [Fact]
+    public void Header_OffersTheThemeToggleAndTheSettingsButton_ButNoLanguagePicker()
+    {
+        var cut = RenderWithNavigation();
+
+        Assert.Single(cut.FindAll(".base-header-theme"));
+        Assert.Equal("dialog", cut.Find("fluent-button.base-settings-toggle").GetAttribute("aria-haspopup"));
+        Assert.Empty(cut.FindAll("header fluent-select"));
+    }
+
+    [Fact]
+    public void ShowSettingsAndThemeToggle_CanBeSwitchedOff()
+    {
+        var cut = Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.ShowSettings, false)
+            .Add(p => p.ShowThemeToggle, false));
+
+        Assert.Empty(cut.FindAll(".base-settings-toggle"));
+        Assert.Empty(cut.FindAll(".base-header-theme"));
+    }
+
+    [Fact]
+    public void SettingsButton_OpensThePanelWithHostSections_AndClosesItAgain()
+    {
+        var cut = Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.SettingsContent, context => builder =>
+            {
+                builder.OpenElement(0, "p");
+                builder.AddAttribute(1, "id", "host-section");
+                builder.CloseElement();
+            })
+            .AddChildContent("<p id=\"page\">Page</p>"));
+        Assert.Empty(cut.FindAll(".base-settings-panel"));
+
+        cut.Find("fluent-button.base-settings-toggle").Click();
+
+        Assert.Single(cut.FindAll(".base-settings-panel #host-section"));
+        Assert.Equal("true", cut.Find("fluent-button.base-settings-toggle").GetAttribute("aria-expanded"));
+        Assert.True(cut.Find("main").HasAttribute("inert"));
+
+        cut.Find("fluent-button.base-settings-close").Click();
+
+        Assert.Empty(cut.FindAll(".base-settings-panel"));
+        Assert.False(cut.Find("main").HasAttribute("inert"));
+    }
+
+    [Fact]
+    public void NavigatingWhileTheSettingsPanelIsOpen_ClosesIt()
+    {
+        var cut = RenderWithNavigation();
+        cut.Find("fluent-button.base-settings-toggle").Click();
+
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/projects");
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".base-settings-panel")));
+    }
+
+    [Fact]
+    public async Task LanguageChosenInThePanel_IsHandedToTheHost()
+    {
+        var chosen = new List<string>();
+        LanguageService.CurrentLanguage.Returns("en");
+        var cut = Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.OnLanguageSelected, EventCallback.Factory.Create<string>(this, code => chosen.Add(code))));
+        cut.Find("fluent-button.base-settings-toggle").Click();
+
+        await cut.InvokeAsync(() => cut.FindAll("fluent-radio-group")[0].TriggerEventAsync("onradiogroupchange", new ChangeEventArgs { Value = "de" }));
+
+        Assert.Equal(["de"], chosen);
+    }
+
+    [Fact]
+    public void PhoneViewport_ShowsTheBottomBarWithQuickLinksAndAMoreTab()
+    {
+        SimulatePhoneViewport();
+
+        var cut = RenderWithBottomBar(QuickLinks());
+
+        Assert.Contains("has-bottom-bar", cut.Find(".layout-root").ClassList);
+        Assert.Equal(2, cut.FindAll(".base-bottom-host a.base-bottom-tab").Count);
+        Assert.Single(cut.FindAll(".base-bottom-host button.base-bottom-more"));
+    }
+
+    [Fact]
+    public void WideViewport_HasNoBottomBar()
+    {
+        var cut = RenderWithBottomBar(QuickLinks());
+
+        Assert.Empty(cut.FindAll(".base-bottom-host"));
+        Assert.DoesNotContain("has-bottom-bar", cut.Find(".layout-root").ClassList);
+    }
+
+    [Fact]
+    public void WithoutBottomNavigationItems_PhoneGetsNoBottomBar()
+    {
+        SimulatePhoneViewport();
+
+        var cut = RenderWithBottomBar(null);
+
+        Assert.Empty(cut.FindAll(".base-bottom-host"));
+    }
+
+    [Fact]
+    public void MoreTab_OpensTheNavigationDrawer()
+    {
+        SimulatePhoneViewport(alsoCompact: true);
+        var cut = RenderWithBottomBar(QuickLinks());
+
+        cut.Find("button.base-bottom-more").Click();
+
+        Assert.Contains("open", cut.Find("aside#base-navigation").ClassList);
+        Assert.Equal("true", cut.Find("button.base-bottom-more").GetAttribute("aria-expanded"));
+        Assert.Equal("base-navigation", cut.Find("button.base-bottom-more").GetAttribute("aria-controls"));
+        Assert.Empty(cut.FindAll(".base-more-sheet"));
+    }
+
+    [Fact]
+    public void LeavingThePhoneViewport_RemovesTheBottomBar()
+    {
+        SimulatePhoneViewport();
+        var cut = RenderWithBottomBar(QuickLinks());
+
+        cut.InvokeAsync(() => cut.Instance.OnPhoneChanged(false));
+
+        Assert.Empty(cut.FindAll(".base-bottom-host"));
+    }
 }

@@ -205,6 +205,21 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     private HashSet<TModel> SelectedItems { get; } = [];
     private bool IsSelectionActive => SelectedItems.Count > 0;
 
+    /// <summary>
+    /// Whether selecting rows leads anywhere: only a delete or a bulk action consumes a selection, so a
+    /// read-only list does not offer one.
+    /// </summary>
+    private bool IsSelectionAvailable =>
+        CanDelete || ResolvedActionGroups.Any(group => group.Actions.Any(action => action.IsBulkAction));
+
+    private bool HasContextMenuBaseEntries => CanEdit || CanDelete || IsSelectionAvailable;
+
+    /// <summary>
+    /// Whether a row has anything to offer in its menu; a list without entries gets no more-button column.
+    /// </summary>
+    private bool HasContextMenuEntries =>
+        HasContextMenuBaseEntries || ContextMenuActions is not null || ContextMenuActionGroups.Count > 0;
+
     #endregion
 
     #region Context Menu State
@@ -307,8 +322,10 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         SelfReference = DotNetObjectReference.Create(this);
         await JsModule.InvokeVoidAsync("observeGrid", GridContainerRef, SelfReference, ResolveInitialFocusRestoreKey());
 
+        await InitializeMobileLayoutAsync();
         await LoadCurrentUserAsync();
         ResolveFilterFields();
+        await InitializeSavedFiltersAsync();
         await LoadDataAsync();
 
         if (EnableDeepLinking)
@@ -436,7 +453,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         if (row.Item is null)
             return;
 
-        if (LastShiftState)
+        if (LastShiftState && IsSelectionAvailable)
         {
             ToggleSelection(row.Item);
             return;
@@ -470,6 +487,9 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private async Task OnContextMenuAsync(MouseEventArgs e)
     {
+        if (!HasContextMenuEntries)
+            return;
+
         if (JsModule is not null)
         {
             var isOnRow = await JsModule.InvokeAsync<bool>("isPointOnDataRow", GridContainerRef, e.ClientX, e.ClientY);
@@ -630,6 +650,9 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         foreach (var displayKeyName in ResolveExplicitDisplayKeyNames())
             selectFields.Add(displayKeyName);
+
+        foreach (var mobileName in MobileExtraSelectNames)
+            selectFields.Add(mobileName);
 
         return [.. selectFields];
     }
@@ -1691,6 +1714,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             await dialog.CloseAsync();
 
         SelfReference?.Dispose();
+
+        await DisposeMobileLayoutAsync();
 
         if (JsModule is null)
             return;

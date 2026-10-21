@@ -24,8 +24,27 @@ public sealed record NavigationItem
     /// <summary>When set, the entry is only shown to users in this role.</summary>
     public string? RequiredRole { get; init; }
 
-    /// <summary>Whether this entry appears as a primary tab in the mobile bottom bar; otherwise it lands in the "More" sheet.</summary>
+    /// <summary>
+    /// Whether this entry appears as a quick link in the mobile bottom bar, wherever it sits in the tree;
+    /// otherwise it is only reachable through "More". When no entry is flagged the bar falls back to the first
+    /// top-level links.
+    /// </summary>
     public bool IsMobilePrimary { get; init; }
+
+    /// <summary>Position among the bottom bar tabs; lower values come first, equal values keep the order of the list.</summary>
+    public int BottomBarOrder { get; init; }
+
+    /// <summary>Shorter text for the bottom bar tab, where a tab only has room for a word or two. Falls back to <see cref="Label"/>.</summary>
+    public string? ShortLabel { get; init; }
+
+    /// <summary>
+    /// Stable identity of a group that survives a language change, used to remember whether the group is
+    /// expanded. Falls back to <see cref="Label"/>, which is localized and so only stable within one language.
+    /// </summary>
+    public string? Key { get; init; }
+
+    /// <summary>The key a group is remembered under.</summary>
+    public string StateKey => Key ?? Label;
 
     /// <summary>Renders the entry with a destructive accent (e.g. logout).</summary>
     public bool IsDanger { get; init; }
