@@ -70,6 +70,7 @@
     <div class="base-list-grid" @ref="GridContainerRef"
          @onmousedown="OnMouseDown"
          @oncontextmenu="OnContextMenuAsync" @oncontextmenu:preventDefault>
+        <RenderGate Key="@GridRenderKey">
         @if (IsMobileLayout)
         {
             <BaseListCardView TModel="TModel" View="@BuildMobileView()" />
@@ -178,6 +179,7 @@
                 }
             </FluentDataGrid>
         }
+        </RenderGate>
     </div>
     <div class="base-list-hscroll" aria-hidden="true" tabindex="-1"><div></div></div>
 

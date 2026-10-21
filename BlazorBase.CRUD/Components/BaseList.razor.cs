@@ -259,6 +259,24 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     private GridItemsProvider<TModel>? GridProvider { get; set; }
     private Dictionary<PropertyColumnConfig<TModel>, GridSort<TModel>> SortByColumns { get; } = [];
     private int DataVersion { get; set; }
+    private int ParametersVersion { get; set; }
+    private int SelectionVersion { get; set; }
+
+    /// <summary>
+    /// What the rows on screen depend on. The rows are the expensive part of a long list, so they are rebuilt only when
+    /// this changes and not for every render of the list, which a context menu, the filter panel or the loading
+    /// indicator each cause.
+    /// </summary>
+    private object GridRenderKey => (
+        DataVersion,
+        ParametersVersion,
+        SelectionVersion,
+        IsMobileLayout,
+        ShowsRows: LoadedItems.Count > 0 || IsLoading,
+        ResolvedColumns.Count,
+        CurrentUser,
+        Sort: CurrentSorts.FirstOrDefault()?.PropertyName + CurrentSorts.FirstOrDefault()?.Direction);
+
     private int RenderedVersion { get; set; }
     private int RefreshedVersion { get; set; }
     private int LoadVersion { get; set; }
@@ -435,6 +453,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     protected override async Task OnParametersSetAsync()
     {
+        ParametersVersion++;
+
         if (PreviousAdditionalFilters is not null && AdditionalFilters != PreviousAdditionalFilters)
             await LoadDataAsync();
 
@@ -619,12 +639,16 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private void ToggleSelection(TModel item)
     {
+        SelectionVersion++;
+
         if (!SelectedItems.Remove(item))
             SelectedItems.Add(item);
     }
 
     private void SelectAll()
     {
+        SelectionVersion++;
+
         foreach (var item in LoadedItems)
             SelectedItems.Add(item);
 
@@ -633,6 +657,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private void DeselectAll()
     {
+        SelectionVersion++;
         SelectedItems.Clear();
         CloseContextMenu();
     }
@@ -1073,6 +1098,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         foreach (var item in itemsToDelete)
             await OnDeleteItemAsync(item);
 
+        SelectionVersion++;
         SelectedItems.Clear();
     }
 

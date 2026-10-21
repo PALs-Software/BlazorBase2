@@ -47,7 +47,7 @@
 }
 
 ::deep .base-bottom-tab-label {
-    line-height: 1;
+    line-height: 1.25;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
