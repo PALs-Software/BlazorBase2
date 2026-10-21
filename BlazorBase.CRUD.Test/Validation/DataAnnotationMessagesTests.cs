@@ -90,6 +90,69 @@ public class DataAnnotationMessagesTests
         Assert.Equal("custom failure", message);
     }
 
+    /// <summary>
+    /// The DataType based attributes put their English default into <c>ErrorMessage</c> themselves; that is not a message
+    /// the consumer wrote and must not stop the framework from translating it.
+    /// </summary>
+    [Fact]
+    public void Url_UsesTheGermanTemplate_DespiteTheAttributeStoringItsEnglishDefault()
+    {
+        using var _ = UiCulture.Use("de-DE");
+        var attribute = new UrlAttribute();
+
+        var message = DataAnnotationMessages.Build(attribute, "Website-Basis-URL", attribute.ErrorMessage!, FrameworkLocalizer(), null);
+
+        Assert.Equal("Das Feld „Website-Basis-URL“ enthält keine gültige URL.", message);
+    }
+
+    [Theory]
+    [InlineData(typeof(EmailAddressAttribute), "Das Feld „Feld“ enthält keine gültige E-Mail-Adresse.")]
+    [InlineData(typeof(PhoneAttribute), "Das Feld „Feld“ enthält keine gültige Telefonnummer.")]
+    [InlineData(typeof(CreditCardAttribute), "Das Feld „Feld“ enthält keine gültige Kreditkartennummer.")]
+    public void DataTypeAttributes_UseTheGermanTemplate(Type attributeType, string expected)
+    {
+        using var _ = UiCulture.Use("de-DE");
+        var attribute = (ValidationAttribute)Activator.CreateInstance(attributeType)!;
+
+        var message = DataAnnotationMessages.Build(attribute, "Feld", attribute.ErrorMessage!, FrameworkLocalizer(), null);
+
+        Assert.Equal(expected, message);
+    }
+
+    [Fact]
+    public void Compare_NamesTheOtherFieldByItsLocalizedLabel()
+    {
+        using var _ = UiCulture.Use("de-DE");
+        var attribute = new CompareAttribute("Password");
+
+        var message = DataAnnotationMessages.Build(
+            attribute, "Bestätigung", attribute.ErrorMessage!, FrameworkLocalizer(), null, name => name == "Password" ? "Passwort" : name);
+
+        Assert.Equal("Das Feld „Bestätigung“ stimmt nicht mit dem Feld „Passwort“ überein.", message);
+    }
+
+    [Fact]
+    public void RegularExpression_UsesTheGermanTemplate()
+    {
+        using var _ = UiCulture.Use("de-DE");
+
+        var message = DataAnnotationMessages.Build(new RegularExpressionAttribute("^a$"), "Code", "unused", FrameworkLocalizer(), null);
+
+        Assert.Equal("Das Feld „Code“ hat ein ungültiges Format.", message);
+    }
+
+    [Fact]
+    public void Url_WithAConsumerMessage_IsStillTranslatedByTheModelLocalizer()
+    {
+        var attribute = new UrlAttribute { ErrorMessage = "Please enter a web address" };
+        var modelLocalizer = Substitute.For<IStringLocalizer>();
+        modelLocalizer["Please enter a web address"].Returns(new LocalizedString("Please enter a web address", "Bitte eine Webadresse eingeben", false));
+
+        var message = DataAnnotationMessages.Build(attribute, "Website", "Please enter a web address", FrameworkLocalizer(), modelLocalizer);
+
+        Assert.Equal("Bitte eine Webadresse eingeben", message);
+    }
+
     private static IStringLocalizer FrameworkLocalizer() => TestFrameworkLocalizer.Create();
 
     private sealed class CustomAttribute : ValidationAttribute;

@@ -163,3 +163,71 @@ h1[tabindex="-1"]:focus,
 h1[tabindex="-1"]:focus-visible {
     outline: none;
 }
+
+/*
+   A heading is set in a large size, so one long compound word - common in German, "Benachrichtigungseinstellungen" -
+   is wider than a phone and was cut off at the edge with nothing to scroll to. Hyphenating where the language
+   allows it and breaking anywhere as the last resort keeps every character on screen.
+*/
+h1,
+h2,
+h3,
+h4 {
+    overflow-wrap: anywhere;
+    hyphens: auto;
+}
+
+/*
+   A switch or checkbox is only as high as its label line (20px), which is too small a target for a finger. The row
+   gets the minimum target height and the label stays centred in it.
+*/
+fluent-switch,
+fluent-checkbox,
+fluent-radio {
+    min-height: 32px;
+}
+
+/*
+   A modal dialog is centred in the full window, which on a notched phone puts its top edge or its buttons under the
+   status bar, the camera cutout or the home indicator. Padding the positioning layer by the safe-area insets centres
+   it in what is actually visible; the control then never grows beyond that area.
+*/
+fluent-dialog::part(positioning-region) {
+    box-sizing: border-box;
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+
+/*
+   Toasts sit below the header instead of over it, so the bell, the language and theme controls and the sign-out
+   button stay reachable while one is shown, and clear of the device safe areas (notch, home indicator) on phones.
+   The doubled :root outranks FluentUI's scoped position rules, which are loaded after this file.
+*/
+:root .fluent-toast-provider.position-topleft,
+:root .fluent-toast-provider.position-topright,
+:root .fluent-toast-provider.position-topcenter {
+    top: calc(var(--base-header-height, 56px) + env(safe-area-inset-top, 0px) + 8px);
+}
+
+:root .fluent-toast-provider.position-bottomleft,
+:root .fluent-toast-provider.position-bottomright,
+:root .fluent-toast-provider.position-bottomcenter {
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+:root .fluent-toast-provider.position-topleft,
+:root .fluent-toast-provider.position-bottomleft {
+    left: max(16px, env(safe-area-inset-left, 0px));
+}
+
+:root .fluent-toast-provider.position-topright,
+:root .fluent-toast-provider.position-bottomright {
+    right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+:root .fluent-toast-provider {
+    max-width: calc(100vw - 32px);
+}
+
+:root .fluent-toast-provider fluent-toast {
+    max-width: 100%;
+}

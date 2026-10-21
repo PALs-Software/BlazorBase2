@@ -13,9 +13,11 @@ namespace BlazorBase.Components.Layout;
 /// The application shell: a header, a navigation area and the main content.
 /// </summary>
 /// <remarks>
-/// Above 1024 px the navigation is a persistent rail that the header button reduces to icons. At 1024 px
+/// Above 1024 px the navigation is a persistent rail that the header button reduces to icons; the choice is
+/// remembered in the browser. At 1024 px
 /// and below it becomes an off-canvas drawer opened by the same button, closed again by navigating,
-/// Escape or a click on the overlay; focus moves into the drawer while it is open and back to the
+/// Escape or a click on the overlay; focus moves into the drawer while it is open, Tab cycles through the
+/// drawer and its button instead of reaching the page behind it, and focus returns to the
 /// button afterwards. The shell fills the dynamic viewport and only the main content scrolls.
 /// Header content can mark elements with <c>base-header-wide-only</c> to hide them at 768 px and below,
 /// and navigation content can mark elements with <c>base-nav-narrow-only</c> to show them only in the
@@ -65,6 +67,7 @@ public partial class BaseLayout(
     private bool IsCompact;
     private bool IsDrawerOpen;
     private bool IsCollapsed;
+    private bool BrowserStateApplied;
     private bool FocusDrawerAfterRender;
     private bool RestoreFocusAfterRender;
 
@@ -96,13 +99,21 @@ public partial class BaseLayout(
         ThemeService.ThemeChanged += OnThemeChanged;
         LanguageService.LanguageChanged += OnLanguageChanged;
         NavigationManager.LocationChanged += OnLocationChanged;
+
+        try
+        {
+            await ApplyBrowserStateAsync();
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            await ThemeService.ApplyAsync();
+            await ApplyBrowserStateAsync();
             await WatchViewportAsync();
             StateHasChanged();
             return;
@@ -135,13 +146,40 @@ public partial class BaseLayout(
         StateHasChanged();
     });
 
-    private async Task WatchViewportAsync()
+    /// <summary>
+    /// Called from the browser when Escape is pressed while the drawer is open and the focus is outside it.
+    /// </summary>
+    [JSInvokable]
+    public Task OnEscapeOutsideDrawer() => InvokeAsync(CloseDrawerWithFocusAsync);
+
+    /// <summary>
+    /// Applies what only the browser knows before the first content is shown: the theme, so the account preference
+    /// does not appear after a flash of the wrong one, and the remembered collapsed state of the navigation rail.
+    /// </summary>
+    /// <remarks>
+    /// Runs from <c>OnInitializedAsync</c> so the first render already carries both. Where JavaScript is not yet
+    /// available (prerendering) the call throws and the first-render pass runs it instead.
+    /// </remarks>
+    private async Task ApplyBrowserStateAsync()
     {
+        if (BrowserStateApplied)
+            return;
+
+        await ThemeService.ApplyAsync();
+        var module = await LoadModuleAsync();
+        IsCollapsed = await module.InvokeAsync<bool>("readCollapsed");
+        BrowserStateApplied = true;
+    }
+
+    private async Task<IJSObjectReference> LoadModuleAsync() =>
         Module ??= await JsRuntime.InvokeAsync<IJSObjectReference>(
             "import", "./_content/BlazorBase.Components/js/layout.js");
 
+    private async Task WatchViewportAsync()
+    {
+        var module = await LoadModuleAsync();
         SelfReference ??= DotNetObjectReference.Create(this);
-        IsCompact = await Module.InvokeAsync<bool>("watchCompact", SelfReference);
+        IsCompact = await module.InvokeAsync<bool>("watchCompact", SelfReference);
     }
 
     private async Task ToggleNavigationAsync()
@@ -149,6 +187,10 @@ public partial class BaseLayout(
         if (!IsCompact)
         {
             IsCollapsed = !IsCollapsed;
+
+            if (Module is not null)
+                await Module.InvokeVoidAsync("writeCollapsed", IsCollapsed);
+
             return;
         }
 

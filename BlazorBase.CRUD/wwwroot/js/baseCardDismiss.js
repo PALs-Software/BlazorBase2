@@ -1,3 +1,5 @@
+import { isPopupOpen } from './baseSelectPopup.js';
+
 const stack = [];
 let counter = 0;
 
@@ -6,6 +8,9 @@ function onKeyDown(event) {
         return;
 
     if (stack.length === 0)
+        return;
+
+    if (isPopupOpen())
         return;
 
     const entry = stack[stack.length - 1];

@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Security.Claims;
+using System.Text.Json.Serialization;
 using BlazorBase.CRUD.Components.CustomProperties;
+using BlazorBase.CRUD.Components.Internal;
 using BlazorBase.CRUD.Configuration;
 using BlazorBase.CRUD.Core;
 using BlazorBase.CRUD.Display;
@@ -35,6 +37,7 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
     #endregion
 
     private ElementReference CardRootElement { get; set; }
+    private CardErrorBoundary? ErrorBoundary { get; set; }
     private IJSObjectReference? DismissModule { get; set; }
     private DotNetObjectReference<BaseCard<TModel>>? SelfReference { get; set; }
     private string? DismissToken { get; set; }
@@ -294,13 +297,13 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
     {
         get
         {
+            if (IsNewModel)
+                return FrameworkLocalizer["DialogTitleAdd"].Value;
+
             var displayKeyText = DisplayKeyResolver.BuildDisplayString(
                 Model, ResolveDisplayKeyPropertyNames(), ResolvedDisplayKeySeparator);
 
-            if (!string.IsNullOrEmpty(displayKeyText))
-                return displayKeyText;
-
-            return IsNewModel ? FrameworkLocalizer["DialogTitleAdd"].Value : FrameworkLocalizer["DialogTitleEdit"].Value;
+            return string.IsNullOrEmpty(displayKeyText) ? FrameworkLocalizer["DialogTitleEdit"].Value : displayKeyText;
         }
     }
 
@@ -421,7 +424,7 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
         if (!firstRender)
             return;
 
-        if (CollectedDisplayKeys.Count > 0)
+        if (CollectedDisplayKeys.Count > 0 || CollectedListParts.Count > 0)
             StateHasChanged();
 
         DismissModule = await JsRuntime.InvokeAsync<IJSObjectReference>(
@@ -577,8 +580,13 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
                     Model = await provider.PatchAsync(idValue!, changedFields, ConcurrencyStamp);
             }
 
-            foreach (var listPart in RegisteredListParts.Values)
+            foreach (var (propertyName, listPart) in RegisteredListParts)
+            {
+                if (isNew && IsSentWithParent(propertyName))
+                    continue;
+
                 await listPart.FlushAsync(Model!);
+            }
 
             SnapshotOriginalValues();
         }
@@ -594,6 +602,12 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
             StateHasChanged();
             return;
         }
+        catch (HttpRequestException ex)
+        {
+            ErrorMessage = FrameworkLocalizer["SaveFailed", DescribeFailure(ex)].Value;
+            StateHasChanged();
+            return;
+        }
 
         foreach (var participant in SaveParticipants)
             await participant.OnAfterSaveAsync(saveContext);
@@ -603,6 +617,26 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
         if (OnAfterSave.HasDelegate)
             await OnAfterSave.InvokeAsync(Model);
     }
+
+    private bool IsSentWithParent(string propertyName)
+    {
+        var listPart = ResolvedListParts.FirstOrDefault(part => part.PropertyName == propertyName);
+
+        return listPart is not null && IsSerializedWithParent(ExpressionHelper.GetPropertyInfo(listPart.Property));
+    }
+
+    /// <summary>
+    /// Whether the JSON payload of the parent carries the items of this collection. The generic endpoint stores a
+    /// created parent together with everything it carries, so items sent along must not be created a second time.
+    /// </summary>
+    internal static bool IsSerializedWithParent(PropertyInfo property) =>
+        property.GetCustomAttribute<JsonIgnoreAttribute>() is not { Condition: JsonIgnoreCondition.Always };
+
+    private static string DescribeFailure(HttpRequestException exception) =>
+        exception.StatusCode is { } statusCode ? $"HTTP {(int)statusCode}" : exception.Message;
+
+    private static string DescribeException(Exception exception) =>
+        exception is HttpRequestException httpException ? DescribeFailure(httpException) : exception.Message;
 
     private void ApplyParticipantMessage(CardSaveContext context)
     {
@@ -667,8 +701,8 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
         return builder =>
         {
             var propertyInfo = ExpressionHelper.GetPropertyInfo(listPartConfig.Property);
-            var itemType = propertyInfo.PropertyType
-                .GetInterfaces()
+            var itemType = new[] { propertyInfo.PropertyType }
+                .Concat(propertyInfo.PropertyType.GetInterfaces())
                 .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))
                 .Select(i => i.GetGenericArguments()[0])
                 .FirstOrDefault();

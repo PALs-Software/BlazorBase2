@@ -139,3 +139,31 @@ fluent-dialog .base-card {
         grid-template-columns: repeat(var(--max-columns, 3), minmax(0, 1fr));
     }
 }
+
+@media (max-height: 500px) {
+    fluent-dialog .base-card {
+        max-height: calc(100dvh - 4.5rem);
+    }
+
+    .base-card {
+        gap: 8px;
+        padding: 8px 12px 0 12px;
+    }
+
+    .base-card-title {
+        font-size: 16px;
+    }
+
+    .base-card-content,
+    .base-card ::deep .base-card-form {
+        gap: 8px;
+    }
+
+    .base-card-grid {
+        gap: 8px 12px;
+    }
+
+    .base-card-actions {
+        padding: 8px 0;
+    }
+}

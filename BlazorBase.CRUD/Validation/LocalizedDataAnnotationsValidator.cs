@@ -130,7 +130,7 @@ public sealed class LocalizedDataAnnotationsValidator : ComponentBase, IDisposab
                 continue;
 
             var attributeMessage = result.ErrorMessage ?? string.Empty;
-            store.Add(identifier, DataAnnotationMessages.Build(attribute, label, attributeMessage, FrameworkLocalizer, ModelLocalizer));
+            store.Add(identifier, DataAnnotationMessages.Build(attribute, label, attributeMessage, FrameworkLocalizer, ModelLocalizer, LabelResolver));
             return true;
         }
 

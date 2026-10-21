@@ -106,9 +106,9 @@
 @media (max-width: 1024px) {
     .notification-bell-panel {
         position: fixed;
-        top: calc(var(--base-header-height, 56px) + 8px);
-        inset-inline: auto 8px;
+        top: calc(var(--base-header-height, 56px) + env(safe-area-inset-top, 0px) + 8px);
+        inset-inline: auto max(8px, env(safe-area-inset-right, 0px));
         width: min(360px, calc(100vw - 16px));
-        max-height: calc(100dvh - var(--base-header-height, 56px) - 24px);
+        max-height: calc(100dvh - var(--base-header-height, 56px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
     }
 }

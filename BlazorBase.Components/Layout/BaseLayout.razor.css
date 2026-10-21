@@ -2,12 +2,16 @@
     --base-header-height: 56px;
     --base-header-control-size: 40px;
     --base-nav-width: 260px;
+    --base-safe-top: env(safe-area-inset-top, 0px);
+    --base-safe-right: env(safe-area-inset-right, 0px);
+    --base-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --base-safe-left: env(safe-area-inset-left, 0px);
 
     position: fixed;
     inset: 0;
     height: 100dvh;
     display: grid;
-    grid-template-rows: var(--base-header-height) minmax(0, 1fr);
+    grid-template-rows: calc(var(--base-header-height) + var(--base-safe-top)) minmax(0, 1fr);
     overflow: hidden;
     background: var(--color-bg-surface);
     color: var(--color-text-primary);
@@ -16,7 +20,7 @@
 .base-skip-link {
     position: absolute;
     top: -100px;
-    inset-inline-start: 8px;
+    left: max(8px, var(--base-safe-left));
     z-index: 100;
     padding: 8px 16px;
     border: 1px solid var(--color-border-focus);
@@ -28,7 +32,7 @@
 }
 
 .base-skip-link:focus-visible {
-    top: 8px;
+    top: calc(8px + var(--base-safe-top));
     outline: 2px solid var(--color-border-focus);
     outline-offset: 2px;
 }
@@ -38,7 +42,7 @@
     align-items: center;
     gap: 4px;
     min-width: 0;
-    padding: 0 12px;
+    padding: var(--base-safe-top) max(12px, var(--base-safe-right)) 0 max(12px, var(--base-safe-left));
     z-index: 50;
     background: var(--color-bg-elevated);
     color: var(--color-text-primary);
@@ -89,6 +93,8 @@
     flex: 0 0 auto;
     min-height: 0;
     overflow: hidden;
+    padding-block-end: var(--base-safe-bottom);
+    padding-inline-start: var(--base-safe-left);
     background: var(--color-bg-elevated);
     border-inline-end: 1px solid var(--color-border);
 }
@@ -121,7 +127,7 @@
     min-width: 0;
     min-height: 0;
     overflow: auto;
-    padding: 1rem 1.5rem;
+    padding: 1rem max(1.5rem, var(--base-safe-right)) max(1rem, var(--base-safe-bottom)) 1.5rem;
 }
 
 .body-content:focus {
@@ -134,6 +140,7 @@
         inset-block: 0;
         inset-inline-start: 0;
         z-index: 40;
+        box-sizing: border-box;
         width: min(320px, calc(100vw - 48px));
         border-inline-end: 1px solid var(--color-border);
         box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
@@ -159,11 +166,26 @@
         z-index: 30;
         background: rgb(0 0 0 / 0.45);
     }
+
+    .body-content {
+        padding-left: max(1.5rem, var(--base-safe-left));
+    }
+}
+
+@media (max-height: 559px) {
+    .base-nav-host {
+        overflow-y: auto;
+    }
+
+    .base-nav-host > ::deep .base-side-nav {
+        flex: none;
+        overflow: visible;
+    }
 }
 
 @media (max-width: 768px) {
     .base-header {
-        padding: 0 8px;
+        padding: var(--base-safe-top) max(8px, var(--base-safe-right)) 0 max(8px, var(--base-safe-left));
     }
 
     .base-header-title {
@@ -179,7 +201,7 @@
     }
 
     .body-content {
-        padding: 12px;
+        padding: 12px max(12px, var(--base-safe-right)) max(12px, var(--base-safe-bottom)) max(12px, var(--base-safe-left));
     }
 }
 

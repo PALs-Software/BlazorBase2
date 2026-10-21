@@ -298,4 +298,31 @@
   <data name="LoadedOfTotal" xml:space="preserve">
     <value>{0} of {1} loaded</value>
   </data>
+  <data name="SaveFailed" xml:space="preserve">
+    <value>The entry could not be saved ({0}). Please try again.</value>
+  </data>
+  <data name="CardUnexpectedError" xml:space="preserve">
+    <value>Something went wrong: {0}</value>
+  </data>
+  <data name="Validation_Compare" xml:space="preserve">
+    <value>The {0} field does not match the {1} field.</value>
+  </data>
+  <data name="Validation_CreditCard" xml:space="preserve">
+    <value>The {0} field is not a valid credit card number.</value>
+  </data>
+  <data name="Validation_FileExtensions" xml:space="preserve">
+    <value>The {0} field only accepts files with the following extensions: {1}</value>
+  </data>
+  <data name="Validation_Length" xml:space="preserve">
+    <value>The {0} field must have a length between {1} and {2}.</value>
+  </data>
+  <data name="Validation_Base64String" xml:space="preserve">
+    <value>The {0} field is not a valid Base64 encoded string.</value>
+  </data>
+  <data name="Validation_AllowedValues" xml:space="preserve">
+    <value>The {0} field does not contain an allowed value.</value>
+  </data>
+  <data name="Validation_DeniedValues" xml:space="preserve">
+    <value>The {0} field contains a value that is not allowed.</value>
+  </data>
 </root>

@@ -150,6 +150,55 @@ public sealed class BaseLayoutTests : ComponentsBunitTestContextBase
     }
 
     [Fact]
+    public void CompactViewport_EscapeOutsideTheDrawerClosesTheDrawer()
+    {
+        SimulateCompactViewport();
+        var cut = RenderWithNavigation();
+        cut.Find("fluent-button.base-nav-toggle").Click();
+
+        cut.InvokeAsync(() => cut.Instance.OnEscapeOutsideDrawer());
+
+        Assert.DoesNotContain("open", cut.Find("aside#base-navigation").ClassList);
+        Assert.False(cut.Find("main").HasAttribute("inert"));
+    }
+
+    [Fact]
+    public void AppliesTheThemeOnceBeforeTheFirstContentIsShown()
+    {
+        var cut = RenderWithNavigation();
+
+        _ = ThemeService.Received(1).ApplyAsync();
+        Assert.Equal("page", cut.Find("main#base-main #page").Id);
+    }
+
+    [Fact]
+    public void WideViewport_RestoresTheCollapsedStateRememberedByTheBrowser()
+    {
+        var module = JSInterop.SetupModule("./_content/BlazorBase.Components/js/layout.js");
+        module.Setup<bool>("readCollapsed").SetResult(true);
+
+        var cut = RenderWithNavigation();
+
+        Assert.Contains("collapsed", cut.Find("nav.base-side-nav").ClassList);
+        Assert.Equal("false", cut.Find("fluent-button.base-nav-toggle").GetAttribute("aria-expanded"));
+    }
+
+    [Fact]
+    public void WideViewport_TogglingRemembersTheCollapsedStateInTheBrowser()
+    {
+        var module = JSInterop.SetupModule("./_content/BlazorBase.Components/js/layout.js");
+        module.SetupVoid("writeCollapsed", true).SetVoidResult();
+        module.SetupVoid("writeCollapsed", false).SetVoidResult();
+        var cut = RenderWithNavigation();
+
+        cut.Find("fluent-button.base-nav-toggle").Click();
+        cut.Find("fluent-button.base-nav-toggle").Click();
+
+        var written = module.Invocations["writeCollapsed"].Select(invocation => (bool)invocation.Arguments[0]!).ToList();
+        Assert.Equal([true, false], written);
+    }
+
+    [Fact]
     public void CompactViewport_ClickingInsideTheNavigationClosesTheDrawer()
     {
         SimulateCompactViewport();

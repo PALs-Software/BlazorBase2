@@ -25,6 +25,15 @@
             <CascadingValue Value="@((IActionGroupCollector<TModel>)this)" IsFixed="true">
                 <CascadingValue Value="@((IDisplayKeyCollector<TModel>)this)" IsFixed="true">
                     <CascadingValue Value="@FieldErrors" IsFixed="true">
+                        <CardErrorBoundary @ref="ErrorBoundary">
+                        <ErrorContent Context="cardException">
+                            <FluentMessageBar Intent="@MessageIntent.Error"
+                                              AllowDismiss="true"
+                                              OnDismiss="@(() => ErrorBoundary?.Recover())">
+                                @FrameworkLocalizer["CardUnexpectedError", DescribeException(cardException)]
+                            </FluentMessageBar>
+                        </ErrorContent>
+                        <ChildContent>
                         <div class="base-card-content @(IsContentLoading ? "base-card-content-loading" : null)">
                             @ChildContent
 
@@ -109,6 +118,8 @@
                                 }
                             </EditForm>
                         </div>
+                        </ChildContent>
+                        </CardErrorBoundary>
                     </CascadingValue>
                 </CascadingValue>
             </CascadingValue>
