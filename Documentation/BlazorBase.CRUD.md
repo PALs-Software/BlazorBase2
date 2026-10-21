@@ -306,11 +306,22 @@ UI features:
 - **Boolean columns** render the framework's localized `BoolTrue`/`BoolFalse` ("Yes"/"No", "Ja"/"Nein"),
   the same wording the filter panel offers for the property — not the raw CLR `True`/`False`.
 - **Column width** — a column's `Width` (markup `Width="120px"` or fluent `.Width("120px")`) is any
-  valid CSS grid track. Columns left without one share the remaining space equally but never shrink
-  below `--base-list-column-min-width` (default `9rem`), so a narrow viewport scrolls the grid sideways
-  inside its container. A cell clips what does not fit with an ellipsis and carries the full text as a
-  tooltip, and a header carries its title as a tooltip, so one long value cannot widen a column and
-  columns do not jump while a virtualized grid scrolls.
+  valid CSS grid track. Columns left without one get a width that suits what they hold: a floor per
+  data type (yes/no narrow, numbers narrow, date and time and enums wider, e-mail addresses -
+  `[EmailAddress]`, an `Email`/`Mail`/`UserPrincipalName` property name - and long text widest, names in
+  between), raised where the header title would not fit on two lines, plus a share of the free space in
+  proportion. Plain text columns never shrink below `--base-list-column-min-width` (default `10rem`). A
+  narrow viewport scrolls the grid sideways inside its container, and a soft shadow on the sticky "more"
+  column shows that more columns lie beyond it. A cell clips what does not fit with an ellipsis and
+  carries the full text as a tooltip; a header wraps to a second line before it is cut, and carries the
+  column description (`<Property>_Tooltip`) as a tooltip on its text while the sort button keeps the
+  column title as its accessible name.
+- **Date and time columns** show the short date and time (the date alone at midnight), in the viewer's
+  local time when the stored value is a UTC instant: a `DateTime` of kind `Utc`, a `DateTimeOffset`, the
+  audit fields `CreatedOn`/`ModifiedOn` of `AuditModel` (UTC by convention, but without a kind once read
+  from a database or JSON), or any property marked `[UtcDateTime]`. Any other value is shown as stored,
+  which is what a date-only value or a server-local timestamp needs. "Local" is the time zone of the
+  runtime, i.e. the browser's under WebAssembly - the same as the notification bell.
 - **Shift+Click multi-select** + auto-appearing selection-indicator column
 - **Bulk delete** with confirmation
 - **Per-column** `Sortable` / `Filterable` (default: both `true`)
@@ -327,6 +338,19 @@ list, `BaseListConfiguration.DefaultSorts` (`BaseListBuilder.DefaultSort(x => x.
 the entity's `[DefaultSort(nameof(CreatedOn), Descending = true)]` attributes. Whatever was asked for,
 `DbContextBaseDataProvider` appends the primary key as the last tie-breaker (and keeps an order the query
 customizer imposed when none was asked for), so `Skip`/`Take` pages are deterministic.
+
+Clicking a sortable column header replaces that order: the sort goes to the data provider as the query's
+`Sorts`, the first page is loaded again in the new order and paging starts over, so the top rows are the true
+top rows of the whole data set, not the best of the pages loaded so far. The database, the HTTP endpoint and
+the in-memory provider all sort every row; a second click reverses the direction.
+
+#### Filter panel fields
+
+The filter panel offers the scalar properties of the entity that the user may read, except the technical
+ones: the primary key (`Id`, `[Key]`) and the foreign keys that only reference another row (`[ForeignKey]`,
+or `<Navigation>Id` next to a reference navigation). Naming a technical property explicitly in the filter
+configuration (`Include`, `Field`) still offers it. Enum members are listed with the same display text the
+cards use (`EnumLabelResolver`), while the filter itself keeps comparing by member name.
 
 ### `BaseCard<TModel>`
 
@@ -410,6 +434,8 @@ once in `OnAfterSaveAsync`).
 | `BaseCrudAttribute("route")` | class | Marks entity for auto-registration |
 | `CrudAccessAttribute(roles, rights)` | class & property | Grants R/I/M/D rights to one or more roles. Multiple allowed; combined via union. |
 | `BaseEntityAttribute` | class | Triggers DTO source generator |
+| `DefaultSortAttribute(property)` | class | The order a list shows until the user sorts; repeatable, `Descending`, `Order` |
+| `UtcDateTimeAttribute` | property | Marks a `DateTime` without a kind as a UTC instant, so lists show it in the viewer's local time |
 
 ### Core interfaces
 

@@ -72,7 +72,7 @@
         @if (LoadedItems.Count > 0 || IsLoading)
         {
             <FluentDataGrid @ref="DataGrid"
-                            Items="@CaptureRenderedItems()"
+                            ItemsProvider="@CaptureRenderedProvider()"
                             TGridItem="TModel"
                             Virtualize="true"
                             ItemSize="48"
@@ -94,7 +94,7 @@
                     if (column.Template is not null)
                     {
                         <TemplateColumn Title="@ResolveColumnTitle(column)"
-                                        HeaderTooltip="@ResolveColumnTooltip(column)"
+                                        HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
@@ -105,7 +105,7 @@
                     else if (ResolveCustomDisplay(column) is { } customDisplayType)
                     {
                         <TemplateColumn Title="@ResolveColumnTitle(column)"
-                                        HeaderTooltip="@ResolveColumnTooltip(column)"
+                                        HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
@@ -113,10 +113,10 @@
                             @RenderCustomDisplayCell(customDisplayType, column, context)
                         </TemplateColumn>
                     }
-                    else if (column.Format is not null)
+                    else if (column.Format is not null || IsDateTimeColumn(column))
                     {
                         <TemplateColumn Title="@ResolveColumnTitle(column)"
-                                        HeaderTooltip="@ResolveColumnTooltip(column)"
+                                        HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
@@ -129,7 +129,7 @@
                     else if (IsBooleanColumn(column))
                     {
                         <TemplateColumn Title="@ResolveColumnTitle(column)"
-                                        HeaderTooltip="@ResolveColumnTooltip(column)"
+                                        HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
@@ -141,14 +141,16 @@
                     }
                     else
                     {
-                        <PropertyColumn Property="@column.Property"
-                                        Title="@ResolveColumnTitle(column)"
-                                        HeaderTooltip="@ResolveColumnTooltip(column)"
+                        <TemplateColumn Title="@ResolveColumnTitle(column)"
+                                        HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
                                         TooltipText="@(item => ResolveCellText(column, item))"
-                                        Sortable="@column.Sortable" />
+                                        Sortable="@column.Sortable"
+                                        SortBy="@(column.Sortable ? CreateSortBy(column) : null)">
+                            @ResolveCellText(column, context)
+                        </TemplateColumn>
                     }
                 }
 
@@ -212,11 +214,13 @@
                 </div>
             }
             <div role="menuitem" @onclick="SelectAll">
+                <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.SelectAllOn())" />
                 <span>@FrameworkLocalizer["SelectAll"]</span>
             </div>
             @if (IsSelectionActive)
             {
                 <div role="menuitem" @onclick="DeselectAll">
+                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.SelectAllOff())" />
                     <span>@FrameworkLocalizer["DeselectAll"]</span>
                 </div>
             }

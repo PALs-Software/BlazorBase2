@@ -177,6 +177,11 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
     schedule();
 }
 
+export function scrollGridToTop(grid) {
+    if (grid)
+        grid.scrollTop = 0;
+}
+
 export function updateGrid(grid, hasMore) {
     const state = grids.get(grid);
     if (!state)

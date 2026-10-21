@@ -55,7 +55,8 @@ public class UserManagementViewTests : UserBunitTestContextBase
         var cut = Render<UserManagementView>();
 
         var grid = cut.FindComponent<Microsoft.FluentUI.AspNetCore.Components.FluentDataGrid<UserModel>>();
-        var items = grid.Instance.Items!.ToList();
+        var result = grid.Instance.ItemsProvider!(default(Microsoft.FluentUI.AspNetCore.Components.GridItemsProviderRequest<UserModel>)).AsTask().GetAwaiter().GetResult();
+        var items = result.Items.ToList();
 
         Assert.Equal(2, items.Count);
         Assert.Contains(items, user => user.DisplayName == "Ada Lovelace" && user.Email == "ada@example.com");

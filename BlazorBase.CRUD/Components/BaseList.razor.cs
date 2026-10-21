@@ -241,8 +241,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     private bool LastShiftState { get; set; }
     private ElementReference GridContainerRef { get; set; }
     private FluentDataGrid<TModel>? DataGrid { get; set; }
-    private IQueryable<TModel>? GridQuery { get; set; }
-    private List<TModel>? GridQuerySource { get; set; }
+    private GridItemsProvider<TModel>? GridProvider { get; set; }
+    private Dictionary<PropertyColumnConfig<TModel>, GridSort<TModel>> SortByColumns { get; } = [];
     private int DataVersion { get; set; }
     private int RenderedVersion { get; set; }
     private int RefreshedVersion { get; set; }
@@ -708,28 +708,92 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     }
 
     /// <summary>
-    /// Hands the grid a query that only changes when the data behind it does, and records which load
-    /// this render carried.
+    /// Hands the grid the provider it reads its rows from, and records which load this render carried.
     /// </summary>
     /// <remarks>
-    /// <c>AsQueryable()</c> wraps a list in a new object every call, and the grid compares its
-    /// <c>Items</c> by reference — so building it inline made every single render look like a new data
-    /// source to the grid: it tore down and recreated a DI scope and re-queried, and the explicit
-    /// refresh below then cancelled that and queried again. Caching the query per collection instance
-    /// stops the churn; the version counter is what still tells a genuine reload apart, including
-    /// loading a further page, which keeps the same collection and would otherwise go unnoticed.
+    /// The grid compares its <c>ItemsProvider</c> by reference, so building the delegate inline made every
+    /// single render look like a new data source to the grid: it re-queried, and the explicit refresh below
+    /// then cancelled that and queried again. One cached delegate stops the churn; the version counter is
+    /// what still tells a genuine reload apart, including loading a further page, which keeps the same
+    /// collection and would otherwise go unnoticed.
     /// </remarks>
-    private IQueryable<TModel> CaptureRenderedItems()
+    private GridItemsProvider<TModel> CaptureRenderedProvider()
     {
-        if (GridQuery is null || !ReferenceEquals(GridQuerySource, LoadedItems))
-        {
-            GridQuerySource = LoadedItems;
-            GridQuery = LoadedItems.AsQueryable();
-        }
-
         RenderedVersion = DataVersion;
 
-        return GridQuery;
+        return GridProvider ??= ProvideGridItemsAsync;
+    }
+
+    /// <summary>
+    /// Serves the grid the loaded rows, and sends a sort the user picked in a column header to the data provider.
+    /// </summary>
+    /// <remarks>
+    /// A header sort used to be the grid's own: it re-ordered whatever was already loaded, so with more than one
+    /// page the top rows were the first page's winners rather than the true ones. The grid is therefore given an
+    /// items provider instead of the loaded rows themselves: the request it hands over names the sorted column,
+    /// which becomes the list's current sort, the first page is loaded again in that order from the data
+    /// provider (the database, the HTTP endpoint or the in-memory list sort everything, not just a page) and
+    /// the paging starts over.
+    /// </remarks>
+    private async ValueTask<GridItemsProviderResult<TModel>> ProvideGridItemsAsync(GridItemsProviderRequest<TModel> request)
+    {
+        var requestedSorts = ResolveRequestedSorts(request);
+
+        if (!HasSameSorts(requestedSorts, CurrentSorts))
+        {
+            CurrentSorts = requestedSorts;
+            await LoadDataAsync();
+            RefreshedVersion = DataVersion;
+            await ScrollGridToTopAsync();
+        }
+
+        var start = Math.Min(request.StartIndex, LoadedItems.Count);
+        var count = Math.Min(request.Count ?? LoadedItems.Count, LoadedItems.Count - start);
+
+        return GridItemsProviderResult.From(LoadedItems.GetRange(start, count), LoadedItems.Count);
+    }
+
+    private List<SortDescriptor> ResolveRequestedSorts(GridItemsProviderRequest<TModel> request)
+    {
+        if (request.SortByColumn?.SortBy is not { } sortBy)
+            return [];
+
+        var column = SortByColumns.FirstOrDefault(pair => ReferenceEquals(pair.Value, sortBy)).Key;
+        if (column is null)
+            return [];
+
+        return
+        [
+            new SortDescriptor
+            {
+                PropertyName = column.PropertyName,
+                Direction = request.SortByAscending ? Models.SortDirection.Ascending : Models.SortDirection.Descending
+            }
+        ];
+    }
+
+    private static bool HasSameSorts(List<SortDescriptor> left, List<SortDescriptor> right)
+    {
+        return left.Count == right.Count
+            && left.Zip(right).All(pair => pair.First.PropertyName == pair.Second.PropertyName
+                && pair.First.Direction == pair.Second.Direction);
+    }
+
+    /// <summary>
+    /// Brings the grid back to its first row after a sort, which is the row the user sorted to find.
+    /// </summary>
+    private async Task ScrollGridToTopAsync()
+    {
+        if (JsModule is null || IsDisposed)
+            return;
+
+        try
+        {
+            await JsModule.InvokeVoidAsync("scrollGridToTop", GridContainerRef);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
     }
 
     /// <summary>
@@ -789,7 +853,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private void ResolveFilterFields()
     {
-        FilterFields = FilterFieldResolver.Resolve(ResolvedFilterConfig, CurrentUser, ResolvedLocalizer);
+        FilterFields = FilterFieldResolver.Resolve(ResolvedFilterConfig, CurrentUser, ResolvedLocalizer, ServiceProvider);
     }
 
     private async Task OpenFilterPanelAsync()
@@ -1398,10 +1462,40 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         return LocalizerResolver.ResolveOptional(ResolvedLocalizer, $"{column.PropertyName}_Tooltip");
     }
 
-    private static GridSort<TModel>? CreateSortBy(PropertyColumnConfig<TModel> column)
+    /// <summary>
+    /// The title of a column header, with the column's description as a tooltip on the text only.
+    /// </summary>
+    /// <remarks>
+    /// Handing the description to the grid as the header tooltip also made it the accessible name of the sort
+    /// button, so a screen reader announced "When this record was first created" instead of the column. The
+    /// button keeps the title as its name and the sort state stays on the column header; the description is
+    /// reachable as a tooltip. The text wraps to two lines before it is cut, and the cut text still has its
+    /// full wording in the tooltip.
+    /// </remarks>
+    private RenderFragment<ColumnBase<TModel>> HeaderTitleTemplate(PropertyColumnConfig<TModel> column)
     {
-        var propertyInfo = ExpressionHelper.GetPropertyInfo(column.Property);
-        return GridSort<TModel>.ByAscending(column.Property);
+        var title = ResolveColumnTitle(column);
+        var tooltip = ResolveColumnTooltip(column);
+
+        return _ => builder =>
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", "base-list-header-title");
+            builder.AddAttribute(2, "title", tooltip);
+            builder.AddContent(3, title);
+            builder.CloseElement();
+        };
+    }
+
+    private GridSort<TModel>? CreateSortBy(PropertyColumnConfig<TModel> column)
+    {
+        if (!SortByColumns.TryGetValue(column, out var sortBy))
+        {
+            sortBy = GridSort<TModel>.ByAscending(column.Property);
+            SortByColumns[column] = sortBy;
+        }
+
+        return sortBy;
     }
 
     private static string? FormatColumnValue(PropertyColumnConfig<TModel> column, TModel item)
@@ -1411,10 +1505,18 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         if (value is null)
             return null;
 
+        var property = ExpressionHelper.GetPropertyInfo(column.Property);
+
+        if (BaseListDateTimeDisplay.IsDateTimeType(property.PropertyType))
+            return BaseListDateTimeDisplay.Format(BaseListDateTimeDisplay.ToDisplayValue(property, value)!, column.Format, CultureInfo.CurrentCulture);
+
         return value is IFormattable formattable
             ? formattable.ToString(column.Format, CultureInfo.CurrentCulture)
             : value.ToString();
     }
+
+    private static bool IsDateTimeColumn(PropertyColumnConfig<TModel> column) =>
+        BaseListDateTimeDisplay.IsDateTimeType(ExpressionHelper.GetPropertyInfo(column.Property).PropertyType);
 
     private static bool IsBooleanColumn(PropertyColumnConfig<TModel> column)
     {
@@ -1443,8 +1545,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     private const string ActionsColumnWidth = "48px";
 
     /// <summary>
-    /// The grid track of a column without an explicit width: an equal share of the free space, never less
-    /// than <c>--base-list-column-min-width</c>.
+    /// The grid track of a column without an explicit width: a share of the free space with a floor that
+    /// suits the data the column holds, see <see cref="BaseListColumnWidth"/>.
     /// </summary>
     /// <remarks>
     /// A bare <c>1fr</c> track has a content-based minimum, so a single long e-mail address widened its
@@ -1453,7 +1555,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     /// independent of what the rows hold; the cell clips what does not fit with an ellipsis and carries
     /// the full text as a tooltip.
     /// </remarks>
-    private const string FlexibleColumnWidth = "minmax(var(--base-list-column-min-width, 9rem), 1fr)";
+    private string ResolveFlexibleColumnWidth(PropertyColumnConfig<TModel> column) =>
+        BaseListColumnWidth.Resolve(ExpressionHelper.GetPropertyInfo(column.Property), ResolveColumnTitle(column));
 
     /// <summary>
     /// The CSS grid track for a column: what the caller asked for, otherwise a flexible share.
@@ -1463,7 +1566,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     /// markup <c>Width</c> and the fluent <c>.Width(...)</c> silently did nothing. A track is emitted
     /// for every column because FluentUI builds the whole template from them.
     /// </remarks>
-    private static string ResolveColumnWidth(PropertyColumnConfig<TModel> column) => column.Width ?? FlexibleColumnWidth;
+    private string ResolveColumnWidth(PropertyColumnConfig<TModel> column) => column.Width ?? ResolveFlexibleColumnWidth(column);
 
     /// <summary>
     /// Marks every data cell so the stylesheet can clip long values, and the columns without an explicit
@@ -1481,7 +1584,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         if (column.Template is not null || ResolveCustomDisplay(column) is not null)
             return null;
 
-        if (column.Format is not null)
+        if (column.Format is not null || IsDateTimeColumn(column))
             return FormatColumnValue(column, item);
 
         if (IsBooleanColumn(column))

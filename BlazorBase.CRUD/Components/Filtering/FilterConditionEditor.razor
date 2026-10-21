@@ -37,7 +37,7 @@
                 <FluentOption Value="">@Localizer["FilterValuePlaceholder"]</FluentOption>
                 @foreach (var name in SelectedField.EnumNames ?? Array.Empty<string>())
                 {
-                    <FluentOption Value="@name">@name</FluentOption>
+                    <FluentOption Value="@name">@SelectedField.EnumLabel(name)</FluentOption>
                 }
             </FluentSelect>
         }

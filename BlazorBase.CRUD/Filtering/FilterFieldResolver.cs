@@ -1,7 +1,10 @@
 using System.Collections.Concurrent;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Reflection;
 using System.Security.Claims;
 using BlazorBase.CRUD.Configuration;
+using BlazorBase.CRUD.Localization;
 using BlazorBase.CRUD.Security;
 using Microsoft.Extensions.Localization;
 
@@ -11,14 +14,24 @@ namespace BlazorBase.CRUD.Filtering;
 /// Builds the list of filterable fields for a model from its scalar properties, honoring the
 /// <see cref="FilterConfiguration{TModel}"/> mode/overrides and the current user's read access.
 /// </summary>
+/// <remarks>
+/// A person filters by what they see in the list, so the technical properties - the primary key and the foreign
+/// keys that only reference another row - are not offered unless the configuration names them explicitly. Enum
+/// members are offered with their display text, resolved like everywhere else by <see cref="EnumLabelResolver"/>.
+/// </remarks>
 public static class FilterFieldResolver
 {
     private static readonly ConcurrentDictionary<Type, List<ScalarProperty>> ScalarCache = new();
 
+    /// <param name="configuration">The filter configuration of the list.</param>
+    /// <param name="user">The current user, or null to skip the read access check.</param>
+    /// <param name="localizer">The localizer of the model's property labels.</param>
+    /// <param name="services">Used to look up the display text of enum members; without it members are shown by name.</param>
     public static List<FilterFieldMetadata> Resolve<TModel>(
         FilterConfiguration<TModel> configuration,
         ClaimsPrincipal? user,
-        IStringLocalizer localizer) where TModel : class
+        IStringLocalizer localizer,
+        IServiceProvider? services = null) where TModel : class
     {
         if (!configuration.Enabled)
             return [];
@@ -38,6 +51,9 @@ public static class FilterFieldResolver
 
             var fieldConfig = configuration.Fields.Find(f => string.Equals(f.PropertyName, scalar.Name, StringComparison.Ordinal));
 
+            if (scalar.IsTechnical && fieldConfig is null)
+                continue;
+
             if (configuration.Mode == FilterFieldSelectionMode.Include && fieldConfig is null)
                 continue;
 
@@ -49,17 +65,30 @@ public static class FilterFieldResolver
                 ? configured
                 : FilterOperatorCatalog.GetDefaultOperators(scalar.Kind, scalar.IsNullable);
 
-            result.Add(new FilterFieldMetadata(scalar.Name, label, scalar.Kind, scalar.ClrType, scalar.IsNullable, [.. operators], scalar.EnumNames));
+            result.Add(new FilterFieldMetadata(
+                scalar.Name, label, scalar.Kind, scalar.ClrType, scalar.IsNullable, [.. operators], scalar.EnumNames,
+                ResolveEnumLabels(scalar, localizer, services)));
         }
 
         return result;
     }
 
+    private static Dictionary<string, string>? ResolveEnumLabels(ScalarProperty scalar, IStringLocalizer localizer, IServiceProvider? services)
+    {
+        if (services is null || scalar.EnumNames is null)
+            return null;
+
+        return scalar.EnumNames.ToDictionary(
+            name => name,
+            name => EnumLabelResolver.Resolve(services, localizer, scalar.Name, scalar.ClrType, Enum.Parse(scalar.ClrType, name)));
+    }
+
     private static List<ScalarProperty> BuildScalarProperties(Type modelType)
     {
         var list = new List<ScalarProperty>();
+        var properties = modelType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
-        foreach (var property in modelType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        foreach (var property in properties)
         {
             if (!property.CanRead || property.GetIndexParameters().Length > 0)
                 continue;
@@ -73,10 +102,29 @@ public static class FilterFieldResolver
             var isNullable = underlying is not null || !property.PropertyType.IsValueType;
             var enumNames = kind == FilterFieldKind.Enum ? Enum.GetNames(clrType) : null;
 
-            list.Add(new ScalarProperty(property.Name, kind, clrType, isNullable, enumNames));
+            list.Add(new ScalarProperty(property.Name, kind, clrType, isNullable, enumNames, IsTechnical(property, properties)));
         }
 
         return list;
+    }
+
+    private static bool IsTechnical(PropertyInfo property, PropertyInfo[] siblings)
+    {
+        if (property.Name == "Id" || property.GetCustomAttribute<KeyAttribute>(inherit: true) is not null)
+            return true;
+
+        if (property.GetCustomAttribute<ForeignKeyAttribute>(inherit: true) is not null)
+            return true;
+
+        if (siblings.Any(other => other.GetCustomAttribute<ForeignKeyAttribute>(inherit: true)?.Name == property.Name))
+            return true;
+
+        if (!property.Name.EndsWith("Id", StringComparison.Ordinal) || property.Name.Length <= 2)
+            return false;
+
+        var navigationName = property.Name[..^2];
+
+        return siblings.Any(other => other.Name == navigationName && !other.PropertyType.IsValueType && other.PropertyType != typeof(string));
     }
 
     private static bool TryClassify(Type clrType, out FilterFieldKind kind)
@@ -134,5 +182,5 @@ public static class FilterFieldResolver
         return result.ResourceNotFound ? propertyName : result.Value;
     }
 
-    private sealed record ScalarProperty(string Name, FilterFieldKind Kind, Type ClrType, bool IsNullable, string[]? EnumNames);
+    private sealed record ScalarProperty(string Name, FilterFieldKind Kind, Type ClrType, bool IsNullable, string[]? EnumNames, bool IsTechnical);
 }

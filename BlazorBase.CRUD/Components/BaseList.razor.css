@@ -78,15 +78,62 @@
     position: sticky;
     top: 0;
     z-index: 2;
-    padding: 10px 14px;
+    display: grid;
+    align-items: center;
+    padding: 10px 14px 10px 6px;
     text-align: left;
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--color-text-primary, var(--neutral-foreground-rest));
     background: var(--color-bg-elevated, var(--neutral-fill-secondary-rest));
     border-bottom: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+}
+
+/*
+   The sticky select and actions cells hold a fixed track of 40 and 48 px. The header rule above carries a
+   horizontal padding of its own that is more specific than the one these cells reset, so their header cell
+   was 28 px wider than the cells below it and overhung the grid edge by that much - the last column header was
+   cut off and the header and body disagreed about where the sticky column starts.
+*/
+::deep .fluent-data-grid tr[row-type='sticky-header'] > th.base-list-actions-column,
+::deep .fluent-data-grid tr[row-type='header'] > th.base-list-actions-column,
+::deep .fluent-data-grid tr[row-type='sticky-header'] > th.base-list-select-column,
+::deep .fluent-data-grid tr[row-type='header'] > th.base-list-select-column {
+    padding-inline: 0;
+}
+
+/*
+   A header title wraps to a second line before it is cut with an ellipsis, so a long title (and every German
+   one) stays readable in a narrow column; the full wording is the button's title either way. The sort button
+   is allowed to grow with it.
+*/
+::deep .base-list-header-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    text-align: left;
+    line-height: 1.25;
+}
+
+::deep fluent-button.col-sort-button {
+    height: auto;
+    min-height: 32px;
+}
+
+::deep tr[row-type] > th .col-title {
+    padding-inline-start: 8px;
+}
+
+::deep fluent-button.col-sort-button::part(control) {
+    height: auto;
+    min-height: 32px;
+    padding-block: 2px;
 }
 
 ::deep .column-header {
@@ -125,8 +172,34 @@
 
 /*
    The per-row more button is the touch and narrow-window route to the context menu, so it has to stay
-   reachable however far the grid is scrolled sideways: the column sticks to the right edge.
+   reachable however far the grid is scrolled sideways: the column sticks to the right edge. While more of
+   the grid lies beyond that edge a soft shadow on the column's left side shows the columns slide under it;
+   it fades out as the grid is scrolled to its end. Browsers without scroll-driven animations keep the
+   plain divider line.
 */
+@property --base-list-edge-shadow {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 0;
+}
+
+@keyframes base-list-edge-shadow-fade {
+    0%, 85% {
+        --base-list-edge-shadow: 1;
+    }
+
+    100% {
+        --base-list-edge-shadow: 0;
+    }
+}
+
+@supports (animation-timeline: scroll()) {
+    .base-list-grid {
+        animation: base-list-edge-shadow-fade linear both;
+        animation-timeline: scroll(self inline);
+    }
+}
+
 ::deep th.base-list-actions-column,
 ::deep td.base-list-actions-column {
     position: sticky;
@@ -135,6 +208,7 @@
     padding-inline: 0;
     text-align: center;
     background: var(--color-bg-surface, var(--neutral-layer-1));
+    box-shadow: -10px 0 8px -8px color-mix(in srgb, var(--color-text-primary, var(--neutral-foreground-rest)) calc(var(--base-list-edge-shadow, 0) * 20%), transparent);
 }
 
 ::deep th.base-list-actions-column {
