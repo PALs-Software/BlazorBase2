@@ -5,18 +5,20 @@
         <FluentStack Orientation="Orientation.Vertical" VerticalGap="12">
             <FluentLabel Typo="Typography.Body">@Content.Message</FluentLabel>
 
-            <FluentInputFile Accept="@Content.FileFilter"
-                             MaximumFileSize="@ResolvedMaxFileSize"
-                             OnFileUploaded="@OnFileUploadedAsync"
-                             Mode="InputFileMode.Stream"
-                             Multiple="false">
-                <ChildContent>
-                    <div class="base-file-input-dialog-drop-area">
-                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ArrowUpload())" />
-                        <span>@Content.FileInputCaption</span>
-                    </div>
-                </ChildContent>
-            </FluentInputFile>
+            <div class="base-file-input-dialog-picker">
+                <FluentInputFile Accept="@Content.FileFilter"
+                                 MaximumFileSize="@ResolvedMaxFileSize"
+                                 OnFileUploaded="@OnFileUploadedAsync"
+                                 Mode="InputFileMode.Stream"
+                                 Multiple="false">
+                    <ChildContent>
+                        <div class="base-file-input-dialog-drop-area">
+                            <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ArrowUpload())" />
+                            <span>@Content.FileInputCaption</span>
+                        </div>
+                    </ChildContent>
+                </FluentInputFile>
+            </div>
 
             @if (SelectedFileName is not null)
             {

@@ -2,12 +2,14 @@ using System.Linq.Expressions;
 using BlazorBase.CRUD.Components;
 using BlazorBase.CRUD.Core;
 using BlazorBase.CRUD.DataProviders;
+using BlazorBase.CRUD.Localization;
 using BlazorBase.CRUD.Models;
 using BlazorBase.CRUD.Test.Infrastructure;
 using BlazorBase.CRUD.Test.Infrastructure.TestEntities;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Localization;
 using NSubstitute;
 using Xunit;
 
@@ -118,6 +120,26 @@ public class BaseListHeaderSortingTests : BunitTestContextBase
         Assert.Equal("CustomerName", button.GetAttribute("aria-label"));
         Assert.Equal("When this order was placed", cut.Find("th .base-list-header-title").GetAttribute("title"));
     }
+
+    [Fact]
+    public void SortedColumn_NamesItsDirectionInTheSortButton_AndOnlyThatColumn()
+    {
+        var cut = RenderList(SortingProvider(Orders()), pageSize: 2);
+        cut.WaitForAssertion(() => Assert.NotEmpty(FirstColumn(cut)));
+
+        cut.Find("th .col-sort-button").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(SortedName("ColumnSortedAscending"), cut.Find("th .col-sort-button").GetAttribute("aria-label")));
+        Assert.Equal("Total", cut.FindAll("th .col-sort-button")[1].GetAttribute("aria-label"));
+
+        cut.Find("th .col-sort-button").Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(SortedName("ColumnSortedDescending"), cut.Find("th .col-sort-button").GetAttribute("aria-label")));
+        Assert.Equal("CustomerName", cut.Find("th .base-list-header-title").TextContent.Trim());
+    }
+
+    private string SortedName(string key) =>
+        string.Format(Services.GetRequiredService<IStringLocalizerFactory>().Create(typeof(BlazorBaseCrudResources))[key].Value, "CustomerName");
 
     private static List<TestOrder> Orders() =>
         [.. Names.Select((name, index) => new TestOrder { Id = Guid.NewGuid(), CustomerName = name, Total = 100 - index * 10 + (name == "Alpha" ? -50 : 0) })];

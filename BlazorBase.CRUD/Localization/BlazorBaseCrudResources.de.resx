@@ -292,6 +292,12 @@
   <data name="MoreActions" xml:space="preserve">
     <value>Weitere Aktionen</value>
   </data>
+  <data name="ColumnSortedAscending" xml:space="preserve">
+    <value>{0}, aufsteigend sortiert</value>
+  </data>
+  <data name="ColumnSortedDescending" xml:space="preserve">
+    <value>{0}, absteigend sortiert</value>
+  </data>
   <data name="LoadMore" xml:space="preserve">
     <value>Mehr laden</value>
   </data>

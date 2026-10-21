@@ -1454,6 +1454,26 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         return column.PropertyName;
     }
 
+    /// <summary>
+    /// The name of a column's sort button: the title, followed by the direction when the user sorted by this column.
+    /// </summary>
+    /// <remarks>
+    /// The grid already states the sort on the column header, but a screen reader announces a button by its name, so
+    /// the direction is part of the name as well ("Name, sorted ascending").
+    /// </remarks>
+    private string ResolveColumnHeaderName(PropertyColumnConfig<TModel> column)
+    {
+        var title = ResolveColumnTitle(column);
+        var sort = column.Sortable ? CurrentSorts.FirstOrDefault(current => current.PropertyName == column.PropertyName) : null;
+
+        if (sort is null)
+            return title;
+
+        var key = sort.Direction == Models.SortDirection.Descending ? "ColumnSortedDescending" : "ColumnSortedAscending";
+
+        return string.Format(FrameworkLocalizer[key].Value, title);
+    }
+
     private string? ResolveColumnTooltip(PropertyColumnConfig<TModel> column)
     {
         if (column.Tooltip is not null)

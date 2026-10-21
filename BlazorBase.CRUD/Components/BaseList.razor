@@ -93,7 +93,7 @@
                 {
                     if (column.Template is not null)
                     {
-                        <TemplateColumn Title="@ResolveColumnTitle(column)"
+                        <TemplateColumn Title="@ResolveColumnHeaderName(column)"
                                         HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
@@ -104,7 +104,7 @@
                     }
                     else if (ResolveCustomDisplay(column) is { } customDisplayType)
                     {
-                        <TemplateColumn Title="@ResolveColumnTitle(column)"
+                                            <TemplateColumn Title="@ResolveColumnHeaderName(column)"
                                         HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
@@ -115,7 +115,7 @@
                     }
                     else if (column.Format is not null || IsDateTimeColumn(column))
                     {
-                        <TemplateColumn Title="@ResolveColumnTitle(column)"
+                                            <TemplateColumn Title="@ResolveColumnHeaderName(column)"
                                         HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
@@ -128,7 +128,7 @@
                     }
                     else if (IsBooleanColumn(column))
                     {
-                        <TemplateColumn Title="@ResolveColumnTitle(column)"
+                                            <TemplateColumn Title="@ResolveColumnHeaderName(column)"
                                         HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
@@ -141,7 +141,7 @@
                     }
                     else
                     {
-                        <TemplateColumn Title="@ResolveColumnTitle(column)"
+                        <TemplateColumn Title="@ResolveColumnHeaderName(column)"
                                         HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"

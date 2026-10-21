@@ -198,6 +198,15 @@ fluent-dialog::part(positioning-region) {
 }
 
 /*
+   Dialogs here carry their own buttons in the body and leave the dialog's action slots empty, but the footer that
+   FluentUI still renders carries a 24 px top padding, which showed as an empty band under the buttons on top of the
+   dialog's own bottom padding. A footer without any control inside takes no space.
+*/
+:root .fluent-dialog-footer.fluent-dialog-footer:not(:has(*)) {
+    display: none;
+}
+
+/*
    Toasts sit below the header instead of over it, so the bell, the language and theme controls and the sign-out
    button stay reachable while one is shown, and clear of the device safe areas (notch, home indicator) on phones.
    The doubled :root outranks FluentUI's scoped position rules, which are loaded after this file.

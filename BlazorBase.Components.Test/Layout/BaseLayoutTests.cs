@@ -6,6 +6,7 @@ using Bunit;
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Components;
+using Microsoft.FluentUI.AspNetCore.Components;
 using NSubstitute;
 using Xunit;
 
@@ -40,6 +41,14 @@ public sealed class BaseLayoutTests : ComponentsBunitTestContextBase
                 builder.CloseComponent();
             })
             .AddChildContent("<p id=\"page\">Page</p>"));
+    }
+
+    [Fact]
+    public void ToastProvider_ShowsAtMostThreeToastsAtOnce()
+    {
+        var cut = Render<BaseLayout>(parameters => parameters.Add(p => p.AppTitle, "Shell"));
+
+        Assert.Equal(3, cut.FindComponent<FluentToastProvider>().Instance.MaxToastCount);
     }
 
     [Fact]
