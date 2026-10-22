@@ -33,7 +33,8 @@ public partial class BaseList<TModel>
             return;
 
         var context = SavedFilterContext.Create(
-            ServiceProvider, typeof(TModel), FilterDefaults ?? Configuration?.FilterDefaults, FilterFields, ResolvedLocalizer, EnableSavedFilters);
+            ServiceProvider, typeof(TModel), FilterDefaults ?? Configuration?.FilterDefaults, FilterFields, ResolvedLocalizer, EnableSavedFilters,
+            Navigation.Uri, Navigation.BaseUri);
 
         if (!context.IsAvailable)
             return;

@@ -16,4 +16,11 @@ public interface IListFilterRepository
 
     /// <returns>False when the user owns no such filter.</returns>
     Task<bool> SetDefaultAsync(string userId, string listKey, Guid? id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes every filter of a user across all lists, for hosts whose model has no cascading foreign key to the
+    /// user table.
+    /// </summary>
+    /// <returns>The number of deleted filters.</returns>
+    Task<int> DeleteAllForUserAsync(string userId, CancellationToken cancellationToken = default);
 }

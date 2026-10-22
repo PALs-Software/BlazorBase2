@@ -94,7 +94,8 @@ public class BaseListBuilder<TModel> where TModel : class
     }
 
     /// <summary>
-    /// Sets the key under which users' saved filters for this list are stored (default: the model type's full name).
+    /// Sets the key under which users' saved filters for this list are stored (default: <c>&lt;model full name&gt;@&lt;route&gt;</c>;
+    /// set it for lists in dialogs or list parts, which share the page route).
     /// </summary>
     public BaseListBuilder<TModel> FilterListKey(string listKey)
     {

@@ -9,8 +9,8 @@ namespace BlazorBase.CRUD.SavedFilters;
 public sealed class ListFilterDefaults
 {
     /// <summary>
-    /// Overrides the key saved filters are stored under. Null uses the model type's full name. Give two lists over the
-    /// same model different keys when their saved filters should not be shared.
+    /// Overrides the key saved filters are stored under. Null uses <c>&lt;model full name&gt;@&lt;page route&gt;</c> (see
+    /// <see cref="SavedFilterKey"/>). Lists in dialogs or list parts share the page route, so they should set a key.
     /// </summary>
     public string? ListKey { get; set; }
 

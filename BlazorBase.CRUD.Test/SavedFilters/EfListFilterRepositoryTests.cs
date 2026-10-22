@@ -114,6 +114,22 @@ public sealed class EfListFilterRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task DeleteAllForUser_RemovesEveryListOfThatUserOnly()
+    {
+        await Repository.SaveAsync("alice", ListKey, Input("A1"));
+        await Repository.SaveAsync("alice", "Other", Input("A2", asDefault: true));
+        await Repository.SaveAsync("bob", ListKey, Input("B1"));
+
+        Assert.Equal(2, await Repository.DeleteAllForUserAsync("alice"));
+        Assert.Equal(0, await Repository.DeleteAllForUserAsync("alice"));
+        Assert.Equal(0, await Repository.DeleteAllForUserAsync(""));
+
+        Assert.Empty(await Repository.GetAsync("alice", ListKey));
+        Assert.Empty(await Repository.GetAsync("alice", "Other"));
+        Assert.Equal("B1", Assert.Single(await Repository.GetAsync("bob", ListKey)).Name);
+    }
+
+    [Fact]
     public async Task Save_EnforcesTheQuotaPerUserAndList()
     {
         for (var index = 0; index < ListFilterValidator.MaxFiltersPerList; index++)

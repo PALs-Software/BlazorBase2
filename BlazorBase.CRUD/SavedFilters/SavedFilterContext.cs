@@ -40,7 +40,9 @@ public sealed class SavedFilterContext
     public bool IsAvailable => Store is not null || Presets.Count > 0;
 
     /// <summary>
-    /// Builds the context for a list, resolving the optional store from DI.
+    /// Builds the context for a list, resolving the optional store from DI. The storage key is the explicit
+    /// <see cref="ListFilterDefaults.ListKey"/> or, by default, the model name plus the page route (see
+    /// <see cref="SavedFilterKey"/>).
     /// </summary>
     public static SavedFilterContext Create(
         IServiceProvider services,
@@ -48,10 +50,12 @@ public sealed class SavedFilterContext
         ListFilterDefaults? defaults,
         IReadOnlyList<FilterFieldMetadata> fields,
         IStringLocalizer modelLocalizer,
-        bool useStore)
+        bool useStore,
+        string? currentUri = null,
+        string? baseUri = null)
     {
         var store = useStore ? services.GetService<IListFilterStore>() : null;
-        var listKey = defaults?.ListKey ?? modelType.FullName ?? modelType.Name;
+        var listKey = SavedFilterKey.Resolve(defaults?.ListKey, modelType, currentUri, baseUri);
 
         return new SavedFilterContext(listKey, store, defaults, fields, modelLocalizer);
     }

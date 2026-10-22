@@ -22,7 +22,7 @@ namespace BlazorBase.CRUD.Test.Components;
 [Collection(CustomPropertyResolutionCollection.Name)]
 public class SavedFilterTests : BunitTestContextBase
 {
-    private static readonly string ListKey = typeof(TestProduct).FullName!;
+    private static readonly string ListKey = typeof(TestProduct).FullName! + "@/";
 
     private static FilterGroupModel NameEquals(string value) => new()
     {
@@ -47,13 +47,17 @@ public class SavedFilterTests : BunitTestContextBase
     private IRenderedComponent<BaseList<TestProduct>> RenderList(
         IBaseDataProvider<TestProduct> provider,
         ListFilterDefaults? defaults = null,
-        bool enableSavedFilters = true)
+        bool enableSavedFilters = true,
+        string? route = null)
     {
         var authorization = this.AddAuthorization();
         authorization.SetAuthorized("admin");
         authorization.SetRoles("Admin");
         Services.AddLocalization();
         Services.AddSingleton(provider);
+
+        if (route is not null)
+            Services.GetRequiredService<NavigationManager>().NavigateTo(route);
 
         return Render<BaseList<TestProduct>>(parameters => parameters
             .Add(p => p.DataProvider, provider)
@@ -116,6 +120,46 @@ public class SavedFilterTests : BunitTestContextBase
         RenderList(provider, CodeDefaults());
 
         Assert.Equal("Mine", FirstValueOf(provider.ReceivedQueries().First()));
+    }
+
+    [Fact]
+    public void ADefaultSavedOnAnotherPageOverTheSameModel_DoesNotApplyHere()
+    {
+        var store = new InMemoryListFilterStore();
+        store.SaveAsync(typeof(TestProduct).FullName + "@/enrolledproducts", new SavedListFilterInput { Name = "Mine", Filter = NameEquals("Mine"), SetAsDefault = true }).GetAwaiter().GetResult();
+        Services.AddSingleton<IListFilterStore>(store);
+        var provider = Provider();
+
+        RenderList(provider, route: "/Products?page=3");
+
+        Assert.Empty(provider.ReceivedQueries().First().Filters);
+    }
+
+    [Fact]
+    public void TheDefaultSavedForThisPagesRoute_IsApplied()
+    {
+        var store = new InMemoryListFilterStore();
+        store.SaveAsync(typeof(TestProduct).FullName + "@/products", new SavedListFilterInput { Name = "Route", Filter = NameEquals("Route"), SetAsDefault = true }).GetAwaiter().GetResult();
+        Services.AddSingleton<IListFilterStore>(store);
+        var provider = Provider();
+
+        RenderList(provider, route: "/Products/?x=1");
+
+        Assert.Equal("Route", FirstValueOf(provider.ReceivedQueries().First()));
+    }
+
+    [Fact]
+    public void AnExplicitKey_WinsOverTheRoute()
+    {
+        var store = new InMemoryListFilterStore();
+        store.SaveAsync(typeof(TestProduct).FullName + "@/products", new SavedListFilterInput { Name = "Route", Filter = NameEquals("Route"), SetAsDefault = true }).GetAwaiter().GetResult();
+        store.SaveAsync("shared-products", new SavedListFilterInput { Name = "Explicit", Filter = NameEquals("Explicit"), SetAsDefault = true }).GetAwaiter().GetResult();
+        Services.AddSingleton<IListFilterStore>(store);
+        var provider = Provider();
+
+        RenderList(provider, new ListFilterDefaultsBuilder<TestProduct>().ListKey("shared-products").Build(), route: "/Products");
+
+        Assert.Equal("Explicit", FirstValueOf(provider.ReceivedQueries().First()));
     }
 
     [Fact]

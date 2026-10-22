@@ -21,7 +21,7 @@ public sealed class ListFilterDefaultsBuilder<TModel> where TModel : class
     public bool HasContent => defaults.ListKey is not null || defaults.Presets.Count > 0 || defaults.DefaultFilter is not null;
 
     /// <summary>
-    /// Sets the key saved filters are stored under, instead of the model type's full name.
+    /// Sets the key saved filters are stored under, instead of the default <c>&lt;model full name&gt;@&lt;route&gt;</c>.
     /// </summary>
     public ListFilterDefaultsBuilder<TModel> ListKey(string listKey)
     {

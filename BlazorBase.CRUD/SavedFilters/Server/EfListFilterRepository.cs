@@ -101,6 +101,25 @@ public sealed class EfListFilterRepository<TContext>(IDbContextFactory<TContext>
         return true;
     }
 
+    public async Task<int> DeleteAllForUserAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        if (String.IsNullOrEmpty(userId))
+            return 0;
+
+        await using var context = await ContextFactory.CreateDbContextAsync(cancellationToken);
+
+        var ownRows = await context.Set<SavedListFilter>()
+            .Where(filter => filter.UserId == userId)
+            .ToListAsync(cancellationToken);
+
+        if (ownRows.Count == 0)
+            return 0;
+
+        context.Set<SavedListFilter>().RemoveRange(ownRows);
+        await context.SaveChangesAsync(cancellationToken);
+        return ownRows.Count;
+    }
+
     private static SavedListFilter? FindTarget(List<SavedListFilter> ownRows, SavedListFilterInput input, SavedListFilter? sameName)
     {
         if (input.Id is not { } id)

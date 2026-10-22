@@ -8,8 +8,9 @@ namespace BlazorBase.CRUD.SavedFilters.Server;
 /// A filter a user saved for a list. One row per user, list and name; at most one row per user and list is the default.
 /// </summary>
 /// <remarks>
-/// The user is stored as the authenticated identifier string and deliberately has no foreign key, so the entity works
-/// with any user table. Include it in a host's model with <see cref="SavedListFilterEntityConfiguration.ApplySavedListFilterConfiguration"/>.
+/// The user is stored as the authenticated identifier string. The non-generic
+/// <see cref="SavedListFilterEntityConfiguration.ApplySavedListFilterConfiguration"/> adds no foreign key, so the entity works
+/// with any user table; the generic overload adds a cascading foreign key to the host's user entity.
 /// </remarks>
 [Table("SavedListFilters")]
 [Index(nameof(UserId), nameof(ListKey), nameof(Name), IsUnique = true)]

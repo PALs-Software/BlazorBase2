@@ -487,11 +487,25 @@ var config = new BaseListBuilder<Order>()
 |---|---|
 | `FilterPreset(id, name, configure, isDefault = false)` / `ListFilterDefaultsBuilder.Preset(...)` | Offers a named filter. `id` is unique per list and stable; `isDefault` applies it on first load (only one per list). |
 | `DefaultFilter(configure)` | An unnamed default applied on first load, not offered as a preset. |
-| `FilterListKey(key)` / `ListKey(key)` | Storage key of the users' saved filters. Default: the model type's full name. Give two lists over the same model different keys when their saved filters should not mix. |
+| `FilterListKey(key)` / `ListKey(key)` | Storage key of the users' saved filters. Default: `<model full name>@<page route>` (see "List keys" below). An explicit key always wins unchanged. |
 | `FilterGroupBuilder<T>` | `Is(x => x.P, value)`, `Where(x => x.P, FilterOperator.…, value)`, `Or()`, `Group(g => …)`; values are written as the drawer writes them (enum member name, `true`/`false`, `yyyy-MM-dd`). |
 
 Preset names are localizable: the display text is looked up as `FilterPreset_<id>` in the model's resources
 (`<Model>.resx` / `.de.resx`, the usual model-near localization) and falls back to the `name` passed in code.
+
+**List keys.** Saved filters, the saved default and the "My filters" list belong to a *list key*. By default the key is
+`<model full name>@<page route>`, for example `Dev.Acadon.Shared.Modules.Users.Models.User@/users`, so two pages that list
+the same model (a "Users" and an "Enrolled users" page) never share filters or defaults. The route is the page path
+from `NavigationManager`, relative to the base address (so a PWA base href such as `/app/` is not part of it), without
+query string and fragment, lower-cased and trimmed of slashes (`/` for the root). The whole key is limited to 256
+characters (`ListFilterValidator.MaxListKeyLength`); a longer route is cut and ends in `~` plus a 16-digit hash of the
+full route, so the result stays deterministic and distinct (`SavedFilterKey.Resolve`).
+
+An explicit `FilterListKey(...)` / `ListFilterDefaults.ListKey` always wins and is used unchanged. Set one for lists
+that do not own a page: a list inside a dialog, a `BaseListPart` or any component placed on a page shares that page's
+route, and the same list shown on several routes (or under route parameters such as `/orders/{Id}`) would otherwise get
+one key per route. Saved filters created before this key format existed were stored under the plain model name and are
+not offered under the new key; give the list `FilterListKey("<model full name>")` to keep using them.
 
 **Storing user filters.** The list resolves an optional `IListFilterStore` from DI (no store: presets and code defaults
 still work, the "My filters" part is hidden). Register one:
@@ -499,7 +513,7 @@ still work, the "My filters" part is hidden). Register one:
 | Host | Registration | Storage |
 |---|---|---|
 | WASM / MAUI with a server | `services.AddBlazorBaseListFiltersClient(c => c.BaseAddress = new Uri(api, "api/list-filters/"), b => b.AddHttpMessageHandler<…>())` | Server, per user (`HttpListFilterStore`) |
-| Server | `services.AddBlazorBaseListFilters<TContext>()` + `app.MapBlazorBaseListFilters()` + `modelBuilder.ApplySavedListFilterConfiguration()` in `OnModelCreating` (then add an EF migration) | EF Core table `SavedListFilters` (`EfListFilterRepository<TContext>`) |
+| Server | `services.AddBlazorBaseListFilters<TContext>()` + `app.MapBlazorBaseListFilters()` + `modelBuilder.ApplySavedListFilterConfiguration<TUser>()` in `OnModelCreating` (then add an EF migration) | EF Core table `SavedListFilters` (`EfListFilterRepository<TContext>`) |
 | No server storage | `services.AddBlazorBaseListFiltersLocalStorage()` or `AddBlazorBaseListFiltersInMemory()` | Browser `localStorage` (per browser profile, not per user) / process memory |
 
 `TContext` must be registered with `AddDbContextFactory<TContext>`. Server-only types
@@ -526,8 +540,28 @@ query is restricted to that user, so another user's filters are neither listed n
 `403`). Limits (`ListFilterValidator`): name ≤ 100 characters, list key ≤ 256, ≤ 100 filters per user and list,
 filter depth ≤ 6, ≤ 100 conditions, value ≤ 1000 characters. Mutating calls are subject to the host's CSRF
 protection like every other cookie-authenticated API call, so register the client with the same message handler as
-the CRUD client. There is no foreign key to the user table (the user is the identifier string), so deleting a user
-leaves their rows behind; a host that cares removes them in its user-deletion path.
+the CRUD client.
+
+**Deleting users.** The filters of a deleted user must not stay behind. Two options:
+
+1. *Foreign key (recommended when the host has a user table with a string key, such as ASP.NET Core Identity).*
+   Configure the model with the generic overload and add an EF migration:
+
+   ```csharp
+   protected override void OnModelCreating(ModelBuilder modelBuilder)
+   {
+       base.OnModelCreating(modelBuilder);
+       modelBuilder.ApplySavedListFilterConfiguration<AppUser>();
+   }
+   ```
+
+   This adds `SavedListFilters.UserId` → the key of `AppUser` with `ON DELETE CASCADE`: deleting the user row deletes
+   their filters in the same statement. The migration that adds the key to an existing table must first delete rows
+   whose `UserId` has no user (`DELETE FROM [SavedListFilters] WHERE [UserId] NOT IN (SELECT [Id] FROM [AspNetUsers])`),
+   otherwise adding the constraint fails. A save for a user id that is not in the user table is rejected by the database.
+2. *No foreign key (the non-generic `ApplySavedListFilterConfiguration()`, for hosts without a user table).* Call
+   `IListFilterRepository.DeleteAllForUserAsync(userId)` from the host's user-deletion path; it removes the user's filters
+   across all lists and returns how many it deleted.
 
 Localized UI strings live in `SavedFilterResources.resx` / `.de.resx`.
 
