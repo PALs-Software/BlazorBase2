@@ -75,6 +75,9 @@ public partial class BasePropertyInput<TModel> : IDisposable
     {
         get
         {
+            if (!IsEditing)
+                return false;
+
             if (FieldConfig.Required)
                 return true;
 

@@ -858,6 +858,7 @@ Behavior:
   titles its card with the GUID.
 - Catches **409 Conflict** and shows a friendly `FluentMessageBar`.
 - Renders inputs via `BasePropertyInput` (typed automatically: string → `FluentTextField`, bool → `FluentSwitch`, enum → `FluentSelect`, DateTime → `FluentDatePicker`, navigation → select or browse). A nullable enum property (`MyEnum?`) gets an extra blank "— Select —" option mapping to `null`; an existing `null` value shows that blank option instead of visually defaulting to the first enum member. Non-nullable enums are unaffected.
+- In the read-only ("View") card the fields show values only, so a read-only field carries no required marker (the asterisk appears only while a field is editable).
 
 ### `BaseListPart<TModel>`
 

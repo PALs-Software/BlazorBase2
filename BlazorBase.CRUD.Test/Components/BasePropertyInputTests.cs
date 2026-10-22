@@ -6,6 +6,7 @@ using BlazorBase.CRUD.Models;
 using BlazorBase.CRUD.Test.Infrastructure;
 using BlazorBase.CRUD.Test.Infrastructure.TestEntities;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.FluentUI.AspNetCore.Components;
 using NSubstitute;
@@ -145,6 +146,54 @@ public class BasePropertyInputTests : BunitTestContextBase
         Assert.Single(cut.FindComponents<FluentSelect<string>>());
         Assert.Contains("Cat A", cut.Markup);
         Assert.Contains("Cat B", cut.Markup);
+    }
+
+    [Fact]
+    public void RequiredProperty_WhenEditing_RendersRequiredMark()
+    {
+        var contexts = new List<PropertyFieldContext<TestProduct>>();
+        var cut = RenderInput(new TestProduct { Name = "P" }, TemplateField(p => p.Name, contexts: contexts), editing: true);
+
+        Assert.Single(cut.FindAll(".base-required-mark"));
+        Assert.True(contexts[^1].Required);
+    }
+
+    [Fact]
+    public void RequiredProperty_WhenNotEditing_RendersNoRequiredMark()
+    {
+        var contexts = new List<PropertyFieldContext<TestProduct>>();
+        var cut = RenderInput(new TestProduct { Name = "P" }, TemplateField(p => p.Name, contexts: contexts), editing: false);
+
+        Assert.Empty(cut.FindAll(".base-required-mark"));
+        Assert.False(contexts[^1].Required);
+    }
+
+    [Fact]
+    public void FieldConfigRequired_WhenNotEditing_RendersNoRequiredMark()
+    {
+        var contexts = new List<PropertyFieldContext<TestProduct>>();
+        var cut = RenderInput(new TestProduct { Description = "text" }, TemplateField(p => p.Description, f => f.Required(), contexts), editing: false);
+
+        Assert.Empty(cut.FindAll(".base-required-mark"));
+        Assert.False(contexts[^1].Required);
+    }
+
+    private static PropertyFieldConfig<TestProduct> TemplateField(
+        Expression<Func<TestProduct, object?>> property,
+        Action<FieldBuilder<TestProduct>>? configure = null,
+        List<PropertyFieldContext<TestProduct>>? contexts = null)
+    {
+        RenderFragment<PropertyFieldContext<TestProduct>> template = context => builder =>
+        {
+            contexts?.Add(context);
+            builder.AddContent(0, "value");
+        };
+
+        return Field(property, f =>
+        {
+            configure?.Invoke(f);
+            f.EditorTemplate(template).DisplayTemplate(template);
+        });
     }
 
     private IRenderedComponent<BasePropertyInput<TestProduct>> RenderInput(
