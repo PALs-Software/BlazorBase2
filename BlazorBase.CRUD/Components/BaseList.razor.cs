@@ -229,23 +229,40 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     {
         var blocked = BlockedItems.Contains(item);
         var selected = SelectedItems.Contains(item);
+        var menuOpen = ContextMenuOpen && ContextMenuItem is not null && ItemIdentityComparer<TModel>.Instance.Equals(ContextMenuItem, item);
 
-        if (blocked && selected)
-            return "base-list-row-blocked base-list-row-selected";
+        var css = blocked && selected
+            ? "base-list-row-blocked base-list-row-selected"
+            : selected ? "base-list-row-selected" : blocked ? "base-list-row-blocked" : null;
 
-        if (selected)
-            return "base-list-row-selected";
-
-        return blocked ? "base-list-row-blocked" : null;
+        return menuOpen ? (css is null ? RowMenuOpenClass : $"{css} {RowMenuOpenClass}") : css;
     }
 
-    private bool HasContextMenuBaseEntries => CanEdit || CanDelete || IsSelectionAvailable;
+    private const string RowMenuOpenClass = "base-list-row-menu-open";
+
+    /// <summary>
+    /// The column the row menu button follows: the open column, or the first visible column when the list has none.
+    /// </summary>
+    private PropertyColumnConfig<TModel>? RowMenuAnchorColumn => ResolveOpenColumn() ?? VisibleColumnsForUser.FirstOrDefault();
+
+    private bool HasContextMenuBaseEntries => CanOpen || CanDelete || IsSelectionAvailable;
 
     /// <summary>
     /// Whether a row has anything to offer in its menu; a list without entries gets no more-button column.
     /// </summary>
     private bool HasContextMenuEntries =>
         HasContextMenuBaseEntries || ContextMenuActions is not null || ContextMenuActionGroups.Count > 0;
+
+    private bool MenuHasEntriesAboveLegacy =>
+        ContextMenuItem is not null && (CanOpen || CanDelete || ContextMenuSections.Count > 0);
+
+    private bool MenuShowsSelectMore => ContextMenuItem is not null && IsSelectionAvailable && !ShowsSelectionColumn;
+    private bool MenuShowsSelectAll => IsSelectionAvailable;
+    private bool MenuShowsDeselectAll => IsSelectionAvailable && (IsSelectionActive || MultiSelectMode);
+    private bool MenuHasSelectionEntries => MenuShowsSelectMore || MenuShowsSelectAll || MenuShowsDeselectAll;
+
+    private bool MenuHasEntriesAboveSelection =>
+        MenuHasEntriesAboveLegacy || (ContextMenuItem is not null && ContextMenuActions is not null);
 
     #endregion
 
@@ -302,6 +319,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         ParametersVersion,
         SelectionVersion,
         BlockedVersion,
+        OpenMenuItem: ContextMenuOpen ? ContextMenuItem : null,
         IsMobileLayout,
         ShowsRows: HasRows || IsLoading,
         ResolvedColumns.Count,
@@ -537,6 +555,40 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             : ContextMenuAnchor.AtPoint(e.ClientX, e.ClientY));
     }
 
+    private async Task OnGridRowMenuButtonClickedAsync(TModel item, MouseEventArgs e)
+    {
+        ContextMenuItem = item;
+        await SelectRightClickedRowAsync();
+        await OnRowMenuButtonClickedAsync(item, e);
+    }
+
+    /// <summary>
+    /// Opens the row menu for the cell that has the keyboard (Shift+F10 or the context-menu key), beside that row's
+    /// more button; the grid script reports the key together with the box to anchor to.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnGridContextMenuKeyAsync(double left, double top, double right, double bottom)
+    {
+        if (IsDisposed || ContextMenuOpen || IsCardDialogOpen)
+            return;
+
+        await InvokeAsync(async () =>
+        {
+            await OpenRowMenuForFocusedRowAsync(new ContextMenuAnchor(left, top, right, bottom));
+            StateHasChanged();
+        });
+    }
+
+    internal async Task OpenRowMenuForFocusedRowAsync(ContextMenuAnchor anchor)
+    {
+        if (FocusedItem is not { } item || !HasContextMenuEntries)
+            return;
+
+        ContextMenuItem = item;
+        await SelectRightClickedRowAsync();
+        await OpenContextMenuAsync(anchor);
+    }
+
     private async Task OpenContextMenuAsync(ContextMenuAnchor anchor)
     {
         await BuildContextMenuSectionsAsync();
@@ -601,14 +653,14 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         await JsModule.InvokeVoidAsync("rememberFocus", key);
     }
 
-    private async Task OnContextMenuEditAsync()
+    private async Task OnContextMenuOpenAsync()
     {
         var item = ContextMenuItem;
         CloseContextMenu();
         if (item is null)
             return;
 
-        await OnEditClickedAsync(item);
+        await OpenItemAsync(item);
     }
 
     private async Task OnContextMenuDeleteAsync()
@@ -624,16 +676,12 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             await OnDeleteWithConfirmationAsync(item);
     }
 
-    private void OnContextMenuToggleSelectAsync()
+    private void OnContextMenuSelectMoreAsync()
     {
-        if (ContextMenuItem is null)
-            return;
+        if (ContextMenuItem is { } item && !IsSelected(item))
+            ToggleSelection(item);
 
-        ToggleSelection(ContextMenuItem);
-
-        if (IsSelected(ContextMenuItem))
-            EnterMultiSelectMode();
-
+        EnterMultiSelectMode();
         CloseContextMenu();
     }
 
@@ -1684,7 +1732,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     }
 
     private const string SelectionColumnWidth = "40px";
-    private const string ActionsColumnWidth = "48px";
+    private const string RowMenuColumnWidth = "32px";
 
     /// <summary>
     /// The grid track of a column without an explicit width: a share of the free space with a floor that

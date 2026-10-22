@@ -257,7 +257,7 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
 
         cut.FindAll(".base-list-card-more")[0].Click();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".context-menu")));
-        cut.FindAll(".context-menu [role=\"menuitem\"]").First(item => item.TextContent.Trim() == Framework["Select"].Value).Click();
+        cut.FindAll(".context-menu [role=\"menuitem\"]").First(item => item.TextContent.Trim() == Framework["SelectMore"].Value).Click();
 
         cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card-check").Count));
         Assert.Single(cut.FindAll(".base-list-card.is-selected"));

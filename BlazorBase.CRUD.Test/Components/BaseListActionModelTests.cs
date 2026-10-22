@@ -221,7 +221,7 @@ public class BaseListActionModelTests : BunitTestContextBase
     {
         OpenRowMenu(cut, row);
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".context-menu")));
-        MenuItem(cut, Framework["Select"].Value).Click();
+        MenuItem(cut, Framework["SelectMore"].Value).Click();
     }
 
     private void SelectAllViaRowMenu(IRenderedComponent<BaseList<TestProduct>> cut)

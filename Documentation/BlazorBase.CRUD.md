@@ -301,14 +301,14 @@ Key parameters:
 
 UI features:
 - **Click selects, the first column opens** - see "Selecting and opening rows" below
-- **Right-click context menu** (Edit / Delete / Select / custom actions). The menu acts on the row the
-  pointer is over, which the list learns from cell focus — a data-grid row is a `tr` with
+- **Row menu** (right-click, the `⋯` button, Shift+F10 / the context-menu key) - see "The row menu" below. The menu
+  acts on the row the pointer is over, which the list learns from cell focus — a data-grid row is a `tr` with
   `display: contents` and cannot be focused itself. The menu is clamped into the viewport: it flips
   above and to the left of its anchor when there is no room, and a menu taller than the viewport scrolls
   inside itself (`BaseListContextMenuPlacement`).
-- **Per-row "more" button** (`⋯`, last, sticky column) — opens the same menu from a button, for touch
-  screens and narrow windows that have no right mouse button. Every context action is therefore reachable
-  without a right-click.
+- **Per-row "more" button** (`⋯`) — a narrow (32 px) column directly right of the open column; opens the same menu
+  from a button, for touch screens and narrow windows that have no right mouse button. Every row action is therefore
+  reachable without a right-click.
 - **Delete confirmation** names the row (its `[DisplayKey]`, a card display key, otherwise the first value the
   row shows) and uses the destructive presentation: warning icon, danger-styled button, focus on Cancel.
 - **One Tab stop per grid** — the cell that has focus stays in the Tab order and the arrow keys move between
@@ -423,9 +423,34 @@ dialog sets. Opening a row by a deep link (`?item=`) honors the same rule. The l
 or reorder, but the item dialog of a list part is still editable (limitation, `BaseListPart` has no read-only mode yet).
 
 **Multi-select mode.** The round select circles are shown while two or more rows are selected or while `MultiSelectMode` is on
-(`BaseList.EnterMultiSelectMode()`, internal; the row menu's "Select" entry sets it). Escape and "Deselect all" leave it. Multiple
+(`BaseList.EnterMultiSelectMode()`, internal; the row menu's "Select more" entry sets it). Escape and "Deselect all" leave it. Multiple
 rows can only be selected where something consumes a selection (a delete right or a declared item action), otherwise Ctrl and
 Shift behave like a plain click.
+
+#### The row menu
+
+One menu serves the right-click, the `⋯` button and the keyboard (Shift+F10 or the context-menu key on a focused cell; it opens
+beside the row's button). A right-click or a click on the button selects the row first when it is not part of the selection; a
+row that is part of a multi-selection keeps it. Entries appear only where they apply, in this order (Business Central):
+
+1. **View** (the list is not editable, but `AllowView` and the read right apply: opens the read-only card) or **Edit** (opens
+   the card, raises `OnItemOpened`).
+2. **Delete** - names the count ("Delete 3") when the row is part of a multi-selection; the confirmation is unchanged.
+3. The declared item-bound actions (`CrudActionContext.ContextMenu`, see action scope), one block per action group, then the
+   legacy `ContextMenuActions` render fragment (kept for other sites; prefer declared actions) after a divider.
+4. A divider, then **Select more** (shows the select circles and keeps the clicked row selected; hidden while they are already
+   shown), **Select all** and **Deselect all** (only while something is selected or the select circles are shown). A list that
+   cannot consume a selection (no delete right, no item action) has none of these.
+
+Dividers sit only between non-empty sections. Edit/View and Delete live only in this menu; the toolbar has no buttons for them.
+
+**The `⋯` button** is a column of its own (`base-list-row-menu-column`, 32 px) directly right of the open column: with select
+circles the order is select circle, open column, `⋯`, the other columns. The old sticky last column is gone. The button is
+invisible by default but keeps its width, so showing it moves nothing: it appears on the hovered row, on the selected row, while
+the row holds the keyboard focus (`:focus-within`), while its menu is open (row class `base-list-row-menu-open`) and always on
+screens without hover (`@media (hover: none)`). It is not a Tab stop (`tabindex="-1"`); the keyboard opens the menu with
+Shift+F10 or the context-menu key on a focused cell. The hovered button uses `--base-list-control-fill-hover`, the fill of the
+header controls. A list without any row-menu entries gets no button column.
 
 **Keyboard** (focus on a data cell of the grid):
 
@@ -827,7 +852,7 @@ in the row menu; `SelectedItems` holds the rows the action works on (the selecti
 
 Behavior notes: an action without a scope is no longer offered in the row menu unless `Contexts` includes `ContextMenu`; a
 row-menu action now refreshes the list afterwards (like the toolbar). `ContextMenuActions` (free render fragment) stays
-supported for other sites and renders after the declared actions.
+supported for other sites (legacy) and renders after the declared actions, separated by a divider; new code declares actions.
 
 ### Registrable custom property components
 

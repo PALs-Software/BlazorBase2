@@ -358,6 +358,14 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
         if (!row || row.hasAttribute('row-type'))
             return;
 
+        if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+            event.preventDefault();
+            state.suppressContextMenuUntil = performance.now() + 1000;
+            const anchor = (row.querySelector('.base-list-row-menu') || cell).getBoundingClientRect();
+            state.dotNetRef.invokeMethodAsync('OnGridContextMenuKeyAsync', anchor.left, anchor.top, anchor.right, anchor.bottom).catch(() => { });
+            return;
+        }
+
         const ctrl = event.ctrlKey || event.metaKey;
         const key = event.key;
         const selectAll = ctrl && (key === 'a' || key === 'A');
@@ -403,6 +411,15 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
             window.getSelection()?.removeAllRanges();
     };
 
+    state.onContextMenuCapture = event => {
+        if (!state.suppressContextMenuUntil || performance.now() > state.suppressContextMenuUntil)
+            return;
+
+        state.suppressContextMenuUntil = 0;
+        event.preventDefault();
+        event.stopPropagation();
+    };
+
     state.observer = new MutationObserver(schedule);
     state.observer.observe(grid, { childList: true, subtree: true });
 
@@ -417,6 +434,7 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
     grid.addEventListener('focusout', state.onFocusOut);
     document.addEventListener('pointerdown', state.onPointerDown, true);
     grid.addEventListener('keydown', state.onKeyDown, true);
+    grid.addEventListener('contextmenu', state.onContextMenuCapture, true);
     grid.addEventListener('mousedown', state.onMouseDown, true);
     grid.addEventListener('dblclick', state.onDoubleClick);
     document.addEventListener('keydown', state.onShiftKey);
@@ -476,6 +494,7 @@ export function disposeGrid(grid) {
     grid.removeEventListener('focusout', state.onFocusOut);
     document.removeEventListener('pointerdown', state.onPointerDown, true);
     grid.removeEventListener('keydown', state.onKeyDown, true);
+    grid.removeEventListener('contextmenu', state.onContextMenuCapture, true);
     grid.removeEventListener('mousedown', state.onMouseDown, true);
     grid.removeEventListener('dblclick', state.onDoubleClick);
     document.removeEventListener('keydown', state.onShiftKey);

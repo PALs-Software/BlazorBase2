@@ -195,13 +195,13 @@
 }
 
 /*
-   The sticky select and actions cells hold a fixed track of 40 and 48 px. The header rule above carries a
+   The select and row menu cells hold a fixed track of 40 and 32 px. The header rule above carries a
    horizontal padding of its own that is more specific than the one these cells reset, so their header cell
-   was 28 px wider than the cells below it and overhung the grid edge by that much - the last column header was
-   cut off and the header and body disagreed about where the sticky column starts.
+   was 28 px wider than the cells below it and overhung the grid edge by that much and the header and body
+   disagreed about where the next column starts.
 */
-::deep .fluent-data-grid tr[row-type='sticky-header'] > th.base-list-actions-column,
-::deep .fluent-data-grid tr[row-type='header'] > th.base-list-actions-column,
+::deep .fluent-data-grid tr[row-type='sticky-header'] > th.base-list-row-menu-column,
+::deep .fluent-data-grid tr[row-type='header'] > th.base-list-row-menu-column,
 ::deep .fluent-data-grid tr[row-type='sticky-header'] > th.base-list-select-column,
 ::deep .fluent-data-grid tr[row-type='header'] > th.base-list-select-column {
     padding-inline: 0;
@@ -294,62 +294,33 @@
 }
 
 /*
-   The per-row more button is the touch and narrow-window route to the context menu, so it has to stay
-   reachable however far the grid is scrolled sideways: the column sticks to the right edge. While more of
-   the grid lies beyond that edge a soft shadow on the column's left side shows the columns slide under it;
-   it fades out as the grid is scrolled to its end. Browsers without scroll-driven animations keep the
-   plain divider line.
+   The per-row more button sits in a narrow column right of the open column and is the touch and narrow-window
+   route to the row menu. It is invisible by default, but it keeps its box, so showing it moves nothing: it appears
+   on the hovered row, on the selected row, while the row holds the keyboard focus, while its menu is open, and
+   always on a screen without hover. The hovered button takes the fill the list header's controls take.
 */
-@property --base-list-edge-shadow {
-    syntax: '<number>';
-    inherits: true;
-    initial-value: 0;
+::deep td.base-list-row-menu-column .base-list-row-menu {
+    flex: none;
+    min-width: 32px;
+    min-height: 32px;
+    width: 32px;
+    height: 32px;
+    opacity: 0;
+    --neutral-fill-stealth-hover: var(--base-list-control-fill-hover);
+    --neutral-fill-stealth-active: var(--base-list-control-fill-active);
 }
 
-@keyframes base-list-edge-shadow-fade {
-    0%, 85% {
-        --base-list-edge-shadow: 1;
+::deep tr.fluent-data-grid-row:not([row-type]):hover td.base-list-row-menu-column .base-list-row-menu,
+::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]) td.base-list-row-menu-column .base-list-row-menu,
+::deep tr.fluent-data-grid-row.base-list-row-menu-open:not([row-type]) td.base-list-row-menu-column .base-list-row-menu,
+::deep tr.fluent-data-grid-row:not([row-type]):focus-within td.base-list-row-menu-column .base-list-row-menu {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    ::deep td.base-list-row-menu-column .base-list-row-menu {
+        opacity: 1;
     }
-
-    100% {
-        --base-list-edge-shadow: 0;
-    }
-}
-
-@supports (animation-timeline: scroll()) {
-    .base-list-grid {
-        animation: base-list-edge-shadow-fade linear both;
-        animation-timeline: scroll(self inline);
-    }
-}
-
-::deep th.base-list-actions-column,
-::deep td.base-list-actions-column {
-    position: sticky;
-    right: 0;
-    min-width: 0;
-    padding-inline: 0;
-    text-align: center;
-    background: var(--color-bg-surface, var(--neutral-layer-1));
-    box-shadow: -10px 0 8px -8px color-mix(in srgb, var(--color-text-primary, var(--neutral-foreground-rest)) calc(var(--base-list-edge-shadow, 0) * 20%), transparent);
-}
-
-::deep th.base-list-actions-column {
-    z-index: 3;
-    background: var(--color-bg-elevated, var(--neutral-fill-secondary-rest));
-}
-
-::deep td.base-list-actions-column {
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-left: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
-}
-
-.base-list-row-menu {
-    min-width: 40px;
-    min-height: 40px;
 }
 
 .base-list-count {
@@ -373,13 +344,9 @@
     background-color: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
 }
 
-::deep tr.fluent-data-grid-row:not([row-type]):hover td.base-list-actions-column {
-    background-color: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
-}
-
 /*
    A selected row is tinted with the accent (--color-bg-selected is an accent at low opacity, so it is laid over the
-   opaque surface colour: the sticky actions cell, which has to be opaque, shows the same tint). Under the pointer the
+   opaque surface colour). Under the pointer the
    same tint lies over the hover fill instead of the surface, which keeps a selected row distinct from a hovered one
    and shows that the pointer is on it.
 */
@@ -387,14 +354,12 @@
     --base-list-row-selected-fill: var(--color-bg-selected, color-mix(in srgb, var(--accent-fill-rest) 14%, transparent));
 }
 
-::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]) td,
-::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]) td.base-list-actions-column {
+::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]) td {
     background-color: var(--color-bg-surface, var(--neutral-layer-1));
     background-image: linear-gradient(var(--base-list-row-selected-fill), var(--base-list-row-selected-fill));
 }
 
-::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]):hover td,
-::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]):hover td.base-list-actions-column {
+::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]):hover td {
     background-color: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
 }
 
@@ -435,11 +400,13 @@
 }
 
 /*
-   The select cell is a content-box block, so its 16 px of cell padding came on top of the 40 px column and the
-   cell was 72 px wide in a 40 px track: the next cell started inside it and, painting its hover background
-   after it, covered the right half of the circle. The cell fills exactly its track now and centres the circle.
+   The select and the row menu cell are content-box blocks, so their 16 px of cell padding came on top of the 40 and
+   32 px column and the cell was wider than its track: the next cell started inside it and, painting its hover
+   background after it, covered part of the circle or button. The cell fills exactly its track now and centres its
+   control.
 */
-::deep td.base-list-select-column {
+::deep td.base-list-select-column,
+::deep td.base-list-row-menu-column {
     box-sizing: border-box;
     display: flex;
     align-items: center;
@@ -450,7 +417,7 @@
 
 ::deep td.base-list-cell,
 ::deep td.base-list-select-column,
-::deep td.base-list-actions-column {
+::deep td.base-list-row-menu-column {
     scroll-margin-block: 48px 16px;
 }
 

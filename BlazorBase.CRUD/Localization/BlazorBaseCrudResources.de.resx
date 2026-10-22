@@ -85,6 +85,12 @@
   <data name="SelectAll" xml:space="preserve">
     <value>Alle auswählen</value>
   </data>
+  <data name="SelectMore" xml:space="preserve">
+    <value>Weitere auswählen</value>
+  </data>
+  <data name="View" xml:space="preserve">
+    <value>Anzeigen</value>
+  </data>
   <data name="DeselectAll" xml:space="preserve">
     <value>Alle abwählen</value>
   </data>

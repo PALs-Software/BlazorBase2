@@ -183,21 +183,21 @@
                             @ResolveCellText(column, context)
                         </TemplateColumn>
                     }
-                }
 
-                @if (HasContextMenuEntries)
-                {
-                <TemplateColumn Title="" Class="base-list-actions-column" Width="@ActionsColumnWidth" MinWidth="@ActionsColumnWidth">
-                    <FluentButton Appearance="Appearance.Stealth"
-                                  Class="base-list-row-menu"
-                                  Title="@FrameworkLocalizer["MoreActions"].Value"
-                                  aria-label="@FrameworkLocalizer["MoreActions"].Value"
-                                  aria-haspopup="menu"
-                                  tabindex="-1"
-                                  StopPropagation="true"
-                                  IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.MoreHorizontal())"
-                                  OnClick="@(e => OnRowMenuButtonClickedAsync(context, e))" />
-                </TemplateColumn>
+                    if (HasContextMenuEntries && ReferenceEquals(column, RowMenuAnchorColumn))
+                    {
+                        <TemplateColumn Title="" Class="base-list-row-menu-column" Width="@RowMenuColumnWidth" MinWidth="@RowMenuColumnWidth">
+                            <FluentButton Appearance="Appearance.Stealth"
+                                          Class="base-list-row-menu"
+                                          Title="@FrameworkLocalizer["MoreActions"].Value"
+                                          aria-label="@FrameworkLocalizer["MoreActions"].Value"
+                                          aria-haspopup="menu"
+                                          tabindex="-1"
+                                          StopPropagation="true"
+                                          IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.MoreHorizontal())"
+                                          OnClick="@(e => OnGridRowMenuButtonClickedAsync(context, e))" />
+                        </TemplateColumn>
+                    }
                 }
             </FluentDataGrid>
         }
@@ -215,12 +215,15 @@
              tabindex="-1"
              @ref="ContextMenuElement"
              @onkeydown="OnContextMenuKeyDown"
+             @oncontextmenu:preventDefault
              style="@ContextMenuStyle">
-            @if (CanEdit && ContextMenuItem is not null)
+            @if (CanOpen && ContextMenuItem is not null)
             {
-                <div role="menuitem" @onclick="OnContextMenuEditAsync">
-                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Edit())" />
-                    <span>@FrameworkLocalizer["Edit"]</span>
+                <div role="menuitem" @onclick="OnContextMenuOpenAsync">
+                    <FluentIcon Value="@(CanEdit
+                                         ? (Microsoft.FluentUI.AspNetCore.Components.Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Edit()
+                                         : new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Eye())" />
+                    <span>@FrameworkLocalizer[CanEdit ? "Edit" : "View"]</span>
                 </div>
             }
             @if (CanDelete && ContextMenuItem is not null)
@@ -230,52 +233,9 @@
                     <span>@(SelectedItems.Count > 1 && IsSelected(ContextMenuItem) ? string.Format(FrameworkLocalizer["DeleteCount"].Value, SelectedItems.Count) : FrameworkLocalizer["Delete"].Value)</span>
                 </div>
             }
-            @if ((CanEdit || CanDelete) && IsSelectionAvailable && ContextMenuItem is not null)
-            {
-                <div class="context-menu-divider"></div>
-            }
-            @if (IsSelectionAvailable && ContextMenuItem is not null)
-            {
-                <div role="menuitem" @onclick="OnContextMenuToggleSelectAsync">
-                    @if (IsSelected(ContextMenuItem))
-                    {
-                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.DismissCircle())" />
-                        <span>@FrameworkLocalizer["Deselect"]</span>
-                    }
-                    else
-                    {
-                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.CheckmarkCircle())" />
-                        <span>@FrameworkLocalizer["Select"]</span>
-                    }
-                </div>
-            }
-            @if (IsSelectionAvailable)
-            {
-            <div role="menuitem" @onclick="SelectAll">
-                <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.SelectAllOn())" />
-                <span>@FrameworkLocalizer["SelectAll"]</span>
-            </div>
-            }
-            @if (IsSelectionActive)
-            {
-                <div role="menuitem" @onclick="DeselectAll">
-                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.SelectAllOff())" />
-                    <span>@FrameworkLocalizer["DeselectAll"]</span>
-                </div>
-            }
-            @if (ContextMenuActions is not null && ContextMenuItem is not null)
-            {
-                @if (HasContextMenuBaseEntries)
-                {
-                    <div class="context-menu-divider"></div>
-                }
-                <div @onclick="CloseContextMenu">
-                    @ContextMenuActions(ContextMenuItem)
-                </div>
-            }
             @if (ContextMenuSections.Count > 0 && ContextMenuItem is not null)
             {
-                var needsDivider = HasContextMenuBaseEntries || ContextMenuActions is not null;
+                var needsDivider = false;
                 @foreach (var section in ContextMenuSections)
                 {
                     @if (needsDivider)
@@ -306,6 +266,44 @@
                             </div>
                         }
                     }
+                }
+            }
+            @if (ContextMenuActions is not null && ContextMenuItem is not null)
+            {
+                @if (MenuHasEntriesAboveLegacy)
+                {
+                    <div class="context-menu-divider"></div>
+                }
+                <div @onclick="CloseContextMenu">
+                    @ContextMenuActions(ContextMenuItem)
+                </div>
+            }
+            @if (MenuHasSelectionEntries)
+            {
+                @if (MenuHasEntriesAboveSelection)
+                {
+                    <div class="context-menu-divider"></div>
+                }
+                @if (MenuShowsSelectMore)
+                {
+                    <div role="menuitem" @onclick="OnContextMenuSelectMoreAsync">
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.CheckmarkCircle())" />
+                        <span>@FrameworkLocalizer["SelectMore"]</span>
+                    </div>
+                }
+                @if (MenuShowsSelectAll)
+                {
+                    <div role="menuitem" @onclick="SelectAll">
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.SelectAllOn())" />
+                        <span>@FrameworkLocalizer["SelectAll"]</span>
+                    </div>
+                }
+                @if (MenuShowsDeselectAll)
+                {
+                    <div role="menuitem" @onclick="DeselectAll">
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.SelectAllOff())" />
+                        <span>@FrameworkLocalizer["DeselectAll"]</span>
+                    </div>
                 }
             }
         </nav>

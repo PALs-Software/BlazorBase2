@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using BlazorBase.CRUD.Components;
 using BlazorBase.CRUD.Core;
+using BlazorBase.CRUD.Localization;
 using BlazorBase.CRUD.Models;
 using BlazorBase.CRUD.Test.Infrastructure;
 using BlazorBase.CRUD.Test.Infrastructure.TestEntities;
@@ -8,6 +9,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Localization;
 using NSubstitute;
 using Xunit;
 
@@ -22,13 +24,17 @@ public class BaseListSelectionAvailabilityTests : BunitTestContextBase
 {
     private const string InteropModulePath = "./_content/BlazorBase.CRUD/js/baseListInterop.js";
 
+    public BaseListSelectionAvailabilityTests() => Services.AddLocalization();
+
+    private string L(string key) => Services.GetRequiredService<IStringLocalizerFactory>().Create(typeof(BlazorBaseCrudResources))[key].Value;
+
     [Fact]
     public void ReadOnlyListWithoutActions_HasNeitherMoreButtonNorContextMenu()
     {
         var cut = RenderList(allowEdit: false, allowDelete: false);
 
         Assert.Empty(cut.FindAll(".base-list-row-menu"));
-        Assert.Empty(cut.FindAll(".base-list-actions-column"));
+        Assert.Empty(cut.FindAll(".base-list-row-menu-column"));
 
         cut.Find(".base-list-grid").ContextMenu(new MouseEventArgs { ClientX = 40, ClientY = 40 });
 
@@ -48,14 +54,16 @@ public class BaseListSelectionAvailabilityTests : BunitTestContextBase
     }
 
     [Fact]
-    public void DeletableList_OffersSelectAndSelectAll()
+    public void DeletableList_OffersDeleteSelectMoreSelectAllAndDeselectAll()
     {
         var cut = RenderList(allowEdit: false, allowDelete: true);
 
         OpenRowMenu(cut);
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".context-menu")));
-        Assert.Equal(3, cut.FindAll(".context-menu [role=\"menuitem\"]").Count);
+        Assert.Equal(
+            [L("Delete"), L("SelectMore"), L("SelectAll"), L("DeselectAll")],
+            cut.FindAll(".context-menu [role=\"menuitem\"]").Select(item => item.TextContent.Trim()));
     }
 
     [Fact]
@@ -73,7 +81,9 @@ public class BaseListSelectionAvailabilityTests : BunitTestContextBase
         OpenRowMenu(cut);
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".context-menu")));
-        Assert.Equal(2, cut.FindAll(".context-menu [role=\"menuitem\"]").Count);
+        Assert.Equal(
+            [L("SelectMore"), L("SelectAll"), L("DeselectAll")],
+            cut.FindAll(".context-menu [role=\"menuitem\"]").Select(item => item.TextContent.Trim()));
     }
 
     private static void OpenRowMenu(IRenderedComponent<BaseList<TestProduct>> cut)
