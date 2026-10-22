@@ -120,6 +120,19 @@
     white-space: normal;
 }
 
+/*
+   Fluent UI puts a vertical margin on every nav item and rounds the filled box behind each link, which leaves a gap
+   of the page colour between two entries. The entries sit directly on each other instead: no margin, no rounded
+   corners, so the filled boxes form one block and the menu is as compact as its rows.
+*/
+.base-side-nav ::deep .fluent-nav-item {
+    margin: 0;
+}
+
+.base-side-nav ::deep .fluent-nav-link .positioning-region {
+    border-radius: 0;
+}
+
 .base-side-nav ::deep .fluent-nav-text {
     width: auto;
     flex: 1 1 auto;
