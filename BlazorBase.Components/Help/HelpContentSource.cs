@@ -1,16 +1,21 @@
 using System.Collections.Concurrent;
+using System.Net;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Options;
 
 namespace BlazorBase.Components.Help;
 
 /// <summary>
-/// Reads the help content as static files over HTTP, from <c>{ContentBasePath}/{culture}/{path}</c> below the
-/// application's base address. Works the same in Blazor Server and WebAssembly; every file is fetched once.
+/// Reads the help content over HTTP, from <c>{ContentBasePath}/{culture}/{path}</c> below the application's base
+/// address. Works the same in Blazor Server and WebAssembly; every file is fetched once.
 /// </summary>
 /// <remarks>
-/// A host whose unknown URLs fall back to <c>index.html</c> would answer a missing file with a page; HTML
-/// responses are therefore treated as "not found".
+/// The request is same-origin, so the browser sends the user's cookies — that is what lets the host serve the
+/// content to signed-in users only (<c>MapBlazorBaseHelpContent</c> of <c>BlazorBase.Components.Server</c>). An
+/// answer that is not a success — <c>404</c> for a missing file, <c>401</c> or <c>403</c> when the user is not
+/// signed in or not allowed — means "no help"; a <c>401</c> or <c>403</c> is not remembered, so the file is asked for
+/// again once the user is signed in. A host whose unknown URLs fall back to <c>index.html</c> would answer a missing
+/// file with a page; HTML responses are therefore treated as "not found" as well.
 /// </remarks>
 public sealed class HelpContentSource(HttpClient httpClient, NavigationManager navigationManager, IOptions<HelpOptions> options) : IHelpContentSource
 {
@@ -24,9 +29,11 @@ public sealed class HelpContentSource(HttpClient httpClient, NavigationManager n
 
     #region Members
 
-    private readonly ConcurrentDictionary<string, Task<string?>> Cache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, Task<FetchResult>> Cache = new(StringComparer.Ordinal);
 
     #endregion
+
+    private sealed record FetchResult(string? Content, bool IsFinal);
 
     /// <inheritdoc/>
     public async Task<HelpSourceDocument?> GetTopicAsync(string topic, string culture, CancellationToken cancellationToken = default)
@@ -49,18 +56,22 @@ public sealed class HelpContentSource(HttpClient httpClient, NavigationManager n
     }
 
     /// <inheritdoc/>
-    public Task<string?> GetFileAsync(string cultureFolder, string path, CancellationToken cancellationToken = default)
+    public async Task<string?> GetFileAsync(string cultureFolder, string path, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(cultureFolder) || !HelpPaths.IsSafe(path) || !HelpPaths.IsSafe(cultureFolder))
-            return Task.FromResult<string?>(null);
+            return null;
 
         var key = cultureFolder + "|" + path;
-        var fetch = Cache.GetOrAdd(key, _ => FetchAsync(cultureFolder, path, key));
+        var fetch = Cache.GetOrAdd(key, _ => FetchAsync(cultureFolder, path));
+        var result = await fetch.WaitAsync(cancellationToken);
 
-        return fetch.WaitAsync(cancellationToken);
+        if (!result.IsFinal)
+            Cache.TryRemove(new KeyValuePair<string, Task<FetchResult>>(key, fetch));
+
+        return result.Content;
     }
 
-    private async Task<string?> FetchAsync(string cultureFolder, string path, string key)
+    private async Task<FetchResult> FetchAsync(string cultureFolder, string path)
     {
         var relative = string.Join('/', Options.Value.ContentBasePath.Split('/')
             .Append(cultureFolder)
@@ -73,15 +84,17 @@ public sealed class HelpContentSource(HttpClient httpClient, NavigationManager n
             await Task.Yield();
             using var response = await HttpClient.GetAsync(new Uri(new Uri(NavigationManager.BaseUri), relative));
 
-            if (!response.IsSuccessStatusCode || response.Content.Headers.ContentType?.MediaType == "text/html")
-                return null;
+            if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+                return new FetchResult(null, IsFinal: false);
 
-            return await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode || response.Content.Headers.ContentType?.MediaType == "text/html")
+                return new FetchResult(null, IsFinal: true);
+
+            return new FetchResult(await response.Content.ReadAsStringAsync(), IsFinal: true);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
         {
-            Cache.TryRemove(key, out _);
-            return null;
+            return new FetchResult(null, IsFinal: false);
         }
     }
 }

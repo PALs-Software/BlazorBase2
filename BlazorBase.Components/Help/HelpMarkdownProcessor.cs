@@ -20,11 +20,19 @@ namespace BlazorBase.Components.Help;
 /// front matter has a <c>title</c>, and is left out of the body because the panel shows the title itself.</item>
 /// </list>
 /// Relative links and images, including those of included files, are resolved against the including document,
-/// as DocFX does. <see cref="CreateRenderOptions"/> describes the rewriting; see <see cref="TrustedMarkdownOptions"/>.
+/// as DocFX does. A link to a <c>.md</c> file becomes a link to the page that carries the topic, or — when no page
+/// does, e.g. for a category topic — an in-panel link (<see cref="TopicLinkAttribute"/>) that the panel opens itself;
+/// other relative files link to the documentation site. <see cref="CreateRenderOptions"/> describes the rewriting; see <see cref="TrustedMarkdownOptions"/>.
 /// </remarks>
 public static partial class HelpMarkdownProcessor
 {
     private const int MaxIncludeDepth = 3;
+
+    /// <summary>The attribute that marks a rendered link as pointing at a help topic that opens inside the panel; its value is the topic.</summary>
+    public const string TopicLinkAttribute = "data-help-topic";
+
+    /// <summary>The <c>href</c> prefix of such a link, followed by the topic; a real anchor so the link stays focusable and keyboard operable.</summary>
+    public const string TopicLinkPrefix = "#help:";
 
     private static readonly IReadOnlyDictionary<string, string> DefaultAlertTitles = new Dictionary<string, string>
     {
@@ -212,7 +220,7 @@ public static partial class HelpMarkdownProcessor
         if (context.ResolveRoute?.Invoke(topic) is { } route)
             return new MarkdownLink(route.TrimStart('/') is { Length: > 0 } relative ? relative : "./");
 
-        return DocumentationLink(context, topic + ".html" + suffix);
+        return new MarkdownLink(TopicLinkPrefix + topic, DataAttributes: new Dictionary<string, string> { [TopicLinkAttribute] = topic });
     }
 
     private static MarkdownLink? DocumentationLink(HelpProcessingContext context, string relative) =>

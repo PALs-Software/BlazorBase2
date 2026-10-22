@@ -332,11 +332,10 @@ public sealed class HelpMarkdownProcessorTests
     {
         var context = CreateContext(documentationBaseUrl: "https://docs.example.com/{culture}/");
 
-        var html = HelpMarkdownProcessor.ToHtml(await ProcessAsync("[Thresholds](../reference/active-user-thresholds.md#limits) [Doc](../files/spec.pdf) [Page](unknown.md)", context), context);
+        var html = HelpMarkdownProcessor.ToHtml(await ProcessAsync("[Sheet](../reference/limits.xlsx#limits) [Doc](../files/spec.pdf)", context), context);
 
-        Assert.Contains("href=\"https://docs.example.com/en-US/reference/active-user-thresholds.html#limits\" target=\"_blank\" rel=\"noopener noreferrer\"", html);
+        Assert.Contains("href=\"https://docs.example.com/en-US/reference/limits.xlsx#limits\" target=\"_blank\" rel=\"noopener noreferrer\"", html);
         Assert.Contains("href=\"https://docs.example.com/en-US/files/spec.pdf\"", html);
-        Assert.Contains("href=\"https://docs.example.com/en-US/pages/unknown.html\"", html);
     }
 
     [Fact]
@@ -344,10 +343,47 @@ public sealed class HelpMarkdownProcessorTests
     {
         var context = CreateContext();
 
-        var html = HelpMarkdownProcessor.ToHtml(await ProcessAsync("See [the reference](../reference/x.md) and [here](#section).", context), context);
+        var html = HelpMarkdownProcessor.ToHtml(await ProcessAsync("See [the sheet](../reference/x.xlsx) and [here](#section).", context), context);
 
         Assert.DoesNotContain("<a ", html);
-        Assert.Contains("See the reference and here.", html);
+        Assert.Contains("See the sheet and here.", html);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("https://docs.example.com/{culture}/")]
+    public async Task LinksToATopicWithoutARoute_OpenInsideThePanel(string? documentationBaseUrl)
+    {
+        var context = CreateContext(topic: "general/blog", documentationBaseUrl: documentationBaseUrl, routes: new Dictionary<string, string> { ["general/dashboard"] = "/" });
+
+        var html = HelpMarkdownProcessor.ToHtml(await ProcessAsync("[Budgets](../concepts/budgets-and-boosts.md#boosts) and [Sibling](other-page.md)", context), context);
+
+        Assert.Contains("<a href=\"#help:concepts/budgets-and-boosts\" data-help-topic=\"concepts/budgets-and-boosts\">Budgets</a>", html);
+        Assert.Contains("<a href=\"#help:general/other-page\" data-help-topic=\"general/other-page\">Sibling</a>", html);
+        Assert.DoesNotContain("_blank", html);
+    }
+
+    [Fact]
+    public async Task LinksToATopicWithARoute_KeepNavigatingToThePage()
+    {
+        var context = CreateContext(topic: "general/blog", routes: new Dictionary<string, string> { ["general/dashboard"] = "/" });
+
+        var html = HelpMarkdownProcessor.ToHtml(await ProcessAsync("[Home](dashboard.md)", context), context);
+
+        Assert.Contains("<a href=\"./\">Home</a>", html);
+        Assert.DoesNotContain("data-help-topic", html);
+    }
+
+    [Fact]
+    public async Task InPanelLinks_NeverEscapeTheirAttributeOrLeaveTheHelpFolder()
+    {
+        var context = CreateContext();
+
+        var html = HelpMarkdownProcessor.ToHtml(await ProcessAsync("[A](a\"b.md) [B](../../../secret.md) [C](/root.md)", context), context);
+
+        Assert.Contains("data-help-topic=\"pages/a&quot;b\"", html);
+        Assert.DoesNotContain("secret", html);
+        Assert.DoesNotContain("root.md", html);
     }
 
     [Fact]

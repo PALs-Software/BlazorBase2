@@ -20,6 +20,12 @@ namespace BlazorBase.Components.Help;
 /// In both cases the focus moves into the panel when it opens, and Escape or the close button asks the host to
 /// close it. <see cref="BaseLayout"/> renders one behind its help button (<see cref="BaseLayout.ShowHelp"/>); the
 /// services come from <see cref="HelpServiceCollectionExtensions.AddBlazorBaseHelp"/>.
+/// <para>
+/// A link in the help Markdown to another topic that has no page (a category topic such as
+/// <c>concepts/budgets-and-boosts</c>) opens inside the panel: the topic shown before is kept on a history stack and
+/// a back button in the header returns to it. The stack is cleared when the panel closes and when the user
+/// navigates to another page; links to topics with a page navigate to that page instead.
+/// </para>
 /// </remarks>
 public partial class BaseHelpPanel(
     NavigationManager navigationManager,
@@ -64,9 +70,15 @@ public partial class BaseHelpPanel(
     private HelpDocument? Document;
     private TrustedMarkdownOptions? RenderOptions;
     private string? DocumentationUrl;
-    private string? LoadedTopic;
+    private DotNetObjectReference<BaseHelpPanel>? SelfReference;
+    private readonly Stack<string> History = new();
+    private string? ShownTopic;
+    private string? PageTopic;
+    private string? LoadedPath;
     private bool IsLoading;
     private bool IsFocusPending;
+    private bool IsLinkBindingPending;
+    private bool IsPanelFocusPending;
     private bool WasOpen;
     private bool WasDocked;
     private int LoadCount;
@@ -74,6 +86,8 @@ public partial class BaseHelpPanel(
     #endregion
 
     private string TitleId => PanelId + "-title";
+
+    private bool CanGoBack => History.Count > 0;
 
     private HelpOptions Settings => Options.Value;
 
@@ -97,15 +111,23 @@ public partial class BaseHelpPanel(
         {
             CancelLoad();
             IsFocusPending = false;
+            IsLinkBindingPending = false;
+            IsPanelFocusPending = false;
             WasOpen = false;
-            LoadedTopic = null;
+            History.Clear();
+            ShownTopic = null;
+            PageTopic = null;
+            LoadedPath = null;
             return;
         }
 
         if (WasOpen)
         {
             if (WasDocked != IsDocked)
+            {
                 IsFocusPending = true;
+                IsLinkBindingPending = true;
+            }
 
             WasDocked = IsDocked;
             return;
@@ -114,12 +136,31 @@ public partial class BaseHelpPanel(
         WasOpen = true;
         WasDocked = IsDocked;
         IsFocusPending = true;
-        await LoadAsync();
+        IsLinkBindingPending = true;
+        LoadedPath = CurrentPath;
+        await LoadPageTopicAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!IsFocusPending || !IsOpen)
+        if (!IsOpen)
+            return;
+
+        if (IsLinkBindingPending)
+        {
+            IsLinkBindingPending = false;
+            Module ??= await ImportModuleAsync();
+            SelfReference ??= DotNetObjectReference.Create(this);
+            await Module.InvokeVoidAsync("bindHelpLinks", PanelElement, SelfReference);
+        }
+
+        if (IsPanelFocusPending && !IsLoading)
+        {
+            IsPanelFocusPending = false;
+            await PanelElement.FocusAsync();
+        }
+
+        if (!IsFocusPending)
             return;
 
         IsFocusPending = false;
@@ -130,12 +171,42 @@ public partial class BaseHelpPanel(
             return;
         }
 
-        Module ??= await JsRuntime.InvokeAsync<IJSObjectReference>(
-            "import", "./_content/BlazorBase.Components/js/layout.js");
+        Module ??= await ImportModuleAsync();
         await Module.InvokeVoidAsync("trapFocus", PanelElement);
     }
 
+    /// <summary>
+    /// Called by the panel's script when the user activates a link to a topic that has no page; shows that topic and
+    /// keeps the one shown before for the back button. Does nothing for a topic that is not a plain relative path.
+    /// </summary>
+    /// <param name="topic">The topic, e.g. <c>concepts/budgets-and-boosts</c>.</param>
+    [JSInvokable]
+    public Task OpenTopicAsync(string topic) => InvokeAsync(async () =>
+    {
+        if (!IsOpen || !HelpPaths.IsSafe(topic) || String.Equals(topic, ShownTopic, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (ShownTopic is not null)
+            History.Push(ShownTopic);
+
+        IsPanelFocusPending = true;
+        await LoadAsync(topic, allowFallback: false);
+    });
+
+    private async Task BackAsync()
+    {
+        if (!CanGoBack)
+            return;
+
+        var previous = History.Pop();
+        IsPanelFocusPending = true;
+        await LoadAsync(previous, allowFallback: !CanGoBack);
+    }
+
     private Task CloseAsync() => OnClose.InvokeAsync();
+
+    private async Task<IJSObjectReference> ImportModuleAsync() =>
+        await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./_content/BlazorBase.Components/js/layout.js");
 
     private async Task OnKeyDownAsync(KeyboardEventArgs args)
     {
@@ -145,25 +216,46 @@ public partial class BaseHelpPanel(
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
     {
-        if (!IsOpen || string.Equals(LoadedTopic, RequestedTopic, StringComparison.Ordinal))
+        if (!IsOpen)
             return;
 
-        _ = InvokeAsync(LoadAsync);
+        var path = CurrentPath;
+
+        if (String.Equals(path, LoadedPath, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        LoadedPath = path;
+
+        if (!CanGoBack && String.Equals(PageTopic, RequestedTopic, StringComparison.Ordinal))
+            return;
+
+        _ = InvokeAsync(LoadPageTopicAsync);
     }
 
-    private async Task LoadAsync()
+    private Task LoadPageTopicAsync()
+    {
+        History.Clear();
+        PageTopic = RequestedTopic;
+
+        return LoadAsync(PageTopic, allowFallback: true);
+    }
+
+    private async Task LoadAsync(string topic, bool allowFallback)
     {
         CancelLoad();
         var source = LoadSource = new CancellationTokenSource();
-        var requested = RequestedTopic;
-        LoadedTopic = requested;
+        ShownTopic = topic;
         LoadCount++;
         IsLoading = true;
         StateHasChanged();
 
         try
         {
-            var content = await ContentSource.GetTopicAsync(requested, CultureInfo.CurrentUICulture.Name, source.Token);
+            var content = await ContentSource.GetTopicAsync(topic, CultureInfo.CurrentUICulture.Name, source.Token);
+
+            if (content is not null && !allowFallback && !String.Equals(content.Topic, topic, StringComparison.OrdinalIgnoreCase))
+                content = null;
+
             HelpDocument? document = null;
             TrustedMarkdownOptions? renderOptions = null;
 
@@ -219,6 +311,8 @@ public partial class BaseHelpPanel(
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
         CancelLoad();
+        SelfReference?.Dispose();
+        SelfReference = null;
 
         if (Module is not null)
         {

@@ -281,6 +281,34 @@ export function trapFocus(container) {
     (target ?? container.querySelector(tabbableSelector) ?? container).focus();
 }
 
+/**
+ * Lets the links of the help content that point at another help topic (<a data-help-topic>) open that topic
+ * inside the panel: a plain click is handed to the component, while clicks with a modifier key or a non-primary
+ * button keep the browser's behavior. The listener lives on the panel element, so it goes away with the panel.
+ */
+export function bindHelpLinks(container, dotNetReference) {
+    if (!container || !dotNetReference) {
+        return;
+    }
+
+    container.addEventListener('click', event => {
+        if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+            return;
+        }
+
+        const link = event.target instanceof Element ? event.target.closest('a[data-help-topic]') : null;
+        const topic = link?.getAttribute('data-help-topic');
+
+        if (!topic || !container.contains(link)) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        dotNetReference.invokeMethodAsync('OpenTopicAsync', topic);
+    });
+}
+
 export function restoreFocus(main, drawer) {
     const active = document.activeElement;
 

@@ -244,13 +244,14 @@ builder.Services.AddBlazorBaseHelp(options =>
 ```
 
 ```csharp
-@attribute [HelpTopic("pages/blog")]
+@attribute [HelpTopic("general/blog")]
 ```
 
 `[HelpTopic]` goes on a routable component (one that has `@page`/`[Route]`). The topic is the path of a
-Markdown file below the culture folder without `.md`; `pages/blog` is read from
-`{ContentBasePath}/{culture}/pages/blog.md`. A page without the attribute, or whose topic has no file,
-shows `FallbackTopic`. `AddBlazorBaseHelp` is additive-safe and registers `HelpOptions`,
+Markdown file below the culture folder without `.md`; `general/blog` is read from
+`{ContentBasePath}/{culture}/general/blog.md`. A topic is usually `<category>/<page>`, where the category folder
+follows the sidebar group of the page (`general`, `administration`, ...). A page without the attribute, or whose
+topic has no file, shows `FallbackTopic`. `AddBlazorBaseHelp` is additive-safe and registers `HelpOptions`,
 `IHelpTopicResolver` (singleton) and `IHelpContentSource` (scoped).
 
 | `HelpOptions` | Default | Purpose |
@@ -270,10 +271,17 @@ shows `FallbackTopic`. `AddBlazorBaseHelp` is additive-safe and registers `HelpO
   navigation drawer, and opening the settings closes the help.
 - Focus moves into the panel on open and back to the "?" button on close; Escape and the close button close it.
   A docked panel does not trap Tab; the sheet does.
-- It follows navigation while it is open and reloads only when the topic changes (not for query-string changes).
+- It follows navigation while it is open and reloads only when the page changes (not for query-string changes).
   While loading it shows a status, and *"No help is available for this page yet."* when no content exists at all.
 - The header shows the title (front matter `title`, else the first `# H1`) and, with `DocumentationBaseUrl`, the
   link to the same topic on the documentation site (new tab).
+- A link in the Markdown to another topic **without a page** (a category topic such as
+  `../concepts/budgets-and-boosts.md`) opens **inside the panel**. The topic shown before is pushed on a history
+  stack and a back button appears at the start of the header; it returns to the previous topic and disappears when
+  the stack is empty. The title, the body and the documentation link follow the shown topic. The stack is cleared
+  when the panel closes and when the user navigates to another page (a change of the query string does not).
+  A link to a topic **with** a page keeps navigating to that page, with the panel open. A topic that does not exist
+  shows the "no help" text instead of the fallback topic, and back still works.
 - `BaseHelpPanel` can also be used without `BaseLayout`; it needs `IsOpen`, `IsDocked` and `OnClose`.
 
 ### Topic resolution
@@ -282,9 +290,9 @@ The layout never receives the router's route data, so `HelpTopicResolver` scans 
 once for types with a `RouteAttribute` and a `HelpTopicAttribute` and matches the current URL against the route
 templates (`HelpRouteMap`). Literal segments match case-insensitively; `{name}`, `{name:constraint}` and
 `{name?}` match one segment (or none), `{*name}` the rest of the path. Of several matches the one with most
-literal segments wins. The reverse map (topic to parameterless route) turns in-panel links to other topics into
-real navigation. No change to the host's `Router` is needed. Under WebAssembly trimming keep the page types
-(the router needs them anyway).
+literal segments wins. The reverse map (topic to parameterless route) turns links to other topics that have a page
+into real navigation; topics without a page open in the panel (see above). No change to the host's `Router` is
+needed. Under WebAssembly trimming keep the page types (the router needs them anyway).
 
 ### File layout
 
@@ -292,7 +300,8 @@ real navigation. No change to the host's `Router` is needed. Under WebAssembly t
 Docu/
   en-US/
     getting-started.md        fallback topic
-    pages/blog.md             topic pages/blog
+    general/blog.md           topic general/blog (page topics: <category>/<page>)
+    concepts/budgets.md       topic concepts/budgets (no page: opened inside the panel)
     includes/list-basics.md   shared text, [!INCLUDE]d by pages
     images/blog-list.png
     reference/…               documentation-only pages
@@ -300,13 +309,62 @@ Docu/
   docfx.json, toc.yml
 ```
 
-The host serves the files as static content below `ContentBasePath` (for a WebAssembly client, link them
-into `wwwroot/help` at build time instead of copying them into source control — see the sample host) and
+### Serving the content (protected endpoint)
+
 `IHelpContentSource` fetches `{ContentBasePath}/{culture}/{topic}.md` with an `HttpClient`, falls back to the
 default culture and then to the fallback topic, and caches every file for the lifetime of the scope. A
-Blazor Server host registers `AddHttpClient()` for it. A response of type `text/html` counts as "not
-found", because a host whose unknown URLs fall back to `index.html` would otherwise answer with the app.
+Blazor Server host registers `AddHttpClient()` for it. The request is same-origin, so the browser sends the
+cookies. A `401`, `403` or `404` answer means "no help" (`401`/`403` are not cached, so the file is asked for
+again after the user signed in); a response of type `text/html` counts as "not found" as well, because a host whose
+unknown URLs fall back to `index.html` would otherwise answer with the app.
 Implement `IHelpContentSource` to read the content from somewhere else.
+
+> **Warning:** never ship the help content as anonymous static web assets (`wwwroot/help`, a static file provider,
+> `Content` items that end up in `wwwroot`). It would be readable without signing in, and `<!-- Internal-Start -->`
+> blocks would be delivered, too. Serve it with the endpoint below and keep it out of the WebAssembly asset
+> manifest and the service worker's precache and cache.
+
+The package `BlazorBase.Components.Server` (ASP.NET Core only, never referenced by a WebAssembly client) maps the
+protected endpoint:
+
+```csharp
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapBlazorBaseHelpContent(helpFolder, options =>
+{
+    options.RequestPath = "/help";
+    options.Roles = "Admin,Support";
+    options.PolicyName = "HelpReaders";
+});
+app.MapFallbackToFile("index.html");
+```
+
+| `HelpContentEndpointOptions` | Default | Purpose |
+|---|---|---|
+| `ContentRoot` | required (or the `contentRoot` argument) | Physical folder with one sub-folder per culture. |
+| `RequestPath` | `/help` | Must equal `HelpOptions.ContentBasePath` of the client. |
+| `PolicyName` | `null` | Authorization policy a signed-in user must also satisfy; failing it answers `403`. |
+| `Roles` | `null` | Comma-separated roles of which the user needs one; otherwise `403`. |
+| `ExcludedFolders` | `_site`, `obj`, `bin`, `node_modules` | Folder names that are never served (folders starting with `.` never are). |
+
+- `GET {RequestPath}/{culture}/{path}` serves `.md` (`text/markdown; charset=utf-8`) and `.png`, `.jpg`, `.jpeg`,
+  `.gif`, `.svg` and `.webp` files; everything else — `docfx.json`, `toc.yml`, other extensions, a missing file —
+  is `404`. The culture must look like a culture name. A path that is absolute, contains `..`, `.`, empty
+  segments, a backslash, a colon (drive letter, alternate data stream), a percent sign or control characters
+  finds nothing, so nothing outside the culture folder is ever read.
+- An anonymous request gets **`401`**, not a redirect to a sign-in page, and before the file is looked up, so
+  the answer does not reveal which files exist. The endpoint enforces the sign-in itself and is marked
+  `AllowAnonymous` only so a fallback policy of the host does not turn the `401` into a challenge. Map it after
+  `UseAuthentication`/`UseAuthorization`.
+- Markdown is delivered **without its internal blocks**: `HelpInternalContentFilter.Remove` removes
+  `<!-- Internal-Start -->` … `<!-- Internal-End -->` (case and spacing tolerant, a superset of the documentation
+  pipeline's regex); a start without an end removes the rest of the file. Markdown is sent with
+  `Cache-Control: private, no-store`; images with `private, no-cache`, an `ETag` and `Last-Modified`, and SVG
+  additionally with a sandboxing `Content-Security-Policy`. Every response carries `X-Content-Type-Options: nosniff`.
+- Files are read per request, so pointing `ContentRoot` at the source folder in development shows edits
+  without a rebuild; in production point it at a copy that is part of the publish output.
+- With a WebAssembly client, keep `/help` out of the service worker: do not precache help files and do not serve
+  them from the cache (the published asset manifest must not list them either).
 
 ### Single-sourcing with DocFX
 
@@ -332,10 +390,15 @@ Implement `IHelpContentSource` to read the content from somewhere else.
   passing HTML through.
 - Images load from `{ContentBasePath}/{culture}/…`; a relative path that leaves the culture folder, a
   root-relative path and a non-`http(s)` scheme become the alt text.
-- A relative link to another `pages/*.md` whose topic has a page navigates to that page (the panel stays open).
-  Other relative links go to `DocumentationBaseUrl` + the path (`.md` becomes `.html`) in a new tab, or are plain
-  text without a base URL. `#anchor`-only links are plain text. `http`/`https` links open in a new tab with
-  `rel="noopener noreferrer"`, `mailto:` as is, every other scheme becomes plain text.
+- A relative link to another `.md` topic whose topic has a page (`[HelpTopic]`) navigates to that page (the panel
+  stays open). A relative link to a topic **without** a page becomes an in-panel link: a real anchor
+  (`href="#help:{topic}"`, so it stays focusable and keyboard operable) carrying `data-help-topic="{topic}"`, which
+  a click handler of the panel (`bindHelpLinks` in `layout.js`) turns into the in-panel navigation; clicks with a
+  modifier key or a non-primary button keep the browser's behavior, and a `#fragment` of the link is dropped. The
+  link needs no `DocumentationBaseUrl`. Other relative links (non-Markdown files) go to `DocumentationBaseUrl` + the
+  path in a new tab, or are plain text without a base URL. `#anchor`-only links are plain text. `http`/`https` links
+  open in a new tab with `rel="noopener noreferrer"`, `mailto:` as is, every other scheme becomes plain text.
+  Raw HTML stays escaped; `MarkdownLink.DataAttributes` only accepts `data-*` names and HTML-encodes the values.
 
 ### Trusted Markdown
 

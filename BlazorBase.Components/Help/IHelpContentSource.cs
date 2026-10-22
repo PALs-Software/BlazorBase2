@@ -8,7 +8,7 @@ public interface IHelpContentSource
     /// the default culture; when that does not exist either, the same for the fallback topic. Null when
     /// nothing exists.
     /// </summary>
-    /// <param name="topic">The topic, e.g. <c>pages/blog</c>.</param>
+    /// <param name="topic">The topic, e.g. <c>general/blog</c>.</param>
     /// <param name="culture">The UI culture name, e.g. <c>de</c> or <c>de-DE</c>.</param>
     /// <param name="cancellationToken">Cancels the wait for the content.</param>
     Task<HelpSourceDocument?> GetTopicAsync(string topic, string culture, CancellationToken cancellationToken = default);

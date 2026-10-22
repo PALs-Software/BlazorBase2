@@ -11,9 +11,10 @@ public static class HelpServiceCollectionExtensions
     /// <see cref="HelpOptions"/>, the topic resolver and the content source.
     /// </summary>
     /// <remarks>
-    /// The default content source reads the Markdown files over HTTP and therefore needs an <see cref="HttpClient"/>
+    /// The default content source reads the Markdown files over HTTP from the same origin (cookies are sent) and therefore needs an <see cref="HttpClient"/>
     /// in the container — WebAssembly hosts already have one, a Blazor Server host registers it with
-    /// <c>AddHttpClient()</c>. Replace <see cref="IHelpContentSource"/> to read the content from elsewhere.
+    /// <c>AddHttpClient()</c>. The host serves the files to signed-in users with <c>MapBlazorBaseHelpContent</c> of the
+    /// <c>BlazorBase.Components.Server</c> package; never ship them as anonymous static web assets. Replace <see cref="IHelpContentSource"/> to read the content from elsewhere.
     /// Registration is additive-safe: a service the host registered before stays.
     /// </remarks>
     /// <param name="services">The service collection.</param>

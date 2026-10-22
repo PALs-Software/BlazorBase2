@@ -148,7 +148,24 @@ public static partial class MarkdownConverter
 
         if (target.OpenInNewTab)
             OpenInNewTab(link);
+
+        AddDataAttributes(link, target.DataAttributes);
     }
+
+    private static void AddDataAttributes(LinkInline link, IReadOnlyDictionary<string, string>? attributes)
+    {
+        if (attributes is null)
+            return;
+
+        var target = link.GetAttributes();
+
+        foreach (var (name, value) in attributes)
+            if (DataAttributeName().IsMatch(name))
+                target.AddPropertyIfNotExist(name, value);
+    }
+
+    [GeneratedRegex(@"\Adata-[a-z0-9]+(?:-[a-z0-9]+)*\z", RegexOptions.CultureInvariant)]
+    private static partial Regex DataAttributeName();
 
     private static void OpenInNewTab(LinkInline link)
     {

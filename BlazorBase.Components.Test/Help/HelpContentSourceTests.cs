@@ -77,6 +77,31 @@ public sealed class HelpContentSourceTests
         Assert.Equal("getting-started", document?.Topic);
     }
 
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.NotFound)]
+    public async Task GetTopic_TreatsRefusalsAndMissingFilesAsNoHelp(HttpStatusCode status)
+    {
+        Files["/help/en-US/pages/blog.md"] = (status, "text/plain", "refused");
+        Files["/help/en-US/getting-started.md"] = (status, "text/plain", "refused");
+
+        Assert.Null(await CreateSource().GetTopicAsync("pages/blog", "en"));
+    }
+
+    [Fact]
+    public async Task AnUnauthorizedAnswer_IsNotRemembered_SoTheFileIsAskedForAgainAfterSignIn()
+    {
+        var source = CreateSource();
+        Files["/help/en-US/pages/blog.md"] = (HttpStatusCode.Unauthorized, "text/plain", string.Empty);
+
+        Assert.Null(await source.GetFileAsync("en-US", "pages/blog.md"));
+
+        Serve("help/en-US/pages/blog.md", "# Blog");
+
+        Assert.Equal("# Blog", await source.GetFileAsync("en-US", "pages/blog.md"));
+    }
+
     [Fact]
     public async Task Files_AreFetchedOnce_EvenWhenTheyDoNotExist()
     {

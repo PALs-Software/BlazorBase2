@@ -15,6 +15,9 @@
   <data name="Title" xml:space="preserve">
     <value>Hilfe</value>
   </data>
+  <data name="Back" xml:space="preserve">
+    <value>Zurück zum vorherigen Hilfethema</value>
+  </data>
   <data name="Close" xml:space="preserve">
     <value>Hilfe schließen</value>
   </data>

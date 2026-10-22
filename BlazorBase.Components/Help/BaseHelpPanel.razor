@@ -16,7 +16,17 @@
            @key="IsDocked"
            @ref="PanelElement"
            @onkeydown="OnKeyDownAsync">
-        <div class="base-help-header">
+        <div class="base-help-header @(CanGoBack ? "has-back" : null)">
+            @if (CanGoBack)
+            {
+                <FluentButton Appearance="Appearance.Stealth"
+                              Class="base-help-back"
+                              Title="@Localizer["Back"]"
+                              aria-label="@Localizer["Back"]"
+                              OnClick="BackAsync">
+                    <FluentIcon Value="@(new Size20.ArrowLeft())" Color="Color.Neutral" />
+                </FluentButton>
+            }
             <div class="base-help-heading">
                 <h2 id="@TitleId" class="base-help-title">@(Document?.Title ?? Localizer["Title"].Value)</h2>
                 @if (DocumentationUrl is not null)

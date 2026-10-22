@@ -8,12 +8,15 @@ public sealed class HelpOptions
     /// <summary>
     /// The address of the full documentation site, e.g. <c>https://docs.example.com/</c>. A topic is appended with
     /// the <c>.html</c> extension; <c>{culture}</c> in the address is replaced by the culture folder of the
-    /// content that is shown. Null or empty hides the "Open full documentation" link and turns links that
-    /// point beyond the help content into plain text.
+    /// content that is shown. Null or empty hides the "Open full documentation" link and turns links to other files
+    /// than topics (for example PDFs) into plain text.
     /// </summary>
     public string? DocumentationBaseUrl { get; set; }
 
-    /// <summary>Where the help content is served from, relative to the application's base address.</summary>
+    /// <summary>
+    /// Where the help content is served from, relative to the application's base address. Serve it to signed-in users
+    /// only (<c>MapBlazorBaseHelpContent</c> of <c>BlazorBase.Components.Server</c>), never as anonymous static web assets.
+    /// </summary>
     public string ContentBasePath { get; set; } = "help";
 
     /// <summary>The culture folder tried when the content does not exist in the current culture.</summary>
