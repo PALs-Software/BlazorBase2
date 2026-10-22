@@ -4,3 +4,37 @@
     gap: 4px;
     flex-wrap: wrap;
 }
+
+/*
+   A disabled Fluent button swallows pointer events, so the hint and the hover/focus that mark the blocking rows
+   live on this wrapper. The button itself stops taking pointer events while disabled so they reach the wrapper.
+*/
+.base-action-toolbar-item {
+    display: inline-flex;
+    align-items: center;
+}
+
+.base-action-toolbar-item-disabled {
+    cursor: not-allowed;
+    border-radius: var(--radius-md, calc(var(--control-corner-radius) * 1px));
+}
+
+.base-action-toolbar-item-disabled ::deep fluent-button {
+    pointer-events: none;
+}
+
+.base-action-toolbar-item-disabled:focus-visible {
+    outline: 2px solid var(--color-border-focus, var(--focus-stroke-outer));
+    outline-offset: 2px;
+}
+
+.base-action-toolbar-reason {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}

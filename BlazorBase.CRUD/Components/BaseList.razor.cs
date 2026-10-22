@@ -211,7 +211,21 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     /// read-only list does not offer one.
     /// </summary>
     private bool IsSelectionAvailable =>
-        CanDelete || ResolvedActionGroups.Any(group => group.Actions.Any(action => action.IsBulkAction));
+        CanDelete || ResolvedActionGroups.Any(group => group.Actions.Any(action => action.Scope != CrudActionScope.None));
+
+    private HashSet<TModel> BlockedItems { get; set; } = new(ItemIdentityComparer<TModel>.Instance);
+    private int BlockedVersion { get; set; }
+
+    /// <summary>
+    /// Marks the rows that block the toolbar action the pointer or keyboard is on.
+    /// </summary>
+    private void OnBlockedItemsChanged(IReadOnlyCollection<TModel> items)
+    {
+        BlockedItems = new HashSet<TModel>(items, ItemIdentityComparer<TModel>.Instance);
+        BlockedVersion++;
+    }
+
+    private string? ResolveRowClass(TModel item) => BlockedItems.Contains(item) ? "base-list-row-blocked" : null;
 
     private bool HasContextMenuBaseEntries => CanEdit || CanDelete || IsSelectionAvailable;
 
@@ -272,6 +286,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         DataVersion,
         ParametersVersion,
         SelectionVersion,
+        BlockedVersion,
         IsMobileLayout,
         ShowsRows: HasRows || IsLoading,
         ResolvedColumns.Count,
@@ -528,6 +543,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private async Task OpenContextMenuAsync(ContextMenuAnchor anchor)
     {
+        await BuildContextMenuSectionsAsync();
+
         await RememberFocusAsync(ContextMenuFocusKey);
 
         ContextMenuAnchorRect = anchor;
@@ -1431,9 +1448,6 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     private bool HasToolbarActions =>
         ResolvedActionGroups.Any(g => g.Contexts.HasFlag(CrudActionContext.ListToolbar));
 
-    private bool HasContextMenuActionGroups =>
-        ResolvedActionGroups.Any(g => g.Contexts.HasFlag(CrudActionContext.ContextMenu));
-
     private List<CrudActionGroup<TModel>> ContextMenuActionGroups =>
         ResolvedActionGroups
             .Where(g => g.Contexts.HasFlag(CrudActionContext.ContextMenu))
@@ -1460,23 +1474,74 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         return true;
     }
 
-    private async Task OnContextMenuActionClickedAsync(CrudAction<TModel> action)
+    private sealed record ContextMenuActionEntry(CrudAction<TModel> Action, CrudActionState<TModel> State, string? Reason);
+
+    private sealed record ContextMenuActionSection(CrudActionGroup<TModel> Group, List<ContextMenuActionEntry> Entries);
+
+    private List<ContextMenuActionSection> ContextMenuSections { get; set; } = [];
+
+    /// <summary>
+    /// Works out which declared actions the row menu offers for the clicked row, whether each is enabled and why not.
+    /// Done once when the menu opens, so the async <c>Visible</c> predicates run for the clicked row only.
+    /// </summary>
+    private async Task BuildContextMenuSectionsAsync()
+    {
+        var sections = new List<ContextMenuActionSection>();
+        var item = ContextMenuItem;
+
+        if (item is not null)
+        {
+            IReadOnlyList<TModel> clicked = [item];
+
+            foreach (var group in ResolvedActionGroups.OrderBy(g => g.Order))
+            {
+                if (!await CrudActionEvaluator<TModel>.IsGroupVisibleAsync(group, CrudActionContext.ContextMenu, CurrentUser, item, clicked))
+                    continue;
+
+                var entries = new List<ContextMenuActionEntry>();
+
+                foreach (var action in group.Actions.OrderBy(a => a.Order))
+                {
+                    var targets = CrudActionEvaluator<TModel>.ResolveRowMenuTargets(action, item, SelectedItems, IsSelected);
+
+                    if (!await CrudActionEvaluator<TModel>.IsVisibleAsync(action, CrudActionContext.ContextMenu, CurrentUser, item, targets))
+                        continue;
+
+                    var state = CrudActionEvaluator<TModel>.Evaluate(action, targets);
+                    var reason = CrudActionEvaluator<TModel>.DescribeBlock(action, state, key => FrameworkLocalizer[key].Value, text => ResolveActionText(text));
+
+                    entries.Add(new ContextMenuActionEntry(action, state, reason));
+                }
+
+                if (entries.Count > 0)
+                    sections.Add(new ContextMenuActionSection(group, entries));
+            }
+        }
+
+        ContextMenuSections = sections;
+    }
+
+    private string ResolveActionText(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return string.Empty;
+
+        return Localizer is not null ? Localizer[text]?.Value ?? text : text;
+    }
+
+    private async Task OnContextMenuActionClickedAsync(ContextMenuActionEntry entry)
     {
         var item = ContextMenuItem;
         CloseContextMenu();
 
-        if (action.Action is null)
+        if (entry.Action.Action is null || !entry.State.IsEnabled)
             return;
 
-        var eventArgs = new CrudActionEventArgs<TModel>
-        {
-            Item = item,
-            SelectedItems = action.IsBulkAction && IsSelectionActive ? SelectedItems.ToList() : (item is not null ? [item] : []),
-            ServiceProvider = ServiceProvider,
-            Context = CrudActionContext.ContextMenu
-        };
+        var eventArgs = CrudActionEvaluator<TModel>.BuildEventArgs(
+            entry.Action, entry.State.Targets, item, ServiceProvider, CrudActionContext.ContextMenu);
 
-        await action.Action(eventArgs);
+        await entry.Action.Action(eventArgs);
+        await RefreshAsync();
     }
 
     private async Task LoadCurrentUserAsync()

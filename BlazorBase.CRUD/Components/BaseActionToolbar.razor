@@ -1,3 +1,4 @@
+@using BlazorBase.CRUD.Components.Internal
 @using BlazorBase.CRUD.Models
 @typeparam TModel
 
@@ -7,18 +8,35 @@
         @if (group.Actions.Count == 1)
         {
             var action = group.Actions[0];
-            @if (IsActionVisible(action))
+            @if (IsActionShown(action))
             {
-                <FluentButton Appearance="@action.Appearance"
-                              Title="@ResolveText(action.ToolTip ?? action.Caption)"
-                              IconStart="@action.Icon"
-                              OnClick="@(() => InvokeActionAsync(action))"
-                              Disabled="@(!IsActionEnabled(action))">
-                    @if (!string.IsNullOrEmpty(action.Caption))
+                var view = ViewOf(action);
+                var disabled = !view.State.IsEnabled;
+
+                <span class="base-action-toolbar-item @(disabled ? "base-action-toolbar-item-disabled" : null)"
+                      title="@(disabled ? view.Reason : null)"
+                      tabindex="@(disabled && view.Reason is not null ? "0" : null)"
+                      aria-describedby="@(disabled && view.Reason is not null ? view.ReasonId : null)"
+                      @onmouseenter="@(() => OnBlockingPointerEnterAsync(action))"
+                      @onmouseleave="@(() => OnBlockingPointerLeaveAsync(action))"
+                      @onfocusin="@(() => OnBlockingPointerEnterAsync(action))"
+                      @onfocusout="@(() => OnBlockingPointerLeaveAsync(action))">
+                    <FluentButton Appearance="@action.Appearance"
+                                  Title="@(disabled ? null : ResolveText(action.ToolTip ?? action.Caption))"
+                                  IconStart="@action.Icon"
+                                  OnClick="@(() => InvokeActionAsync(action))"
+                                  aria-describedby="@(disabled && view.Reason is not null ? view.ReasonId : null)"
+                                  Disabled="@disabled">
+                        @if (!string.IsNullOrEmpty(action.Caption))
+                        {
+                            @ResolveText(action.Caption)
+                        }
+                    </FluentButton>
+                    @if (disabled && view.Reason is not null)
                     {
-                        @ResolveText(action.Caption)
+                        <span id="@view.ReasonId" class="base-action-toolbar-reason">@view.Reason</span>
                     }
-                </FluentButton>
+                </span>
             }
         }
         else
@@ -28,10 +46,13 @@
                               ButtonAppearance="Appearance.Stealth">
                 @foreach (var action in group.Actions.OrderBy(a => a.Order))
                 {
-                    @if (IsActionVisible(action))
+                    @if (IsActionShown(action))
                     {
+                        var view = ViewOf(action);
+
                         <FluentMenuItem OnClick="@(() => InvokeActionAsync(action))"
-                                        Disabled="@(!IsActionEnabled(action))">
+                                        title="@(view.State.IsEnabled ? null : view.Reason)"
+                                        Disabled="@(!view.State.IsEnabled)">
                             @if (action.Icon is not null)
                             {
                                 <FluentIcon Value="@action.Icon" Slot="start" />

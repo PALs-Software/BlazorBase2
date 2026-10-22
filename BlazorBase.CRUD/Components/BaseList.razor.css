@@ -506,6 +506,43 @@
     background: var(--color-bg-hover, var(--neutral-fill-stealth-hover));
 }
 
+.context-menu ::deep [role="menuitem"].context-menu-item-disabled {
+    cursor: not-allowed;
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    opacity: 0.6;
+}
+
+.context-menu ::deep [role="menuitem"].context-menu-item-disabled:hover {
+    background: none;
+}
+
+/*
+   A row that blocks the toolbar action the pointer is on: a warning-colored bar on the left edge of the row and a
+   warning icon in front of the first column's text. The first cell is the select circle while rows are selected,
+   which is exactly when a row can block anything, so the bar sits there and the icon in the cell next to it.
+*/
+::deep tr.base-list-row-blocked td:first-of-type {
+    box-shadow: inset 4px 0 0 var(--color-warning, var(--warning));
+}
+
+::deep tr.base-list-row-blocked td.base-list-cell:first-of-type::before,
+::deep tr.base-list-row-blocked td.base-list-select-column + td.base-list-cell::before {
+    content: "";
+    display: inline-block;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin-inline-end: 6px;
+    vertical-align: text-bottom;
+    background-color: var(--color-warning, var(--warning));
+    -webkit-mask: var(--base-list-warning-icon) center / contain no-repeat;
+    mask: var(--base-list-warning-icon) center / contain no-repeat;
+}
+
+.base-list {
+    --base-list-warning-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M8.68 2.79a1.5 1.5 0 0 1 2.64 0l6.5 12A1.5 1.5 0 0 1 16.5 17h-13a1.5 1.5 0 0 1-1.32-2.21l6.5-12ZM10 7a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 10 7Zm0 7.5a.9.9 0 1 0 0-1.8.9.9 0 0 0 0 1.8Z'/%3E%3C/svg%3E");
+}
+
 .context-menu-divider {
     height: 1px;
     background: var(--color-border, var(--neutral-stroke-divider-rest));

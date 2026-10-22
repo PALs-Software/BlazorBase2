@@ -727,6 +727,47 @@ Declarative child components mirroring the fluent action API. Both approaches ca
 
 `CrudActionContext` (flags): `ListToolbar`, `ContextMenu`, `Card`, `ListPart`, `All`.
 
+#### Action scope, enabled state and visibility
+
+An action declares which rows it works on with `CrudActionScope` (`Scope`; fluent `.Scope(...)`, `.SingleAction()`,
+`.BulkAction()`; component parameter `Scope`):
+
+| Scope | Meaning | Default `Contexts` |
+|---|---|---|
+| `None` (default) | independent of any row, always enabled | `ListToolbar \| Card \| ListPart` (never the row menu) |
+| `Single` | exactly one row | `All` (toolbar, row/right-click menu, card, list part) |
+| `Multiple` | one or more rows | `All` |
+
+`IsBulkAction = true` (`.BulkAction()`, parameter `IsBulkAction`) stays supported and is the same as `Scope = Multiple`. An
+explicitly set `Contexts` (`ShowIn(...)`, parameter `Contexts`; `HasExplicitContexts`) always wins over the default.
+
+**Enabled state.** In the list toolbar a `Single` action is enabled with exactly one selected row, a `Multiple` action
+with at least one. `Enabled(item)` (`Func<TModel, bool>`) is a per-row predicate: a `Multiple` action is enabled only
+while it holds for every selected row. In the row/right-click menu the action works on the clicked row (a `Multiple`
+action on the whole selection when the clicked row belongs to a multi-selection) and is greyed out when it is not enabled.
+
+**Why is it disabled.** A disabled toolbar button shows the reason as tooltip and exposes it through `aria-describedby`
+(resource keys `ActionSelectRowFirst`, `ActionSelectRowsFirst`, `ActionSelectExactlyOne`, `ActionNotPossibleForRow`,
+`ActionNotPossibleForRows` = "Not possible for {0} of {1} selected rows"). The action's own text is appended:
+`DisabledReason` (static text, resolved through the list's `Localizer`) and/or `DisabledReasonProvider`
+(`Func<TModel, string?>`, per blocking row, wins over the static text; fluent `.DisabledReason(string)` /
+`.DisabledReason(Func<TModel, string?>)`). The row menu shows the same text as tooltip of the greyed entry.
+While the pointer or the keyboard focus is on a disabled button, `BaseActionToolbar` raises `OnBlockedItemsChanged`
+with the blocking selected rows and `BaseList` marks them with the CSS class `base-list-row-blocked` (warning-colored
+left border and warning icon in the first column; theme token `--color-warning`); leaving the button clears the mark.
+
+**Visibility.** The async `Visible` predicate (actions and groups; `CrudActionVisibilityArgs.Item` and `.SelectedItems`) is now
+evaluated. In the toolbar it runs when the selection changes, with `Item` = the single selected row (null when none or
+several); a `Multiple` action must pass for every selected row. In the row menu it runs when the menu opens, with `Item` =
+the clicked row. `VisibleForRoles` works as before. Use `Visible` for "should this exist", `Enabled` for "can it run now".
+
+**Event arguments.** `CrudActionEventArgs.Item` is the selected/clicked row for `Single` and the clicked row for `Multiple`
+in the row menu; `SelectedItems` holds the rows the action works on (the selection for `Multiple`).
+
+Behavior notes: an action without a scope is no longer offered in the row menu unless `Contexts` includes `ContextMenu`; a
+row-menu action now refreshes the list afterwards (like the toolbar). `ContextMenuActions` (free render fragment) stays
+supported for other sites and renders after the declared actions.
+
 ### Registrable custom property components
 
 DI-registered, reusable controls that the generic card and list resolve automatically per property.
@@ -1248,8 +1289,9 @@ new BaseListBuilder<Product>()
         .Action("Activate selected", a => a
             .Icon(new Icons.Regular.Size16.CheckmarkCircle())
             .ShowIn(CrudActionContext.ListToolbar)
-            .BulkAction()
-            .Visible(args => Task.FromResult(args.Item?.IsActive != true))
+            .Scope(CrudActionScope.Multiple)
+            .Enabled(item => !item.IsActive)
+            .DisabledReason("Already active")
             .VisibleForRoles(user => user.IsInRole("Admin"))
             .OnExecute(async args =>
             {
@@ -1782,7 +1824,7 @@ public partial class ProductManagement(
                 .Caption(Localizer["Duplicate"])
                 .Icon(new Icons.Regular.Size16.Copy())
                 .ShowIn(CrudActionContext.ContextMenu | CrudActionContext.ListToolbar)
-                .Visible(args => Task.FromResult(args.Item is not null))
+                .SingleAction()
                 .OnExecute(args => DuplicateAsync(args.Item!)))
             .Action("archive", a => a
                 .Caption(Localizer["ArchiveSelected"])

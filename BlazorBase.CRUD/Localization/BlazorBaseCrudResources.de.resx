@@ -343,4 +343,19 @@
   <data name="SortDescending" xml:space="preserve">
     <value>Absteigend sortieren</value>
   </data>
+  <data name="ActionSelectRowFirst" xml:space="preserve">
+    <value>Wählen Sie zuerst eine Zeile aus</value>
+  </data>
+  <data name="ActionSelectRowsFirst" xml:space="preserve">
+    <value>Wählen Sie zuerst eine oder mehrere Zeilen aus</value>
+  </data>
+  <data name="ActionSelectExactlyOne" xml:space="preserve">
+    <value>Wählen Sie genau eine Zeile aus</value>
+  </data>
+  <data name="ActionNotPossibleForRow" xml:space="preserve">
+    <value>Für die ausgewählte Zeile nicht möglich</value>
+  </data>
+  <data name="ActionNotPossibleForRows" xml:space="preserve">
+    <value>Für {0} von {1} ausgewählten Zeilen nicht möglich</value>
+  </data>
 </root>

@@ -24,6 +24,31 @@ public class CrudActionBuilder<TModel> where TModel : class
     public CrudActionBuilder<TModel> OnExecute(Func<CrudActionEventArgs<TModel>, Task> action) { config.Action = action; return this; }
     public CrudActionBuilder<TModel> BulkAction(bool isBulk = true) { config.IsBulkAction = isBulk; return this; }
 
+    /// <summary>
+    /// Sets which rows the action works on; see <see cref="CrudActionScope"/>.
+    /// </summary>
+    public CrudActionBuilder<TModel> Scope(CrudActionScope scope) { config.Scope = scope; return this; }
+
+    /// <summary>
+    /// Makes the action work on exactly one row (<see cref="CrudActionScope.Single"/>).
+    /// </summary>
+    public CrudActionBuilder<TModel> SingleAction() { config.Scope = CrudActionScope.Single; return this; }
+
+    /// <summary>
+    /// Sets the per-item predicate that decides whether the action can run for a row.
+    /// </summary>
+    public CrudActionBuilder<TModel> Enabled(Func<TModel, bool> predicate) { config.Enabled = predicate; return this; }
+
+    /// <summary>
+    /// Sets a static text explaining why a row blocks the action.
+    /// </summary>
+    public CrudActionBuilder<TModel> DisabledReason(string reason) { config.DisabledReason = reason; return this; }
+
+    /// <summary>
+    /// Sets a per-item function explaining why a row blocks the action.
+    /// </summary>
+    public CrudActionBuilder<TModel> DisabledReason(Func<TModel, string?> reasonForItem) { config.DisabledReasonProvider = reasonForItem; return this; }
+
     public CrudActionBuilder<TModel> DynamicComponent<TComponent>(
         Dictionary<string, object?>? parameters = null,
         Func<CrudActionEventArgs<TModel>, Task>? onClosed = null) where TComponent : Microsoft.AspNetCore.Components.ComponentBase
