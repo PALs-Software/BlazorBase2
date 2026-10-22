@@ -33,12 +33,20 @@ public partial class BaseListPartItemDialog<TModel> : ComponentBase, IDialogCont
             await Dialog.CancelAsync();
     }
 
-    private Dictionary<string, object?> GetCustomCardParameters() => new()
+    private Dictionary<string, object?> GetCustomCardParameters()
     {
-        ["Model"] = DialogData.Model,
-        ["Localizer"] = DialogData.Localizer,
-        ["DeferSave"] = true,
-        ["OnDeferredSave"] = EventCallback.Factory.Create<Dictionary<string, object?>>(this, OnDeferredSaveAsync),
-        ["OnCancelled"] = EventCallback.Factory.Create(this, OnCancelledAsync)
-    };
+        var parameters = new Dictionary<string, object?>
+        {
+            ["Model"] = DialogData.Model,
+            ["Localizer"] = DialogData.Localizer,
+            ["DeferSave"] = true,
+            ["OnDeferredSave"] = EventCallback.Factory.Create<Dictionary<string, object?>>(this, OnDeferredSaveAsync),
+            ["OnCancelled"] = EventCallback.Factory.Create(this, OnCancelledAsync)
+        };
+
+        if (DialogData.ReadOnly && BaseDialog<TModel>.DeclaresReadOnlyParameter(DialogData.CardType))
+            parameters["ReadOnly"] = true;
+
+        return parameters;
+    }
 }

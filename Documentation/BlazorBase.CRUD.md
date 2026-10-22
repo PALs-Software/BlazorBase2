@@ -419,8 +419,8 @@ gets the card read-only when `AllowView` is on (default): `BaseDialogData.ReadOn
 field as a value, has no save or cancel buttons, no way to add, remove or reorder list-part items, and is titled
 "View - <display key>" ("Anzeigen - ..."). Viewing needs a card to show, so a list without a `CardConfiguration` (and without a
 `CardType`) does not open at all; a custom `CardType` is only opened read-only when it declares a `ReadOnly` parameter, which the
-dialog sets. Opening a row by a deep link (`?item=`) honors the same rule. The list parts of a read-only card cannot add, delete
-or reorder, but the item dialog of a list part is still editable (limitation, `BaseListPart` has no read-only mode yet).
+dialog sets. Opening a row by a deep link (`?item=`) honors the same rule. The list parts of a read-only card cannot add, delete,
+reorder or edit: `BaseCard` hands its `ReadOnly` to every `BaseListPart`, whose item dialog then opens read-only too.
 
 **Multi-select mode.** The round select circles are shown while two or more rows are selected or while `MultiSelectMode` is on
 (`BaseList.EnterMultiSelectMode()`, internal; the row menu's "Select more" entry sets it). Escape and "Deselect all" leave it. Multiple
@@ -779,7 +779,7 @@ Detail/edit form for a single entity. Generic constraint: `where TModel : class,
 | `MaxColumns` | `int` | Responsive CSS grid |
 | `DataProvider` | `IBaseDataProvider<TModel>?` | Optional |
 | `IsNew` | `bool?` | Whether the model is being created. Unset, the key is inspected instead |
-| `ReadOnly` | `bool` | Shows every field as a value, hides the save and cancel buttons and the list-part add/delete/reorder controls; the title becomes "View - <display key>". `BaseList` sets it (via `BaseDialogData.ReadOnly`) when a user may only read |
+| `ReadOnly` | `bool` | Shows every field as a value, hides the save and cancel buttons and the list-part add/delete/reorder controls (the list parts are read-only too: their items open read-only); the title becomes "View - <display key>". `BaseList` sets it (via `BaseDialogData.ReadOnly`) when a user may only read |
 | `OnAfterSave` | `EventCallback<TModel>` | |
 
 Behavior:
@@ -801,7 +801,63 @@ Behavior:
 
 ### `BaseListPart<TModel>`
 
-Embedded child collection inside a `BaseCard`. Same generic constraint as `BaseCard`.
+Embedded child collection inside a `BaseCard`. Same generic constraint as `BaseCard`. It is a plain item list (not a data grid)
+held in memory: the card saves the changes (adds, removes, edits) together with the parent. It follows the same interaction
+model as `BaseList`, so the two feel alike.
+
+| Parameter | Type | Notes |
+|---|---|---|
+| `Items` | `ICollection<TModel>` | The child collection. A different collection clears the selection; the same collection edited in place (items added or removed) keeps it for the items that are still there |
+| `EditMode` | `ListPartEditMode` | `Dialog` (default; an item opens a deferred-save card), `Inline` (inline editors per item) or `None` |
+| `AllowAdd`, `AllowDelete` | `bool` | Both are also limited by the insert and delete rights of the user |
+| `ReadOnly` | `bool` | Nothing can be added, deleted or edited; an item opens in a read-only card ("View"). `BaseCard` sets it from its own `ReadOnly` |
+| `ActionGroups` | `List<CrudActionGroup<TModel>>` | Declared actions; those with `CrudActionContext.ListPart` appear in the part's toolbar, the item-bound ones also in the row menu |
+| `OnBeforeItemAdded`, `OnAfterItemAdded`, `OnBeforeItemRemoved`, `OnAfterItemRemoved` | | As before; deleting several items raises them once per item |
+| `OnItemSelected`, `OnItemOpened` | `EventCallback<TModel>` | As on `BaseList`: an item becomes the single selection / the user opens an item |
+
+**Selecting.** The mouse works as in the list: a click on an item selects it (it becomes the anchor), Ctrl/Cmd+click toggles it,
+Shift+click selects every item from the anchor to the clicked one (the items are all in memory, so a range is plain positions).
+Selected items carry the class `base-listpart-item-selected` (the accent tint of the list, light and dark). More than one
+item can only be selected where something consumes the selection (a delete right or a declared item action); without that a
+click still selects the single item. The select circles (`select-circle`) are shown while two or more items are selected or
+after "Select more"; the header then shows "N selected" and "Deselect all".
+
+**Opening (`Dialog` mode).** The item label is the open link (`base-listpart-item-button`, role `button`): a click on it selects the
+item and opens its card, a double click anywhere on the row opens it too, Ctrl/Shift+click on the label only select. The card
+is the edit card, or the read-only card ("View") when the part or the card is read-only or the user may read but not modify
+the class; a custom `CardType` is only opened read-only when it declares a `ReadOnly` parameter. In `Inline` mode the inputs
+stay directly editable: clicking or focusing an input does not change the selection, and the three-dot button and the select
+circles (shown in multi-select mode) are the way to the selection, Delete and the item actions.
+
+**The row menu.** The three-dot button (`base-listpart-row-menu`) sits right of the label (at the end of the row in `Inline` mode).
+It appears on the hovered row, on the selected row, while the row has the keyboard focus, while its menu is open and always on
+screens without hover; the right-click on a row (not in `Inline` mode, where the inputs keep the browser menu) and Shift+F10 /
+the context-menu key on a focused control open the same menu. Entries, in the order of the list: **View** or **Edit**, **Delete**
+(with the count, "Delete (3)", when the item belongs to a multi-selection; the items are removed through
+`OnBeforeItemRemoved`/`OnAfterItemRemoved` one by one, a cancelled one stays), the declared item actions with
+`CrudActionContext.ListPart` and a scope other than `None` (one block per action group; an action that is not enabled is greyed out
+with its reason as tooltip), a divider, then **Select more**, **Select all** and **Deselect all**. The per-item trash button of
+earlier versions is the Delete entry now. A menu opened on an item outside the selection selects that item first.
+
+**The toolbar.** `BaseActionToolbar` receives the selection, so declared actions have the same enabled state and feedback as in the
+list (see action scope): a `Single` action needs exactly one selected item, a `Multiple` action at least one, `Enabled(item)` must
+hold for every selected item, the disabled button explains why, and while the pointer or focus is on it the blocking items carry
+`base-listpart-item-blocked` (warning bar and icon, like `base-list-row-blocked`). `Add` stays in the header.
+
+**Keyboard** (focus on an item label, select circle or the three-dot button; keys typed in an inline editor are never taken):
+
+| Key | Effect |
+|---|---|
+| Up / Down | Moves the single selection (and the focus) one item |
+| Shift+Up / Shift+Down | Extends the selection from the anchor |
+| Space | Toggles the focused item in multi-select mode, otherwise selects it |
+| Enter | Opens the focused item (`Dialog` mode) |
+| Ctrl+A | Selects all items |
+| Escape | Closes the open menu, otherwise clears the selection and leaves multi-select mode. It is taken before a card that hosts the part can close on it |
+| Shift+F10 / context-menu key | Opens the menu of the focused item |
+
+The part defines the interaction variables it needs on `.base-listpart` itself (`--base-list-control-fill*` with the hover rule for
+touch screens, `--base-listpart-row-selected-fill`), so it does not depend on a surrounding `.base-list`.
 
 ### `BaseLookupDialog<TModel>`
 

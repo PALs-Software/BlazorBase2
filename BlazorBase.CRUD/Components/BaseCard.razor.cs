@@ -793,7 +793,8 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
             builder.AddAttribute(5, "Localizer", Localizer);
             builder.AddAttribute(6, "CardConfiguration", listPartConfig.ChildCardConfiguration);
             builder.AddAttribute(7, "CardType", listPartConfig.ChildCardType);
-            builder.AddComponentReferenceCapture(8, instance =>
+            builder.AddAttribute(8, "ReadOnly", ReadOnly);
+            builder.AddComponentReferenceCapture(9, instance =>
             {
                 if (instance is IListPartFlushable flushable)
                     RegisteredListParts[registrationKey] = flushable;
