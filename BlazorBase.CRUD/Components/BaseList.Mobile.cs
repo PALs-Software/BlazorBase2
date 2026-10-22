@@ -2,6 +2,7 @@ using BlazorBase.CRUD.Components.Internal;
 using BlazorBase.CRUD.Configuration;
 using BlazorBase.CRUD.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.Web.Virtualization;
 using Microsoft.JSInterop;
@@ -97,7 +98,12 @@ public partial class BaseList<TModel> where TModel : class, new()
     /// </summary>
     private async Task InitializeMobileLayoutAsync()
     {
-        if (MobileLayout != BaseListMobileLayout.Auto || EffectiveMobileBreakpoint <= 0)
+        if (MobileLayout == BaseListMobileLayout.Never)
+            return;
+
+        var observesLayout = MobileLayout == BaseListMobileLayout.Auto && EffectiveMobileBreakpoint > 0;
+
+        if (MobileLayout == BaseListMobileLayout.Auto && !observesLayout)
             return;
 
         MobileJsModule = await JsRuntime.InvokeAsync<IJSObjectReference>(
@@ -109,7 +115,10 @@ public partial class BaseList<TModel> where TModel : class, new()
             return;
         }
 
-        IsNarrowContainer = await MobileJsModule.InvokeAsync<bool>("observeLayout", GridContainerRef, SelfReference, EffectiveMobileBreakpoint);
+        await MobileJsModule.InvokeVoidAsync("observeTiles", GridContainerRef, SelfReference);
+
+        if (observesLayout)
+            IsNarrowContainer = await MobileJsModule.InvokeAsync<bool>("observeLayout", GridContainerRef, SelfReference, EffectiveMobileBreakpoint);
     }
 
     /// <summary>
@@ -176,13 +185,15 @@ public partial class BaseList<TModel> where TModel : class, new()
             Localizer = FrameworkLocalizer,
             Template = MobileTemplate ?? card?.Template,
             Actions = card?.Actions,
-            IsClickable = CanEdit || OnItemSelected.HasDelegate,
-            SelectionActive = IsSelectionActive,
+            IsClickable = CanOpen || OnItemSelected.HasDelegate || ShowsSelectionColumn,
+            SelectionActive = ShowsSelectionColumn,
             IsSelected = IsSelected,
+            IsBlocked = item => BlockedItems.Contains(item),
+            IndexOf = RangeCache.IndexOf,
             OnOpen = RerenderAfterAsync<TModel>(OnMobileItemOpenedAsync),
             OnToggleSelect = item =>
             {
-                ToggleSelection(item);
+                ToggleMobileSelection(item);
                 StateHasChanged();
             },
             OnMenu = RerenderAfterAsync<TModel, MouseEventArgs>(OnRowMenuButtonClickedAsync),
@@ -214,23 +225,160 @@ public partial class BaseList<TModel> where TModel : class, new()
     };
 
     /// <summary>
-    /// What tapping a tile does: the same as clicking a row, except that while a selection is going on it adds
-    /// the tile to the selection, because there is no modifier key on a touch screen.
+    /// What tapping a tile does: it opens the item the way a click on the open column does (the edit card, or the
+    /// read-only card when the user may only read), except while rows are being picked, where a tap adds the tile to
+    /// or takes it out of the selection because there is no modifier key on a touch screen.
     /// </summary>
     private async Task OnMobileItemOpenedAsync(TModel item)
     {
-        if (IsSelectionActive)
+        if (ShowsSelectionColumn)
         {
-            ToggleSelection(item);
+            ToggleMobileSelection(item);
             return;
         }
 
         if (OnItemSelected.HasDelegate)
             await OnItemSelected.InvokeAsync(item);
 
-        if (CanEdit)
-            await OnEditClickedAsync(item);
+        await OpenItemAsync(item);
     }
+
+    /// <summary>
+    /// Adds a tile to the selection or takes it out. Taking out the last one ends the picking, which on a phone is
+    /// the way back out besides "Deselect all".
+    /// </summary>
+    private void ToggleMobileSelection(TModel item)
+    {
+        ToggleSelection(item);
+        SelectionBarHint = null;
+
+        if (SelectedItems.Count == 0)
+            ClearSelection();
+    }
+
+    /// <summary>
+    /// A long press on a tile, reported by the tile script with the position of the tile: it starts the picking with
+    /// that tile selected, or, while rows are being picked, toggles it like a tap.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnTileLongPressAsync(int index)
+    {
+        if (IsDisposed || ContextMenuOpen || IsCardDialogOpen)
+            return;
+
+        await InvokeAsync(async () =>
+        {
+            await HandleTileLongPressAsync(index);
+            StateHasChanged();
+        });
+    }
+
+    internal async Task HandleTileLongPressAsync(int index)
+    {
+        if (!IsMobileLayout || !IsSelectionAvailable)
+            return;
+
+        var rows = await FetchRowsAsync(index, 1);
+
+        if (rows.Count == 0)
+            return;
+
+        var item = rows[0];
+
+        if (ShowsSelectionColumn)
+        {
+            ToggleMobileSelection(item);
+            return;
+        }
+
+        if (!IsSelected(item))
+            ToggleSelection(item);
+
+        SelectionBarHint = null;
+        EnterMultiSelectMode();
+    }
+
+    #region Selection bar
+
+    private string? SelectionBarHint { get; set; }
+    private IDisposable? SelectionBackGuard { get; set; }
+
+    /// <summary>
+    /// Whether the bar with the count and the item-bound actions is shown: on the tile layout while rows are being picked.
+    /// </summary>
+    private bool ShowsMobileSelectionBar => IsMobileLayout && ShowsSelectionColumn;
+
+    private bool HasItemBoundToolbarActions => ToolbarActionGroups.Any(group => group.Actions.Any(action => action.Scope != CrudActionScope.None));
+
+    private bool HasItemIndependentToolbarActions => ToolbarActionGroups.Any(group => group.Actions.Any(action => action.Scope == CrudActionScope.None));
+
+    private IEnumerable<CrudActionGroup<TModel>> ToolbarActionGroups =>
+        ResolvedActionGroups.Where(group => group.Contexts.HasFlag(CrudActionContext.ListToolbar));
+
+    /// <summary>
+    /// On the tile layout the item-bound actions live in the selection bar and the header keeps the ones that do not
+    /// depend on a row.
+    /// </summary>
+    private bool ShowsHeaderToolbar => HasToolbarActions && (!IsMobileLayout || HasItemIndependentToolbarActions);
+
+    private ToolbarActionFilter HeaderToolbarFilter => IsMobileLayout ? ToolbarActionFilter.ItemIndependent : ToolbarActionFilter.All;
+
+    private string SelectionBarDeleteLabel => string.Format(FrameworkLocalizer["DeleteCount"].Value, SelectedItems.Count);
+
+    private void OnSelectionBarReasonRequested(string reason)
+    {
+        SelectionBarHint = reason;
+    }
+
+    private async Task OnSelectionBarDeleteAsync()
+    {
+        SelectionBarHint = null;
+        await OnDeleteSelectedAsync();
+    }
+
+    /// <summary>
+    /// While rows are being picked on a phone the back button (or the back gesture) ends the picking instead of
+    /// leaving the page; links of the page still navigate.
+    /// </summary>
+    private void SyncSelectionBackGuard()
+    {
+        var wanted = !IsDisposed && ShowsMobileSelectionBar;
+
+        if (wanted == (SelectionBackGuard is not null))
+            return;
+
+        if (!wanted)
+        {
+            SelectionBackGuard?.Dispose();
+            SelectionBackGuard = null;
+            return;
+        }
+
+        try
+        {
+            SelectionBackGuard = Navigation.RegisterLocationChangingHandler(OnSelectionLocationChangingAsync);
+        }
+        catch (NotSupportedException)
+        {
+            SelectionBackGuard = null;
+        }
+    }
+
+    private async ValueTask OnSelectionLocationChangingAsync(LocationChangingContext context)
+    {
+        if (IsDisposed || !ShowsMobileSelectionBar || context.IsNavigationIntercepted)
+            return;
+
+        context.PreventNavigation();
+
+        await InvokeAsync(() =>
+        {
+            ClearSelection();
+            StateHasChanged();
+        });
+    }
+
+    #endregion
 
     private List<MobileSortOption> BuildMobileSortOptions()
     {

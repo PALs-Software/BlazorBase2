@@ -105,8 +105,31 @@
 }
 
 .base-list-card.is-selected {
-    background: var(--color-bg-selected, var(--neutral-fill-secondary-rest));
+    background:
+        linear-gradient(var(--color-bg-selected, var(--neutral-fill-secondary-rest)), var(--color-bg-selected, var(--neutral-fill-secondary-rest))),
+        var(--color-bg-elevated, var(--neutral-layer-2));
     border-color: var(--color-accent, var(--accent-fill-rest));
+    box-shadow: inset 0 0 0 1px var(--color-accent, var(--accent-fill-rest));
+}
+
+.base-list-card.is-blocked {
+    box-shadow: inset 4px 0 0 var(--color-warning, var(--warning));
+}
+
+.base-list-card.is-selected.is-blocked {
+    box-shadow: inset 0 0 0 1px var(--color-accent, var(--accent-fill-rest)), inset 4px 0 0 var(--color-warning, var(--warning));
+}
+
+/*
+   A long press selects a tile, so on a touch screen the tile must not start a text selection or raise the system
+   callout (iOS) that a long press would otherwise bring up.
+*/
+@media (pointer: coarse) {
+    .base-list-card {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+    }
 }
 
 .base-list-card-body {

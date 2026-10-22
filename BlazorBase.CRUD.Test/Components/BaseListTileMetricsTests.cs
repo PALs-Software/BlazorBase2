@@ -68,6 +68,12 @@ public class BaseListTileMetricsTests
     }
 
     [Fact]
+    public void ATitleOnlyTile_StillHasRoomForTheThreeDotButtonAndItsMargin()
+    {
+        Assert.True(BaseListTileMetrics.Resolve(Plan(), hasActions: false) * BaseListTileMetrics.RootFontSizePixels >= 44 + 2);
+    }
+
+    [Fact]
     public void TheSlot_IncludesTheBorderAndTheGap()
     {
         Assert.Equal(10 * 16 + BaseListTileMetrics.BorderPixels + BaseListTileMetrics.GapPixels, BaseListTileMetrics.ToSlotPixels(10));

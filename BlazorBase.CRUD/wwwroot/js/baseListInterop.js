@@ -269,6 +269,11 @@ function updateLayout(state) {
     if (state.proxy && state.proxy.style.getPropertyValue('--base-list-sticky-bottom') !== stickyBottomValue)
         state.proxy.style.setProperty('--base-list-sticky-bottom', stickyBottomValue);
 
+    const listRoot = grid.parentElement;
+
+    if (listRoot && listRoot.style.getPropertyValue('--base-list-sticky-bottom') !== stickyBottomValue)
+        listRoot.style.setProperty('--base-list-sticky-bottom', stickyBottomValue);
+
     updateStickyHeader(state);
 }
 

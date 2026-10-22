@@ -57,6 +57,20 @@ public partial class BaseActionToolbar<TModel> : ComponentBase where TModel : cl
     [Parameter]
     public EventCallback<IReadOnlyCollection<TModel>> OnBlockedItemsChanged { get; set; }
 
+    /// <summary>
+    /// Which of the declared actions this toolbar shows: all of them, only the ones that work on rows, or only the ones
+    /// that do not. The list's tile layout splits its header and its selection bar this way.
+    /// </summary>
+    [Parameter]
+    public ToolbarActionFilter ItemFilter { get; set; } = ToolbarActionFilter.All;
+
+    /// <summary>
+    /// Raised with the reason a disabled action gives when the user taps it, which is how a touch screen, where there is
+    /// no tooltip to hover, learns why an action is not available.
+    /// </summary>
+    [Parameter]
+    public EventCallback<string> OnReasonRequested { get; set; }
+
     private sealed record ActionView(bool Shown, CrudActionState<TModel> State, string? Reason, string ReasonId);
 
     private static readonly CrudActionState<TModel> EmptyState = new();
@@ -253,8 +267,19 @@ public partial class BaseActionToolbar<TModel> : ComponentBase where TModel : cl
 
     private async Task OnMenuItemClickedAsync(CrudAction<TModel> action)
     {
-        if (!views.TryGetValue(action, out var view) || !view.State.IsEnabled)
+        if (!views.TryGetValue(action, out var view))
             return;
+
+        if (!view.State.IsEnabled)
+        {
+            if (OnReasonRequested.HasDelegate)
+            {
+                await CloseMenuQuietlyAsync();
+                await OnDisabledItemClickedAsync(action);
+            }
+
+            return;
+        }
 
         await CloseMenuQuietlyAsync();
         await InvokeActionAsync(action);
@@ -327,7 +352,7 @@ public partial class BaseActionToolbar<TModel> : ComponentBase where TModel : cl
 
             foreach (var action in group.Actions)
             {
-                var shown = groupShown && actionVisibility.GetValueOrDefault(action);
+                var shown = groupShown && actionVisibility.GetValueOrDefault(action) && MatchesFilter(action);
                 var state = shown ? CrudActionEvaluator<TModel>.Evaluate(action, selection) : EmptyState;
                 var reason = shown ? CrudActionEvaluator<TModel>.DescribeBlock(action, state, key => FrameworkLocalizer[key].Value, ResolveText) : null;
 
@@ -340,6 +365,21 @@ public partial class BaseActionToolbar<TModel> : ComponentBase where TModel : cl
         }
 
         VisibleGroups = visibleGroups;
+    }
+
+    private bool MatchesFilter(CrudAction<TModel> action) => ItemFilter switch
+    {
+        ToolbarActionFilter.ItemBound => action.Scope != CrudActionScope.None,
+        ToolbarActionFilter.ItemIndependent => action.Scope == CrudActionScope.None,
+        _ => true
+    };
+
+    private async Task OnDisabledItemClickedAsync(CrudAction<TModel> action)
+    {
+        if (!OnReasonRequested.HasDelegate || !views.TryGetValue(action, out var view) || view.State.IsEnabled || string.IsNullOrEmpty(view.Reason))
+            return;
+
+        await OnReasonRequested.InvokeAsync(view.Reason);
     }
 
     private bool IsActionShown(CrudAction<TModel> action) => views.TryGetValue(action, out var view) && view.Shown;

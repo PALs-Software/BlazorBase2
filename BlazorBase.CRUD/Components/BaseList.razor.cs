@@ -369,6 +369,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     {
         if (!firstRender)
         {
+            SyncSelectionBackGuard();
             await RefreshGridForRenderedItemsAsync();
             await SyncGridStateAsync();
             await PositionContextMenuIfJustOpenedAsync();
@@ -1876,6 +1877,9 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             Navigation.LocationChanged -= OnLocationChanged;
 
         DisarmNavigationGuard();
+
+        SelectionBackGuard?.Dispose();
+        SelectionBackGuard = null;
 
         var dialog = OpenItemDialog;
         OpenItemDialog = null;

@@ -295,6 +295,9 @@ public partial class BaseList<TModel> where TModel : class, new()
         AnchorIndex = rows.Count > 0 ? 0 : -1;
         CursorIndex = AnchorIndex;
         SelectionMessage = BuildLimitMessage(count, total);
+
+        if (rows.Count > 0 && IsMobileLayout)
+            MultiSelectMode = true;
     }
 
     private string? BuildLimitMessage(int selected, int wanted)
@@ -338,6 +341,7 @@ public partial class BaseList<TModel> where TModel : class, new()
         CursorIndex = -1;
         MultiSelectMode = false;
         SelectionMessage = null;
+        SelectionBarHint = null;
     }
 
     private void RemoveFromSelection(TModel item)

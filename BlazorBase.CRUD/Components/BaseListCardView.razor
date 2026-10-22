@@ -40,6 +40,7 @@
                 <ItemContent Context="item">
                 <li @key="item" class="base-list-tile">
                 <div class="@TileClass(item)"
+                    data-tile-index="@TileIndex(item)"
                     @oncontextmenu="@(e => View.OnMenu(item, e))"
                     @oncontextmenu:preventDefault
                     @oncontextmenu:stopPropagation>

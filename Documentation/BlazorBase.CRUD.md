@@ -559,17 +559,16 @@ root element carries `base-list-mobile` while tiles are shown, so a page can rea
 (`.page:has(.base-list-mobile) .scroll-hint { display: none }`).
 
 **The tile.** A title, an optional subtitle, badges (chips), up to a few label and value pairs, an optional action
-row and a trailing **more button** (44 x 44 px) that opens the same menu as the table row (also reachable by a
-long press where the browser sends a `contextmenu` event). Every tile has **the same height**, worked out from the
+row and a trailing **more button** (44 x 44 px) that opens the same menu as the table row. Every tile has **the same height**, worked out from the
 parts the plan puts into it (`BaseListTileMetrics`): the title takes up to two lines, the subtitle, the badge row
 and each value one line (longer text is cut with an ellipsis, the full text is in the card), the fields are laid out
 two to a row. The tiles are virtualized, and ASP.NET's `Virtualize` positions the tiles it does not render by the
 average height of the ones it does: with tiles of different heights that average changes whenever another set is on
 screen, and with tens of thousands of tiles above the visible ones a single pixel moves the content by thousands. A
 tile with a custom body (`MobileTemplate`) is 120 px high unless `MobileItemHeight` says otherwise; what does not
-fit is cut off. Tapping the tile does what clicking a row does; while a
-selection is going on it toggles the selection instead, because a touch screen has no Shift key (the selection
-marks appear once something is selected - start it from the more menu). **Every part the plan has is always
+fit is cut off. Every tile has a **three-dot button** in its top-right corner (always visible, 44 px, inside the tile's
+fixed height, so it does not change the computed height); see "Phone interaction" below for tap, the menu, long press
+and the selection bar. **Every part the plan has is always
 rendered**, so the room reserved for it is used and the tile looks full instead of having a hole: an empty subtitle
 or field value shows a muted dash (`–`, announced as "No value"), a boolean badge always shows its state (true: the
 accent chip with a check mark, false: a muted chip with a dismiss mark and the same label, `BoolTrue`/`BoolFalse`
@@ -579,6 +578,36 @@ What a one-line title leaves over (the title reserves two lines) sits as one sma
 entry count ("12 entries") of the list header is not shown on the tile layout, only with the table. Above the tiles a sticky **sort bar** offers the
 sortable columns plus "Default order" and a direction button; like a header click it sorts on the data provider,
 not on the loaded page. The filter button of the list header opens the filter panel as usual.
+
+**Phone interaction.** A phone has no hover, no double click, no Shift or Ctrl key and no right mouse button, so the
+tile list does the Business Central list interaction with touch gestures:
+
+| Gesture | What happens |
+|---|---|
+| Tap a tile | Opens it like a click on the open column: the edit card, or the read-only card ("View") when the user may only read and `AllowView` / the card allows it; raises `OnItemOpened` (and `OnItemSelected`, as before). Nothing opens when the user can open nothing. While rows are being picked a tap toggles the tile instead |
+| Three-dot button of a tile | Opens the same row menu as the table: View/Edit, Delete (with the count when the tile is part of a multi-selection), the declared item-bound actions (a disabled action shows its **reason as text** below the caption, because there is no tooltip on a touch screen), a divider, Select more, Select all, Deselect all. The menu is a **bottom sheet**: full width, at the bottom edge of the screen (above the safe area), dimmed backdrop, so it is inside the viewport at any width (320-390 px and wider) |
+| Long press (about 500 ms) | Starts **multi-select mode** with that tile selected (`EnterMultiSelectMode()`); the select circle appears on every tile. The finger may not move more than 10 px and the page may not scroll, so a swipe never selects; the tile does not start a text selection or the system callout, and the browser's own context menu for a long press is suppressed (the three-dot button is the menu). The release does not also open the tile. Only where a selection leads somewhere (a delete right or an item-bound action) |
+| "Select more" / "Select all" in the menu | Also enter multi-select mode |
+| Tap in multi-select mode | Toggles the tile. Taking out the last selected tile leaves the mode |
+| "Deselect all" (menu or bar), the browser's/phone's **Back** | Leave the mode and clear the selection. Back is intercepted only while the mode is on and only for a navigation that is not a link of the page, so the links of the app still work |
+
+**The selection bar.** In multi-select mode a bar sticks to the bottom of the list's scroll area with a close button
+("Deselect all"), the count ("3 selected"), the **declared item-bound toolbar actions** (the same enabled state and
+reasons as the table's toolbar: a single-row action is disabled with several tiles selected, a multi-row action is
+disabled when a selected row fails its `Enabled` predicate; tapping a disabled action shows its reason in the bar; the
+actions collapse into a "more actions" button when they do not fit the width) and a **Delete** button for the whole
+selection when the user may delete. The scroll area ends above the app's bottom navigation bar, so the bar never covers
+it; without such a bar the safe-area inset of the screen is added underneath. A tile that blocks the action under the
+finger is marked with a warning bar on its left edge, a selected tile has an accent border and tint (theme tokens, light
+and dark). The **item-independent** toolbar actions (`CrudActionScope.None`) stay in the list header (collapsed into the
+"more actions" menu when the header is too narrow); the item-bound ones are not repeated there on the tile layout.
+`BaseActionToolbar.ItemFilter` (`ToolbarActionFilter.All` / `ItemBound` / `ItemIndependent`) and `OnReasonRequested` are
+what the list uses for this split; they are public for other toolbars.
+
+**Legacy: `MobileRole.Actions` columns.** A column with the role `Actions` still becomes the tile's action row (see
+"Row action buttons"), so sites that have not migrated keep their buttons. New lists declare the actions as
+`CrudAction`s instead: they are reachable through the three-dot menu and the selection bar without a button column, and
+the action row can then be dropped.
 
 **What the tile shows** - four ways, strongest first:
 
@@ -614,7 +643,7 @@ undecided text column, then to the item's display key.
 
 `MobileRole` values: `Auto`, `Hidden`, `Title`, `Subtitle`, `Field`, `Badge`, `Actions`.
 
-**Row action buttons.** A column with the role `Actions` is not a label and value pair: its template becomes the
+**Row action buttons (legacy).** A column with the role `Actions` is not a label and value pair: its template becomes the
 tile's action row (Accept / Reject, Run now, Apply ...), with 44 px buttons. An unsortable column with a template
 bound to `Id` is taken for such a column without a role. `MobileCardBuilder.Actions(item => ...)` adds a row
 without a column. Whatever else the context menu offers (`ContextMenuActions`) is behind the more button.

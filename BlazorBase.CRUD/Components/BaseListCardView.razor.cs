@@ -64,6 +64,9 @@ public partial class BaseListCardView<TModel> where TModel : class
         if (View.IsSelected(item))
             classes += " is-selected";
 
+        if (View.IsBlocked(item))
+            classes += " is-blocked";
+
         if (View.IsClickable)
             classes += " is-clickable";
 
@@ -71,6 +74,13 @@ public partial class BaseListCardView<TModel> where TModel : class
             classes += " is-selecting";
 
         return classes;
+    }
+
+    private string? TileIndex(TModel item)
+    {
+        var index = View.IndexOf(item);
+
+        return index >= 0 ? index.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
     }
 
     private Task OnSortPropertyChangedAsync(string? property)

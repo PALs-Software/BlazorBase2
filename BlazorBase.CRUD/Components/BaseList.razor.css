@@ -574,6 +574,100 @@
     }
 }
 
+.context-menu-reason {
+    flex: 1 0 100%;
+    margin-inline-start: 24px;
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    font-size: 12px;
+    line-height: 1.3;
+    white-space: normal;
+}
+
+.context-menu ::deep [role="menuitem"].context-menu-item-disabled {
+    flex-wrap: wrap;
+}
+
+/*
+   On the tile layout the row menu is a bottom sheet: it spans the width of the screen and sits at the bottom edge, so
+   it is inside the viewport whatever the width of the screen, and its entries are as easy to hit as the tiles. The
+   script still measures and sets left, top and max-height; the sheet overrides them. The area under the sheet is
+   dimmed and a tap on it dismisses the sheet.
+*/
+.base-list-mobile .context-menu-overlay {
+    background: var(--color-scrim, rgba(0, 0, 0, 0.4));
+}
+
+.base-list-mobile .context-menu {
+    box-sizing: border-box;
+    left: 0 !important;
+    right: 0;
+    top: auto !important;
+    bottom: 0;
+    width: 100%;
+    max-width: none;
+    max-height: min(70dvh, calc(100dvh - 64px)) !important;
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px));
+    border-width: 1px 0 0;
+    border-radius: var(--radius-lg, 16px) var(--radius-lg, 16px) 0 0;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28);
+}
+
+.base-list-mobile .context-menu ::deep [role="menuitem"] {
+    padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+}
+
+/*
+   The selection bar of the tile layout: the count, "Deselect all", the item-bound actions and Delete. It sticks to
+   the bottom of the list's scroll area, which ends above the app's bottom navigation bar (the bar is outside the
+   scroll area), so it never covers it; only without such a bar the safe area of the screen is added underneath.
+   --base-list-sticky-bottom undoes the bottom padding the scroll area may have (set by the grid script).
+*/
+.base-list-selection-bar {
+    position: sticky;
+    bottom: var(--base-list-sticky-bottom, 0px);
+    z-index: 5;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 8px calc(4px + max(env(safe-area-inset-bottom, 0px) - var(--base-bottom-bar-offset, 0px), 0px));
+    background: var(--color-bg-elevated, var(--neutral-layer-floating));
+    border-top: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px)) var(--radius-md, calc(var(--layer-corner-radius) * 1px)) 0 0;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.14);
+}
+
+.base-list-selection-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 4px;
+    min-width: 0;
+}
+
+.base-list-selection-row > * {
+    flex: none;
+}
+
+.base-list-selection-count {
+    margin-inline-end: auto;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.base-list-selection-row ::deep fluent-button {
+    min-width: 44px;
+    min-height: 44px;
+    --neutral-fill-stealth-hover: var(--base-list-control-fill-hover);
+}
+
+.base-list-selection-hint {
+    padding: 4px 8px;
+    color: var(--color-text-primary, var(--neutral-foreground-rest));
+    font-size: 13px;
+    line-height: 1.3;
+}
+
 /*
    On a phone the header keeps one row: Add shrinks to its icon (its text stays as the accessible name), the filter
    group gives way instead of wrapping, and the declared toolbar actions are already collapsed into the more menu.

@@ -19,6 +19,7 @@
                       title="@(disabled ? view.Reason : null)"
                       tabindex="@(disabled && view.Reason is not null ? "0" : null)"
                       aria-describedby="@(disabled && view.Reason is not null ? view.ReasonId : null)"
+                      @onclick="@(() => OnDisabledItemClickedAsync(action))"
                       @onmouseenter="@(() => OnBlockingPointerEnterAsync(action))"
                       @onmouseleave="@(() => OnBlockingPointerLeaveAsync(action))"
                       @onfocusin="@(() => OnBlockingPointerEnterAsync(action))"

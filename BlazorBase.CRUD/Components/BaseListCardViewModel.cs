@@ -44,6 +44,12 @@ public sealed class BaseListCardViewModel<TModel> where TModel : class
 
     public required Func<TModel, bool> IsSelected { get; init; }
 
+    /// <summary>Whether the tile blocks the toolbar action the user is pointing at; such a tile is marked.</summary>
+    public Func<TModel, bool> IsBlocked { get; init; } = _ => false;
+
+    /// <summary>The position of an item in the list, which the tile carries so a long press can tell the list which tile it was; -1 when it is not known.</summary>
+    public Func<TModel, int> IndexOf { get; init; } = _ => -1;
+
     public required Func<TModel, Task> OnOpen { get; init; }
 
     public required Action<TModel> OnToggleSelect { get; init; }

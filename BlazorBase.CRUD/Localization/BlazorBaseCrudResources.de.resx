@@ -304,6 +304,9 @@
   <data name="MoreActions" xml:space="preserve">
     <value>Weitere Aktionen</value>
   </data>
+  <data name="SelectionBarLabel" xml:space="preserve">
+    <value>Aktionen für die ausgewählten Einträge</value>
+  </data>
   <data name="ColumnSortedAscending" xml:space="preserve">
     <value>{0}, aufsteigend sortiert</value>
   </data>

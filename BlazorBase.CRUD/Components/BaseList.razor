@@ -37,7 +37,7 @@
         {
             <span class="base-list-count" role="status">@string.Format(FrameworkLocalizer[TotalCount == 1 ? "TotalEntry" : "TotalEntries"].Value, TotalCount)</span>
         }
-        @if (ShowsSelectionColumn)
+        @if (ShowsSelectionColumn && !IsMobileLayout)
         {
             <FluentLabel Class="selection-count">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</FluentLabel>
             <FluentButton Appearance="Appearance.Stealth"
@@ -58,11 +58,12 @@
                 <span class="base-list-add-text">@addText</span>
             </FluentButton>
         }
-        @if (HasToolbarActions)
+        @if (ShowsHeaderToolbar)
         {
             <BaseActionToolbar TModel="TModel"
                                ActionGroups="@ResolvedActionGroups"
                                Context="CrudActionContext.ListToolbar"
+                               ItemFilter="@HeaderToolbarFilter"
                                AllowOverflow="true"
                                SelectedItems="@SelectedItems"
                                Localizer="@Localizer"
@@ -210,6 +211,47 @@
     </div>
     <div class="base-list-hscroll" aria-hidden="true" tabindex="-1"><div></div></div>
 
+    @if (ShowsMobileSelectionBar)
+    {
+        <div class="base-list-selection-bar" role="toolbar" aria-label="@FrameworkLocalizer["SelectionBarLabel"].Value">
+            @if (SelectionBarHint is not null)
+            {
+                <div class="base-list-selection-hint" role="status">@SelectionBarHint</div>
+            }
+            <div class="base-list-selection-row">
+                <FluentButton Appearance="Appearance.Stealth"
+                              Class="base-list-selection-close"
+                              Title="@FrameworkLocalizer["DeselectAll"].Value"
+                              aria-label="@FrameworkLocalizer["DeselectAll"].Value"
+                              OnClick="@DeselectAll"
+                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())" />
+                <span class="base-list-selection-count" role="status">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</span>
+                @if (HasItemBoundToolbarActions)
+                {
+                    <BaseActionToolbar TModel="TModel"
+                                       ActionGroups="@ResolvedActionGroups"
+                                       Context="CrudActionContext.ListToolbar"
+                                       ItemFilter="@ToolbarActionFilter.ItemBound"
+                                       AllowOverflow="true"
+                                       SelectedItems="@SelectedItems"
+                                       Localizer="@Localizer"
+                                       OnBlockedItemsChanged="@OnBlockedItemsChanged"
+                                       OnReasonRequested="@OnSelectionBarReasonRequested"
+                                       OnActionExecuted="@RefreshAsync" />
+                }
+                @if (CanDelete)
+                {
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Class="base-list-selection-delete"
+                                  Title="@SelectionBarDeleteLabel"
+                                  aria-label="@SelectionBarDeleteLabel"
+                                  OnClick="@OnSelectionBarDeleteAsync"
+                                  IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Delete())" />
+                }
+            </div>
+        </div>
+    }
+
     @if (ContextMenuOpen)
     {
         <div class="context-menu-overlay"
@@ -268,6 +310,10 @@
                                     <FluentIcon Value="@entry.Action.Icon" />
                                 }
                                 <span>@ResolveActionText(entry.Action.Caption)</span>
+                                @if (IsMobileLayout && !string.IsNullOrEmpty(entry.Reason))
+                                {
+                                    <small class="context-menu-reason">@entry.Reason</small>
+                                }
                             </div>
                         }
                     }
