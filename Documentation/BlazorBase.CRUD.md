@@ -270,7 +270,7 @@ builder.Services.AddBlazorBaseCrud<HttpAuditUserProvider>();
 
 ### `BaseList<TModel>`
 
-Renders a `FluentDataGrid` with sorting, filtering, virtualized scrolling, row-click edit, multi-select, context menus and a configurable action toolbar.
+Renders a `FluentDataGrid` with sorting, filtering, virtualized scrolling, row selection and open, multi-select, context menus and a configurable action toolbar.
 
 Key parameters:
 
@@ -293,9 +293,14 @@ Key parameters:
 | `MobileCard` | `MobileCardConfiguration<TModel>?` | Which properties a tile shows and the part each plays (also `BaseListConfiguration.MobileCard`) |
 | `MobileTemplate` | `RenderFragment<TModel>?` | Custom markup for the body of a tile |
 | `MobileItemHeight` | `int?` | Height in px of every tile. Default: worked out from what the tile shows, 120 for a custom body; see "Smartphone tiles" |
+| `OpenColumn` | `bool` | The first visible data column (or the one with `OpensItem`) is the open link of a row. Default: `true`; see "Selecting and opening rows" |
+| `AllowView` | `bool` | A user who may read but not edit opens a row in a read-only card. Needs a `CardConfiguration` (or a `CardType` with a `ReadOnly` parameter). Default: `true` |
+| `SelectAllLimit` | `int` | The most rows "select all" and a Shift+click range select. Default: `5000` |
+| `OnItemSelected` | `EventCallback<TModel>` | Raised when a row becomes the single selection |
+| `OnItemOpened` | `EventCallback<TModel>` | Raised when the user opens a row (open column, double click, Enter, the row menu's Edit) |
 
 UI features:
-- **Click-to-edit row** + hover highlight + pointer cursor
+- **Click selects, the first column opens** - see "Selecting and opening rows" below
 - **Right-click context menu** (Edit / Delete / Select / custom actions). The menu acts on the row the
   pointer is over, which the list learns from cell focus — a data-grid row is a `tr` with
   `display: contents` and cannot be focused itself. The menu is clamped into the viewport: it flips
@@ -330,7 +335,7 @@ UI features:
   from a database or JSON), or any property marked `[UtcDateTime]`. Any other value is shown as stored,
   which is what a date-only value or a server-local timestamp needs. "Local" is the time zone of the
   runtime, i.e. the browser's under WebAssembly - the same as the notification bell.
-- **Shift+Click multi-select** + auto-appearing selection-indicator column
+- **Multi-select** (Ctrl/Shift+click, keyboard) + select circles in multi-select mode
 - **Bulk delete** with confirmation
 - **Per-column** `Sortable` / `Filterable` (default: both `true`)
 - **Role-based column visibility** via `[CrudAccess]` on the entity or `.Access(roles, rights)` on the column builder
@@ -386,9 +391,64 @@ infinite-scroll hook (`OnGridNearEndAsync`, `updateGrid(grid, hasMore)`) are gon
 `LoadMore` and `LoadedOfTotal` (`TotalEntries` replaces them), and `BaseListCardViewModel.Items` is replaced by
 `ItemsProvider`, `TotalCount`, `DataVersion` and `TileHeight`.
 
+#### Selecting and opening rows
+
+A click **selects**, it no longer opens the card. The mouse works like in Business Central:
+
+| Gesture | Effect |
+|---|---|
+| Click on a row | The row becomes the only selected one (and the anchor of a range). `OnItemSelected` fires when it becomes the single selection |
+| Ctrl+click / Cmd+click | Toggles the row; the anchor moves to it |
+| Shift+click | Selects every row from the anchor to the clicked row, by position. Rows that are not loaded (the list is virtualized, a range can span many chunks of a 100,000-row list) are read from the data provider in pages of `BaseQueryLimits.MaxPageSize`, not through the chunk cache. A range longer than `SelectAllLimit` keeps the rows nearest the anchor and a message above the list says so |
+| Click on the open column | Selects the row and **opens** it (not with Ctrl or Shift held) |
+| Double click on a row | Opens it |
+| Right-click on a row outside the selection | Selects that row first, then opens the row menu |
+
+Selected rows carry the row class `base-list-row-selected` (an accent tint from `--color-bg-selected`, distinct from the hover
+fill, light and dark); a row blocked by a toolbar action (see action scope) carries `base-list-row-blocked` as well, a row can
+have both. While Shift is held the rows cannot be selected as text, so a range does not highlight text.
+
+**The open column.** The first visible column that is not the tile's action row (`MobileRole.Actions`) is the open link:
+its cell has the class `base-list-open-cell`, takes the accent color and an underline while the pointer is on the row (touch
+screens have no hover) and on the selected row, and a click on it opens the card. Mark another column with
+`<BaseColumn OpensItem="true" />` (fluent: `.OpensItem()`), or switch the link off with `OpenColumn="false"`.
+A template column with its own buttons keeps working: a button that stops the click's propagation neither selects nor opens.
+
+**Opening.** Opening shows the edit card when the user may edit (`AllowEdit` and the modify right). A user who may only read
+gets the card read-only when `AllowView` is on (default): `BaseDialogData.ReadOnly` is passed to `BaseCard`, which shows every
+field as a value, has no save or cancel buttons, no way to add, remove or reorder list-part items, and is titled
+"View - <display key>" ("Anzeigen - ..."). Viewing needs a card to show, so a list without a `CardConfiguration` (and without a
+`CardType`) does not open at all; a custom `CardType` is only opened read-only when it declares a `ReadOnly` parameter, which the
+dialog sets. Opening a row by a deep link (`?item=`) honors the same rule. The list parts of a read-only card cannot add, delete
+or reorder, but the item dialog of a list part is still editable (limitation, `BaseListPart` has no read-only mode yet).
+
+**Multi-select mode.** The round select circles are shown while two or more rows are selected or while `MultiSelectMode` is on
+(`BaseList.EnterMultiSelectMode()`, internal; the row menu's "Select" entry sets it). Escape and "Deselect all" leave it. Multiple
+rows can only be selected where something consumes a selection (a delete right or a declared item action), otherwise Ctrl and
+Shift behave like a plain click.
+
+**Keyboard** (focus on a data cell of the grid):
+
+| Key | Effect |
+|---|---|
+| Up / Down | Moves the single selection (and the focus) one row |
+| Shift+Up / Shift+Down | Extends the selection from the anchor |
+| Space | Toggles the focused row in multi-select mode, otherwise selects it |
+| Enter | Opens the focused row |
+| Ctrl+A | Selects all (see below) |
+| Escape | Clears the selection and leaves multi-select mode |
+
+**Select all** takes every row of the current filter, not just the loaded ones: it reads them from the data provider in pages of
+`BaseQueryLimits.MaxPageSize`, up to `SelectAllLimit` (default 5000). Above the limit the first rows are selected and a localized
+message (`SelectionLimitReached`) says how many of how many; nothing is truncated silently.
+
+**Selection lifetime.** A new filter, quick filter or sort (every reload that starts at the top) clears the selection. A refresh
+after an action or a delete keeps the selected rows that still exist: the loaded ones are replaced by their fresh data, rows that are
+not loaded stay as they were; a deleted row leaves the selection.
+
 #### Editing a row: the card, deep link and single-row refresh
 
-A click, Enter or the context menu opens the entry in a `BaseDialog` (the card). With `EnableDeepLinking` (default
+Opening a row (see above) shows the entry in a `BaseDialog` (the card). With `EnableDeepLinking` (default
 `true`) the dialog is tied to the URL: opening a row navigates to the same page with `?item=<id>` (the name is
 `DeepLinkParameterName`, default `item`), so the card can be bookmarked, shared and reached with the browser's back
 and forward buttons. A list without an `Id` property, or with `EnableDeepLinking="false"`, opens the card without
@@ -694,6 +754,7 @@ Detail/edit form for a single entity. Generic constraint: `where TModel : class,
 | `MaxColumns` | `int` | Responsive CSS grid |
 | `DataProvider` | `IBaseDataProvider<TModel>?` | Optional |
 | `IsNew` | `bool?` | Whether the model is being created. Unset, the key is inspected instead |
+| `ReadOnly` | `bool` | Shows every field as a value, hides the save and cancel buttons and the list-part add/delete/reorder controls; the title becomes "View - <display key>". `BaseList` sets it (via `BaseDialogData.ReadOnly`) when a user may only read |
 | `OnAfterSave` | `EventCallback<TModel>` | |
 
 Behavior:

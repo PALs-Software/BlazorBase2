@@ -151,6 +151,10 @@ public class ColumnBuilder<TModel>(PropertyColumnConfig<TModel> config)
     public ColumnBuilder<TModel> Format(string format) { config.Format = format; return this; }
     public ColumnBuilder<TModel> Width(string width) { config.Width = width; return this; }
     /// <summary>
+    /// Makes this column the open link of the row instead of the first visible data column.
+    /// </summary>
+    public ColumnBuilder<TModel> OpensItem(bool opensItem = true) { config.OpensItem = opensItem; return this; }
+    /// <summary>
     /// Sets the part the column plays on the tile shown on a narrow screen, and optionally its position among the
     /// columns of the same role.
     /// </summary>

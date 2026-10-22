@@ -35,6 +35,11 @@ public class PropertyColumnConfig<TModel>
     public string? Width { get; set; }
 
     /// <summary>
+    /// Whether this column is the open link of the row, see <c>BaseColumn.OpensItem</c>.
+    /// </summary>
+    public bool OpensItem { get; set; }
+
+    /// <summary>
     /// The part this column plays on the tile shown on a narrow screen; undecided by default, see
     /// <see cref="Configuration.MobileRole"/>.
     /// </summary>

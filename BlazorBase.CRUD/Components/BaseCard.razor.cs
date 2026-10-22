@@ -331,6 +331,13 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
             var displayKeyText = DisplayKeyResolver.BuildDisplayString(
                 Model, ResolveDisplayKeyPropertyNames(), ResolvedDisplayKeySeparator);
 
+            if (ReadOnly)
+            {
+                var view = FrameworkLocalizer["DialogTitleView"].Value;
+
+                return string.IsNullOrEmpty(displayKeyText) ? view : $"{view} – {displayKeyText}";
+            }
+
             return string.IsNullOrEmpty(displayKeyText) ? FrameworkLocalizer["DialogTitleEdit"].Value : displayKeyText;
         }
     }
@@ -780,9 +787,9 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
             builder.OpenComponent(0, componentType);
             builder.AddAttribute(1, "Items", items);
-            builder.AddAttribute(2, "AllowAdd", listPartConfig.AllowAdd);
-            builder.AddAttribute(3, "AllowDelete", listPartConfig.AllowDelete);
-            builder.AddAttribute(4, "AllowReorder", listPartConfig.AllowReorder);
+            builder.AddAttribute(2, "AllowAdd", listPartConfig.AllowAdd && !ReadOnly);
+            builder.AddAttribute(3, "AllowDelete", listPartConfig.AllowDelete && !ReadOnly);
+            builder.AddAttribute(4, "AllowReorder", listPartConfig.AllowReorder && !ReadOnly);
             builder.AddAttribute(5, "Localizer", Localizer);
             builder.AddAttribute(6, "CardConfiguration", listPartConfig.ChildCardConfiguration);
             builder.AddAttribute(7, "CardType", listPartConfig.ChildCardType);

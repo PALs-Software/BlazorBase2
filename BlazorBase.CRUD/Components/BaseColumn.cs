@@ -42,6 +42,13 @@ public class BaseColumn<TModel> : ComponentBase
     public string? Width { get; set; }
 
     /// <summary>
+    /// Makes this column the open link of the row: it is styled as a link and a click on it opens the item. Left
+    /// unset on every column, the first visible data column is the open link (see <c>BaseList.OpenColumn</c>).
+    /// </summary>
+    [Parameter]
+    public bool OpensItem { get; set; }
+
+    /// <summary>
     /// The part this column plays on the tile shown on a narrow screen (title, subtitle, field, badge, the
     /// action row, or hidden). Undecided columns are chosen by data type unless another column sets a role.
     /// </summary>
@@ -88,6 +95,7 @@ public class BaseColumn<TModel> : ComponentBase
             Format = Format,
             Order = Order,
             Width = Width,
+            OpensItem = OpensItem,
             MobileRole = MobileRole,
             MobilePriority = MobilePriority
         };

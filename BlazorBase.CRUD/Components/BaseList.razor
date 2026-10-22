@@ -37,7 +37,7 @@
         {
             <span class="base-list-count" role="status">@string.Format(FrameworkLocalizer[TotalCount == 1 ? "TotalEntry" : "TotalEntries"].Value, TotalCount)</span>
         }
-        @if (IsSelectionActive)
+        @if (ShowsSelectionColumn)
         {
             <FluentLabel Class="selection-count">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</FluentLabel>
             <FluentButton Appearance="Appearance.Stealth"
@@ -81,6 +81,10 @@
     {
         <FluentMessageBar Intent="MessageIntent.Error" Class="base-list-delete-error" role="alert" OnDismiss="@(() => DeleteErrorMessage = null)">@DeleteErrorMessage</FluentMessageBar>
     }
+    @if (SelectionMessage is not null)
+    {
+        <FluentMessageBar Intent="MessageIntent.Warning" Class="base-list-delete-error" role="status" OnDismiss="@(() => SelectionMessage = null)">@SelectionMessage</FluentMessageBar>
+    }
     <div class="base-list-grid" @ref="GridContainerRef"
          @onmousedown="OnMouseDown"
          @oncontextmenu="OnContextMenuAsync" @oncontextmenu:preventDefault>
@@ -99,10 +103,12 @@
                             OverscanCount="10"
                             GenerateHeader="GenerateHeaderOption.Sticky"
                             OnRowClick="@OnRowClickedAsync"
+                            OnRowDoubleClick="@OnRowDoubleClickedAsync"
+                            OnCellClick="@OnCellClicked"
                             RowClass="@ResolveRowClass"
                             OnCellFocus="@OnCellFocusedAsync">
 
-                @if (IsSelectionActive)
+                @if (ShowsSelectionColumn)
                 {
                     <TemplateColumn Title="" Class="base-list-select-column" Width="@SelectionColumnWidth" MinWidth="@SelectionColumnWidth">
                         <div class="select-circle @(IsSelected(context) ? "selected" : "")"

@@ -55,13 +55,28 @@ public partial class BaseDialog<TModel> : ComponentBase, IDialogContentComponent
         }
     }
 
-    private Dictionary<string, object?> GetCustomCardParameters() => new()
+    private Dictionary<string, object?> GetCustomCardParameters()
     {
-        ["Model"] = DialogData.Model,
-        ["DataProvider"] = DialogData.DataProvider,
-        ["Localizer"] = DialogData.Localizer,
-        ["Configuration"] = DialogData.CardConfiguration,
-        ["OnAfterSave"] = EventCallback.Factory.Create<TModel>(this, OnSavedAsync),
-        ["OnCancelled"] = EventCallback.Factory.Create(this, OnCancelledAsync)
-    };
+        var parameters = new Dictionary<string, object?>
+        {
+            ["Model"] = DialogData.Model,
+            ["DataProvider"] = DialogData.DataProvider,
+            ["Localizer"] = DialogData.Localizer,
+            ["Configuration"] = DialogData.CardConfiguration,
+            ["OnAfterSave"] = EventCallback.Factory.Create<TModel>(this, OnSavedAsync),
+            ["OnCancelled"] = EventCallback.Factory.Create(this, OnCancelledAsync)
+        };
+
+        if (DialogData.ReadOnly && DeclaresReadOnlyParameter(DialogData.CardType))
+            parameters["ReadOnly"] = true;
+
+        return parameters;
+    }
+
+    /// <summary>
+    /// Whether a custom card type can be told to show read-only: only then can a user without edit rights be allowed to
+    /// open it.
+    /// </summary>
+    internal static bool DeclaresReadOnlyParameter(Type? cardType)
+        => cardType?.GetProperty("ReadOnly")?.IsDefined(typeof(ParameterAttribute), inherit: true) == true;
 }

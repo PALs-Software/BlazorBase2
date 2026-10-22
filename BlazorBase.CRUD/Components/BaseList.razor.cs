@@ -225,7 +225,19 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         BlockedVersion++;
     }
 
-    private string? ResolveRowClass(TModel item) => BlockedItems.Contains(item) ? "base-list-row-blocked" : null;
+    private string? ResolveRowClass(TModel item)
+    {
+        var blocked = BlockedItems.Contains(item);
+        var selected = SelectedItems.Contains(item);
+
+        if (blocked && selected)
+            return "base-list-row-blocked base-list-row-selected";
+
+        if (selected)
+            return "base-list-row-selected";
+
+        return blocked ? "base-list-row-blocked" : null;
+    }
 
     private bool HasContextMenuBaseEntries => CanEdit || CanDelete || IsSelectionAvailable;
 
@@ -269,6 +281,9 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     #region Interaction State
 
     private bool LastShiftState { get; set; }
+    private bool LastCtrlState { get; set; }
+    private bool CellClickOpens { get; set; }
+    private TModel? FocusedItem { get; set; }
     private ElementReference GridContainerRef { get; set; }
     private FluentDataGrid<TModel>? DataGrid { get; set; }
     private GridItemsProvider<TModel>? GridProvider { get; set; }
@@ -467,29 +482,6 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     #region Row Interaction Handlers
 
-    private void OnMouseDown(MouseEventArgs e)
-    {
-        LastShiftState = e.ShiftKey;
-    }
-
-    private async Task OnRowClickedAsync(FluentDataGridRow<TModel> row)
-    {
-        if (row.Item is null)
-            return;
-
-        if (LastShiftState && IsSelectionAvailable)
-        {
-            ToggleSelection(row.Item);
-            return;
-        }
-
-        if (OnItemSelected.HasDelegate)
-            await OnItemSelected.InvokeAsync(row.Item);
-
-        if (CanEdit)
-            await OnEditClickedAsync(row.Item);
-    }
-
     /// <summary>
     /// Remembers which item the pointer or keyboard last landed on, so the context menu can act on it.
     /// </summary>
@@ -501,8 +493,11 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     /// </remarks>
     private void OnCellFocusedAsync(FluentDataGridCell<TModel> cell)
     {
-        if (cell.Item is not null)
-            ContextMenuItem = cell.Item;
+        if (cell.Item is null)
+            return;
+
+        ContextMenuItem = cell.Item;
+        FocusedItem = cell.Item;
     }
 
     #endregion
@@ -521,6 +516,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
                 return;
         }
 
+        await SelectRightClickedRowAsync();
         await OpenContextMenuAsync(ContextMenuAnchor.AtPoint(e.ClientX, e.ClientY));
     }
 
@@ -634,6 +630,10 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             return;
 
         ToggleSelection(ContextMenuItem);
+
+        if (IsSelected(ContextMenuItem))
+            EnterMultiSelectMode();
+
         CloseContextMenu();
     }
 
@@ -649,22 +649,13 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         if (!SelectedItems.Remove(item))
             SelectedItems.Add(item);
-    }
 
-    private void SelectAll()
-    {
-        SelectionVersion++;
-
-        foreach (var item in RangeCache.ResidentItems)
-            SelectedItems.Add(item);
-
-        CloseContextMenu();
+        SetAnchor(item, RangeCache.IndexOf(item));
     }
 
     private void DeselectAll()
     {
-        SelectionVersion++;
-        SelectedItems.Clear();
+        ClearSelection();
         CloseContextMenu();
     }
 
@@ -731,6 +722,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         if (!keepLoadedCount)
         {
+            ClearSelection();
             RangeCache = cache;
             ServedStart = 0;
             ServedCount = 0;
@@ -767,6 +759,10 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         RangeCache = cache;
         TotalCount = Math.Max(0, cache.TotalCount);
+
+        if (keepLoadedCount)
+            KeepSelectionAfterRefresh(cache);
+
         IsLoading = false;
         DataVersion++;
         ShouldSyncGridState = true;
@@ -1013,9 +1009,10 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         if (IsCardDialogOpen)
             return;
 
+        var readOnly = !CanEdit;
         var eventArgs = new ItemEventArgs<TModel> { Item = item };
 
-        if (OnBeforeItemUpdate.HasDelegate)
+        if (!readOnly && OnBeforeItemUpdate.HasDelegate)
         {
             await OnBeforeItemUpdate.InvokeAsync(eventArgs);
 
@@ -1030,6 +1027,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             Model = editModel,
             DataProvider = ResolvedDataProvider,
             IsNew = false,
+            ReadOnly = readOnly,
             Localizer = Localizer,
             CardConfiguration = CardConfiguration,
             CardType = CardType
@@ -1114,8 +1112,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         foreach (var item in itemsToDelete)
             await OnDeleteItemAsync(item);
 
-        SelectionVersion++;
-        SelectedItems.Clear();
+        ClearSelection();
     }
 
     private async Task<bool> ConfirmDeletionAsync(string message)
@@ -1222,6 +1219,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         }
 
         DeleteErrorMessage = null;
+        RemoveFromSelection(item);
 
         if (OnAfterItemDeleted.HasDelegate)
             await OnAfterItemDeleted.InvokeAsync(item);
@@ -1272,7 +1270,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private async Task OpenItemFromKeyAsync(string key, int ticket)
     {
-        if (!CanEdit || ConvertKey(key) is not { } id)
+        if (!CanOpen || ConvertKey(key) is not { } id)
         {
             AbandonDeepLink(ticket);
             return;
@@ -1289,9 +1287,10 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             return;
         }
 
+        var readOnly = !CanEdit;
         var eventArgs = new ItemEventArgs<TModel> { Item = entity };
 
-        if (OnBeforeItemUpdate.HasDelegate)
+        if (!readOnly && OnBeforeItemUpdate.HasDelegate)
         {
             await OnBeforeItemUpdate.InvokeAsync(eventArgs);
 
@@ -1310,6 +1309,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             Model = entity,
             DataProvider = ResolvedDataProvider,
             IsNew = false,
+            ReadOnly = readOnly,
             Localizer = Localizer,
             CardConfiguration = CardConfiguration,
             CardType = CardType
@@ -1714,8 +1714,12 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     /// Marks every data cell so the stylesheet can clip long values, and the columns without an explicit
     /// width so it can give them a readable minimum.
     /// </summary>
-    private static string ResolveColumnClass(PropertyColumnConfig<TModel> column)
-        => column.Width is null ? "base-list-cell base-list-column-flexible" : "base-list-cell";
+    private string ResolveColumnClass(PropertyColumnConfig<TModel> column)
+    {
+        var css = column.Width is null ? "base-list-cell base-list-column-flexible" : "base-list-cell";
+
+        return ReferenceEquals(column, ResolveOpenColumn()) ? $"{css} {OpenCellClass}" : css;
+    }
 
     /// <summary>
     /// The text a cell shows for a value, or null when the value is not plain text (a template or a custom

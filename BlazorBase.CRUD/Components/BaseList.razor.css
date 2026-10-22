@@ -377,6 +377,58 @@
     background-color: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
 }
 
+/*
+   A selected row is tinted with the accent (--color-bg-selected is an accent at low opacity, so it is laid over the
+   opaque surface colour: the sticky actions cell, which has to be opaque, shows the same tint). Under the pointer the
+   same tint lies over the hover fill instead of the surface, which keeps a selected row distinct from a hovered one
+   and shows that the pointer is on it.
+*/
+.base-list {
+    --base-list-row-selected-fill: var(--color-bg-selected, color-mix(in srgb, var(--accent-fill-rest) 14%, transparent));
+}
+
+::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]) td,
+::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]) td.base-list-actions-column {
+    background-color: var(--color-bg-surface, var(--neutral-layer-1));
+    background-image: linear-gradient(var(--base-list-row-selected-fill), var(--base-list-row-selected-fill));
+}
+
+::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]):hover td,
+::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]):hover td.base-list-actions-column {
+    background-color: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
+}
+
+/*
+   The first data column is the open link of the row: a click on it opens the card. It takes the accent colour and an
+   underline while the pointer is on the row (a touch screen has no hover, so there only the selected row shows it),
+   and on the selected row.
+*/
+::deep td.base-list-open-cell {
+    cursor: pointer;
+    text-underline-offset: 3px;
+}
+
+::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]) td.base-list-open-cell {
+    color: var(--color-accent, var(--accent-fill-rest));
+    text-decoration: underline;
+}
+
+@media (hover: hover) {
+    ::deep tr.fluent-data-grid-row:not([row-type]):hover td.base-list-open-cell {
+        color: var(--color-accent, var(--accent-fill-rest));
+        text-decoration: underline;
+    }
+}
+
+/*
+   While Shift is held (set by baseListInterop.js) the rows cannot be selected as text, so a Shift+click that selects a
+   range does not also highlight the text between the two rows.
+*/
+.base-list-grid[data-shift] ::deep tr.fluent-data-grid-row:not([row-type]) td {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
 ::deep .base-list-select-column {
     width: 40px;
     text-align: center;

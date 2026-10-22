@@ -205,6 +205,12 @@
   <data name="DialogTitleEdit" xml:space="preserve">
     <value>Edit</value>
   </data>
+  <data name="DialogTitleView" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="SelectionLimitReached" xml:space="preserve">
+    <value>Only {0} of {1} rows were selected: the selection is limited to {0} rows.</value>
+  </data>
   <data name="ConcurrencyConflict" xml:space="preserve">
     <value>This entry was modified by another user. Please reload to see the latest version.</value>
   </data>

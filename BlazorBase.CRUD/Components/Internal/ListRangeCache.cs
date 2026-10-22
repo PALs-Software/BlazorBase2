@@ -156,6 +156,51 @@ internal sealed class ListRangeCache<TModel> where TModel : class
     }
 
     /// <summary>
+    /// The position of the held row that stands for <paramref name="item"/>, or <c>-1</c> when no held row does.
+    /// </summary>
+    /// <remarks>
+    /// Rows are matched by <see cref="ItemIdentityComparer{TModel}"/>; the same instance is found without reading ids.
+    /// </remarks>
+    public int IndexOf(TModel item)
+    {
+        var comparer = ItemIdentityComparer<TModel>.Instance;
+
+        if (WholeList is not null)
+        {
+            for (var index = 0; index < WholeList.Count; index++)
+            {
+                if (ReferenceEquals(WholeList[index], item))
+                    return index;
+            }
+
+            for (var index = 0; index < WholeList.Count; index++)
+            {
+                if (comparer.Equals(WholeList[index], item))
+                    return index;
+            }
+
+            return -1;
+        }
+
+        foreach (var pair in Chunks)
+        {
+            if (Array.IndexOf(pair.Value.Items, item) is var same and >= 0)
+                return pair.Key * ChunkSize + same;
+        }
+
+        foreach (var pair in Chunks)
+        {
+            for (var index = 0; index < pair.Value.Items.Length; index++)
+            {
+                if (comparer.Equals(pair.Value.Items[index], item))
+                    return pair.Key * ChunkSize + index;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
     /// The chunks that would have to be fetched before <paramref name="count"/> rows from
     /// <paramref name="startIndex"/> on can be served.
     /// </summary>

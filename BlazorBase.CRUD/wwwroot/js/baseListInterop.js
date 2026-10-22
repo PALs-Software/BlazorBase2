@@ -342,6 +342,67 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
         state.heldFocus = null;
     };
 
+    // The keys the selection model reacts to are reported to the list; moving between the rows is the data grid's own
+    // job, so the arrow keys are only passed on. Space and Ctrl+A would scroll the page or select its text.
+    state.onKeyDown = event => {
+        if (event.altKey || event.defaultPrevented)
+            return;
+
+        const cell = event.target;
+
+        if (!cell || cell.tagName !== 'TD' || cell.getAttribute('role') !== 'gridcell')
+            return;
+
+        const row = cell.closest('tr');
+
+        if (!row || row.hasAttribute('row-type'))
+            return;
+
+        const ctrl = event.ctrlKey || event.metaKey;
+        const key = event.key;
+        const selectAll = ctrl && (key === 'a' || key === 'A');
+        const reported = selectAll || (!ctrl && (key === 'ArrowUp' || key === 'ArrowDown' || key === ' ' || key === 'Enter' || key === 'Escape'));
+
+        if (!reported)
+            return;
+
+        if (selectAll || key === ' ')
+            event.preventDefault();
+
+        state.dotNetRef.invokeMethodAsync('OnGridKeyAsync', key, event.shiftKey, ctrl).catch(() => { });
+    };
+
+    // A Shift+click selects a range, which the browser would also answer by extending a text selection over the
+    // rows. While Shift is held the rows cannot be selected as text (BaseList.razor.css), and a selection that
+    // exists is dropped; a double click, which opens the card, would highlight a word the same way.
+    const setShift = held => {
+        if (held)
+            grid.dataset.shift = 'true';
+        else
+            delete grid.dataset.shift;
+    };
+
+    state.onShiftKey = event => {
+        if (event.key === 'Shift')
+            setShift(event.type === 'keydown');
+    };
+
+    state.onWindowBlur = () => setShift(false);
+
+    state.onMouseDown = event => {
+        if (event.shiftKey) {
+            setShift(true);
+            window.getSelection()?.removeAllRanges();
+        }
+    };
+
+    state.onDoubleClick = event => {
+        const row = event.target && event.target.closest ? event.target.closest('tr') : null;
+
+        if (row && !row.hasAttribute('row-type'))
+            window.getSelection()?.removeAllRanges();
+    };
+
     state.observer = new MutationObserver(schedule);
     state.observer.observe(grid, { childList: true, subtree: true });
 
@@ -355,9 +416,16 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
     grid.addEventListener('focusin', state.onFocusIn);
     grid.addEventListener('focusout', state.onFocusOut);
     document.addEventListener('pointerdown', state.onPointerDown, true);
+    grid.addEventListener('keydown', state.onKeyDown, true);
+    grid.addEventListener('mousedown', state.onMouseDown, true);
+    grid.addEventListener('dblclick', state.onDoubleClick);
+    document.addEventListener('keydown', state.onShiftKey);
+    document.addEventListener('keyup', state.onShiftKey);
+    window.addEventListener('blur', state.onWindowBlur);
 
     if (state.proxy)
         state.proxy.addEventListener('scroll', state.onProxyScroll, { passive: true });
+
 
     grids.set(grid, state);
 
@@ -407,6 +475,12 @@ export function disposeGrid(grid) {
     grid.removeEventListener('focusin', state.onFocusIn);
     grid.removeEventListener('focusout', state.onFocusOut);
     document.removeEventListener('pointerdown', state.onPointerDown, true);
+    grid.removeEventListener('keydown', state.onKeyDown, true);
+    grid.removeEventListener('mousedown', state.onMouseDown, true);
+    grid.removeEventListener('dblclick', state.onDoubleClick);
+    document.removeEventListener('keydown', state.onShiftKey);
+    document.removeEventListener('keyup', state.onShiftKey);
+    window.removeEventListener('blur', state.onWindowBlur);
 
     if (state.proxy)
         state.proxy.removeEventListener('scroll', state.onProxyScroll);

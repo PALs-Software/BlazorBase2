@@ -17,6 +17,11 @@ public class BaseDialogData<TModel> where TModel : class
 
     public bool IsNew { get; set; }
 
+    /// <summary>
+    /// Opens the card for viewing only: nothing can be edited and there is no save button.
+    /// </summary>
+    public bool ReadOnly { get; set; }
+
     public IStringLocalizer? Localizer { get; set; }
 
     public BaseCardConfiguration<TModel>? CardConfiguration { get; set; }
