@@ -106,7 +106,7 @@ public partial class QuickFilterMenu
 
         try
         {
-            Items = [.. await Saved.Store.GetAsync(Saved.ListKey)];
+            Items = [.. await Saved.ReadSavedAsync(Revision)];
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

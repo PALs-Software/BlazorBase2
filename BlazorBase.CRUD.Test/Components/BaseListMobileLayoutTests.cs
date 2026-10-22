@@ -135,15 +135,110 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
     }
 
     [Fact]
-    public void Tile_OmitsABooleanBadgeThatIsFalse_AndAFieldWithoutValue()
+    public void Tile_ShowsABooleanBadgeThatIsFalse_AsAnOffBadgeWithTheSameLabel()
     {
         var cut = RenderList(BaseListMobileLayout.Always);
 
         cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
-        var tile = cut.FindAll(".base-list-card")[1];
+        var active = cut.FindAll(".base-list-card")[0].QuerySelectorAll(".base-list-card-badge").First(badge => badge.TextContent.Trim() == "IsActive");
+        var inactive = cut.FindAll(".base-list-card")[1].QuerySelectorAll(".base-list-card-badge").First(badge => badge.TextContent.Trim() == "IsActive");
 
-        Assert.DoesNotContain(tile.QuerySelectorAll(".base-list-card-badge"), badge => badge.TextContent.Trim() == "IsActive");
-        Assert.Null(tile.QuerySelector(".base-list-card-subtitle"));
+        Assert.Contains("is-flag", active.ClassList);
+        Assert.DoesNotContain("is-off", active.ClassList);
+        Assert.Equal(Framework["BoolTrue"].Value, active.QuerySelector(".base-list-card-badge-icon")!.GetAttribute("aria-label"));
+        Assert.Contains("is-flag", inactive.ClassList);
+        Assert.Contains("is-off", inactive.ClassList);
+        Assert.Equal(Framework["BoolFalse"].Value, inactive.QuerySelector(".base-list-card-badge-icon")!.GetAttribute("aria-label"));
+        Assert.NotNull(inactive.QuerySelector(".base-list-card-badge-icon svg"));
+    }
+
+    [Fact]
+    public void Tile_ShowsADashInsteadOfAnEmptySubtitle()
+    {
+        var cut = RenderList(BaseListMobileLayout.Always);
+
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
+        var subtitle = cut.FindAll(".base-list-card")[1].QuerySelector(".base-list-card-subtitle")!;
+
+        Assert.Equal("–", subtitle.TextContent.Trim());
+        Assert.Equal(Framework["TileNoValue"].Value, subtitle.QuerySelector(".base-list-card-empty")!.GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public void Tile_ShowsTheLabelOfAFieldWithoutValue_AndADashAsItsValue()
+    {
+        var configuration = new MobileCardBuilder<TestProduct>().Title(p => p.Name).Field(p => p.Description).Field(p => p.Stock).Build();
+
+        var cut = RenderList(BaseListMobileLayout.Always, mobileCard: configuration);
+
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
+        var tile = cut.FindAll(".base-list-card")[1];
+        var fields = tile.QuerySelectorAll(".base-list-card-field").ToList();
+
+        Assert.Equal(2, fields.Count);
+        Assert.Equal("Description", fields[0].QuerySelector(".base-list-card-label")!.TextContent.Trim());
+        Assert.Equal("–", fields[0].QuerySelector(".base-list-card-value")!.TextContent.Trim());
+        Assert.Equal("1", fields[1].QuerySelector(".base-list-card-value")!.TextContent.Trim());
+    }
+
+    [Fact]
+    public void Tile_ShowsADashInTheBadgeRow_WhenNoBadgeHasAValue()
+    {
+        var configuration = new MobileCardBuilder<TestProduct>().Title(p => p.Name).Badge(p => p.Description).Build();
+
+        var cut = RenderList(BaseListMobileLayout.Always, mobileCard: configuration);
+
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
+        var row = cut.FindAll(".base-list-card")[1].QuerySelector(".base-list-card-badges")!;
+
+        Assert.Empty(row.QuerySelectorAll(".base-list-card-badge"));
+        Assert.Equal("–", row.TextContent.Trim());
+    }
+
+    [Fact]
+    public void EveryTile_RendersEveryPartOfThePlan_WhateverTheValues()
+    {
+        var cut = RenderList(BaseListMobileLayout.Always);
+
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
+
+        Assert.All(cut.FindAll(".base-list-card"), tile =>
+        {
+            var parts = tile.QuerySelector(".base-list-card-body")!.Children.Select(part => part.ClassList.First()).ToList();
+            Assert.Equal(["base-list-card-title", "base-list-card-subtitle", "base-list-card-badges", "base-list-card-fields"], parts);
+        });
+    }
+
+    [Fact]
+    public void TheEntryCount_IsHiddenOnTheTileLayout()
+    {
+        var cut = RenderList(BaseListMobileLayout.Always);
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
+
+        Assert.Empty(cut.FindAll(".base-list-count"));
+    }
+
+    [Fact]
+    public void TheEntryCount_StaysOnTheTableLayout()
+    {
+        var cut = RenderList(BaseListMobileLayout.Never);
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+
+        Assert.NotEmpty(cut.FindAll(".base-list-count"));
+    }
+
+    [Fact]
+    public async Task TheEntryCount_ComesBackWhenTheListLeavesTheTileLayout()
+    {
+        var module = JSInterop.SetupModule(MobileModulePath);
+        module.Setup<bool>("observeLayout", _ => true).SetResult(true);
+        var cut = RenderList(BaseListMobileLayout.Auto);
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
+        Assert.Empty(cut.FindAll(".base-list-count"));
+
+        await cut.InvokeAsync(() => cut.Instance.OnMobileLayoutChangedAsync(false));
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-list-count")));
     }
 
     [Fact]
@@ -307,7 +402,7 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
     }
 
     [Fact]
-    public void Tile_LeavesOffATemplatedFieldWhosePropertyIsNull()
+    public void Tile_ShowsADashForATemplatedFieldWhosePropertyIsNull()
     {
         var withCategory = Guid.NewGuid();
         var provider = Provider(
@@ -327,10 +422,11 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
         });
 
         cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
-        var labels = cut.FindAll(".base-list-card").Select(tile => tile.QuerySelectorAll(".base-list-card-label").Select(label => label.TextContent.Trim()).ToList()).ToList();
+        var values = cut.FindAll(".base-list-card")
+            .Select(tile => tile.QuerySelectorAll(".base-list-card-field").First(field => field.QuerySelector(".base-list-card-label")!.TextContent.Trim() == "Category").QuerySelector(".base-list-card-value")!.TextContent.Trim())
+            .ToList();
 
-        Assert.Contains("Category", labels[0]);
-        Assert.DoesNotContain("Category", labels[1]);
+        Assert.Equal(["Shoes", "–"], values);
     }
 
     [Fact]

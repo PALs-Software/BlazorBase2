@@ -53,6 +53,21 @@ public class BaseListTileMetricsTests
     }
 
     [Fact]
+    public void ATileWithEveryPartAndNoActions_IsTheSumOfItsParts()
+    {
+        Assert.Equal(1.5 + 2.6 + (0.375 + 1.1375) + (0.375 + 1.5) + (0.375 + 2.15625), BaseListTileMetrics.Resolve(Plan(subtitle: true, badges: 2, fields: 2), hasActions: false), 5);
+    }
+
+    [Fact]
+    public void ActionsAreOnlyReserved_WhenTheTileHasThem()
+    {
+        var with = BaseListTileMetrics.Resolve(Plan(subtitle: true, badges: 1, fields: 2), hasActions: true);
+        var without = BaseListTileMetrics.Resolve(Plan(subtitle: true, badges: 1, fields: 2), hasActions: false);
+
+        Assert.Equal(3.5, with - without, 5);
+    }
+
+    [Fact]
     public void TheSlot_IncludesTheBorderAndTheGap()
     {
         Assert.Equal(10 * 16 + BaseListTileMetrics.BorderPixels + BaseListTileMetrics.GapPixels, BaseListTileMetrics.ToSlotPixels(10));

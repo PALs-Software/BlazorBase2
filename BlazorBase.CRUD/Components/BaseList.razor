@@ -33,7 +33,7 @@
                 }
             </div>
         }
-        @if (HasRows)
+        @if (HasRows && !IsMobileLayout)
         {
             <span class="base-list-count" role="status">@string.Format(FrameworkLocalizer[TotalCount == 1 ? "TotalEntry" : "TotalEntries"].Value, TotalCount)</span>
         }

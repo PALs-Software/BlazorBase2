@@ -343,4 +343,7 @@
   <data name="SortDescending" xml:space="preserve">
     <value>Absteigend sortieren</value>
   </data>
+  <data name="TileNoValue" xml:space="preserve">
+    <value>Kein Wert</value>
+  </data>
 </root>

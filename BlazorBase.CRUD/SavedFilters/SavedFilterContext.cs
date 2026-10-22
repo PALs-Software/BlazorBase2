@@ -64,9 +64,9 @@ public sealed class SavedFilterContext
     /// The filter to apply when the list first loads: the user's saved default, otherwise the code default, otherwise
     /// null. A store that cannot be reached falls back to the code default instead of failing the list.
     /// </summary>
-    public async Task<FilterGroupModel?> ResolveInitialFilterAsync(CancellationToken cancellationToken = default)
+    public async Task<FilterGroupModel?> ResolveInitialFilterAsync(int revision = 0, CancellationToken cancellationToken = default)
     {
-        var userDefault = await TryReadUserDefaultAsync(cancellationToken);
+        var userDefault = await TryReadUserDefaultAsync(revision, cancellationToken);
         var filter = userDefault?.Filter ?? Defaults?.ResolveCodeDefault();
 
         if (filter is null)
@@ -76,14 +76,37 @@ public sealed class SavedFilterContext
         return userDefault is not null || FilterModelConverter.CountConditions(pruned) > 0 ? pruned : null;
     }
 
-    private async Task<SavedListFilterInfo?> TryReadUserDefaultAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// The user's saved filters of this list, read from the store once per <paramref name="revision"/>: the default
+    /// filter of the first load and the quick filter dropdown share one request. A save, delete or default change
+    /// raises the revision, and a read that failed is tried again.
+    /// </summary>
+    public Task<IReadOnlyList<SavedListFilterInfo>> ReadSavedAsync(int revision)
+    {
+        if (Store is null)
+            return Task.FromResult<IReadOnlyList<SavedListFilterInfo>>([]);
+
+        if (CachedRead is null || CachedRevision != revision || CachedRead.IsFaulted || CachedRead.IsCanceled)
+        {
+            CachedRevision = revision;
+            CachedRead = Store.GetAsync(ListKey);
+        }
+
+        return CachedRead;
+    }
+
+    private Task<IReadOnlyList<SavedListFilterInfo>>? CachedRead { get; set; }
+
+    private int CachedRevision { get; set; } = -1;
+
+    private async Task<SavedListFilterInfo?> TryReadUserDefaultAsync(int revision, CancellationToken cancellationToken)
     {
         if (Store is null)
             return null;
 
         try
         {
-            var saved = await Store.GetAsync(ListKey, cancellationToken);
+            var saved = await ReadSavedAsync(revision).WaitAsync(cancellationToken);
             return saved.FirstOrDefault(filter => filter.IsDefault);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
