@@ -379,6 +379,38 @@ public class SavedFilterTests : BunitTestContextBase
     }
 
     [Fact]
+    public async Task QuickFilter_ChoosingTheEntryThatIsAlreadyShown_ReloadsNothingAndKeepsTheRowSelection()
+    {
+        var provider = Provider();
+        var cut = RenderList(provider, CodeDefaults());
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".quick-filter")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row:not([row-type]) td")));
+        await cut.InvokeAsync(() => cut.Instance.OnGridKeyAsync("ArrowDown", false, false));
+        Assert.Single(cut.FindAll("tr.base-list-row-selected"));
+        var requests = provider.ReceivedQueries().Count();
+
+        Choose(cut, "preset:pending");
+
+        Assert.Single(cut.FindAll("tr.base-list-row-selected"));
+        Assert.Equal(requests, provider.ReceivedQueries().Count());
+    }
+
+    [Fact]
+    public async Task QuickFilter_ChoosingAnotherEntry_StillClearsTheRowSelection()
+    {
+        var provider = Provider();
+        var cut = RenderList(provider, CodeDefaults());
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".quick-filter")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row:not([row-type]) td")));
+        await cut.InvokeAsync(() => cut.Instance.OnGridKeyAsync("ArrowDown", false, false));
+        Assert.Single(cut.FindAll("tr.base-list-row-selected"));
+
+        Choose(cut, "preset:active");
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("tr.base-list-row-selected")));
+    }
+
+    [Fact]
     public void QuickFilter_OffersACustomEntryWhileTheFilterMatchesNoChoice()
     {
         var provider = Provider();

@@ -527,10 +527,83 @@ public class BaseListPartInteractionTests : BunitTestContextBase
         await cut.InvokeAsync(() => cut.Instance.OnKeyAsync("ArrowDown", true, false, 1));
         await cut.InvokeAsync(() => cut.Instance.OnKeyAsync("ArrowDown", true, false, 2));
         Assert.Equal(["Beta", "Gamma", "Delta"], SelectedNames(cut));
+    }
+
+    [Fact]
+    public async Task ArrowKeys_InMultiSelectMode_OnlyMoveTheCurrentItem_AndTheSelectionStays()
+    {
+        var cut = RenderPart([alpha, beta, gamma, delta]);
+        cut.FindAll(RowSelector)[0].Click();
+        cut.FindAll(RowSelector)[2].Click(new MouseEventArgs { CtrlKey = true });
+        Assert.Equal(["Alpha", "Gamma"], SelectedNames(cut));
+
+        await cut.InvokeAsync(() => cut.Instance.OnKeyAsync("ArrowDown", false, false, 2));
+
+        Assert.Equal(["Alpha", "Gamma"], SelectedNames(cut));
+        Assert.Equal(3, FocusedRowIndex());
 
         await cut.InvokeAsync(() => cut.Instance.OnKeyAsync("ArrowUp", false, false, 3));
-        Assert.Equal(["Gamma"], SelectedNames(cut));
+
+        Assert.Equal(["Alpha", "Gamma"], SelectedNames(cut));
+        Assert.Equal(2, FocusedRowIndex());
+
+        await cut.InvokeAsync(() => cut.Instance.OnKeyAsync(" ", false, false, 3));
+        Assert.Equal(["Alpha", "Gamma", "Delta"], SelectedNames(cut));
     }
+
+    [Fact]
+    public async Task ArrowKeys_AfterSelectMore_OnlyMoveTheCurrentItem()
+    {
+        var cut = RenderPart([alpha, beta, gamma, delta]);
+        cut.FindAll(RowSelector)[1].Click();
+        await cut.InvokeAsync(() => { cut.Instance.EnterMultiSelectMode(); return Task.CompletedTask; });
+
+        await cut.InvokeAsync(() => cut.Instance.OnKeyAsync("ArrowDown", false, false, 1));
+
+        Assert.Equal(["Beta"], SelectedNames(cut));
+        Assert.Equal(2, FocusedRowIndex());
+    }
+
+    [Fact]
+    public async Task CtrlArrow_AlwaysMovesOnlyTheCurrentItem()
+    {
+        var cut = RenderPart([alpha, beta, gamma, delta]);
+        cut.FindAll(RowSelector)[0].Click();
+
+        await cut.InvokeAsync(() => cut.Instance.OnKeyAsync("ArrowDown", false, true, 0));
+
+        Assert.Equal(["Alpha"], SelectedNames(cut));
+        Assert.Equal(1, FocusedRowIndex());
+    }
+
+    [Fact]
+    public async Task ArrowKey_OutsideMultiSelectMode_MovesTheSelectionAndTheKeyboardToTheSameItem()
+    {
+        var cut = RenderPart([alpha, beta, gamma, delta]);
+        cut.FindAll(RowSelector)[0].Click();
+
+        await cut.InvokeAsync(() => cut.Instance.OnKeyAsync("ArrowDown", false, false, 0));
+        await cut.InvokeAsync(() => cut.Instance.OnKeyAsync("ArrowDown", false, false, 1));
+        await cut.InvokeAsync(() => cut.Instance.OnKeyAsync("ArrowDown", false, false, 2));
+
+        Assert.Equal(["Delta"], SelectedNames(cut));
+        Assert.Equal(3, FocusedRowIndex());
+    }
+
+    [Fact]
+    public void MenuEntriesThatKeepThePartOnScreen_ReturnTheFocusToIt()
+    {
+        var cut = RenderPart([alpha, beta, gamma], groups: [Group(Action("Run", CrudActionScope.Single))]);
+        OpenMenu(cut, 1);
+        var before = JSInterop.Invocations.Count(i => i.Identifier == "restoreFocus");
+
+        MenuItem(cut, L("SelectMore")).Click();
+
+        cut.WaitForAssertion(() => Assert.Equal(before + 1, JSInterop.Invocations.Count(i => i.Identifier == "restoreFocus")));
+    }
+
+    private int FocusedRowIndex()
+        => (int)JSInterop.Invocations.Last(i => i.Identifier == "focusRow").Arguments[1]!;
 
     [Fact]
     public async Task ArrowDown_StopsAtTheLastItem()

@@ -245,7 +245,7 @@ public partial class BaseListPart<TModel> where TModel : class, new()
 
     internal void SelectAll()
     {
-        CloseMenu();
+        DismissMenu();
 
         if (!IsSelectionAvailable)
             return;
@@ -267,7 +267,7 @@ public partial class BaseListPart<TModel> where TModel : class, new()
     private void DeselectAll()
     {
         ClearSelection();
-        CloseMenu();
+        DismissMenu();
     }
 
     /// <summary>
@@ -348,6 +348,16 @@ public partial class BaseListPart<TModel> where TModel : class, new()
 
     internal async Task HandleKeyAsync(string key, bool shift, bool ctrl, int rowIndex)
     {
+        switch (key)
+        {
+            case "ArrowDown":
+                await MoveSelectionAsync(rowIndex, 1, shift, ctrl);
+                return;
+            case "ArrowUp":
+                await MoveSelectionAsync(rowIndex, -1, shift, ctrl);
+                return;
+        }
+
         if (ctrl)
         {
             if (string.Equals(key, "a", StringComparison.OrdinalIgnoreCase))
@@ -358,12 +368,6 @@ public partial class BaseListPart<TModel> where TModel : class, new()
 
         switch (key)
         {
-            case "ArrowDown":
-                await MoveSelectionAsync(rowIndex, 1, shift);
-                break;
-            case "ArrowUp":
-                await MoveSelectionAsync(rowIndex, -1, shift);
-                break;
             case " ":
                 await SelectFocusedAsync(rowIndex);
                 break;
@@ -376,7 +380,17 @@ public partial class BaseListPart<TModel> where TModel : class, new()
         }
     }
 
-    private async Task MoveSelectionAsync(int cursor, int delta, bool extend)
+    /// <summary>
+    /// Whether the part picks items one by one: the select circles are on, or two or more items are selected. A plain arrow
+    /// key then only moves the current item and leaves the selection alone.
+    /// </summary>
+    internal bool InMultiSelectMode => MultiSelectMode || SelectedItems.Count > 1;
+
+    /// <summary>
+    /// Moves the current item one step. Outside multi-select mode the new item replaces the selection; in multi-select mode,
+    /// and with Ctrl, only the current item (the keyboard) moves; with Shift the range from the anchor grows or shrinks.
+    /// </summary>
+    private async Task MoveSelectionAsync(int cursor, int delta, bool extend, bool focusOnly)
     {
         var rows = Rows;
 
@@ -385,14 +399,12 @@ public partial class BaseListPart<TModel> where TModel : class, new()
 
         var target = cursor < 0 ? (delta > 0 ? 0 : rows.Count - 1) : Math.Clamp(cursor + delta, 0, rows.Count - 1);
 
-        if (extend && IsSelectionAvailable)
-        {
+        var movesOnlyTheKeyboard = focusOnly || (!extend && InMultiSelectMode);
+
+        if (!movesOnlyTheKeyboard && extend && IsSelectionAvailable)
             SelectRange(AnchorIndex >= 0 ? AnchorIndex : (cursor >= 0 ? cursor : target), target);
-        }
-        else
-        {
+        else if (!movesOnlyTheKeyboard)
             await SelectSingleAsync(rows[target], target);
-        }
 
         PendingFocusIndex = target;
     }

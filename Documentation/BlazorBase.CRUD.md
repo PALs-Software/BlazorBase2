@@ -415,7 +415,10 @@ have both. While Shift is held the rows cannot be selected as text, so a range d
 
 **The open column.** The first visible column that is not the tile's action row (`MobileRole.Actions`) is the open link:
 its cell has the class `base-list-open-cell`, takes the accent color and an underline while the pointer is on the row (touch
-screens have no hover) and on the selected row, and a click on it opens the card. Mark another column with
+screens have no hover) and on the selected row, and a click on it opens the card. The link color is `--accent-foreground-rest`
+(the design system's accent text color, at least 4.5:1 on the light surface) in the light theme and the brand accent
+`--color-accent` in the dark theme; it is set in the list's own `--base-list-open-link` variable (the part: `--base-listpart-open-link`).
+Mark another column with
 `<BaseColumn OpensItem="true" />` (fluent: `.OpensItem()`), or switch the link off with `OpenColumn="false"`.
 A template column with its own buttons keeps working: a button that stops the click's propagation neither selects nor opens.
 
@@ -477,16 +480,27 @@ screens without hover (`@media (hover: none)`). It is not a Tab stop (`tabindex=
 Shift+F10 or the context-menu key on a focused cell. The hovered button uses `--base-list-control-fill-hover`, the fill of the
 header controls. A list without any row-menu entries gets no button column.
 
-**Keyboard** (focus on a data cell of the grid):
+**Keyboard** (focus on a data cell of the grid). The *current row* is the row that carries the keyboard focus; the arrow keys move
+the focus themselves (the script moves it at once and tells the list which row it is on), so the focus, the selection's last row and
+the row Enter opens are always the same row, also while the virtualized grid is scrolled or re-rendered. The focus rests on the open
+cell of the row and shows the browser's focus ring there.
 
 | Key | Effect |
 |---|---|
-| Up / Down | Moves the single selection (and the focus) one row |
-| Shift+Up / Shift+Down | Extends the selection from the anchor |
-| Space | Toggles the focused row in multi-select mode, otherwise selects it |
-| Enter | Opens the focused row |
+| Up / Down | Outside multi-select mode: moves the focus and replaces the selection with the new current row. In multi-select mode (select circles shown, either through `MultiSelectMode` or two or more selected rows): moves only the focus, the selection stays |
+| Ctrl+Up / Ctrl+Down | Always moves only the focus (the selection stays) |
+| Shift+Up / Shift+Down | Extends the selection from the anchor (this puts the list into multi-select mode when two rows are selected) |
+| Space | Toggles the current row in multi-select mode, otherwise selects it |
+| Enter | Opens the current row |
 | Ctrl+A | Selects all (see below) |
-| Escape | Clears the selection and leaves multi-select mode |
+| Escape | Clears the selection and leaves multi-select mode. Only while the focus is on a grid cell: Escape in a header control or in a dropdown (for example the quick filter) belongs to that control |
+
+The script reports a key to `OnGridKeyPressedAsync(key, shift, ctrl, row, target)` (`row`: the row the focus stood on, `target`: the
+row an arrow key already moved the focus to) and moves the focus to the row it returns when that differs (a row the virtualizer has not
+rendered yet is scrolled to). Closing the row menu (Escape, click outside) or choosing one of its entries that keeps the list on
+screen (Select more, Select all, Deselect all) puts the keyboard back on the open cell of the row the menu was opened for; entries that
+open a card or a confirmation manage their own focus. The quick filter dropdown raises its change only when the chosen entry differs
+from the one shown, so closing it with Escape leaves the row selection alone.
 
 **Select all** takes every row of the current filter, not just the loaded ones: it reads them from the data provider in pages of
 `BaseQueryLimits.MaxPageSize`, up to `SelectAllLimit` (default 5000). Above the limit the first rows are selected and a localized
@@ -909,7 +923,8 @@ hold for every selected item, the disabled button explains why, and while the po
 
 | Key | Effect |
 |---|---|
-| Up / Down | Moves the single selection (and the focus) one item |
+| Up / Down | Outside multi-select mode: moves the focus and replaces the selection with the new item. In multi-select mode (select circles shown, either after "Select more" or with two or more selected items): moves only the focus, the selection stays |
+| Ctrl+Up / Ctrl+Down | Always moves only the focus (the selection stays) |
 | Shift+Up / Shift+Down | Extends the selection from the anchor |
 | Space | Toggles the focused item in multi-select mode, otherwise selects it |
 | Enter | Opens the focused item (`Dialog` mode) |
@@ -918,7 +933,8 @@ hold for every selected item, the disabled button explains why, and while the po
 | Shift+F10 / context-menu key | Opens the menu of the focused item |
 
 The part defines the interaction variables it needs on `.base-listpart` itself (`--base-list-control-fill*` with the hover rule for
-touch screens, `--base-listpart-row-selected-fill`), so it does not depend on a surrounding `.base-list`.
+touch screens, `--base-listpart-row-selected-fill`), so it does not depend on a surrounding `.base-list`. Closing the part's menu or
+choosing Select more / Select all / Deselect all puts the keyboard back on the item the menu was opened for.
 
 ### `BaseLookupDialog<TModel>`
 

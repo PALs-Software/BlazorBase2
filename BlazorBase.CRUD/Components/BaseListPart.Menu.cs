@@ -302,7 +302,7 @@ public partial class BaseListPart<TModel> where TModel : class, new()
             SelectedItems.Add(item);
 
         EnterMultiSelectMode();
-        CloseMenu();
+        DismissMenu();
     }
 
     private async Task OnMenuActionClickedAsync(MenuActionEntry entry)

@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using BlazorBase.CRUD.Components;
 using BlazorBase.CRUD.Core;
+using BlazorBase.CRUD.Localization;
 using BlazorBase.CRUD.Models;
 using BlazorBase.CRUD.Test.Infrastructure;
 using BlazorBase.CRUD.Test.Infrastructure.TestEntities;
@@ -8,6 +9,7 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Localization;
 using NSubstitute;
 using Xunit;
 
@@ -43,28 +45,54 @@ public class BaseListContextMenuTests : BunitTestContextBase
     }
 
     /// <summary>
-    /// Dismissing puts the keyboard back where it came from; acting on an entry does not, because the
-    /// dialog or confirmation it opens manages its own focus.
+    /// Dismissing puts the keyboard back where it came from; acting on an entry that opens a dialog or a confirmation does
+    /// not, because that manages its own focus.
     /// </summary>
     [Fact]
-    public void DismissingTheMenuRestoresFocus_ActingOnItDoesNot()
+    public void DismissingTheMenuRestoresFocus_OpeningADialogFromItDoesNot()
     {
         var cut = RenderListWithOpenContextMenu();
 
         cut.Find(".context-menu").KeyDown(Key.Escape);
         cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".context-menu")));
-        var afterDismiss = JSInterop.Invocations.Count(i => i.Identifier == "restoreFocus");
+        var afterDismiss = MenuFocusRestores();
         Assert.Equal(1, afterDismiss);
 
         cut.Find(".base-list-grid").ContextMenu(new MouseEventArgs { ClientX = 40, ClientY = 40 });
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".context-menu")));
-        cut.FindAll(".context-menu [role=\"menuitem\"]").Last().Click();
+        cut.FindAll(".context-menu [role=\"menuitem\"]").First().Click();
         cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".context-menu")));
 
-        Assert.Equal(afterDismiss, JSInterop.Invocations.Count(i => i.Identifier == "restoreFocus"));
+        Assert.Equal(afterDismiss, MenuFocusRestores());
     }
 
-    private IRenderedComponent<BaseList<TestProduct>> RenderListWithOpenContextMenu()
+    /// <summary>
+    /// A menu entry that keeps the list on screen (select more, select all, deselect all) hands the keyboard back to the
+    /// list like closing the menu does; otherwise the keyboard would be dropped on the page after the click.
+    /// </summary>
+    [Theory]
+    [InlineData("SelectMore")]
+    [InlineData("SelectAll")]
+    [InlineData("DeselectAll")]
+    public void SelectionEntriesOfTheMenu_ReturnTheFocusToTheList(string entry)
+    {
+        Services.AddLocalization();
+        var cut = RenderListWithOpenContextMenu(rows: 3);
+        var framework = Services.GetRequiredService<IStringLocalizerFactory>().Create(typeof(BlazorBaseCrudResources));
+        var before = MenuFocusRestores();
+        var item = cut.FindAll(".context-menu [role=\"menuitem\"]").FirstOrDefault(menuItem => menuItem.TextContent.Trim() == framework[entry].Value);
+
+        Assert.NotNull(item);
+        item.Click();
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".context-menu")));
+        cut.WaitForAssertion(() => Assert.Equal(before + 1, MenuFocusRestores()));
+    }
+
+    private int MenuFocusRestores()
+        => JSInterop.Invocations.Count(i => i.Identifier == "restoreFocus" && i.Arguments.FirstOrDefault() is string key && key.StartsWith("context-menu-", StringComparison.Ordinal));
+
+    private IRenderedComponent<BaseList<TestProduct>> RenderListWithOpenContextMenu(int rows = 1)
     {
         var authorization = this.AddAuthorization();
         authorization.SetAuthorized("admin");
@@ -79,8 +107,8 @@ public class BaseListContextMenuTests : BunitTestContextBase
         provider.GetListAsync(Arg.Any<BaseQuery>(), Arg.Any<Expression<Func<TestProduct, bool>>>(), Arg.Any<CancellationToken>())
             .Returns(new BaseQueryResult<TestProduct>
             {
-                Items = [new TestProduct { Id = Guid.NewGuid(), Name = "Alpha", IsActive = true }],
-                TotalCount = 1,
+                Items = [.. Enumerable.Range(0, rows).Select(index => new TestProduct { Id = Guid.NewGuid(), Name = index == 0 ? "Alpha" : $"Row {index}", IsActive = true })],
+                TotalCount = rows,
             });
         Services.AddSingleton(provider);
 
@@ -90,6 +118,8 @@ public class BaseListContextMenuTests : BunitTestContextBase
             .Add(p => p.ChildContent, BuildColumn(p => p.Name)));
 
         cut.WaitForState(() => cut.FindAll(".base-list-grid").Count > 0);
+        cut.WaitForState(() => cut.FindAll("tr.fluent-data-grid-row:not([row-type]) td").Count > 0);
+        cut.Find("tr.fluent-data-grid-row:not([row-type]) td").Focus();
         cut.Find(".base-list-grid").ContextMenu(new MouseEventArgs { ClientX = 40, ClientY = 40 });
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".context-menu")));
 

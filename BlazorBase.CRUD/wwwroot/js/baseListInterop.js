@@ -48,8 +48,23 @@ function findCell(description) {
     return row ? row.querySelector(`td[col-index="${description.columnIndex}"]`) : null;
 }
 
+// The cell that carries the keyboard focus of a row: its open cell, otherwise its first data cell. The row menu
+// button, the select circle and the other columns are not where the keyboard rests between two rows.
+function rowFocusCell(row) {
+    return row ? (row.querySelector('td.base-list-open-cell') || row.querySelector('td.base-list-cell')) : null;
+}
+
+// The element to put the keyboard back on after an overlay closes. The three-dot button of a row is not it: its
+// menu is the overlay, and the keyboard belongs on the row the menu was opened for.
+function resolveRememberedElement(element) {
+    const button = element && element.closest ? element.closest('.base-list-row-menu') : null;
+    const cell = button ? rowFocusCell(button.closest('tr')) : null;
+
+    return cell || element;
+}
+
 export function rememberFocus(key) {
-    const element = document.activeElement;
+    const element = resolveRememberedElement(document.activeElement);
     rememberedFocus.set(key, { element, description: describeCell(element) });
 }
 
@@ -198,6 +213,97 @@ export function holdFocus(grid) {
         holdFocusOn(state, active);
 }
 
+// The rows are 48 px high (BaseList.razor, ItemSize); rows that are not rendered yet are found by that height.
+const rowHeight = 48;
+const pendingFocusMilliseconds = 3000;
+
+function dataIndexOfRow(row) {
+    const index = Number(row.getAttribute('aria-rowindex')) - 2;
+    return Number.isInteger(index) ? index : -1;
+}
+
+function findDataRow(state, dataIndex) {
+    return state.grid.querySelector(`tr[aria-rowindex="${dataIndex + 2}"]:not([row-type])`);
+}
+
+// Scrolls the page by the least amount that brings the box between the sticky header and the bottom of the view.
+function revealBox(state, top, bottom) {
+    const view = viewportBox(state.scroller);
+    const headerCell = state.grid.querySelector('tr[row-type] th');
+    const limit = view.top + (headerCell ? headerCell.offsetHeight : 0);
+    let delta = 0;
+
+    if (top < limit)
+        delta = top - limit;
+    else if (bottom > view.bottom)
+        delta = bottom - view.bottom;
+
+    if (delta === 0)
+        return;
+
+    if (state.scroller)
+        state.scroller.scrollTop += delta;
+    else
+        window.scrollBy(0, delta);
+}
+
+function revealRowAt(state, dataIndex) {
+    const body = state.grid.querySelector('tbody');
+
+    if (!body)
+        return;
+
+    const top = body.getBoundingClientRect().top + dataIndex * rowHeight;
+    revealBox(state, top, top + rowHeight);
+}
+
+// Puts the keyboard on the row with the given index: the keyboard and the list's current row are the same row, so the
+// next key, Enter among them, acts on the row the selection shows. A row the virtualizer has not rendered yet is
+// scrolled to and focused as soon as it exists.
+function focusDataRow(state, dataIndex, renderedOnly) {
+    const cell = rowFocusCell(findDataRow(state, dataIndex));
+
+    if (!cell) {
+        if (!renderedOnly) {
+            state.pendingFocus = { index: dataIndex, until: performance.now() + pendingFocusMilliseconds };
+            revealRowAt(state, dataIndex);
+            setTimeout(() => applyPendingFocus(state), 80);
+        }
+
+        return false;
+    }
+
+    cell.focus({ preventScroll: true });
+
+    if (document.activeElement !== cell)
+        return false;
+
+    holdFocusOn(state, cell);
+    const box = cell.getBoundingClientRect();
+    revealBox(state, box.top, box.bottom);
+    return true;
+}
+
+function applyPendingFocus(state) {
+    const pending = state.pendingFocus;
+
+    if (!pending)
+        return;
+
+    if (performance.now() > pending.until || !state.grid.isConnected) {
+        state.pendingFocus = null;
+        return;
+    }
+
+    if (focusDataRow(state, pending.index, true)) {
+        state.pendingFocus = null;
+        return;
+    }
+
+    revealRowAt(state, pending.index);
+    setTimeout(() => applyPendingFocus(state), 80);
+}
+
 // The grid never scrolls vertically, so the browser cannot keep its header on screen while the page scrolls
 // whenever the grid has to scroll sideways (a scroll container swallows sticky positioning). A grid that
 // fits its box therefore keeps plain CSS sticky ("fits"); a wider one scrolls inside its box ("scroll") and
@@ -287,7 +393,7 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
 
     const state = {
         grid, dotNetRef, proxy, proxyContent: proxy ? proxy.firstElementChild : null, scroller: findScrollParent(grid),
-        table: null, current: null, scheduled: false, pendingRestoreKey: restoreFocusKey || null
+        table: null, current: null, scheduled: false, pendingRestoreKey: restoreFocusKey || null, keyTicket: 0, pendingFocus: null
     };
 
     const schedule = () => {
@@ -300,6 +406,7 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
             applyRovingTabindex(state);
             updateLayout(state);
             restoreHeldFocus(state);
+            applyPendingFocus(state);
         });
     };
 
@@ -345,10 +452,11 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
 
     state.onPointerDown = () => {
         state.heldFocus = null;
+        state.pendingFocus = null;
     };
 
-    // The keys the selection model reacts to are reported to the list; moving between the rows is the data grid's own
-    // job, so the arrow keys are only passed on. Space and Ctrl+A would scroll the page or select its text.
+    // The keys the selection model reacts to are reported to the list together with the row the keyboard stands on. The
+    // arrow keys move the keyboard here; Space and Ctrl+A would scroll the page or select its text.
     state.onKeyDown = event => {
         if (event.altKey || event.defaultPrevented)
             return;
@@ -374,7 +482,8 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
         const ctrl = event.ctrlKey || event.metaKey;
         const key = event.key;
         const selectAll = ctrl && (key === 'a' || key === 'A');
-        const reported = selectAll || (!ctrl && (key === 'ArrowUp' || key === 'ArrowDown' || key === ' ' || key === 'Enter' || key === 'Escape'));
+        const vertical = key === 'ArrowUp' || key === 'ArrowDown';
+        const reported = selectAll || vertical || (!ctrl && (key === ' ' || key === 'Enter' || key === 'Escape'));
 
         if (!reported)
             return;
@@ -382,7 +491,28 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
         if (selectAll || key === ' ')
             event.preventDefault();
 
-        state.dotNetRef.invokeMethodAsync('OnGridKeyAsync', key, event.shiftKey, ctrl).catch(() => { });
+        const rowIndex = dataIndexOfRow(row);
+
+        if (!vertical) {
+            state.dotNetRef.invokeMethodAsync('OnGridKeyPressedAsync', key, event.shiftKey, ctrl, rowIndex, -1).catch(() => { });
+            return;
+        }
+
+        // The data grid would move the keyboard itself, one row behind what the list has selected by the time the list
+        // has answered; the keyboard is moved here instead, at once, and the list is told which row it is on.
+        event.preventDefault();
+        event.stopPropagation();
+
+        const wanted = rowIndex + (key === 'ArrowDown' ? 1 : -1);
+        const moved = wanted >= 0 && focusDataRow(state, wanted, true);
+        const ticket = ++state.keyTicket;
+
+        state.dotNetRef.invokeMethodAsync('OnGridKeyPressedAsync', key, event.shiftKey, ctrl, rowIndex, moved ? wanted : -1)
+            .then(final => {
+                if (final >= 0 && (!moved || final !== wanted) && ticket === state.keyTicket)
+                    focusDataRow(state, final, false);
+            })
+            .catch(() => { });
     };
 
     // A Shift+click selects a range, which the browser would also answer by extending a text selection over the
@@ -491,6 +621,7 @@ export function disposeGrid(grid) {
         return;
 
     state.observer.disconnect();
+    state.pendingFocus = null;
     state.resizeObserver.disconnect();
     state.scrollTarget.removeEventListener('scroll', state.onPageScroll);
     window.removeEventListener('resize', state.onResize);

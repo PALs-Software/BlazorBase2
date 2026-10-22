@@ -121,7 +121,7 @@ public partial class QuickFilterMenu
 
     private async Task OnChangedAsync(string? key)
     {
-        if (key is null || key == CustomKey)
+        if (key is null || key == CustomKey || key == SelectedKey)
             return;
 
         if (key == NoneKey)

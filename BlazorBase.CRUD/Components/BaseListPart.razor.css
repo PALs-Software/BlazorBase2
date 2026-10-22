@@ -120,19 +120,35 @@
 /*
    The label of an item that can be opened is its open link: it takes the accent color and an underline while the
    pointer is on the row (a touch screen has no hover, so there only the selected row shows it), and on the selected row.
+   The brand accent (#00A7E7) is only 2.6:1 on a light surface, so the light theme takes the design system's accent text
+   colour, which is tuned for contrast; the dark theme keeps the brand accent.
 */
+.base-listpart {
+    --base-listpart-open-link: var(--accent-foreground-rest, var(--color-accent));
+}
+
+:root[data-theme="dark"] .base-listpart {
+    --base-listpart-open-link: var(--color-accent);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .base-listpart {
+        --base-listpart-open-link: var(--color-accent);
+    }
+}
+
 .base-listpart-item-button {
     cursor: pointer;
 }
 
 .base-listpart-item-selected .base-listpart-item-button {
-    color: var(--color-accent, var(--accent-fill-rest));
+    color: var(--base-listpart-open-link);
     text-decoration: underline;
 }
 
 @media (hover: hover) {
     .base-listpart-item:hover .base-listpart-item-button {
-        color: var(--color-accent, var(--accent-fill-rest));
+        color: var(--base-listpart-open-link);
         text-decoration: underline;
     }
 }

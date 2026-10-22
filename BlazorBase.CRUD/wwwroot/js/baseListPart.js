@@ -54,7 +54,7 @@ export function observe(container, dotNetRef) {
         if (kind === 'menu' && activation)
             return;
 
-        if (!(selectAll || (!ctrl && (key === 'ArrowUp' || key === 'ArrowDown' || activation))))
+        if (!(selectAll || key === 'ArrowUp' || key === 'ArrowDown' || (!ctrl && activation)))
             return;
 
         if (selectAll || key === ' ' || key === 'ArrowUp' || key === 'ArrowDown')
@@ -113,7 +113,8 @@ export function observe(container, dotNetRef) {
     document.addEventListener('keydown', state.onShiftKey);
     document.addEventListener('keyup', state.onShiftKey);
     window.addEventListener('blur', state.onWindowBlur);
-    window.addEventListener('keydown', state.onEscape, true);(container, state);
+    window.addEventListener('keydown', state.onEscape, true);
+    parts.set(container, state);
 }
 
 export function unobserve(container) {
@@ -165,7 +166,12 @@ export function menuButtonRect(clientX, clientY) {
 }
 
 export function rememberFocus() {
-    rememberedFocus = document.activeElement;
+    const active = document.activeElement;
+    const button = active && active.closest ? active.closest('[data-listpart-key="menu"]') : null;
+    const row = rowOf(button);
+    const control = row ? (row.querySelector('[data-listpart-focus]') || row.querySelector('[data-listpart-key]:not([data-listpart-key="menu"])')) : null;
+
+    rememberedFocus = control || active;
 }
 
 export function restoreFocus() {

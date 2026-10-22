@@ -281,7 +281,7 @@ public partial class BaseList<TModel> where TModel : class, new()
     /// </summary>
     internal async Task SelectAll()
     {
-        CloseContextMenu();
+        DismissContextMenu();
 
         if (!IsSelectionAvailable)
             return;
@@ -399,50 +399,71 @@ public partial class BaseList<TModel> where TModel : class, new()
     #region Keyboard
 
     /// <summary>
-    /// A key pressed on a row of the grid, reported by the grid script. Moving between the rows is done by the data grid
-    /// itself; this keeps the selection with it.
+    /// A key pressed on a row of the grid, reported by the grid script together with the index of the row the keyboard
+    /// stands on and, for an arrow key, the row the script has already moved the keyboard to. Returns the index of the row
+    /// the keyboard must end up on, or -1 when it stays where it is.
     /// </summary>
     [JSInvokable]
-    public async Task OnGridKeyAsync(string key, bool shift, bool ctrl)
+    public async Task<int> OnGridKeyPressedAsync(string key, bool shift, bool ctrl, int row, int target)
     {
         if (IsDisposed || ContextMenuOpen || IsCardDialogOpen)
-            return;
+            return -1;
+
+        var focusRow = -1;
 
         await InvokeAsync(async () =>
         {
-            await HandleGridKeyAsync(key, shift, ctrl);
+            focusRow = await HandleGridKeyAsync(key, shift, ctrl, row, target);
             StateHasChanged();
         });
+
+        return focusRow;
     }
 
-    internal async Task HandleGridKeyAsync(string key, bool shift, bool ctrl)
+    /// <summary>
+    /// A key pressed on a row of the grid without the row it was pressed on, so the row the keyboard last landed on is
+    /// the current one.
+    /// </summary>
+    public async Task OnGridKeyAsync(string key, bool shift, bool ctrl)
+        => await OnGridKeyPressedAsync(key, shift, ctrl, -1, -1);
+
+    /// <summary>
+    /// Applies a key to the list. <paramref name="row"/> is the row the keyboard stands on (the current row), -1 when it is
+    /// not known; <paramref name="target"/> is the row an arrow key already moved the keyboard to, -1 when it did not.
+    /// </summary>
+    /// <returns>The index of the row the keyboard must be moved to, -1 for none.</returns>
+    internal async Task<int> HandleGridKeyAsync(string key, bool shift, bool ctrl, int row = -1, int target = -1)
     {
+        switch (key)
+        {
+            case "ArrowDown":
+                return await MoveCurrentRowAsync(row, 1, shift, ctrl, target);
+            case "ArrowUp":
+                return await MoveCurrentRowAsync(row, -1, shift, ctrl, target);
+        }
+
         if (ctrl)
         {
             if (string.Equals(key, "a", StringComparison.OrdinalIgnoreCase))
                 await SelectAll();
 
-            return;
+            return -1;
         }
 
         switch (key)
         {
-            case "ArrowDown":
-                await MoveSelectionAsync(1, shift);
-                break;
-            case "ArrowUp":
-                await MoveSelectionAsync(-1, shift);
-                break;
             case " ":
-                await SelectFocusedAsync();
+                await SelectCurrentAsync(row);
                 break;
             case "Enter":
-                await OpenFocusedAsync();
+                await OpenCurrentAsync(row);
                 break;
             case "Escape":
                 ClearSelection();
                 break;
         }
+
+        return -1;
     }
 
     private int ResolveCursorIndex()
@@ -453,32 +474,74 @@ public partial class BaseList<TModel> where TModel : class, new()
         return FocusedItem is null ? -1 : RangeCache.IndexOf(FocusedItem);
     }
 
-    private async Task MoveSelectionAsync(int delta, bool extend)
+    /// <summary>
+    /// Whether the list picks rows one by one: the select circles are on, or two or more rows are selected. A plain arrow
+    /// key then only moves the current row and leaves the selection alone.
+    /// </summary>
+    internal bool InMultiSelectMode => MultiSelectMode || SelectedItems.Count > 1;
+
+    /// <summary>
+    /// Moves the current row one step. Outside multi-select mode the new row replaces the selection; in multi-select mode,
+    /// and with Ctrl, only the current row moves; with Shift the range from the anchor grows or shrinks.
+    /// </summary>
+    private async Task<int> MoveCurrentRowAsync(int row, int delta, bool extend, bool focusOnly, int target)
     {
         var total = TotalCount;
 
         if (total <= 0)
-            return;
+            return -1;
 
-        var cursor = ResolveCursorIndex();
-        var target = cursor < 0 ? (delta > 0 ? 0 : total - 1) : Math.Clamp(cursor + delta, 0, total - 1);
+        var cursor = row >= 0 ? row : ResolveCursorIndex();
+        var wanted = target >= 0 ? target : (cursor < 0 ? (delta > 0 ? 0 : total - 1) : cursor + delta);
+        var destination = Math.Clamp(wanted, 0, total - 1);
+
+        if (focusOnly || (!extend && InMultiSelectMode))
+        {
+            CursorIndex = destination;
+            return destination;
+        }
 
         if (extend && IsSelectionAvailable)
         {
-            var anchor = AnchorIndex >= 0 ? AnchorIndex : (cursor >= 0 ? cursor : target);
-            await SelectRangeAsync(anchor, target);
-            return;
+            var anchor = AnchorIndex >= 0 ? AnchorIndex : (cursor >= 0 ? cursor : destination);
+            await SelectRangeAsync(anchor, destination);
+            return destination;
         }
 
-        var rows = await FetchRowsAsync(target, 1);
+        var rows = await FetchRowsAsync(destination, 1);
 
         if (rows.Count > 0)
-            await SelectSingleAsync(rows[0], target);
+            await SelectSingleAsync(rows[0], destination);
+
+        return destination;
     }
 
-    private async Task SelectFocusedAsync()
+    /// <summary>
+    /// The row a key acts on: the row the keyboard stands on when the script reported it, otherwise the row that last
+    /// had the keyboard.
+    /// </summary>
+    private async Task<(TModel? Item, int Index)> ResolveCurrentRowAsync(int row)
     {
+        if (row >= 0)
+        {
+            var rows = await FetchRowsAsync(row, 1);
+
+            if (rows.Count > 0)
+            {
+                CursorIndex = row;
+                FocusedItem = rows[0];
+                return (rows[0], row);
+            }
+        }
+
         var item = FocusedItem;
+
+        return (item, item is null ? -1 : RangeCache.IndexOf(item));
+    }
+
+    private async Task SelectCurrentAsync(int row)
+    {
+        var (item, index) = await ResolveCurrentRowAsync(row);
 
         if (item is null)
             return;
@@ -486,18 +549,24 @@ public partial class BaseList<TModel> where TModel : class, new()
         if (ShowsSelectionColumn)
             await ToggleAndNotifyAsync(item);
         else
-            await SelectSingleAsync(item, RangeCache.IndexOf(item));
+            await SelectSingleAsync(item, index);
     }
 
-    private async Task OpenFocusedAsync()
+    private async Task OpenCurrentAsync(int row)
     {
-        var item = FocusedItem ?? SelectedItems.FirstOrDefault();
+        var (item, index) = await ResolveCurrentRowAsync(row);
+
+        if (item is null)
+        {
+            item = SelectedItems.FirstOrDefault();
+            index = item is null ? -1 : RangeCache.IndexOf(item);
+        }
 
         if (item is null)
             return;
 
         if (!(SelectedItems.Count == 1 && IsSelected(item)))
-            await SelectSingleAsync(item, RangeCache.IndexOf(item));
+            await SelectSingleAsync(item, index);
 
         await OpenItemAsync(item);
     }

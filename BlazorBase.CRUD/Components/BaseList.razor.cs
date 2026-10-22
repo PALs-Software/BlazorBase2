@@ -605,6 +605,11 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         await RememberFocusAsync(ContextMenuFocusKey);
 
+        var menuRowIndex = ContextMenuItem is null ? -1 : RangeCache.IndexOf(ContextMenuItem);
+
+        if (menuRowIndex >= 0)
+            CursorIndex = menuRowIndex;
+
         ContextMenuAnchorRect = anchor;
         ContextMenuLeft = anchor.Left;
         ContextMenuTop = anchor.Bottom;
@@ -692,7 +697,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             ToggleSelection(item);
 
         EnterMultiSelectMode();
-        CloseContextMenu();
+        DismissContextMenu();
     }
 
     #endregion
@@ -714,7 +719,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     private void DeselectAll()
     {
         ClearSelection();
-        CloseContextMenu();
+        DismissContextMenu();
     }
 
     #endregion
