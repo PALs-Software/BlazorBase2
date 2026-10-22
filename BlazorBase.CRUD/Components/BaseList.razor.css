@@ -1,9 +1,23 @@
+/*
+   One state model for every control of the list header and of the tile view's sort bar (Filter button, quick
+   filter, sort select, sort direction): the fill at rest, while the mouse is over it, and while it is pressed or
+   its option list is open. A touch screen has no pointer to hover with, and a tapped control would keep its hover
+   fill until the next tap elsewhere, so there the hover fill is simply the resting one.
+*/
 .base-list {
     display: flex;
     flex-direction: column;
     gap: 8px;
     position: relative;
     --base-list-control-fill: var(--neutral-fill-stealth-rest);
+    --base-list-control-fill-hover: var(--neutral-fill-stealth-hover);
+    --base-list-control-fill-active: var(--neutral-fill-stealth-active);
+}
+
+@media (hover: none) {
+    .base-list {
+        --base-list-control-fill-hover: var(--base-list-control-fill);
+    }
 }
 
 .base-list-header {
@@ -18,6 +32,7 @@
 .base-list-header ::deep fluent-button {
     flex: 0 0 auto;
     min-height: 36px;
+    --neutral-fill-stealth-hover: var(--base-list-control-fill-hover);
 }
 
 .base-list-filter-group {
@@ -39,12 +54,17 @@
 .base-list-filter-group ::deep .quick-filter::part(control) {
     height: 36px;
     min-height: 36px;
-    background: var(--neutral-fill-stealth-rest);
+    background: var(--base-list-control-fill, var(--neutral-fill-stealth-rest));
     border-color: transparent;
 }
 
 .base-list-filter-group ::deep .quick-filter:hover::part(control) {
-    background: var(--neutral-fill-stealth-hover);
+    background: var(--base-list-control-fill-hover, var(--neutral-fill-stealth-hover));
+}
+
+.base-list-filter-group ::deep .quick-filter:active::part(control),
+.base-list-filter-group ::deep .quick-filter[open]::part(control) {
+    background: var(--base-list-control-fill-active, var(--neutral-fill-stealth-active));
 }
 
 .base-list-filter-group ::deep .quick-filter::part(listbox) {

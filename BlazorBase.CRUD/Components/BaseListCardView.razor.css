@@ -37,7 +37,12 @@
 }
 
 .base-list-card-toolbar ::deep .base-list-card-sort:hover::part(control) {
-    background: var(--neutral-fill-stealth-hover);
+    background: var(--base-list-control-fill-hover, var(--neutral-fill-stealth-hover));
+}
+
+.base-list-card-toolbar ::deep .base-list-card-sort:active::part(control),
+.base-list-card-toolbar ::deep .base-list-card-sort[open]::part(control) {
+    background: var(--base-list-control-fill-active, var(--neutral-fill-stealth-active));
 }
 
 .base-list-card-toolbar ::deep .base-list-card-sort fluent-option {
@@ -51,6 +56,7 @@
 
 .base-list-card-toolbar ::deep .base-list-card-sort-direction {
     --neutral-fill-stealth-rest: var(--base-list-control-fill, transparent);
+    --neutral-fill-stealth-hover: var(--base-list-control-fill-hover);
     flex: 0 0 auto;
     min-width: 36px;
     min-height: 36px;
