@@ -1048,7 +1048,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             DataProvider = ResolvedDataProvider,
             IsNew = true,
             Localizer = Localizer,
-            CardConfiguration = CardConfiguration,
+            CardConfiguration = ResolveCardConfiguration(newItem, isNew: true),
             CardType = CardType
         };
 
@@ -1095,7 +1095,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             IsNew = false,
             ReadOnly = readOnly,
             Localizer = Localizer,
-            CardConfiguration = CardConfiguration,
+            CardConfiguration = ResolveCardConfiguration(editModel, isNew: false),
             CardType = CardType
         };
 
@@ -1377,7 +1377,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             IsNew = false,
             ReadOnly = readOnly,
             Localizer = Localizer,
-            CardConfiguration = CardConfiguration,
+            CardConfiguration = ResolveCardConfiguration(entity, isNew: false),
             CardType = CardType
         };
 

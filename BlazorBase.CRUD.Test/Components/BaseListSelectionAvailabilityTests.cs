@@ -121,6 +121,7 @@ public class BaseListSelectionAvailabilityTests : BunitTestContextBase
             .Add(p => p.AllowAdd, false)
             .Add(p => p.AllowEdit, allowEdit)
             .Add(p => p.AllowDelete, allowDelete)
+            .Add(p => p.AllowView, false)
             .Add(p => p.ContextMenuActions, contextMenuActions)
             .Add(p => p.ActionGroups, actionGroups)
             .Add(p => p.ChildContent, BuildColumn(p => p.Name)));

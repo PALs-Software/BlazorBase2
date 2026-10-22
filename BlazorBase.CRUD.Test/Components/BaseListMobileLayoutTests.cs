@@ -303,7 +303,7 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
     [Fact]
     public void ATileThatDoesNothing_IsNotAButton()
     {
-        var cut = RenderList(BaseListMobileLayout.Always);
+        var cut = RenderList(BaseListMobileLayout.Always, allowView: false);
 
         cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
 
@@ -532,7 +532,8 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
         IBaseDataProvider<TestProduct>? provider = null,
         int pageSize = 50,
         bool allowDelete = false,
-        int? mobileItemHeight = null)
+        int? mobileItemHeight = null,
+        bool allowView = true)
     {
         var authorization = this.AddAuthorization();
         authorization.SetAuthorized("admin");
@@ -549,6 +550,7 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
                 .Add(p => p.AllowAdd, false)
                 .Add(p => p.AllowEdit, false)
                 .Add(p => p.AllowDelete, allowDelete)
+                .Add(p => p.AllowView, allowView)
                 .Add(p => p.PageSize, pageSize)
                 .Add(p => p.MobileLayout, layout)
                 .Add(p => p.MobileBreakpoint, breakpoint)

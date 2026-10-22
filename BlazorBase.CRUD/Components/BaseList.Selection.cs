@@ -28,7 +28,7 @@ public partial class BaseList<TModel> where TModel : class, new()
 
     /// <summary>
     /// Whether a user who may read but not edit can open a row in a read-only card. Default true; without it such a
-    /// list opens nothing.
+    /// list opens nothing. A list without a card configuration or card type shows a card built from its columns.
     /// </summary>
     [Parameter]
     public bool AllowView { get; set; } = true;
@@ -69,7 +69,7 @@ public partial class BaseList<TModel> where TModel : class, new()
         AllowView
         && !CanEdit
         && (ClassRightsForCurrentUser & CrudRights.Read) == CrudRights.Read
-        && (CardType is not null ? BaseDialog<TModel>.DeclaresReadOnlyParameter(CardType) : CardConfiguration is not null);
+        && (CardType is null || BaseDialog<TModel>.DeclaresReadOnlyParameter(CardType));
 
     private bool CanOpen => CanEdit || CanView;
 

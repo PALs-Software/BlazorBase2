@@ -115,7 +115,7 @@ internal sealed class ListRangeCache<TModel> where TModel : class
     /// the total and every other row as they are.
     /// </summary>
     /// <remarks>
-    /// Rows are matched by <see cref="ItemIdentityComparer{TModel}"/>, so a model without an id never matches. A row
+    /// Rows are matched by <see cref="ItemIdentityComparer{TModel}"/>, so a model without an id or a single <c>[Key]</c> property never matches. A row
     /// that is not held (not loaded yet, or dropped again) is not added: the cache only ever describes rows the data
     /// source reported at their position.
     /// </remarks>

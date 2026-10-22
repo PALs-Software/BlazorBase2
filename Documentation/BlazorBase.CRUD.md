@@ -294,7 +294,7 @@ Key parameters:
 | `MobileTemplate` | `RenderFragment<TModel>?` | Custom markup for the body of a tile |
 | `MobileItemHeight` | `int?` | Height in px of every tile. Default: worked out from what the tile shows, 120 for a custom body; see "Smartphone tiles" |
 | `OpenColumn` | `bool` | The first visible data column (or the one with `OpensItem`) is the open link of a row. Default: `true`; see "Selecting and opening rows" |
-| `AllowView` | `bool` | A user who may read but not edit opens a row in a read-only card. Needs a `CardConfiguration` (or a `CardType` with a `ReadOnly` parameter). Default: `true` |
+| `AllowView` | `bool` | A user who may read but not edit opens a row in a read-only card. Uses the `CardConfiguration`, else a card built from the visible columns; a `CardType` needs a `ReadOnly` parameter. Default: `true` |
 | `SelectAllLimit` | `int` | The most rows "select all" and a Shift+click range select. Default: `5000` |
 | `OnItemSelected` | `EventCallback<TModel>` | Raised when a row becomes the single selection |
 | `OnItemOpened` | `EventCallback<TModel>` | Raised when the user opens a row (open column, double click, Enter, the row menu's Edit) |
@@ -422,10 +422,30 @@ A template column with its own buttons keeps working: a button that stops the cl
 **Opening.** Opening shows the edit card when the user may edit (`AllowEdit` and the modify right). A user who may only read
 gets the card read-only when `AllowView` is on (default): `BaseDialogData.ReadOnly` is passed to `BaseCard`, which shows every
 field as a value, has no save or cancel buttons, no way to add, remove or reorder list-part items, and is titled
-"View - <display key>" ("Anzeigen - ..."). Viewing needs a card to show, so a list without a `CardConfiguration` (and without a
-`CardType`) does not open at all; a custom `CardType` is only opened read-only when it declares a `ReadOnly` parameter, which the
+"View - <display key>" ("Anzeigen - ..."). A list without a `CardConfiguration` and without a `CardType` shows a card built from its
+visible columns (see **The card of a list without a card definition** below); a custom `CardType` is only opened read-only when it
+declares a `ReadOnly` parameter, which the
 dialog sets. Opening a row by a deep link (`?item=`) honors the same rule. The list parts of a read-only card cannot add, delete,
 reorder or edit: `BaseCard` hands its `ReadOnly` to every `BaseListPart`, whose item dialog then opens read-only too.
+
+**The card of a list without a card definition.** When neither `CardConfiguration` nor `CardType` is set, the list builds the card
+from its own columns each time it opens one (for "View", for Edit and for Add): one field per column the current user may see
+(`[CrudAccess]` and the column's access rules, hidden columns and the tile's action row excluded), in column order, with the
+column's title and tooltip as label and tooltip. A property that is not a column is not shown. A list with an explicit
+`CardConfiguration` keeps using it unchanged. The fields show the values the way the list does: a column with a `Format`, a
+date or time column and a column that reads through a navigation (`item.Category.Name`) show the text of the cell in a read-only
+field, a column with a `Template` draws that template, and everything else (text, numbers, yes/no switch, enum, a reference
+navigation) uses the normal field of the card. A text of more than 35 characters (or with several lines) gets a full-width
+multi-line field sized to the text (at most eight lines), so a long value is never cut off on a narrow screen. The card title is built from the `[DisplayKey]` properties, otherwise from the open column. Opened read-only the
+card has no save button and nothing to edit. Opened for editing, the fields of properties with a public setter are editable, but
+not the key (`Id` or `[Key]`; a string key is editable on a new item), a column with a template, or a column that reads
+through a navigation. Set a `CardConfiguration` for a list that needs more than its columns.
+
+**Row identity.** The list recognises a row again after a reload (the selection, the highlight, the row menu and the range
+cache keep working when every row instance is replaced) by its key: the `Id` property, otherwise the single property marked
+`[Key]` (a model keyed by `Name` works). A model with neither, a composite key (several `[Key]` properties) or an unset key
+is compared by reference, so after a reload the selection stays but its row loses the highlight; give such a model an `Id` or a
+`[Key]` property. The same rule applies to `BaseListPart`.
 
 **Multi-select mode.** The round select circles are shown while two or more rows are selected or while `MultiSelectMode` is on
 (`BaseList.EnterMultiSelectMode()`, internal; the row menu's "Select more" entry sets it). Escape and "Deselect all" leave it. Multiple

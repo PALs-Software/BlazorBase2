@@ -93,7 +93,7 @@ public class BaseListRowMenuButtonTests : BunitTestContextBase
     [Fact]
     public void ListWithoutMenuEntries_HasNoButtonColumn()
     {
-        var cut = RenderList(allowEdit: false, allowDelete: false, withCard: false);
+        var cut = RenderList(allowEdit: false, allowDelete: false, allowView: false);
 
         Assert.Empty(cut.FindAll(".base-list-row-menu-column"));
         Assert.Equal(2, DataCells(cut, 0).Count);
@@ -310,7 +310,8 @@ public class BaseListRowMenuButtonTests : BunitTestContextBase
         bool withCard = true,
         int? opensItemColumn = null,
         List<CrudActionGroup<TestProduct>>? groups = null,
-        RenderFragment<TestProduct>? contextMenuActions = null)
+        RenderFragment<TestProduct>? contextMenuActions = null,
+        bool allowView = true)
     {
         var authorization = this.AddAuthorization();
         authorization.SetAuthorized("admin");
@@ -346,6 +347,7 @@ public class BaseListRowMenuButtonTests : BunitTestContextBase
             .Add(p => p.AllowAdd, false)
             .Add(p => p.AllowEdit, allowEdit)
             .Add(p => p.AllowDelete, allowDelete)
+            .Add(p => p.AllowView, allowView)
             .Add(p => p.EnableDeepLinking, false)
             .Add(p => p.ActionGroups, groups)
             .Add(p => p.ContextMenuActions, contextMenuActions)

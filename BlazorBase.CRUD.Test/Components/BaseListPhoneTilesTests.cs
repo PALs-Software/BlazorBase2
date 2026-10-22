@@ -64,14 +64,16 @@ public class BaseListPhoneTilesTests : BunitTestContextBase
     }
 
     [Fact]
-    public void Tap_OnAListWithoutACardDefinition_OpensNothing()
+    public void Tap_OnAListWithoutACardDefinition_OpensAReadOnlyCardBuiltFromItsColumns()
     {
         var cut = RenderList(allowEdit: false, withCard: false);
 
         cut.FindAll(".base-list-card-body")[0].Click();
 
-        Assert.Empty(openedCards);
-        Assert.Empty(openedEvents);
+        var card = Assert.Single(openedCards);
+        Assert.True(card.ReadOnly);
+        Assert.NotEmpty(card.CardConfiguration!.Fields);
+        Assert.Single(openedEvents);
     }
 
     [Fact]
