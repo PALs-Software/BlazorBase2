@@ -111,6 +111,13 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
     private bool IsInline => HostingDialog is null;
 
+    /// <summary>
+    /// The hook of the list that opened this card in a dialog, used to confirm unsaved changes before the browser
+    /// navigates away from the card (back, forward, a link).
+    /// </summary>
+    [CascadingParameter]
+    private CardCloseGuard? CloseGuard { get; set; }
+
     private bool HasCloseConsumer => HostingDialog is not null || OnCancelled.HasDelegate;
 
     private bool IsCloseButtonVisible => ShowCloseButton ?? HasCloseConsumer;
@@ -430,6 +437,8 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
     protected override async Task OnInitializedAsync()
     {
+        CloseGuard?.Register(this, () => HasUnsavedChanges, RequestGuardedCloseAsync);
+
         var authStateProvider = ServiceProvider.GetService<AuthenticationStateProvider>();
         if (authStateProvider is null)
             return;
@@ -672,7 +681,25 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
         GetChangedFields().Count > 0
         || RegisteredListParts.Values.Any(listPart => listPart.HasPendingChanges);
 
-    private async Task TryCloseAsync()
+    private Task TryCloseAsync() => ConfirmAndCloseAsync();
+
+    /// <summary>
+    /// Closes the card on behalf of the list when the browser is about to leave it, asking the same question the close
+    /// button asks when there are unsaved changes.
+    /// </summary>
+    /// <returns>Whether the card closed; false when the user chose to keep editing or a question is already open.</returns>
+    private async Task<bool> RequestGuardedCloseAsync()
+    {
+        if (IsConfirmDialogOpen)
+            return false;
+
+        var closed = await ConfirmAndCloseAsync();
+        StateHasChanged();
+
+        return closed;
+    }
+
+    private async Task<bool> ConfirmAndCloseAsync()
     {
         if (HasUnsavedChanges)
         {
@@ -692,13 +719,15 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
             }
 
             if (!discard)
-                return;
+                return false;
 
             RevertToSnapshot();
         }
 
         if (OnCancelled.HasDelegate)
             await OnCancelled.InvokeAsync();
+
+        return true;
     }
 
     private void RevertToSnapshot()
@@ -776,6 +805,8 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
     public async ValueTask DisposeAsync()
     {
+        CloseGuard?.Unregister(this);
+
         try
         {
             if (DismissModule is not null && DismissToken is not null)

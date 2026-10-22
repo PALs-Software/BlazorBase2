@@ -1,3 +1,4 @@
+using BlazorBase.CRUD.Components.Internal;
 using BlazorBase.CRUD.Configuration;
 using BlazorBase.CRUD.Core;
 using BlazorBase.CRUD.Models;
@@ -23,4 +24,6 @@ public class BaseDialogData<TModel> where TModel : class
     public Type? CardType { get; set; }
 
     public List<CrudActionGroup<TModel>>? ActionGroups { get; set; }
+
+    internal CardCloseGuard CloseGuard { get; } = new();
 }

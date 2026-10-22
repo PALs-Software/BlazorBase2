@@ -149,4 +149,70 @@ public class ListRangeCacheTests
         Assert.True(cache.TryGetRange(10, 10, out var items));
         Assert.Empty(items);
     }
+
+    private sealed class IdentifiedRow(int id, string name)
+    {
+        public int Id { get; } = id;
+
+        public string Name { get; } = name;
+    }
+
+    private static List<IdentifiedRow> IdentifiedRows(int from, int count)
+        => [.. Enumerable.Range(from, count).Select(id => new IdentifiedRow(id, $"old {id}"))];
+
+    [Fact]
+    public void ReplacingAHeldRow_ChangesOnlyThatRowAndKeepsPositionAndTotal()
+    {
+        var cache = new ListRangeCache<IdentifiedRow>(10, 100);
+        cache.Store(0, IdentifiedRows(1, 10), 95, 10);
+        cache.Store(10, IdentifiedRows(11, 10), 95, 10);
+        var fresh = new IdentifiedRow(13, "new 13");
+
+        var replaced = cache.TryReplace(fresh);
+
+        Assert.True(replaced);
+        Assert.Equal(95, cache.TotalCount);
+        Assert.True(cache.TryGetRange(10, 5, out var items));
+        Assert.Equal(["old 11", "old 12", "new 13", "old 14", "old 15"], items.Select(row => row.Name));
+        Assert.Same(fresh, items[2]);
+    }
+
+    [Fact]
+    public void ReplacingARowThatIsNotHeld_ChangesNothing()
+    {
+        var cache = new ListRangeCache<IdentifiedRow>(10, 100);
+        cache.Store(0, IdentifiedRows(1, 10), 95, 10);
+
+        var replaced = cache.TryReplace(new IdentifiedRow(70, "new 70"));
+
+        Assert.False(replaced);
+        Assert.Equal(1, cache.ChunkCount);
+        Assert.All(cache.ResidentItems, row => Assert.StartsWith("old", row.Name));
+    }
+
+    [Fact]
+    public void ReplacingARowOfAModelWithoutAnId_NeverMatches()
+    {
+        var cache = new ListRangeCache<Row>(10, 100);
+        cache.Store(0, Rows(0, 10), 95, 10);
+
+        Assert.False(cache.TryReplace(new Row(3)));
+    }
+
+    [Fact]
+    public void ReplacingARowOfAWholeListAnswer_ReplacesItInAllFutureReads()
+    {
+        var cache = new ListRangeCache<IdentifiedRow>(10, 100);
+        var whole = IdentifiedRows(1, 25);
+        cache.Store(0, whole, 25, 10);
+        var fresh = new IdentifiedRow(21, "new 21");
+
+        var replaced = cache.TryReplace(fresh);
+
+        Assert.True(replaced);
+        Assert.True(cache.HoldsWholeList);
+        Assert.True(cache.TryGetRange(20, 5, out var items));
+        Assert.Same(fresh, items[0]);
+        Assert.Equal("old 21", whole[20].Name);
+    }
 }

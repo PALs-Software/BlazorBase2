@@ -111,6 +111,51 @@ internal sealed class ListRangeCache<TModel> where TModel : class
     }
 
     /// <summary>
+    /// Puts <paramref name="item"/> in the place of the held row that stands for the same entity, leaving the position,
+    /// the total and every other row as they are.
+    /// </summary>
+    /// <remarks>
+    /// Rows are matched by <see cref="ItemIdentityComparer{TModel}"/>, so a model without an id never matches. A row
+    /// that is not held (not loaded yet, or dropped again) is not added: the cache only ever describes rows the data
+    /// source reported at their position.
+    /// </remarks>
+    /// <returns>Whether a held row was replaced.</returns>
+    public bool TryReplace(TModel item)
+    {
+        var comparer = ItemIdentityComparer<TModel>.Instance;
+
+        if (WholeList is not null)
+        {
+            for (var index = 0; index < WholeList.Count; index++)
+            {
+                if (!comparer.Equals(WholeList[index], item))
+                    continue;
+
+                var copy = new List<TModel>(WholeList);
+                copy[index] = item;
+                WholeList = copy;
+                return true;
+            }
+
+            return false;
+        }
+
+        foreach (var chunk in Chunks.Values)
+        {
+            for (var index = 0; index < chunk.Items.Length; index++)
+            {
+                if (!comparer.Equals(chunk.Items[index], item))
+                    continue;
+
+                chunk.Items[index] = item;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// The chunks that would have to be fetched before <paramref name="count"/> rows from
     /// <paramref name="startIndex"/> on can be served.
     /// </summary>

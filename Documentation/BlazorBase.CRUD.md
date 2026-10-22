@@ -287,6 +287,7 @@ Key parameters:
 | `DefaultSorts` | `List<SortDescriptor>?` | The order shown until the user sorts; see "Order and paging" below |
 | `FilterDefaults` | `ListFilterDefaults?` | Presets, default filter and storage key declared in code; see "Saved filters, presets and defaults" below |
 | `EnableSavedFilters` | `bool` | Lets users save/load their own filters when an `IListFilterStore` is registered. Default: `true` |
+| `EnableDeepLinking` / `DeepLinkParameterName` | `bool` / `string` | Ties the card dialog to the URL (`?item=<id>`). Default: `true` / `"item"`; see "Editing a row" below |
 | `MobileLayout` | `BaseListMobileLayout` | `Auto` (default): tiles below the breakpoint, table above; `Always`; `Never`. See "Smartphone tiles" below |
 | `MobileBreakpoint` | `int?` | Container width in px below which tiles replace the table. Default `700` (`MobileCardPlanResolver.DefaultBreakpoint`); `0` keeps the table |
 | `MobileCard` | `MobileCardConfiguration<TModel>?` | Which properties a tile shows and the part each plays (also `BaseListConfiguration.MobileCard`) |
@@ -348,7 +349,7 @@ filters, aligned to chunk boundaries. A chunk is fetched once however often it s
 chunks of one request are fetched together, two requests for the same chunk share one answer, the chunk after
 the visible one (in the direction of scrolling) is read ahead, and a request the grid cancelled because the
 user scrolled on never reaches the provider (the grid waits 100 ms before it asks). The cache holds at most
-5,000 rows and drops the least recently used chunks. A reload after a save, a delete or `RefreshAsync()` loads
+5,000 rows and drops the least recently used chunks. A reload after a delete, a create or `RefreshAsync()` loads
 the chunks that are on screen again, so the user keeps their place and the focus (`holdFocus` in
 `baseListInterop.js` puts the keyboard back on the equivalent cell when a virtualized row is replaced).
 
@@ -384,6 +385,60 @@ Breaking changes against the load-more list: `BaseList.LoadMoreAsync()`, the **L
 infinite-scroll hook (`OnGridNearEndAsync`, `updateGrid(grid, hasMore)`) are gone, as are the resource strings
 `LoadMore` and `LoadedOfTotal` (`TotalEntries` replaces them), and `BaseListCardViewModel.Items` is replaced by
 `ItemsProvider`, `TotalCount`, `DataVersion` and `TileHeight`.
+
+#### Editing a row: the card, deep link and single-row refresh
+
+A click, Enter or the context menu opens the entry in a `BaseDialog` (the card). With `EnableDeepLinking` (default
+`true`) the dialog is tied to the URL: opening a row navigates to the same page with `?item=<id>` (the name is
+`DeepLinkParameterName`, default `item`), so the card can be bookmarked, shared and reached with the browser's back
+and forward buttons. A list without an `Id` property, or with `EnableDeepLinking="false"`, opens the card without
+touching the URL and is not affected by URL changes.
+
+**Unsaved changes survive a navigation.** While a deep-linked card is open, the list holds every navigation that
+would remove or change the `item` parameter or leave the page - the browser's back and forward buttons, the back
+gesture of a phone, a link in the side navigation - when the card has unsaved changes. It asks the card to close the
+way the X button and Escape do (`BaseCard`'s confirmation: "Discard changes?"):
+
+- **Discard** closes the card, drops the edits and carries out the navigation that was held (back ends on the list
+  without the parameter; a link goes to its target, replacing the card's history entry).
+- **Keep editing** keeps the card open and the URL as it was (`?item=` stays).
+
+A card without unsaved changes closes without a question, as before. The mechanism is
+`NavigationManager.RegisterLocationChangingHandler`, registered only while a deep-linked card is open and released
+when it closes or the list is disposed; the card reports its state through an internal `CardCloseGuard` that
+`BaseDialog` cascades to the card it hosts, so a custom `CardType` that renders a `BaseCard` takes part without
+doing anything. A navigation manager that cannot lock navigation (the handler registration throws
+`NotSupportedException`) falls back to closing the card without asking. Closing the browser tab or reloading the
+page is not covered.
+
+**After a save only the edited row is read again.** When the card closes with a saved entry, the list does not
+reload its visible window. It reads that one entry with `GetByIdAsync(id, select)` (the select list is the one the
+list queries with: the visible columns, the display keys and the properties the tiles need), replaces the row in
+the cache by its `Id` and re-reads the grid or the tile view from the cache, so the scroll position, the focus and
+the selection stay. One `PATCH` and one `GET` by id are all the browser sends. Provisional behavior: the row stays
+at its position even when the new values would sort it elsewhere or no longer match the filter, until the next
+reload, sort or filter change. Falls back to the reload of the visible window (`RefreshAsync()`) when the entry is
+not held by the list right now (not loaded yet, evicted from the cache), when the provider no longer finds it
+(deleted meanwhile, no longer readable) or when a load is under way; when the provider throws, the saved model the
+card returned is shown instead. **Creating and deleting always reload the visible window.**
+
+A host that changes an entry outside the card (a custom action, its own dialog) can do the same:
+
+```razor
+<BaseList @ref="ProductList" TModel="Product" ... />
+
+@code {
+    private BaseList<Product>? ProductList;
+
+    private async Task OnPriceRaisedAsync(Guid productId)
+    {
+        await ProductService.RaisePriceAsync(productId);
+        await ProductList!.RefreshItemAsync(productId);
+    }
+}
+```
+
+`public Task RefreshItemAsync(object id)` takes the value of the entry's `Id` property.
 
 #### Order and paging
 

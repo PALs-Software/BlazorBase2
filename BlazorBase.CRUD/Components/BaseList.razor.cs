@@ -1025,7 +1025,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             if (OnAfterItemUpdated.HasDelegate)
                 await OnAfterItemUpdated.InvokeAsync(updatedItem);
 
-            await LoadDataAsync(keepLoadedCount: true);
+            await RefreshEditedItemAsync(updatedItem);
         }
     }
 
@@ -1307,16 +1307,24 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         }
 
         OpenItemDialog = dialog;
+        ArmNavigationGuard(dialogData.CloseGuard);
         var dialogResult = await dialog.Result;
 
         if (ReferenceEquals(OpenItemDialog, dialog))
+        {
             OpenItemDialog = null;
+            DisarmNavigationGuard();
+        }
 
         if (IsCurrentDeepLink(ticket))
         {
             CurrentOpenKey = null;
-            StripDeepLinkParameter();
+            CompleteClosedItemNavigation();
             RestoreCardDialogFocus();
+        }
+        else
+        {
+            PendingNavigationTarget = null;
         }
 
         if (dialogResult is { Cancelled: false, Data: TModel updatedItem })
@@ -1325,7 +1333,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
                 await OnAfterItemUpdated.InvokeAsync(updatedItem);
 
             if (!IsDisposed)
-                await LoadDataAsync(keepLoadedCount: true);
+                await RefreshEditedItemAsync(updatedItem);
         }
     }
 
@@ -1350,6 +1358,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     {
         var dialog = OpenItemDialog;
         OpenItemDialog = null;
+        DisarmNavigationGuard();
 
         if (dialog is not null)
             await dialog.CloseAsync();
@@ -1731,6 +1740,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         if (DeepLinkSubscribed)
             Navigation.LocationChanged -= OnLocationChanged;
+
+        DisarmNavigationGuard();
 
         var dialog = OpenItemDialog;
         OpenItemDialog = null;
