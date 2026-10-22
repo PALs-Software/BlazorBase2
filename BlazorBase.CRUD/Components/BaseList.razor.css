@@ -3,6 +3,7 @@
     flex-direction: column;
     gap: 8px;
     position: relative;
+    --base-list-control-fill: var(--neutral-fill-stealth-rest);
 }
 
 .base-list-header {

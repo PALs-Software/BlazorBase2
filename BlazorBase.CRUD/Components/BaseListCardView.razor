@@ -17,7 +17,7 @@
                         <FluentOption TOption="string" Value="@option.PropertyName" Selected="@(option.PropertyName == View.SortProperty)">@option.Title</FluentOption>
                     }
                 </FluentSelect>
-                <FluentButton Appearance="Appearance.Outline"
+                <FluentButton Appearance="Appearance.Stealth"
                               Class="base-list-card-sort-direction"
                               Disabled="@(View.SortProperty.Length == 0)"
                               Title="@SortDirectionLabel"
