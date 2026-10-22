@@ -93,10 +93,9 @@ public partial class BaseListCardView<TModel> where TModel : class
         => MobileCardPlanResolver.Classify(column) == MobileValueKind.Flag;
 
     private IReadOnlyList<PropertyColumnConfig<TModel>> VisibleBadges(TModel item)
-        => [.. View.Plan.Badges.Where(column => column.Template is not null ? HasValue(column, item) : !String.IsNullOrEmpty(View.BadgeText(column, item)))];
+        => [.. View.Plan.Badges.Where(column => IsFlag(column) || (column.Template is not null ? HasValue(column, item) : !String.IsNullOrEmpty(View.BadgeText(column, item))))];
 
-    private IReadOnlyList<PropertyColumnConfig<TModel>> FieldsWithValue(TModel item)
-        => [.. View.Plan.Fields.Where(column => HasValue(column, item))];
+    private string FlagState(bool on) => View.Localizer[on ? "BoolTrue" : "BoolFalse"].Value;
 
     private string ResolveFieldLabel(PropertyColumnConfig<TModel> column)
         => View.Plan.LabelFor(column) ?? View.ResolveLabel(column);

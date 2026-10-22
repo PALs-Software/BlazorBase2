@@ -121,43 +121,84 @@
                     @View.ResolveFallbackTitle(item)
                 }
             </span>
-            @if (HasSubtitleValue(item))
+            @if (View.Plan.Subtitle is not null)
             {
-                <span class="base-list-card-subtitle">@View.RenderValue(View.Plan.Subtitle!, item)</span>
+                <span class="base-list-card-subtitle">
+                    @if (HasSubtitleValue(item))
+                    {
+                        @View.RenderValue(View.Plan.Subtitle, item)
+                    }
+                    else
+                    {
+                        @EmptyValue
+                    }
+                </span>
             }
-            @{
+            @if (View.Plan.Badges.Count > 0)
+            {
                 var badges = VisibleBadges(item);
-                var fields = FieldsWithValue(item);
-            }
-            @if (badges.Count > 0)
-            {
+
                 <span class="base-list-card-badges">
+                    @if (badges.Count == 0)
+                    {
+                        @EmptyValue
+                    }
                     @foreach (var badge in badges)
                     {
-                        <span class="base-list-card-badge @(IsFlag(badge) ? "is-flag" : null)" title="@View.ResolveLabel(badge)">
-                            @if (badge.Template is not null)
+                        var flag = IsFlag(badge);
+                        var on = flag && badge.GetValue(item) is true;
+
+                        <span class="base-list-card-badge @(flag ? (on ? "is-flag" : "is-flag is-off") : null)" title="@View.ResolveLabel(badge)">
+                            @if (flag)
                             {
-                                @View.RenderValue(badge, item)
+                                <span class="base-list-card-badge-icon" role="img" aria-label="@FlagState(on)">
+                                    @if (on)
+                                    {
+                                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size12.Checkmark())" Color="@Color.Custom" CustomColor="currentColor" />
+                                    }
+                                    else
+                                    {
+                                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size12.Dismiss())" Color="@Color.Custom" CustomColor="currentColor" />
+                                    }
+                                </span>
                             }
-                            else
-                            {
-                                @View.BadgeText(badge, item)
-                            }
+                            <span class="base-list-card-badge-text">
+                                @if (badge.Template is not null)
+                                {
+                                    @View.RenderValue(badge, item)
+                                }
+                                else
+                                {
+                                    @View.BadgeText(badge, item)
+                                }
+                            </span>
                         </span>
                     }
                 </span>
             }
-            @if (fields.Count > 0)
+            @if (View.Plan.Fields.Count > 0)
             {
                 <span class="base-list-card-fields">
-                    @foreach (var field in fields)
+                    @foreach (var field in View.Plan.Fields)
                     {
                         <span class="base-list-card-field">
                             <span class="base-list-card-label">@ResolveFieldLabel(field)</span>
-                            <span class="base-list-card-value">@View.RenderValue(field, item)</span>
+                            <span class="base-list-card-value">
+                                @if (HasValue(field, item))
+                                {
+                                    @View.RenderValue(field, item)
+                                }
+                                else
+                                {
+                                    @EmptyValue
+                                }
+                            </span>
                         </span>
                     }
                 </span>
             }
         </text>;
+
+    private RenderFragment EmptyValue =>
+        @<span class="base-list-card-empty" role="img" aria-label="@View.Localizer["TileNoValue"].Value">–</span>;
 }

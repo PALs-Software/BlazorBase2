@@ -73,7 +73,9 @@
    average height of the ones it renders. Every tile therefore has exactly the same height, --base-list-tile-height, which
    BaseListTileMetrics works out from what the tile shows, and every part is clamped to the room it was given: the title
    to two lines, the subtitle, the badges and each value to one. The slot of a tile includes the gap below it, so the
-   slots follow each other without a gap the virtualizer's measurement would miss.
+   slots follow each other without a gap the virtualizer's measurement would miss. Every part of the plan is always
+   rendered (an empty value shows a muted dash, a boolean badge shows its state), so the room reserved for it is used;
+   what a one-line title leaves over sits at the bottom of the tile.
 */
 .base-list-tile {
     box-sizing: border-box;
@@ -176,6 +178,7 @@
 .base-list-card-badges {
     display: flex;
     flex-wrap: nowrap;
+    align-items: center;
     gap: 6px;
     height: 1.5rem;
     overflow: hidden;
@@ -186,6 +189,7 @@
     display: inline-flex;
     flex: 0 1 auto;
     align-items: center;
+    gap: 4px;
     height: 1.5rem;
     min-width: 0;
     max-width: 100%;
@@ -199,12 +203,38 @@
     line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .base-list-card-badge.is-flag {
+    padding-inline-start: 6px;
     border-color: var(--color-accent, var(--accent-fill-rest));
     background: var(--color-bg-selected, transparent);
+}
+
+.base-list-card-badge.is-flag.is-off {
+    border-color: var(--color-border, var(--neutral-stroke-divider-rest));
+    background: none;
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    font-weight: 400;
+}
+
+.base-list-card-badge-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 12px;
+    height: 12px;
+}
+
+.base-list-card-badge-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.base-list-card-empty {
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
 }
 
 .base-list-card-fields {

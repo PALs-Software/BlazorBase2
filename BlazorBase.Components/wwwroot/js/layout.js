@@ -1,5 +1,6 @@
 const compactQuery = '(max-width: 1024px)';
 const phoneMedia = '(max-width: 768px)';
+const wideMedia = '(min-width: 1200px)';
 const collapsedKey = 'blazorbase-nav-collapsed';
 const groupKeyPrefix = 'blazorbase-nav-group:';
 const keyboardAttribute = 'data-base-keyboard-open';
@@ -13,6 +14,8 @@ let reference = null;
 let phoneQuery = null;
 let phoneHandler = null;
 let phoneReference = null;
+let wideQuery = null;
+let wideHandler = null;
 let keyboardBaseline = 0;
 let keyboardWidth = 0;
 
@@ -139,6 +142,33 @@ export function unwatchPhone() {
     phoneReference = null;
 }
 
+/**
+ * Tells the layout when the viewport is wide enough for the help panel to sit next to the page instead of
+ * covering it.
+ */
+export function watchWide(dotNetReference) {
+    unwatchWide();
+
+    if (!window.matchMedia) {
+        return false;
+    }
+
+    wideQuery = window.matchMedia(wideMedia);
+    wideHandler = event => dotNetReference.invokeMethodAsync('OnWideChanged', event.matches);
+    wideQuery.addEventListener('change', wideHandler);
+
+    return wideQuery.matches;
+}
+
+export function unwatchWide() {
+    if (wideQuery !== null) {
+        wideQuery.removeEventListener('change', wideHandler);
+    }
+
+    wideQuery = null;
+    wideHandler = null;
+}
+
 function layoutRoot() {
     return document.querySelector('.layout-root');
 }
@@ -249,6 +279,34 @@ export function trapFocus(container) {
 
     const target = container.querySelector('[data-autofocus]');
     (target ?? container.querySelector(tabbableSelector) ?? container).focus();
+}
+
+/**
+ * Lets the links of the help content that point at another help topic (<a data-help-topic>) open that topic
+ * inside the panel: a plain click is handed to the component, while clicks with a modifier key or a non-primary
+ * button keep the browser's behavior. The listener lives on the panel element, so it goes away with the panel.
+ */
+export function bindHelpLinks(container, dotNetReference) {
+    if (!container || !dotNetReference) {
+        return;
+    }
+
+    container.addEventListener('click', event => {
+        if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+            return;
+        }
+
+        const link = event.target instanceof Element ? event.target.closest('a[data-help-topic]') : null;
+        const topic = link?.getAttribute('data-help-topic');
+
+        if (!topic || !container.contains(link)) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        dotNetReference.invokeMethodAsync('OpenTopicAsync', topic);
+    });
 }
 
 export function restoreFocus(main, drawer) {

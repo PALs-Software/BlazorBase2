@@ -56,7 +56,7 @@ public sealed class BaseListCardViewModel<TModel> where TModel : class
 
     public required Func<PropertyColumnConfig<TModel>, TModel, RenderFragment> RenderValue { get; init; }
 
-    /// <summary>The text of a badge, or null when the item has nothing to show for it.</summary>
+    /// <summary>The text of a badge: the title of a boolean column, otherwise the displayed value, which is empty when the item has nothing to show for it.</summary>
     public required Func<PropertyColumnConfig<TModel>, TModel, string?> BadgeText { get; init; }
 
     /// <summary>The properties the user can sort by; empty hides the sort selector.</summary>

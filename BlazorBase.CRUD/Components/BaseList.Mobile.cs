@@ -278,13 +278,13 @@ public partial class BaseList<TModel> where TModel : class, new()
     }
 
     /// <summary>
-    /// The text of a badge: the column title for a boolean that is true, nothing for one that is false, the
-    /// displayed value for anything else.
+    /// The text of a badge: the column title for a boolean, whatever its state (the tile shows the state as a mark),
+    /// the displayed value for anything else.
     /// </summary>
     private string? ResolveMobileBadgeText(PropertyColumnConfig<TModel> column, TModel item)
     {
         if (IsBooleanColumn(column))
-            return column.GetValue(item) is true ? ResolveColumnTitle(column) : null;
+            return ResolveColumnTitle(column);
 
         return ResolveCellText(column, item);
     }

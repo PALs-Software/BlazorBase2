@@ -331,6 +331,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     private int LoadVersion { get; set; }
     private bool ShouldSyncGridState { get; set; }
     private bool IsDisposed { get; set; }
+    private bool HasCompletedFirstLoad { get; set; }
     private bool IsCardDialogOpen { get; set; }
     private IJSObjectReference? JsModule { get; set; }
     private DotNetObjectReference<BaseList<TModel>>? SelfReference { get; set; }
@@ -393,7 +394,15 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         await LoadCurrentUserAsync();
         ResolveFilterFields();
         await InitializeSavedFiltersAsync();
-        await LoadDataAsync();
+
+        try
+        {
+            await LoadDataAsync();
+        }
+        finally
+        {
+            HasCompletedFirstLoad = true;
+        }
 
         if (EnableDeepLinking)
         {
@@ -928,8 +937,16 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         await DataGrid.RefreshDataAsync();
     }
 
+    /// <summary>
+    /// Loads the list again and keeps the part that is on screen. A list that has not finished its first load ignores
+    /// the call: that load fetches the current data anyway, and a page that refreshes its list from its own first render
+    /// would otherwise send the same first query a second time.
+    /// </summary>
     public async Task RefreshAsync()
     {
+        if (!HasCompletedFirstLoad)
+            return;
+
         await LoadDataAsync(keepLoadedCount: true);
     }
 

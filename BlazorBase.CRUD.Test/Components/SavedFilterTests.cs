@@ -89,6 +89,36 @@ public class SavedFilterTests : BunitTestContextBase
     }
 
     [Fact]
+    public void OpeningAList_ReadsTheSavedFiltersOnce()
+    {
+        var store = Substitute.For<IListFilterStore>();
+        store.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<SavedListFilterInfo>>([]));
+        Services.AddSingleton(store);
+        var provider = Provider();
+
+        var cut = RenderList(provider);
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(provider.ReceivedQueries()));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-list-filter-toggle")));
+        store.Received(1).GetAsync(ListKey, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ReadSavedAsync_SharesOneReadPerRevision_AndReadsAgainForANewOne()
+    {
+        var store = Substitute.For<IListFilterStore>();
+        store.GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<SavedListFilterInfo>>([]));
+        var context = new SavedFilterContext(ListKey, store, null, [], Substitute.For<Microsoft.Extensions.Localization.IStringLocalizer>());
+
+        await context.ReadSavedAsync(0);
+        await context.ReadSavedAsync(0);
+        await store.Received(1).GetAsync(ListKey, Arg.Any<CancellationToken>());
+
+        await context.ReadSavedAsync(1);
+        await store.Received(2).GetAsync(ListKey, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public void NothingConfigured_ShowsNoSavedFilterSection()
     {
         var cut = RenderList(Provider());

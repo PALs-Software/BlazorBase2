@@ -27,6 +27,7 @@
   <Project Path="BlazorBase.CRUD.Generators/BlazorBase.CRUD.Generators.csproj" />
   <Project Path="BlazorBase.Components.Test/BlazorBase.Components.Test.csproj" />
   <Project Path="BlazorBase.Components/BlazorBase.Components.csproj" />
+  <Project Path="BlazorBase.Components.Server/BlazorBase.Components.Server.csproj" />
   <Project Path="BlazorBase.Localization/BlazorBase.Localization.csproj" />
   <Project Path="BlazorBase.CRUD.Benchmarks/BlazorBase.CRUD.Benchmarks.csproj" />
   <Project Path="BlazorBase.User/BlazorBase.User.csproj" />
@@ -46,6 +47,7 @@
     <Project Path="BlazorBase.User.Test/BlazorBase.User.Test.csproj" />
     <Project Path="BlazorBase.User.Server.Test/BlazorBase.User.Server.Test.csproj" />
     <Project Path="BlazorBase.Files.Server.Test/BlazorBase.Files.Server.Test.csproj" />
+    <Project Path="BlazorBase.Components.Server.Test/BlazorBase.Components.Server.Test.csproj" />
     <Project Path="BlazorBase.Notifications.Server.Test/BlazorBase.Notifications.Server.Test.csproj" />
     <Project Path="BlazorBase.Notifications.Test/BlazorBase.Notifications.Test.csproj" />
     <Project Path="BlazorBase.User.SecurityHarness.Test/BlazorBase.User.SecurityHarness.Test.csproj" />

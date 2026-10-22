@@ -345,7 +345,12 @@ UI features:
 The list is virtualized **and** the page scrolls: there is one vertical scrollbar, the one of the layout's main
 area, and the sticky header stays on screen. Only the rows near the visible part of the page exist in the DOM
 (about 30 to 45, whatever the length of the list), so a list of 100,000 rows costs what one of 100 rows costs.
-The status text beside the filter button ("100,000 entries") is the total the data provider reported.
+The status text beside the filter button ("100,000 entries") is the total the data provider reported; it is shown
+with the table and left out on the smartphone tile layout.
+
+**One first query.** A list sends its first query once, when it opens. `RefreshAsync()` called before that first load
+is done (a page that refreshes its list from its own first render, for example to poll) is ignored: the first load
+fetches the current data anyway.
 
 **How rows are fetched.** The grid asks for the rows it is about to show; the list answers from a cache of fixed
 chunks of `PageSize` rows (default 50, kept between 10 and `BaseQueryLimits.MaxPageSize`) and fetches the
@@ -564,8 +569,14 @@ screen, and with tens of thousands of tiles above the visible ones a single pixe
 tile with a custom body (`MobileTemplate`) is 120 px high unless `MobileItemHeight` says otherwise; what does not
 fit is cut off. Tapping the tile does what clicking a row does; while a
 selection is going on it toggles the selection instead, because a touch screen has no Shift key (the selection
-marks appear once something is selected - start it from the more menu). A value that is empty is left off the
-tile, and so is a column with a template whose property is `null`. Above the tiles a sticky **sort bar** offers the
+marks appear once something is selected - start it from the more menu). **Every part the plan has is always
+rendered**, so the room reserved for it is used and the tile looks full instead of having a hole: an empty subtitle
+or field value shows a muted dash (`–`, announced as "No value"), a boolean badge always shows its state (true: the
+accent chip with a check mark, false: a muted chip with a dismiss mark and the same label, `BoolTrue`/`BoolFalse`
+as the accessible state), a badge with an empty text is left out and the badge row shows a muted dash when nothing is
+left in it. The action row is reserved only when the plan has action columns or the tile configuration has actions.
+What a one-line title leaves over (the title reserves two lines) sits as one small gap at the bottom of the tile. The
+entry count ("12 entries") of the list header is not shown on the tile layout, only with the table. Above the tiles a sticky **sort bar** offers the
 sortable columns plus "Default order" and a direction button; like a header click it sorts on the data provider,
 not on the loaded page. The filter button of the list header opens the filter panel as usual.
 
@@ -579,7 +590,7 @@ var list = new BaseListBuilder<User>()
     .MobileCard(card => card
         .Title(u => u.Email)
         .Subtitle(u => u.UserName)
-        .Badge(u => u.IsInactive)               // a chip with the column title while true
+        .Badge(u => u.IsInactive)               // a chip with the column title, showing the state (check / dismiss mark)
         .Field(u => u.CreatedOn)                // label and value; add "Label" as 2nd argument to override the label
         .Field(u => u.NumberOfSessionsCreated)  // a property without a list column is read from the item
         .MaxFields(3))                          // optional cap, also for explicit declarations

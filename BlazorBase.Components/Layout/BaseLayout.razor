@@ -1,3 +1,4 @@
+@using BlazorBase.Components.Help
 @using BlazorBase.Components.Layout.Navigation
 @using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
 
@@ -56,6 +57,20 @@
                     <BaseThemeToggle />
                 </span>
             }
+            @if (ShowHelp)
+            {
+                <FluentButton Appearance="Appearance.Stealth"
+                              Class="base-help-toggle"
+                              Title="@Localizer["Help"]"
+                              aria-label="@Localizer["Help"]"
+                              aria-haspopup="@(IsWide ? null : "dialog")"
+                              aria-controls="@HelpPanelId"
+                              aria-expanded="@(IsHelpOpen ? "true" : "false")"
+                              @ref="HelpToggle"
+                              OnClick="ToggleHelpAsync">
+                    <FluentIcon Value="@(new Size20.QuestionCircle())" Color="Color.Neutral" />
+                </FluentButton>
+            }
             @if (ShowSettings)
             {
                 <FluentButton Appearance="Appearance.Stealth"
@@ -101,11 +116,18 @@
             }
             @ChildContent
         </main>
+        @if (ShowHelp)
+        {
+            <BaseHelpPanel PanelId="@HelpPanelId"
+                           IsOpen="IsHelpOpen"
+                           IsDocked="IsWide"
+                           OnClose="CloseHelpAsync" />
+        }
     </div>
 
     @if (HasBottomBar)
     {
-        <div class="base-bottom-host" inert="@IsSettingsOpen">
+        <div class="base-bottom-host" inert="@(IsSettingsOpen || IsHelpModal)">
             <BaseBottomNavigation Items="BottomNavigationItems!"
                                   MaxPrimaryItems="MaxBottomBarItems"
                                   OnMore="MoreCallback"

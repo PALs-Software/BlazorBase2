@@ -370,4 +370,7 @@
   <data name="ActionNotPossibleForRows" xml:space="preserve">
     <value>Not possible for {0} of {1} selected rows</value>
   </data>
+  <data name="TileNoValue" xml:space="preserve">
+    <value>No value</value>
+  </data>
 </root>

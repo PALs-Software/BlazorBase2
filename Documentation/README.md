@@ -10,6 +10,7 @@ This folder contains the documentation for all reusable BlazorBase libraries shi
 |---|---|---|
 | **BlazorBase.Localization** | .NET library (net10.0) | [BlazorBase.Localization.md](BlazorBase.Localization.md) |
 | **BlazorBase.Components** | Razor Class Library (net10.0) | [BlazorBase.Components.md](BlazorBase.Components.md) |
+| **BlazorBase.Components.Server** | ASP.NET Core library (net10.0) | [BlazorBase.Components.md](BlazorBase.Components.md) (Contextual help) |
 | **BlazorBase.CRUD** | Razor Class Library (net10.0) | [BlazorBase.CRUD.md](BlazorBase.CRUD.md) |
 | **BlazorBase.CRUD.Generators** | Roslyn Source Generator (netstandard2.0) | [BlazorBase.CRUD.Generators.md](BlazorBase.CRUD.Generators.md) |
 | **BlazorBase.Chart** | Razor Class Library (net10.0) | [BlazorBase.Chart.md](BlazorBase.Chart.md) |

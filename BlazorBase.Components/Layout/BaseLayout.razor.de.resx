@@ -33,4 +33,7 @@
   <data name="Settings" xml:space="preserve">
     <value>Einstellungen</value>
   </data>
+  <data name="Help" xml:space="preserve">
+    <value>Hilfe</value>
+  </data>
 </root>

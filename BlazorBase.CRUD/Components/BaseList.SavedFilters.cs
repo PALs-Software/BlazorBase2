@@ -56,7 +56,7 @@ public partial class BaseList<TModel>
 
         SavedFilters = context;
 
-        var initial = await context.ResolveInitialFilterAsync();
+        var initial = await context.ResolveInitialFilterAsync(SavedFilterRevision);
 
         if (initial is null)
             return;

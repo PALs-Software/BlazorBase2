@@ -1,0 +1,138 @@
+using BlazorBase.Components.Help;
+using BlazorBase.Components.Layout;
+using BlazorBase.Components.Services;
+using BlazorBase.Components.Test.Infrastructure;
+using Bunit;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using NSubstitute;
+using Xunit;
+
+namespace BlazorBase.Components.Test.Layout;
+
+public sealed class BaseLayoutHelpTests : ComponentsBunitTestContextBase
+{
+    private readonly IHelpContentSource ContentSource = Substitute.For<IHelpContentSource>();
+
+    public BaseLayoutHelpTests()
+    {
+        Services.AddLocalization();
+        Services.AddSingleton(Substitute.For<IThemeService>());
+        Services.AddSingleton(Substitute.For<ILanguageService>());
+        Services.AddSingleton(ContentSource);
+        Services.AddSingleton(Substitute.For<IHelpTopicResolver>());
+        Services.AddSingleton<IOptions<HelpOptions>>(Options.Create(new HelpOptions()));
+        AddAuthorization();
+        ContentSource.GetTopicAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new HelpSourceDocument("getting-started", "en-US", "# Start\n\nWelcome."));
+    }
+
+    private IRenderedComponent<BaseLayout> RenderLayout(bool showHelp = true) =>
+        Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.ShowHelp, showHelp)
+            .AddChildContent("<p id=\"page\">Page</p>"));
+
+    [Fact]
+    public void ByDefault_NoHelpButtonAndNoPanelAreRendered()
+    {
+        var cut = RenderLayout(showHelp: false);
+
+        Assert.Empty(cut.FindAll(".base-help-toggle"));
+        Assert.Empty(cut.FindAll("aside.base-help-panel"));
+    }
+
+    [Fact]
+    public void ShowHelp_RendersALabelledButtonLeftOfTheSettingsButton()
+    {
+        using var english = new EnglishCulture();
+        var cut = RenderLayout();
+
+        var buttons = cut.FindAll(".base-header-end fluent-button").Select(button => button.ClassList.Contains("base-help-toggle") ? "help" : button.ClassList.Contains("base-settings-toggle") ? "settings" : "other").ToList();
+        var help = cut.Find("fluent-button.base-help-toggle");
+
+        Assert.True(buttons.IndexOf("help") >= 0 && buttons.IndexOf("help") < buttons.IndexOf("settings"));
+        Assert.Equal("Help", help.GetAttribute("aria-label"));
+        Assert.Equal("base-help", help.GetAttribute("aria-controls"));
+        Assert.Equal("false", help.GetAttribute("aria-expanded"));
+    }
+
+    [Fact]
+    public void TheButton_OpensThePanelAndTogglesItClosed()
+    {
+        var cut = RenderLayout();
+
+        cut.Find("fluent-button.base-help-toggle").Click();
+
+        Assert.Equal("true", cut.Find("fluent-button.base-help-toggle").GetAttribute("aria-expanded"));
+        cut.WaitForAssertion(() => Assert.Contains("Welcome.", cut.Find("aside.base-help-panel").InnerHtml));
+
+        cut.Find("fluent-button.base-help-toggle").Click();
+
+        Assert.Empty(cut.FindAll("aside.base-help-panel"));
+        Assert.Equal("false", cut.Find("fluent-button.base-help-toggle").GetAttribute("aria-expanded"));
+    }
+
+    [Fact]
+    public async Task EscapeAndTheCloseButton_CloseThePanel()
+    {
+        var cut = RenderLayout();
+        cut.Find("fluent-button.base-help-toggle").Click();
+
+        await cut.InvokeAsync(() => cut.Find("aside.base-help-panel").KeyDown(new KeyboardEventArgs { Key = "Escape" }));
+        Assert.Empty(cut.FindAll("aside.base-help-panel"));
+
+        cut.Find("fluent-button.base-help-toggle").Click();
+        await cut.InvokeAsync(() => cut.Find("fluent-button.base-help-close").Click());
+        Assert.Empty(cut.FindAll("aside.base-help-panel"));
+    }
+
+    [Fact]
+    public void OpeningTheSettings_ClosesTheHelp()
+    {
+        var cut = RenderLayout();
+        cut.Find("fluent-button.base-help-toggle").Click();
+
+        cut.Find("fluent-button.base-settings-toggle").Click();
+
+        Assert.Empty(cut.FindAll("aside.base-help-panel"));
+        Assert.Single(cut.FindAll("aside.base-settings-panel"));
+    }
+
+    [Fact]
+    public void OpeningTheHelp_ClosesTheSettings()
+    {
+        var cut = RenderLayout();
+        cut.Find("fluent-button.base-settings-toggle").Click();
+
+        cut.Find("fluent-button.base-help-toggle").Click();
+
+        Assert.Empty(cut.FindAll("aside.base-settings-panel"));
+        Assert.Single(cut.FindAll("aside.base-help-panel"));
+    }
+
+    [Fact]
+    public void AsASheetOnANarrowViewport_ThePageBehindIsInert()
+    {
+        var cut = RenderLayout();
+
+        cut.Find("fluent-button.base-help-toggle").Click();
+
+        Assert.True(cut.Find("main#base-main").HasAttribute("inert"));
+        Assert.Contains("overlay", cut.Find("aside.base-help-panel").ClassList);
+    }
+
+    [Fact]
+    public void DockedOnAWideViewport_ThePageStaysUsable()
+    {
+        JSInterop.SetupModule("./_content/BlazorBase.Components/js/layout.js").Setup<bool>("watchWide", _ => true).SetResult(true);
+
+        var cut = RenderLayout();
+        cut.Find("fluent-button.base-help-toggle").Click();
+
+        Assert.False(cut.Find("main#base-main").HasAttribute("inert"));
+        Assert.Contains("docked", cut.Find("aside.base-help-panel").ClassList);
+        Assert.Null(cut.Find("fluent-button.base-help-toggle").GetAttribute("aria-haspopup"));
+    }
+}
