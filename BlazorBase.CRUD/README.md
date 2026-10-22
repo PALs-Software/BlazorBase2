@@ -931,7 +931,7 @@ Both approaches can be mixed — declarative child components and builder config
 ### Rendering Behavior
 
 - **Single-action groups** render as a direct button (no dropdown).
-- **Multi-action groups** render as a `FluentMenuButton` dropdown with the group caption and icon.
+- **Multi-action groups** render as a `FluentMenuButton` dropdown with the group caption and icon. In the list header (`BaseActionToolbar.AllowOverflow`) they render as the toolbar's own menu, and all declared actions collapse into a "More actions" menu when they do not fit on one row (see `Documentation/BlazorBase.CRUD.md`, "Header layout and the more-actions menu").
 - In context menus, each group is separated by a divider, and actions are listed as menu items.
 
 ### CrudActionBuilder Methods

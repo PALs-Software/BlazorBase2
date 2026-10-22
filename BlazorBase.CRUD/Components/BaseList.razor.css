@@ -573,3 +573,35 @@
         min-height: 44px;
     }
 }
+
+/*
+   On a phone the header keeps one row: Add shrinks to its icon (its text stays as the accessible name), the filter
+   group gives way instead of wrapping, and the declared toolbar actions are already collapsed into the more menu.
+*/
+@media (max-width: 640px) {
+    .base-list-header {
+        flex-wrap: nowrap;
+        gap: 6px;
+    }
+
+    .base-list-filter-group {
+        flex: 0 1 auto;
+    }
+
+    .base-list-header .base-list-count {
+        flex: none;
+        white-space: nowrap;
+    }
+
+    .base-list-filter-group ::deep .quick-filter {
+        min-width: 56px;
+    }
+
+    .base-list-add-text {
+        display: none;
+    }
+
+    .base-list-header ::deep .base-list-add {
+        min-width: 44px;
+    }
+}

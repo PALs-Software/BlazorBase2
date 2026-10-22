@@ -854,6 +854,35 @@ Behavior notes: an action without a scope is no longer offered in the row menu u
 row-menu action now refreshes the list afterwards (like the toolbar). `ContextMenuActions` (free render fragment) stays
 supported for other sites (legacy) and renders after the declared actions, separated by a divider; new code declares actions.
 
+#### Header layout and the more-actions menu
+
+The list header is one row, in this order: Filter + quick filter, the entry count, the selection info (only in multi-select
+mode: "N selected" and "Deselect all"), **Add** (accent), then the declared `ListToolbar` actions ordered by group `Order`.
+There are no Edit/View/Delete buttons in the header; those live in the row menu (three-dot button and right-click).
+
+All header buttons (Filter, quick filter, every declared action, group menu buttons, the more button) use
+the same fill variables `--base-list-control-fill`, `-hover` and `-active` (defined in `BaseList.razor.css`), so rest, hover
+and pressed look identical in light and dark; on a screen without hover the hover fill equals the resting one. A disabled
+item-bound action is greyed out but still shows its reason on hover and keyboard focus (see "Why is it disabled").
+
+`BaseActionToolbar` has the parameter `AllowOverflow` (default `false`; `BaseList` sets it):
+
+- A small script (`js/baseActionToolbar.js`) measures whether the declared actions fit next to the other header controls.
+  If they do not, **all** declared actions collapse into one "More actions" (`MoreActions`, de "Weitere Aktionen") menu
+  instead of wrapping the header onto a second row; Filter, quick filter, count and Add always stay visible. Without the
+  script the actions simply stay inline.
+- The more menu is the toolbar's own markup (position fixed, placed inside the viewport, Esc / arrow keys / overlay click),
+  not a `FluentMenuProvider` menu. Entries keep the enabled state, the reason tooltip and the blocked-row marking of the
+  toolbar buttons (hovering or focusing a disabled entry marks the blocking rows); item-independent actions stay clickable.
+  A multi-action group appears as a heading with its actions below it.
+- With `AllowOverflow` a multi-action group is also rendered as this own menu (button with the group caption, icon and a
+  chevron) instead of a `FluentMenuButton`. Without it (card and list-part headers) the toolbar is unchanged.
+- At 640 px and below the header never wraps: Add shows only its icon (the text stays as the accessible name `aria-label`),
+  the filter group gives way (quick filter shrinks, text ellipsis) and the count stays on one line.
+
+Other sites: nothing to change. Hosts that use `BaseActionToolbar` themselves can set `AllowOverflow="true"` when the toolbar
+sits in a row that must not wrap (the parent element must be the row; the toolbar measures its siblings).
+
 ### Registrable custom property components
 
 DI-registered, reusable controls that the generic card and list resolve automatically per property.

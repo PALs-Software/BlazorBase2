@@ -38,3 +38,144 @@
     clip-path: inset(50%);
     white-space: nowrap;
 }
+
+/*
+   Without overflow handling the inline wrapper adds no box. In the list header the toolbar is one non-wrapping unit of
+   its header row: either the declared actions are inline, or only the "more actions" button is shown and the actions
+   wait invisibly (out of the flow, but laid out, so their natural width stays measurable). The script that decides
+   sets data-collapsed; the attribute is never rendered by the component, so a re-render keeps it.
+*/
+.base-action-toolbar-inline {
+    display: contents;
+}
+
+.base-action-toolbar[data-overflow] {
+    position: relative;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+}
+
+.base-action-toolbar[data-overflow] .base-action-toolbar-inline {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 4px;
+    width: max-content;
+    white-space: nowrap;
+}
+
+.base-action-toolbar[data-overflow] .base-action-toolbar-inline > * {
+    flex: none;
+}
+
+.base-action-toolbar[data-collapsed="true"] .base-action-toolbar-inline {
+    position: absolute;
+    inset-inline-end: 0;
+    top: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.base-action-toolbar-trigger,
+.base-action-toolbar-more {
+    display: inline-flex;
+    align-items: center;
+}
+
+.base-action-toolbar-more {
+    display: none;
+}
+
+.base-action-toolbar[data-collapsed="true"] .base-action-toolbar-more {
+    display: inline-flex;
+}
+
+.base-action-toolbar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+}
+
+.base-action-toolbar-menu {
+    position: fixed;
+    z-index: 10000;
+    background: var(--color-bg-elevated, var(--neutral-layer-floating));
+    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px));
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.14);
+    padding: 4px 0;
+    min-width: 180px;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    white-space: nowrap;
+}
+
+.base-action-toolbar-menu:focus {
+    outline: none;
+}
+
+.base-action-toolbar-menu-measuring {
+    visibility: hidden;
+}
+
+.base-action-toolbar-menu [role="menuitem"] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    cursor: pointer;
+    color: var(--color-text-primary, var(--neutral-foreground-rest));
+    font-size: 14px;
+    width: 100%;
+    text-align: left;
+    user-select: none;
+}
+
+.base-action-toolbar-menu [role="menuitem"]:hover,
+.base-action-toolbar-menu [role="menuitem"]:focus-visible {
+    background: var(--color-bg-hover, var(--neutral-fill-stealth-hover));
+}
+
+.base-action-toolbar-menu [role="menuitem"]:focus-visible {
+    outline: 2px solid var(--color-border-focus, var(--focus-stroke-outer));
+    outline-offset: -2px;
+}
+
+.base-action-toolbar-menu [role="menuitem"].base-action-toolbar-menu-item-disabled {
+    cursor: not-allowed;
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    opacity: 0.6;
+}
+
+.base-action-toolbar-menu [role="menuitem"].base-action-toolbar-menu-item-disabled:hover {
+    background: none;
+}
+
+.base-action-toolbar-menu-heading {
+    padding: 6px 12px 2px;
+    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.base-action-toolbar-menu-divider {
+    height: 1px;
+    background: var(--color-border, var(--neutral-stroke-divider-rest));
+    margin: 4px 0;
+}
+
+@media (hover: none) {
+    .base-action-toolbar-menu [role="menuitem"]:hover {
+        background: none;
+    }
+}
+
+@media (pointer: coarse), (max-width: 640px) {
+    .base-action-toolbar-menu [role="menuitem"] {
+        min-height: 44px;
+    }
+}

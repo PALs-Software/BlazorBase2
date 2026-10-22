@@ -3,8 +3,10 @@ using BlazorBase.CRUD.Events;
 using BlazorBase.CRUD.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
+using Microsoft.JSInterop;
 using BlazorBase.CRUD.Components.Internal;
 using BlazorBase.CRUD.Localization;
 
@@ -17,7 +19,18 @@ public partial class BaseActionToolbar<TModel> : ComponentBase where TModel : cl
     [Inject]
     private IServiceProvider ServiceProvider { get; set; } = default!;
 
+    [Inject]
+    private IJSRuntime JsRuntime { get; set; } = default!;
+
     #endregion
+
+    /// <summary>
+    /// Lets the declared actions collapse into a "more actions" menu when the row they share with other controls
+    /// runs out of width, and renders multi-action groups as the toolbar's own menu instead of a Fluent menu button.
+    /// The list header sets it; a card header keeps the plain wrapping toolbar.
+    /// </summary>
+    [Parameter]
+    public bool AllowOverflow { get; set; }
 
     [Parameter]
     public List<CrudActionGroup<TModel>> ActionGroups { get; set; } = [];
@@ -64,6 +77,45 @@ public partial class BaseActionToolbar<TModel> : ComponentBase where TModel : cl
     private int visibilityActionCount = -1;
     private CrudAction<TModel>? blockedAction;
     private IReadOnlyList<TModel> raisedBlockedItems = [];
+    private const string MoreKey = "more";
+    private IJSObjectReference? module;
+    private bool observing;
+    private string? openMenuKey;
+    private string? restoreFocusKey;
+    private ContextMenuAnchor? menuAnchor;
+    private double menuLeft;
+    private double menuTop;
+    private double? menuMaxHeight;
+    private bool menuPositioned;
+    private bool shouldPositionMenu;
+    private bool shouldFocusMenu;
+
+    private ElementReference RootElement { get; set; }
+    private ElementReference MenuElement { get; set; }
+
+    private IEnumerable<CrudActionGroup<TModel>> OpenMenuGroups =>
+        openMenuKey == MoreKey ? VisibleGroups : VisibleGroups.Where(group => GroupKeyOf(group) == openMenuKey);
+
+    private string OpenMenuLabel => openMenuKey == MoreKey
+        ? FrameworkLocalizer["MoreActions"].Value
+        : ResolveText(OpenMenuGroups.FirstOrDefault()?.Caption ?? OpenMenuGroups.FirstOrDefault()?.Name);
+
+    private string MenuStyle
+    {
+        get
+        {
+            if (menuAnchor is null)
+                return string.Empty;
+
+            var style = FormattableString.Invariant($"left: {menuLeft}px; top: {menuTop}px;");
+
+            return menuMaxHeight is { } maxHeight
+                ? style + FormattableString.Invariant($" max-height: {maxHeight}px;")
+                : style;
+        }
+    }
+
+    private string GroupKeyOf(CrudActionGroup<TModel> group) => $"group-{VisibleGroups.IndexOf(group)}";
 
     private IStringLocalizer FrameworkLocalizer => LocalizerResolver.ResolveFramework(ServiceProvider);
 
@@ -86,6 +138,141 @@ public partial class BaseActionToolbar<TModel> : ComponentBase where TModel : cl
 
         BuildViews(selection);
         await SyncBlockedItemsAsync();
+
+        if (openMenuKey is not null && !OpenMenuGroups.Any())
+            openMenuKey = null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (AllowOverflow && !observing)
+        {
+            observing = true;
+            module = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./_content/BlazorBase.CRUD/js/baseActionToolbar.js");
+            await module.InvokeVoidAsync("observe", RootElement);
+        }
+
+        await PositionMenuIfJustOpenedAsync();
+        await FocusMenuIfJustOpenedAsync();
+        await RestoreFocusIfMenuJustClosedAsync();
+    }
+
+    private async Task OpenMenuAsync(string key)
+    {
+        if (openMenuKey == key)
+        {
+            await CloseMenuAsync();
+            return;
+        }
+
+        var box = module is null ? null : await module.InvokeAsync<double[]?>("measure", RootElement, key);
+
+        menuAnchor = box is { Length: >= 4 } ? new ContextMenuAnchor(box[0], box[1], box[2], box[3]) : null;
+        menuLeft = menuAnchor?.Left ?? 0;
+        menuTop = menuAnchor?.Bottom ?? 0;
+        menuMaxHeight = null;
+        menuPositioned = false;
+        openMenuKey = key;
+        shouldPositionMenu = true;
+    }
+
+    private async Task PositionMenuIfJustOpenedAsync()
+    {
+        if (!shouldPositionMenu || openMenuKey is null)
+            return;
+
+        shouldPositionMenu = false;
+
+        var measurement = module is null ? null : await module.InvokeAsync<double[]?>("measureMenu", MenuElement);
+
+        if (measurement is { Length: >= 4 } && menuAnchor is { } anchor)
+        {
+            var placement = BaseListContextMenuPlacement.Compute(anchor, measurement[0], measurement[1], measurement[2], measurement[3]);
+
+            menuLeft = placement.Left;
+            menuTop = placement.Top;
+            menuMaxHeight = placement.MaxHeight;
+        }
+
+        menuPositioned = true;
+        shouldFocusMenu = true;
+        StateHasChanged();
+    }
+
+    private async Task FocusMenuIfJustOpenedAsync()
+    {
+        if (!shouldFocusMenu || openMenuKey is null)
+            return;
+
+        shouldFocusMenu = false;
+        await MenuElement.FocusAsync(preventScroll: true);
+
+        if (module is not null)
+            await module.InvokeVoidAsync("attachMenuKeys", MenuElement);
+    }
+
+    private async Task RestoreFocusIfMenuJustClosedAsync()
+    {
+        if (restoreFocusKey is null)
+            return;
+
+        var key = restoreFocusKey;
+        restoreFocusKey = null;
+
+        if (module is not null)
+            await module.InvokeVoidAsync("focusTrigger", RootElement, key);
+    }
+
+    private async Task CloseMenuAsync()
+    {
+        if (openMenuKey is null)
+            return;
+
+        restoreFocusKey = openMenuKey;
+        await CloseMenuQuietlyAsync();
+    }
+
+    private async Task CloseMenuQuietlyAsync()
+    {
+        openMenuKey = null;
+        shouldPositionMenu = false;
+        shouldFocusMenu = false;
+
+        if (blockedAction is not null)
+        {
+            blockedAction = null;
+            await RaiseBlockedItemsAsync([]);
+        }
+    }
+
+    private async Task OnMenuKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+            await CloseMenuAsync();
+    }
+
+    private async Task OnMenuItemClickedAsync(CrudAction<TModel> action)
+    {
+        if (!views.TryGetValue(action, out var view) || !view.State.IsEnabled)
+            return;
+
+        await CloseMenuQuietlyAsync();
+        await InvokeActionAsync(action);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (module is null)
+            return;
+
+        try
+        {
+            await module.InvokeVoidAsync("unobserve", RootElement);
+            await module.DisposeAsync();
+        }
+        catch (Exception exception) when (exception is JSDisconnectedException or ObjectDisposedException or InvalidOperationException)
+        {
+        }
     }
 
     private bool HasVisibilityInputChanged(IReadOnlyList<TModel> selection)

@@ -48,10 +48,14 @@
         }
         @if (CanAdd)
         {
+            var addText = AddButtonText ?? FrameworkLocalizer["Add"].Value;
+
             <FluentButton Appearance="Appearance.Accent"
+                          Class="base-list-add"
+                          aria-label="@addText"
                           OnClick="@OnAddClickedAsync"
                           IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Add())">
-                @(AddButtonText ?? FrameworkLocalizer["Add"].Value)
+                <span class="base-list-add-text">@addText</span>
             </FluentButton>
         }
         @if (HasToolbarActions)
@@ -59,6 +63,7 @@
             <BaseActionToolbar TModel="TModel"
                                ActionGroups="@ResolvedActionGroups"
                                Context="CrudActionContext.ListToolbar"
+                               AllowOverflow="true"
                                SelectedItems="@SelectedItems"
                                Localizer="@Localizer"
                                OnBlockedItemsChanged="@OnBlockedItemsChanged"
