@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Security.Claims;
 using BlazorBase.CRUD.Components.CustomProperties;
 using BlazorBase.CRUD.Components.Filtering;
+using BlazorBase.CRUD.Components.Internal;
 using BlazorBase.CRUD.Configuration;
 using BlazorBase.CRUD.Core;
 using BlazorBase.CRUD.Display;
@@ -111,8 +112,10 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     public string DeepLinkParameterName { get; set; } = "item";
 
     /// <summary>
-    /// How many rows a page holds. The list loads another page when the user scrolls to the end of the grid
-    /// or presses the load-more button.
+    /// How many rows one request to the data provider asks for. The list is virtualized: only the rows near the
+    /// visible part of the page are rendered and the data provider is asked for them in aligned chunks of this size
+    /// (kept between 10 and the provider's page limit) while the page scrolls, so this is a fetch granularity and no
+    /// longer the number of rows the list loads at start.
     /// </summary>
     [Parameter]
     public int PageSize { get; set; } = 50;
@@ -156,12 +159,10 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private List<PropertyColumnConfig<TModel>> CollectedColumns { get; } = [];
     private List<CrudActionGroup<TModel>> CollectedActionGroups { get; } = [];
-    private List<TModel> LoadedItems { get; set; } = [];
     private List<FilterDescriptor> CurrentFilters { get; set; } = [];
     private List<SortDescriptor> CurrentSorts { get; set; } = [];
     private int TotalCount { get; set; }
     private bool IsLoading { get; set; }
-    private bool HasMoreItems => LoadedItems.Count < TotalCount;
 
     private List<PropertyColumnConfig<TModel>> ResolvedColumns =>
         Configuration?.Columns ?? CollectedColumns;
@@ -202,7 +203,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     #region Selection State
 
-    private HashSet<TModel> SelectedItems { get; } = [];
+    private HashSet<TModel> SelectedItems { get; } = new(ItemIdentityComparer<TModel>.Instance);
     private bool IsSelectionActive => SelectedItems.Count > 0;
 
     /// <summary>
@@ -272,7 +273,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         ParametersVersion,
         SelectionVersion,
         IsMobileLayout,
-        ShowsRows: LoadedItems.Count > 0 || IsLoading,
+        ShowsRows: HasRows || IsLoading,
         ResolvedColumns.Count,
         CurrentUser,
         Sort: CurrentSorts.FirstOrDefault()?.PropertyName + CurrentSorts.FirstOrDefault()?.Direction);
@@ -369,7 +370,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             : null;
     }
     /// <summary>
-    /// Tells the grid script whether another page exists, so reaching the end of the grid loads it.
+    /// Tells the grid script that new rows are on screen, so it measures the layout again.
     /// </summary>
     private async Task SyncGridStateAsync()
     {
@@ -377,19 +378,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             return;
 
         ShouldSyncGridState = false;
-        await JsModule.InvokeVoidAsync("updateGrid", GridContainerRef, HasMoreItems);
-    }
-
-    /// <summary>
-    /// Called by the grid script when the user scrolled close to the last loaded row.
-    /// </summary>
-    [JSInvokable]
-    public async Task OnGridNearEndAsync()
-    {
-        if (IsDisposed)
-            return;
-
-        await InvokeAsync(LoadMoreAsync);
+        await JsModule.InvokeVoidAsync("updateGrid", GridContainerRef);
     }
 
     /// <summary>
@@ -649,7 +638,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     {
         SelectionVersion++;
 
-        foreach (var item in LoadedItems)
+        foreach (var item in RangeCache.ResidentItems)
             SelectedItems.Add(item);
 
         CloseContextMenu();
@@ -713,42 +702,54 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     }
 
     /// <summary>
-    /// Loads a page. A reload that follows a save, a delete or a refresh keeps as many rows as the user had already
-    /// loaded, so a poll or an edit does not throw away the pages they scrolled through; a new filter starts over.
+    /// Loads the rows the list shows: a new filter or sort starts at the top, a reload after a save, a delete or a
+    /// refresh (<paramref name="keepLoadedCount"/>) brings back the part of the list that is on screen, so the user
+    /// keeps their place. Further rows are fetched by the virtualizer while the page scrolls.
     /// </summary>
-    private async Task LoadDataAsync(bool reset = true, bool keepLoadedCount = false)
+    private async Task LoadDataAsync(bool keepLoadedCount = false)
     {
         var version = ++LoadVersion;
-        var take = reset && keepLoadedCount ? Math.Max(PageSize, LoadedItems.Count) : PageSize;
+        var window = ResolveReloadWindow(keepLoadedCount);
+        var cache = new ListRangeCache<TModel>(ChunkSize, MaxCachedChunks);
+
+        if (!keepLoadedCount)
+        {
+            RangeCache = cache;
+            ServedStart = 0;
+            ServedCount = 0;
+        }
+
+        if (keepLoadedCount && JsModule is not null)
+            await JsModule.InvokeVoidAsync("holdFocus", GridContainerRef);
+
         IsLoading = true;
         StateHasChanged();
 
-        var filters = new List<FilterDescriptor>(CurrentFilters);
-        if (AdditionalFilters is not null)
-            filters.AddRange(AdditionalFilters);
-
-        var query = new BaseQuery
+        try
         {
-            Filters = filters,
-            Sorts = [.. EffectiveSorts],
-            Select = BuildSelectList(),
-            NavigationFilters = NavigationFilters,
-            Skip = reset ? 0 : LoadedItems.Count,
-            Take = take
-        };
+            var first = window.Start / cache.ChunkSize;
+            await Task.WhenAll(StartFetches(cache, [.. Enumerable.Range(first, window.Count / cache.ChunkSize)]));
 
-        var result = await ResolvedDataProvider.GetListAsync(query);
+            if (version == LoadVersion && !IsDisposed && cache.TotalCount > 0 && window.Start >= cache.TotalCount)
+            {
+                ServedStart = 0;
+                ServedCount = 0;
+                await Task.WhenAll(StartFetches(cache, [0]));
+            }
+        }
+        catch
+        {
+            if (version == LoadVersion)
+                IsLoading = false;
+
+            throw;
+        }
 
         if (version != LoadVersion || IsDisposed)
             return;
 
-        TotalCount = result.TotalCount;
-
-        if (reset)
-            LoadedItems = result.Items;
-        else
-            LoadedItems.AddRange(result.Items);
-
+        RangeCache = cache;
+        TotalCount = Math.Max(0, cache.TotalCount);
         IsLoading = false;
         DataVersion++;
         ShouldSyncGridState = true;
@@ -773,15 +774,17 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     }
 
     /// <summary>
-    /// Serves the grid the loaded rows, and sends a sort the user picked in a column header to the data provider.
+    /// Serves the grid the rows it asks for, and sends a sort the user picked in a column header to the data provider.
     /// </summary>
     /// <remarks>
-    /// A header sort used to be the grid's own: it re-ordered whatever was already loaded, so with more than one
-    /// page the top rows were the first page's winners rather than the true ones. The grid is therefore given an
-    /// items provider instead of the loaded rows themselves: the request it hands over names the sorted column,
-    /// which becomes the list's current sort, the first page is loaded again in that order from the data
-    /// provider (the database, the HTTP endpoint or the in-memory list sort everything, not just a page) and
-    /// the paging starts over.
+    /// A header sort used to be the grid's own: it re-ordered whatever was already loaded, so the top rows were not the
+    /// true ones. The request the grid hands over names the sorted column, which becomes the list's current sort, the
+    /// rows are loaded again in that order from the data provider (the database, the HTTP endpoint or the in-memory
+    /// list sort everything, not just a page) and the grid starts at its first row. The rows themselves are read from
+    /// the range cache, which fetches the chunks the virtualized grid asks for, see <see cref="ReadRangeAsync"/>. The
+    /// grid also asks for a window without a count after every refresh, which only feeds its own bookkeeping: that
+    /// request is answered from the first chunk of the window, is not cancellable and does not count as the position
+    /// of the user.
     /// </remarks>
     private async ValueTask<GridItemsProviderResult<TModel>> ProvideGridItemsAsync(GridItemsProviderRequest<TModel> request)
     {
@@ -795,10 +798,10 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             await ScrollGridToTopAsync();
         }
 
-        var start = Math.Min(request.StartIndex, LoadedItems.Count);
-        var count = Math.Min(request.Count ?? LoadedItems.Count, LoadedItems.Count - start);
+        var token = request.Count is null ? CancellationToken.None : request.CancellationToken;
+        var items = await ReadRangeAsync(request.StartIndex, request.Count ?? ChunkSize, token, debounce: false, remember: request.Count is not null);
 
-        return GridItemsProviderResult.From(LoadedItems.GetRange(start, count), LoadedItems.Count);
+        return GridItemsProviderResult.From(items, Math.Max(0, RangeCache.TotalCount));
     }
 
     private List<SortDescriptor> ResolveRequestedSorts(GridItemsProviderRequest<TModel> request)
@@ -864,14 +867,6 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         await DataGrid.RefreshDataAsync();
     }
 
-    public async Task LoadMoreAsync()
-    {
-        if (!HasMoreItems || IsLoading)
-            return;
-
-        await LoadDataAsync(reset: false);
-    }
-
     public async Task RefreshAsync()
     {
         await LoadDataAsync(keepLoadedCount: true);
@@ -935,6 +930,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         WorkingFilterModel = null;
         ShouldRestoreFocusKey = FilterPanelFocusKey;
         await LoadDataAsync();
+        await ScrollGridToTopAsync();
     }
 
     private async Task OnFilterResetAsync()
@@ -943,6 +939,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         WorkingFilterModel = new FilterGroupModel();
         CurrentFilters = [];
         await LoadDataAsync();
+        await ScrollGridToTopAsync();
     }
 
     #endregion

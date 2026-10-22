@@ -16,79 +16,172 @@ using Xunit;
 namespace BlazorBase.CRUD.Test.Components;
 
 /// <summary>
-/// A list used to load its first fifty rows and never any more: nothing ever called the load-more method, so
-/// every row past the fiftieth was unreachable. It also asked for them in no particular order.
+/// A list used to load its first fifty rows and never any more, so every row past the fiftieth was unreachable. It is
+/// virtualized now: the rows near the visible part of the page are fetched from the data provider in aligned chunks of
+/// <c>PageSize</c> rows, each chunk once, and the order the list shows is the one the provider was asked for.
 /// </summary>
 [Collection(CustomPropertyResolutionCollection.Name)]
 public class BaseListPagingAndSortingTests : BunitTestContextBase
 {
     [Fact]
-    public void FirstPage_RequestsOnlyOnePageAndShowsHowMuchIsLoaded()
+    public void FirstChunk_IsRequestedWithThePageSize_AndTheTotalIsShown()
     {
         var provider = PagedProvider(total: 5);
 
-        var cut = RenderList<TestOrder>(provider, pageSize: 2);
+        var cut = RenderList<TestOrder>(provider, pageSize: 10);
 
-        cut.WaitForAssertion(() => Assert.Equal(Loaded(2, 5), cut.Find(".base-list-count").TextContent.Trim()));
+        cut.WaitForAssertion(() => Assert.Equal(Total(5), cut.Find(".base-list-count").TextContent.Trim()));
         var query = provider.ReceivedQueries<TestOrder>().First();
         Assert.Equal(0, query.Skip);
-        Assert.Equal(2, query.Take);
+        Assert.Equal(10, query.Take);
     }
 
     [Fact]
-    public void LoadMore_RequestsTheNextPageAfterWhatIsLoaded_UntilEverythingIsLoaded()
+    public void ARangeAcrossAChunkBoundary_IsFetchedInOneRequestOfAlignedChunks()
     {
-        var provider = PagedProvider(total: 5);
-        var cut = RenderList<TestOrder>(provider, pageSize: 2);
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-list-load-more")));
+        var provider = PagedProvider(total: 1000);
+        var cut = RenderList<TestOrder>(provider, pageSize: 50);
+        WaitForQueriesToSettle(provider);
+        var before = provider.ReceivedQueries<TestOrder>().Count();
 
-        cut.Find(".base-list-load-more").Click();
-        cut.WaitForAssertion(() => Assert.Equal(Loaded(4, 5), cut.Find(".base-list-count").TextContent.Trim()));
-        cut.Find(".base-list-load-more").Click();
+        var items = cut.InvokeAsync(() => cut.Instance.ReadRangeAsync(620, 60, CancellationToken.None, debounce: false)).GetAwaiter().GetResult();
 
-        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".base-list-footer")));
-        Assert.Equal([0, 2, 4], provider.ReceivedQueries<TestOrder>().Select(query => query.Skip));
+        Assert.Equal(60, items.Count);
+        var fetch = provider.ReceivedQueries<TestOrder>().Skip(before).First();
+        Assert.Equal(600, fetch.Skip);
+        Assert.Equal(100, fetch.Take);
     }
 
     [Fact]
-    public void LoadMore_KeepsTheActiveFilter()
+    public void ARangeThatIsHeld_IsNotFetchedAgain()
     {
-        var provider = PagedProvider(total: 5);
+        var provider = PagedProvider(total: 1000);
+        var cut = RenderList<TestOrder>(provider, pageSize: 50);
+        WaitForQueriesToSettle(provider);
+        cut.InvokeAsync(() => cut.Instance.ReadRangeAsync(620, 60, CancellationToken.None, debounce: false)).GetAwaiter().GetResult();
+        WaitForQueriesToSettle(provider);
+        var before = provider.ReceivedQueries<TestOrder>().Count();
+
+        var again = cut.InvokeAsync(() => cut.Instance.ReadRangeAsync(630, 20, CancellationToken.None, debounce: false)).GetAwaiter().GetResult();
+
+        Assert.Equal(20, again.Count);
+        Assert.Equal(before, provider.ReceivedQueries<TestOrder>().Count());
+    }
+
+    [Fact]
+    public void RangeRequests_KeepTheActiveFilter()
+    {
+        var provider = PagedProvider(total: 1000);
         var filters = new List<FilterDescriptor> { new() { PropertyName = "CustomerName", Operator = FilterOperator.Contains, Value = "A" } };
-        var cut = RenderList<TestOrder>(provider, pageSize: 2, additionalFilters: filters);
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-list-load-more")));
+        var cut = RenderList<TestOrder>(provider, pageSize: 50, additionalFilters: filters);
+        WaitForQueriesToSettle(provider);
+        var before = provider.ReceivedQueries<TestOrder>().Count();
 
-        cut.Find(".base-list-load-more").Click();
+        cut.InvokeAsync(() => cut.Instance.ReadRangeAsync(700, 10, CancellationToken.None, debounce: false)).GetAwaiter().GetResult();
 
-        cut.WaitForAssertion(() => Assert.Equal(2, provider.ReceivedQueries<TestOrder>().Count()));
         Assert.All(provider.ReceivedQueries<TestOrder>(), query => Assert.Single(query.Filters));
+        Assert.True(provider.ReceivedQueries<TestOrder>().Count() > before);
     }
 
     [Fact]
-    public void Refresh_KeepsAsManyRowsAsWereAlreadyLoaded_SoAPollDoesNotDiscardTheScrolledPages()
+    public void TwoRequestsForTheSameChunk_ShareOneFetch()
     {
-        var provider = PagedProvider(total: 5);
-        var cut = RenderList<TestOrder>(provider, pageSize: 2);
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-list-load-more")));
-        cut.Find(".base-list-load-more").Click();
-        cut.WaitForAssertion(() => Assert.Equal(Loaded(4, 5), cut.Find(".base-list-count").TextContent.Trim()));
+        var provider = PagedProvider(total: 1000, delayMilliseconds: 150);
+        var cut = RenderList<TestOrder>(provider, pageSize: 50);
+        WaitForQueriesToSettle(provider);
+        var before = provider.ReceivedQueries<TestOrder>().Count();
+
+        var first = cut.InvokeAsync(() => cut.Instance.ReadRangeAsync(750, 20, CancellationToken.None, debounce: false));
+        var second = cut.InvokeAsync(() => cut.Instance.ReadRangeAsync(760, 20, CancellationToken.None, debounce: false));
+        Task.WaitAll(first, second);
+
+        Assert.Equal(1, provider.ReceivedQueries<TestOrder>().Skip(before).Count(query => query.Skip == 750));
+    }
+
+    [Fact]
+    public void ARequestThatWasCancelledBeforeItFetched_DoesNotCallTheProvider()
+    {
+        var provider = PagedProvider(total: 1000);
+        var cut = RenderList<TestOrder>(provider, pageSize: 50);
+        WaitForQueriesToSettle(provider);
+        var before = provider.ReceivedQueries<TestOrder>().Count();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        var read = cut.InvokeAsync(() => cut.Instance.ReadRangeAsync(800, 20, cancellation.Token, debounce: true));
+
+        Assert.ThrowsAny<OperationCanceledException>(() => read.GetAwaiter().GetResult());
+        Assert.DoesNotContain(provider.ReceivedQueries<TestOrder>().Skip(before), query => query.Skip == 800);
+    }
+
+    [Fact]
+    public void AProviderThatIgnoresPaging_IsAskedOnce_AndServedByIndex()
+    {
+        var all = Enumerable.Range(0, 120).Select(index => new TestOrder { Id = Guid.NewGuid(), CustomerName = "C" + index }).ToList();
+        var provider = Substitute.For<IBaseDataProvider<TestOrder>>();
+        provider.GetListAsync(Arg.Any<BaseQuery>(), Arg.Any<Expression<Func<TestOrder, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(_ => new BaseQueryResult<TestOrder> { Items = [.. all], TotalCount = all.Count });
+        var cut = RenderList<TestOrder>(provider, pageSize: 50);
+        WaitForQueriesToSettle(provider);
+        var before = provider.ReceivedQueries<TestOrder>().Count();
+
+        var items = cut.InvokeAsync(() => cut.Instance.ReadRangeAsync(100, 20, CancellationToken.None, debounce: false)).GetAwaiter().GetResult();
+
+        Assert.Equal(all.Skip(100).Take(20), items);
+        Assert.Equal(before, provider.ReceivedQueries<TestOrder>().Count());
+    }
+
+    [Fact]
+    public void Refresh_BringsBackTheChunksThatAreOnScreen_NotTheFirstOnes()
+    {
+        var provider = PagedProvider(total: 1000);
+        var cut = RenderList<TestOrder>(provider, pageSize: 50);
+        WaitForQueriesToSettle(provider);
+        cut.InvokeAsync(() => cut.Instance.ReadRangeAsync(800, 20, CancellationToken.None, debounce: false)).GetAwaiter().GetResult();
+        WaitForQueriesToSettle(provider);
+        var before = provider.ReceivedQueries<TestOrder>().Count();
 
         cut.InvokeAsync(() => cut.Instance.RefreshAsync()).GetAwaiter().GetResult();
 
-        var refresh = provider.ReceivedQueries<TestOrder>().Last();
-        Assert.Equal(0, refresh.Skip);
-        Assert.Equal(4, refresh.Take);
+        var refresh = provider.ReceivedQueries<TestOrder>().Skip(before).First();
+        Assert.Equal(800, refresh.Skip);
+        Assert.Equal(50, refresh.Take);
     }
 
     [Fact]
-    public void ListThatFitsOnOnePage_ShowsNoLoadMore()
+    public void Refresh_AfterTheListShrankBelowTheViewedPart_StartsAtTheTopAgain()
+    {
+        var total = 1000;
+        var provider = Substitute.For<IBaseDataProvider<TestOrder>>();
+        provider.GetListAsync(Arg.Any<BaseQuery>(), Arg.Any<Expression<Func<TestOrder, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var query = call.Arg<BaseQuery>();
+                var count = Math.Max(0, Math.Min(query.Take, total - query.Skip));
+                return new BaseQueryResult<TestOrder> { Items = [.. Enumerable.Range(0, count).Select(_ => new TestOrder())], TotalCount = total };
+            });
+        var cut = RenderList<TestOrder>(provider, pageSize: 50);
+        WaitForQueriesToSettle(provider);
+        cut.InvokeAsync(() => cut.Instance.ReadRangeAsync(800, 20, CancellationToken.None, debounce: false)).GetAwaiter().GetResult();
+        WaitForQueriesToSettle(provider);
+        total = 40;
+        var before = provider.ReceivedQueries<TestOrder>().Count();
+
+        cut.InvokeAsync(() => cut.Instance.RefreshAsync()).GetAwaiter().GetResult();
+
+        Assert.Equal(40, cut.InvokeAsync(() => cut.Instance.ReadRangeAsync(0, 50, CancellationToken.None, debounce: false)).GetAwaiter().GetResult().Count);
+        Assert.Contains(provider.ReceivedQueries<TestOrder>().Skip(before), query => query.Skip == 0);
+    }
+
+    [Fact]
+    public void ListThatFitsOnOnePage_ShowsItsRows()
     {
         var provider = PagedProvider(total: 2);
 
         var cut = RenderList<TestOrder>(provider, pageSize: 2);
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
-        Assert.Empty(cut.FindAll(".base-list-footer"));
+        Assert.Empty(cut.FindAll(".base-list-load-more"));
     }
 
     [Fact]
@@ -153,12 +246,15 @@ public class BaseListPagingAndSortingTests : BunitTestContextBase
         Assert.Equal(SortDirection.Descending, sort.Direction);
     }
 
-    private IBaseDataProvider<TModel> PagedProvider<TModel>(int total) where TModel : class, new()
+    private IBaseDataProvider<TModel> PagedProvider<TModel>(int total, int delayMilliseconds = 0) where TModel : class, new()
     {
         var provider = Substitute.For<IBaseDataProvider<TModel>>();
         provider.GetListAsync(Arg.Any<BaseQuery>(), Arg.Any<Expression<Func<TModel, bool>>>(), Arg.Any<CancellationToken>())
-            .Returns(call =>
+            .Returns(async call =>
             {
+                if (delayMilliseconds > 0)
+                    await Task.Delay(delayMilliseconds);
+
                 var query = call.Arg<BaseQuery>();
                 var count = Math.Max(0, Math.Min(query.Take, total - query.Skip));
                 var items = Enumerable.Range(0, count).Select(_ => new TModel()).ToList();
@@ -167,10 +263,24 @@ public class BaseListPagingAndSortingTests : BunitTestContextBase
         return provider;
     }
 
-    private IBaseDataProvider<TestOrder> PagedProvider(int total) => PagedProvider<TestOrder>(total);
+    private IBaseDataProvider<TestOrder> PagedProvider(int total, int delayMilliseconds = 0) => PagedProvider<TestOrder>(total, delayMilliseconds);
 
-    private string Loaded(int loaded, int total) => string.Format(
-        Services.GetRequiredService<IStringLocalizerFactory>().Create(typeof(BlazorBaseCrudResources))["LoadedOfTotal"].Value, loaded, total);
+    private static void WaitForQueriesToSettle<TModel>(IBaseDataProvider<TModel> provider) where TModel : class
+    {
+        var last = -1;
+        var stable = 0;
+
+        for (var attempt = 0; attempt < 100 && stable < 6; attempt++)
+        {
+            Thread.Sleep(50);
+            var count = provider.ReceivedQueries<TModel>().Count();
+            stable = count == last && count > 0 ? stable + 1 : 0;
+            last = count;
+        }
+    }
+
+    private string Total(int total) => string.Format(
+        Services.GetRequiredService<IStringLocalizerFactory>().Create(typeof(BlazorBaseCrudResources))["TotalEntries"].Value, total);
 
     private IRenderedComponent<BaseList<TModel>> RenderList<TModel>(
         IBaseDataProvider<TModel> provider,

@@ -28,8 +28,7 @@ public class BaseListRowRenderingTests : BunitTestContextBase
     public void OpeningTheContextMenu_DoesNotRenderTheRowsAgain()
     {
         var cut = RenderList();
-        cut.WaitForAssertion(() => Assert.True(CellRenders > 0));
-        var before = CellRenders;
+        var before = WaitUntilRowsAreStable();
 
         cut.Find(".base-list-grid").ContextMenu(new MouseEventArgs { ClientX = 40, ClientY = 40 });
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".context-menu")));
@@ -41,8 +40,7 @@ public class BaseListRowRenderingTests : BunitTestContextBase
     public void OpeningTheFilterPanel_DoesNotRenderTheRowsAgain()
     {
         var cut = RenderList();
-        cut.WaitForAssertion(() => Assert.True(CellRenders > 0));
-        var before = CellRenders;
+        var before = WaitUntilRowsAreStable();
 
         cut.Find(".base-list-filter-toggle").Click();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".filter-panel")));
@@ -54,8 +52,7 @@ public class BaseListRowRenderingTests : BunitTestContextBase
     public void ReloadingTheData_RendersTheRowsAgain()
     {
         var cut = RenderList();
-        cut.WaitForAssertion(() => Assert.True(CellRenders > 0));
-        var before = CellRenders;
+        var before = WaitUntilRowsAreStable();
 
         cut.InvokeAsync(() => cut.Instance.RefreshAsync()).GetAwaiter().GetResult();
 
@@ -66,12 +63,32 @@ public class BaseListRowRenderingTests : BunitTestContextBase
     public void RenderingTheListAgainFromItsParent_RendersTheRowsAgain()
     {
         var cut = RenderList();
-        cut.WaitForAssertion(() => Assert.True(CellRenders > 0));
-        var before = CellRenders;
+        var before = WaitUntilRowsAreStable();
 
         cut.Render();
 
         cut.WaitForAssertion(() => Assert.True(CellRenders > before));
+    }
+
+    /// <summary>
+    /// A virtualized grid renders its rows in several steps (the rows, then the data that arrives for them), so the
+    /// count of renders is only a baseline once it has stopped moving.
+    /// </summary>
+    private int WaitUntilRowsAreStable()
+    {
+        var last = -1;
+        var stable = 0;
+
+        for (var attempt = 0; attempt < 100 && stable < 6; attempt++)
+        {
+            Thread.Sleep(50);
+            stable = CellRenders == last && CellRenders > 0 ? stable + 1 : 0;
+            last = CellRenders;
+        }
+
+        Assert.True(CellRenders > 0);
+
+        return CellRenders;
     }
 
     private IRenderedComponent<BaseList<TestProduct>> RenderList()

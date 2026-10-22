@@ -30,11 +30,11 @@ public class BaseListHeaderSortingTests : BunitTestContextBase
     {
         var provider = SortingProvider(Orders());
         var cut = RenderList(provider, pageSize: 2);
-        cut.WaitForAssertion(() => Assert.Equal(["Echo", "Charlie"], FirstColumn(cut)));
+        cut.WaitForAssertion(() => Assert.Equal(["Echo", "Charlie"], FirstColumn(cut).Take(2)));
 
         cut.Find("th .col-sort-button").Click();
 
-        cut.WaitForAssertion(() => Assert.Equal(["Alpha", "Bravo"], FirstColumn(cut)));
+        cut.WaitForAssertion(() => Assert.Equal(["Alpha", "Bravo"], FirstColumn(cut).Take(2)));
         var sorted = provider.ReceivedQueries<TestOrder>().Last();
         var sort = Assert.Single(sorted.Sorts);
         Assert.Equal(nameof(TestOrder.CustomerName), sort.PropertyName);
@@ -50,35 +50,30 @@ public class BaseListHeaderSortingTests : BunitTestContextBase
         cut.WaitForAssertion(() => Assert.NotEmpty(FirstColumn(cut)));
 
         cut.Find("th .col-sort-button").Click();
-        cut.WaitForAssertion(() => Assert.Equal(["Alpha", "Bravo"], FirstColumn(cut)));
+        cut.WaitForAssertion(() => Assert.Equal(["Alpha", "Bravo"], FirstColumn(cut).Take(2)));
         cut.Find("th .col-sort-button").Click();
 
-        cut.WaitForAssertion(() => Assert.Equal(["Echo", "Delta"], FirstColumn(cut)));
+        cut.WaitForAssertion(() => Assert.Equal(["Echo", "Delta"], FirstColumn(cut).Take(2)));
         Assert.Equal(SortDirection.Descending, Assert.Single(provider.ReceivedQueries<TestOrder>().Last().Sorts).Direction);
     }
 
     [Fact]
-    public void HeaderSort_StartsPagingOver_AndLoadMoreKeepsTheSort()
+    public void HeaderSort_StartsOverAtTheTop_AndTheCachedRowsFollowTheNewOrder()
     {
         var provider = SortingProvider(Orders());
         var cut = RenderList(provider, pageSize: 2);
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-list-load-more")));
-        cut.Find(".base-list-load-more").Click();
-        cut.WaitForAssertion(() => Assert.Equal(4, FirstColumn(cut).Count));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-list-grid tr.fluent-data-grid-row:not([row-type])")));
 
         cut.Find("th .col-sort-button").Click();
 
-        cut.WaitForAssertion(() => Assert.Equal(["Alpha", "Bravo"], FirstColumn(cut)));
-        var reloaded = provider.ReceivedQueries<TestOrder>().Last();
+        cut.WaitForAssertion(() => Assert.Equal(["Alpha", "Bravo"], FirstColumn(cut).Take(2)));
+        var reloaded = provider.ReceivedQueries<TestOrder>().Last(query => query.Sorts.Count > 0);
         Assert.Equal(0, reloaded.Skip);
-        Assert.Equal(2, reloaded.Take);
+        Assert.Equal(nameof(TestOrder.CustomerName), Assert.Single(reloaded.Sorts).PropertyName);
 
-        cut.Find(".base-list-load-more").Click();
+        var ordered = cut.InvokeAsync(() => cut.Instance.ReadRangeAsync(0, 5, CancellationToken.None, debounce: false)).GetAwaiter().GetResult();
 
-        cut.WaitForAssertion(() => Assert.Equal(["Alpha", "Bravo", "Charlie", "Delta"], FirstColumn(cut)));
-        var nextPage = provider.ReceivedQueries<TestOrder>().Last();
-        Assert.Equal(2, nextPage.Skip);
-        Assert.Equal(nameof(TestOrder.CustomerName), Assert.Single(nextPage.Sorts).PropertyName);
+        Assert.Equal(["Alpha", "Bravo", "Charlie", "Delta", "Echo"], ordered.Select(order => order.CustomerName));
     }
 
     [Fact]
@@ -91,7 +86,7 @@ public class BaseListHeaderSortingTests : BunitTestContextBase
         cut.FindAll("th .col-sort-button")[1].Click();
 
         cut.WaitForAssertion(() => Assert.Equal(nameof(TestOrder.Total), Assert.Single(provider.ReceivedQueries<TestOrder>().Last().Sorts).PropertyName));
-        cut.WaitForAssertion(() => Assert.Equal(["Alpha", "Bravo"], FirstColumn(cut)));
+        cut.WaitForAssertion(() => Assert.Equal(["Alpha", "Bravo"], FirstColumn(cut).Take(2)));
     }
 
     [Fact]

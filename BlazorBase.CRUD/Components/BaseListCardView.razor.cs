@@ -1,6 +1,8 @@
+using BlazorBase.CRUD.Components.Internal;
 using BlazorBase.CRUD.Configuration;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.Web.Virtualization;
 using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace BlazorBase.CRUD.Components;
@@ -10,9 +12,9 @@ namespace BlazorBase.CRUD.Components;
 /// title, an optional subtitle, badges, a few label and value pairs, an optional action row and a more button.
 /// </summary>
 /// <remarks>
-/// A presentation component: it renders the items and the plan it is given and reports taps; selection, paging, the
-/// menu and the data stay with the list. It scrolls inside the list's own scroll area, so reaching the end loads the
-/// next page exactly like the table.
+/// A presentation component: it renders the items and the plan it is given and reports taps; selection, the menu and
+/// the data stay with the list. The tiles are virtualized: only the tiles near the visible part of the page exist,
+/// and the page itself scrolls, so a list of any length costs the same.
 /// </remarks>
 public partial class BaseListCardView<TModel> where TModel : class
 {
@@ -22,6 +24,30 @@ public partial class BaseListCardView<TModel> where TModel : class
     public BaseListCardViewModel<TModel> View { get; set; } = default!;
 
     #endregion
+
+    private Virtualize<TModel>? Virtualizer { get; set; }
+    private int RefreshedVersion { get; set; } = -1;
+
+    /// <summary>
+    /// Asks the virtualizer for the visible tiles again when the list loaded new data, which it does not notice
+    /// by itself because its items provider stays the same.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (Virtualizer is null)
+            return;
+
+        var previous = RefreshedVersion;
+        RefreshedVersion = View.DataVersion;
+
+        if (previous < 0 || previous == View.DataVersion)
+            return;
+
+        await Virtualizer.RefreshDataAsync();
+        StateHasChanged();
+    }
+
+    private string ViewStyle => FormattableString.Invariant($"--base-list-tile-height: calc({View.TileHeight}rem + {BaseListTileMetrics.BorderPixels}px)");
 
     private bool HasActions => View.Plan.ActionColumns.Any(column => column.Template is not null) || View.Actions is not null;
 

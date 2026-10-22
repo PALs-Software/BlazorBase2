@@ -298,11 +298,11 @@
   <data name="ColumnSortedDescending" xml:space="preserve">
     <value>{0}, absteigend sortiert</value>
   </data>
-  <data name="LoadMore" xml:space="preserve">
-    <value>Mehr laden</value>
+  <data name="TotalEntries" xml:space="preserve">
+    <value>{0:N0} Einträge</value>
   </data>
-  <data name="LoadedOfTotal" xml:space="preserve">
-    <value>{0} von {1} geladen</value>
+  <data name="TotalEntry" xml:space="preserve">
+    <value>{0:N0} Eintrag</value>
   </data>
   <data name="SaveFailed" xml:space="preserve">
     <value>Der Eintrag konnte nicht gespeichert werden ({0}). Bitte versuchen Sie es erneut.</value>

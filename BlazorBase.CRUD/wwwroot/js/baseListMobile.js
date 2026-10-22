@@ -41,6 +41,7 @@ export function observeLayout(grid, dotNetRef, breakpoint) {
             return;
 
         state.narrow = narrow;
+        grid.dataset.mode = 'fits';
         state.dotNetRef.invokeMethodAsync('OnMobileLayoutChangedAsync', narrow).catch(() => { });
     });
 

@@ -270,7 +270,7 @@ builder.Services.AddBlazorBaseCrud<HttpAuditUserProvider>();
 
 ### `BaseList<TModel>`
 
-Renders a `FluentDataGrid` with sorting, filtering, infinite scroll, row-click edit, multi-select, context menus and a configurable action toolbar.
+Renders a `FluentDataGrid` with sorting, filtering, virtualized scrolling, row-click edit, multi-select, context menus and a configurable action toolbar.
 
 Key parameters:
 
@@ -283,7 +283,7 @@ Key parameters:
 | `AllowAdd` / `AllowEdit` / `AllowDelete` | `bool` | Default: `true` |
 | `NavigationFilters` | `IList<NavigationFilter>?` | Filtered includes |
 | `ActionGroups` | `IList<CrudActionGroup<TModel>>?` | Dynamic action groups |
-| `PageSize` | `int` | Rows per page. Default: `50` |
+| `PageSize` | `int` | Rows per request to the data provider (the fetch chunk of the virtualized list, 10 to `BaseQueryLimits.MaxPageSize`). Default: `50`; see "Virtualization and paging" below |
 | `DefaultSorts` | `List<SortDescriptor>?` | The order shown until the user sorts; see "Order and paging" below |
 | `FilterDefaults` | `ListFilterDefaults?` | Presets, default filter and storage key declared in code; see "Saved filters, presets and defaults" below |
 | `EnableSavedFilters` | `bool` | Lets users save/load their own filters when an `IListFilterStore` is registered. Default: `true` |
@@ -291,6 +291,7 @@ Key parameters:
 | `MobileBreakpoint` | `int?` | Container width in px below which tiles replace the table. Default `700` (`MobileCardPlanResolver.DefaultBreakpoint`); `0` keeps the table |
 | `MobileCard` | `MobileCardConfiguration<TModel>?` | Which properties a tile shows and the part each plays (also `BaseListConfiguration.MobileCard`) |
 | `MobileTemplate` | `RenderFragment<TModel>?` | Custom markup for the body of a tile |
+| `MobileItemHeight` | `int?` | Height in px of every tile. Default: worked out from what the tile shows, 120 for a custom body; see "Smartphone tiles" |
 
 UI features:
 - **Click-to-edit row** + hover highlight + pointer cursor
@@ -333,11 +334,58 @@ UI features:
 - **Per-column** `Sortable` / `Filterable` (default: both `true`)
 - **Role-based column visibility** via `[CrudAccess]` on the entity or `.Access(roles, rights)` on the column builder
 
-#### Order and paging
+#### Virtualization and paging
 
-The list loads `PageSize` rows (default 50) and loads the next page when the grid is scrolled to its end or
-the **Load more** button under it is pressed; the line beside the button says how many of the total are
-loaded. Loading keeps the active filter.
+The list is virtualized **and** the page scrolls: there is one vertical scrollbar, the one of the layout's main
+area, and the sticky header stays on screen. Only the rows near the visible part of the page exist in the DOM
+(about 30 to 45, whatever the length of the list), so a list of 100,000 rows costs what one of 100 rows costs.
+The status text beside the filter button ("100,000 entries") is the total the data provider reported.
+
+**How rows are fetched.** The grid asks for the rows it is about to show; the list answers from a cache of fixed
+chunks of `PageSize` rows (default 50, kept between 10 and `BaseQueryLimits.MaxPageSize`) and fetches the
+chunks it misses from the data provider with `BaseQuery.Skip`/`Take`, filters, sorts, select and navigation
+filters, aligned to chunk boundaries. A chunk is fetched once however often it scrolls into view, neighbouring
+chunks of one request are fetched together, two requests for the same chunk share one answer, the chunk after
+the visible one (in the direction of scrolling) is read ahead, and a request the grid cancelled because the
+user scrolled on never reaches the provider (the grid waits 100 ms before it asks). The cache holds at most
+5,000 rows and drops the least recently used chunks. A reload after a save, a delete or `RefreshAsync()` loads
+the chunks that are on screen again, so the user keeps their place and the focus (`holdFocus` in
+`baseListInterop.js` puts the keyboard back on the equivalent cell when a virtualized row is replaced).
+
+A data provider that ignores `Skip` and `Take` and hands back the whole list as one page
+(`InMemoryBaseDataProvider`) is recognised by its answer (more rows than the request could have matched) and
+its list is then served by index without further requests. Every data provider must report the total of the
+matching rows (`BaseQueryResult.TotalCount`) with each answer: the scrollbar is sized by it.
+
+**What the layout has to provide.** The virtualizer (ASP.NET `Virtualize`, used by `FluentDataGrid` and by the
+tile view) observes the nearest ancestor of its spacer rows whose computed `overflow-y` is anything but
+`visible` - `hidden` and `clip` count - and the browser viewport when there is none. A list is therefore fine
+inside any page whose scrolling element is the layout's main area, and it must not sit inside an element with its
+own `overflow: auto|hidden|clip`. The grid itself is such an element while it scrolls sideways, which is why
+`.base-list-grid` is `overflow: visible` ("fits") by default and only `baseListInterop.js` switches it to
+"scroll" (a wider table inside its own scroll box, with the pinned `.base-list-hscroll` scrollbar) once the
+virtualizer is running. Rows have a fixed height (`ItemSize` 48 px, `--base-list-row-height`); a cell clips what
+does not fit, so no row grows. A FluentUI row is `display: contents` and therefore has no box for the virtualizer to
+measure, so the rows are subgrid rows (`BaseList.razor.css`).
+
+**Limits.** Browsers cap the height of an element: Chromium clamps it at 33,554,432 px (2^25, measured), Firefox at
+about 17.9 million px (documented, not measured here). A table of rows of 48 px therefore reaches about 690,000
+rows in Chromium (650,000 rows were verified, 750,000 rows broke the list: the rows stay placeholders and the
+scroll position jumps) and about 370,000 in Firefox, tiles of about 210 px about 160,000 and 85,000; beyond that the end
+of the list is unreachable by scrolling, so use filters (a list of that size is a reporting problem, not a browsing
+one).
+
+**Selection.** Rows are selected by `Id`, not by instance, so a selected row stays selected when it scrolls out
+of the cache and is fetched again. "Select all" selects the rows that are currently held in the cache (up to 5,000),
+not the whole filtered result - provisional behaviour, whether it should mean the whole result is an open design
+question.
+
+Breaking changes against the load-more list: `BaseList.LoadMoreAsync()`, the **Load more** button and the
+infinite-scroll hook (`OnGridNearEndAsync`, `updateGrid(grid, hasMore)`) are gone, as are the resource strings
+`LoadMore` and `LoadedOfTotal` (`TotalEntries` replaces them), and `BaseListCardViewModel.Items` is replaced by
+`ItemsProvider`, `TotalCount`, `DataVersion` and `TileHeight`.
+
+#### Order and paging
 
 Rows never come back in an arbitrary order. The list asks for, in order of precedence: `DefaultSorts` on the
 list, `BaseListConfiguration.DefaultSorts` (`BaseListBuilder.DefaultSort(x => x.CreatedOn, descending: true)`),
@@ -346,14 +394,14 @@ the entity's `[DefaultSort(nameof(CreatedOn), Descending = true)]` attributes. W
 customizer imposed when none was asked for), so `Skip`/`Take` pages are deterministic.
 
 Clicking a sortable column header replaces that order: the sort goes to the data provider as the query's
-`Sorts`, the first page is loaded again in the new order and paging starts over, so the top rows are the true
-top rows of the whole data set, not the best of the pages loaded so far. The database, the HTTP endpoint and
-the in-memory provider all sort every row; a second click reverses the direction.
+`Sorts`, the rows are loaded again in the new order from the top, so the top rows are the true top rows of the
+whole data set. The database, the HTTP endpoint and the in-memory provider all sort every row; a second click
+reverses the direction.
 
 #### Smartphone tiles
 
 A wide table that scrolls sideways is a poor phone experience, so below a container width a list shows **one
-tile per item** instead of the table. Everything else stays: paging and infinite scroll, load more, sorting,
+tile per item** instead of the table. Everything else stays: virtualized scrolling, sorting,
 filtering, the add button, row click (the card opens, deep link included), the context menu, selection and the
 row actions.
 
@@ -367,7 +415,14 @@ root element carries `base-list-mobile` while tiles are shown, so a page can rea
 
 **The tile.** A title, an optional subtitle, badges (chips), up to a few label and value pairs, an optional action
 row and a trailing **more button** (44 x 44 px) that opens the same menu as the table row (also reachable by a
-long press where the browser sends a `contextmenu` event). Tapping the tile does what clicking a row does; while a
+long press where the browser sends a `contextmenu` event). Every tile has **the same height**, worked out from the
+parts the plan puts into it (`BaseListTileMetrics`): the title takes up to two lines, the subtitle, the badge row
+and each value one line (longer text is cut with an ellipsis, the full text is in the card), the fields are laid out
+two to a row. The tiles are virtualized, and ASP.NET's `Virtualize` positions the tiles it does not render by the
+average height of the ones it does: with tiles of different heights that average changes whenever another set is on
+screen, and with tens of thousands of tiles above the visible ones a single pixel moves the content by thousands. A
+tile with a custom body (`MobileTemplate`) is 120 px high unless `MobileItemHeight` says otherwise; what does not
+fit is cut off. Tapping the tile does what clicking a row does; while a
 selection is going on it toggles the selection instead, because a touch screen has no Shift key (the selection
 marks appear once something is selected - start it from the more menu). A value that is empty is left off the
 tile, and so is a column with a template whose property is `null`. Above the tiles a sticky **sort bar** offers the
@@ -423,8 +478,9 @@ its frame (tap, more button, selection mark, action row):
 </BaseList>
 ```
 
-Notes: a tile list scrolls inside the list's own scroll area, like the table, so reaching the end loads the
-next page. A sort picked on the tile list is dropped again when the list switches back to the table (the table
+Notes: the tile list is virtualized and scrolls with the page, like the table, so a list of any length costs the same
+(see "Virtualization and paging"). A sort picked on the tile list is dropped again when the list switches back to the
+table (the table
 starts from its header state). All strings are localized (`SortBy`, `SortDefault`, `SortAscending`,
 `SortDescending` in `BlazorBaseCrudResources`). The pieces are public and testable on their own:
 `MobileCardPlanResolver.Resolve(...)` computes the plan, `BaseListCardView<TModel>` draws it.

@@ -33,6 +33,10 @@
                 }
             </div>
         }
+        @if (HasRows)
+        {
+            <span class="base-list-count" role="status">@string.Format(FrameworkLocalizer[TotalCount == 1 ? "TotalEntry" : "TotalEntries"].Value, TotalCount)</span>
+        }
         @if (IsSelectionActive)
         {
             <FluentLabel Class="selection-count">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</FluentLabel>
@@ -84,13 +88,14 @@
         {
             <BaseListCardView TModel="TModel" View="@BuildMobileView()" />
         }
-        else if (LoadedItems.Count > 0 || IsLoading)
+        else if (HasRows || IsLoading)
         {
             <FluentDataGrid @ref="DataGrid"
                             ItemsProvider="@CaptureRenderedProvider()"
                             TGridItem="TModel"
-                            Virtualize="false"
+                            Virtualize="true"
                             ItemSize="48"
+                            OverscanCount="10"
                             GenerateHeader="GenerateHeaderOption.Sticky"
                             OnRowClick="@OnRowClickedAsync"
                             OnCellFocus="@OnCellFocusedAsync">
@@ -292,20 +297,7 @@
         </div>
     }
 
-    @if (LoadedItems.Count > 0 && HasMoreItems)
-    {
-        <div class="base-list-footer">
-            <span class="base-list-count" role="status">@string.Format(FrameworkLocalizer["LoadedOfTotal"].Value, LoadedItems.Count, TotalCount)</span>
-            <FluentButton Appearance="Appearance.Outline"
-                          Class="base-list-load-more"
-                          Disabled="@IsLoading"
-                          OnClick="@LoadMoreAsync">
-                @FrameworkLocalizer["LoadMore"]
-            </FluentButton>
-        </div>
-    }
-
-    @if (!IsLoading && LoadedItems.Count == 0)
+    @if (!IsLoading && !HasRows)
     {
         <div class="base-list-empty">
             <FluentLabel Typo="Typography.Body">@(EmptyText ?? FrameworkLocalizer["NoItemsFound"].Value)</FluentLabel>

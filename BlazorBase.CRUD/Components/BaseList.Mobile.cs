@@ -1,7 +1,9 @@
+using BlazorBase.CRUD.Components.Internal;
 using BlazorBase.CRUD.Configuration;
 using BlazorBase.CRUD.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.Web.Virtualization;
 using Microsoft.JSInterop;
 
 namespace BlazorBase.CRUD.Components;
@@ -44,12 +46,31 @@ public partial class BaseList<TModel> where TModel : class, new()
     [Parameter]
     public RenderFragment<TModel>? MobileTemplate { get; set; }
 
+    /// <summary>
+    /// The height in pixels of every tile. The tiles of a virtualized list must all have the same height; without a value
+    /// it is worked out from what the tile shows, or, for a tile with a custom body, set to 120. A custom body that
+    /// needs more room than that has to say so here, as what does not fit is cut off.
+    /// </summary>
+    [Parameter]
+    public int? MobileItemHeight { get; set; }
+
     #endregion
 
     #region Mobile State
 
     private IJSObjectReference? MobileJsModule { get; set; }
     private bool IsNarrowContainer { get; set; }
+    private ItemsProviderDelegate<TModel>? TileProvider { get; set; }
+
+    /// <summary>
+    /// Serves the tile view the tiles it asks for, see <see cref="ReadRangeAsync"/>.
+    /// </summary>
+    private async ValueTask<ItemsProviderResult<TModel>> ProvideTileItemsAsync(ItemsProviderRequest request)
+    {
+        var items = await ReadRangeAsync(request.StartIndex, request.Count, request.CancellationToken, debounce: true);
+
+        return new ItemsProviderResult<TModel>(items, Math.Max(0, RangeCache.TotalCount));
+    }
 
     private bool IsMobileLayout => MobileLayout switch
     {
@@ -123,15 +144,35 @@ public partial class BaseList<TModel> where TModel : class, new()
         }
     }
 
+    /// <summary>
+    /// The height every tile has, in rem and without its border, see <see cref="BaseListTileMetrics"/>.
+    /// </summary>
+    private double ResolveTileHeight(MobileCardPlan<TModel> plan, MobileCardConfiguration<TModel>? card)
+    {
+        if (MobileItemHeight is { } explicitHeight)
+            return Math.Max(1, (explicitHeight - BaseListTileMetrics.BorderPixels) / BaseListTileMetrics.RootFontSizePixels);
+
+        if (MobileTemplate is not null || card?.Template is not null)
+            return BaseListTileMetrics.CustomBodyHeightRem;
+
+        var hasActions = plan.ActionColumns.Any(column => column.Template is not null) || card?.Actions is not null;
+
+        return BaseListTileMetrics.Resolve(plan, hasActions);
+    }
+
     private BaseListCardViewModel<TModel> BuildMobileView()
     {
         var card = EffectiveMobileCard;
         var sort = CurrentSorts.FirstOrDefault();
+        var plan = MobilePlan;
 
         return new BaseListCardViewModel<TModel>
         {
-            Items = LoadedItems,
-            Plan = MobilePlan,
+            ItemsProvider = TileProvider ??= ProvideTileItemsAsync,
+            TotalCount = TotalCount,
+            DataVersion = DataVersion,
+            TileHeight = ResolveTileHeight(plan, card),
+            Plan = plan,
             Localizer = FrameworkLocalizer,
             Template = MobileTemplate ?? card?.Template,
             Actions = card?.Actions,

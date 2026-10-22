@@ -1,6 +1,6 @@
 @typeparam TModel where TModel : class
 
-@if (View.Items.Count > 0)
+@if (View.TotalCount > 0)
 {
     <div class="base-list-card-view">
         @if (View.SortOptions.Count > 0)
@@ -27,11 +27,19 @@
             </div>
         }
 
-        <ul class="base-list-cards">
-            @foreach (var item in View.Items)
-            {
-                <li @key="item"
-                    class="@TileClass(item)"
+        <ul class="base-list-cards" style="@ViewStyle">
+            <Virtualize @ref="Virtualizer"
+                        TItem="TModel"
+                        ItemsProvider="@View.ItemsProvider"
+                        ItemSize="@View.ItemSize"
+                        OverscanCount="4"
+                        SpacerElement="li">
+                <Placeholder Context="placeholder">
+                    <li class="base-list-tile" aria-hidden="true"><div class="base-list-card base-list-card-placeholder"></div></li>
+                </Placeholder>
+                <ItemContent Context="item">
+                <li @key="item" class="base-list-tile">
+                <div class="@TileClass(item)"
                     @oncontextmenu="@(e => View.OnMenu(item, e))"
                     @oncontextmenu:preventDefault
                     @oncontextmenu:stopPropagation>
@@ -92,8 +100,10 @@
                             @View.Actions?.Invoke(item)
                         </div>
                     }
+                </div>
                 </li>
-            }
+                </ItemContent>
+            </Virtualize>
         </ul>
     </div>
 }

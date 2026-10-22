@@ -345,14 +345,34 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
     }
 
     [Fact]
-    public void LoadMore_StillExtendsTheTiles()
+    public void PageSize_OnlySizesTheFetches_SoEveryTileStillRenders()
     {
         var cut = RenderList(BaseListMobileLayout.Always, pageSize: 1);
-        cut.WaitForAssertion(() => Assert.Single(cut.FindAll(".base-list-card")));
-
-        cut.Find(".base-list-load-more").Click();
 
         cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
+        Assert.Empty(cut.FindAll(".base-list-load-more"));
+    }
+
+    [Fact]
+    public void EveryTile_HasTheHeightThePlanSaysInsideItsSlot()
+    {
+        var cut = RenderList(BaseListMobileLayout.Always);
+
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
+
+        Assert.Equal(2, cut.FindAll("li.base-list-tile").Count);
+        Assert.All(cut.FindAll("li.base-list-tile"), slot => Assert.NotNull(slot.QuerySelector(":scope > .base-list-card")));
+        Assert.Contains("--base-list-tile-height: calc(", cut.Find(".base-list-cards").GetAttribute("style"));
+    }
+
+    [Fact]
+    public void ATileWithACustomBody_UsesTheHeightTheListWasGiven()
+    {
+        var cut = RenderList(BaseListMobileLayout.Always, mobileTemplate: product => builder => builder.AddContent(0, product.Name), mobileItemHeight: 210);
+
+        cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
+
+        Assert.Contains("calc(13rem + 2px)", cut.Find(".base-list-cards").GetAttribute("style"));
     }
 
     [Fact]
@@ -415,7 +435,8 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
         Action<TestProduct>? onItemSelected = null,
         IBaseDataProvider<TestProduct>? provider = null,
         int pageSize = 50,
-        bool allowDelete = false)
+        bool allowDelete = false,
+        int? mobileItemHeight = null)
     {
         var authorization = this.AddAuthorization();
         authorization.SetAuthorized("admin");
@@ -438,6 +459,7 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
                 .Add(p => p.Configuration, configuration)
                 .Add(p => p.MobileCard, mobileCard)
                 .Add(p => p.MobileTemplate, mobileTemplate)
+                .Add(p => p.MobileItemHeight, mobileItemHeight)
                 .Add(p => p.ChildContent, BuildColumns(extraColumns));
 
             if (onItemSelected is not null)

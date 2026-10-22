@@ -84,13 +84,17 @@
 
 /*
    The list never scrolls vertically on its own: the page (the layout's main area) does, and a long list simply
-   grows. Sideways the grid scrolls inside its own box. A scroll container swallows sticky positioning, so a
-   grid that fits its box ("fits", set by baseListInterop.js) is not a scroll container at all and its header
-   sticks by plain CSS; a wider grid ("scroll", also the state before the script ran) keeps its scroll box and
-   the script moves the header along with the page (--base-list-sticky-offset). With a fine pointer the
-   grid's own scrollbar sits at the end of a possibly very long list, so it is hidden there and replaced by
-   the pinned .base-list-hscroll below, which stays at the bottom of the visible area; touch devices scroll by
-   swiping and keep the native (overlay) scrollbar.
+   grows. The rows are virtualized: ASP.NET's Virtualize observes the nearest ancestor of its spacer rows whose
+   computed overflow-y is anything but "visible" (hidden and clip count), and a grid that scrolls sideways is such an
+   ancestor, because overflow-x: auto makes overflow-y compute to auto, or hidden. The grid is that
+   ancestor only in the "scroll" state and the observer is fixed the moment it starts, so the grid is a plain,
+   overflow-visible box by default ("fits") and baseListInterop.js switches it to "scroll" only when a grid is
+   wider than its box, and only once the virtualizer is running and has chosen the page as its scroll container.
+   A grid that fits its box is not a scroll container at all and its header sticks by plain CSS; a wider grid
+   keeps its scroll box and the script moves the header along with the page (--base-list-sticky-offset). With a
+   fine pointer the grid's own scrollbar sits at the end of a possibly very long list, so it is hidden there and
+   replaced by the pinned .base-list-hscroll below, which stays at the bottom of the visible area; touch devices
+   scroll by swiping and keep the native (overlay) scrollbar.
 
    A sortable column header is a Fluent UI stealth button, and "stealth" resolves to
    --neutral-fill-stealth-rest, which Fluent UI derives to match its own default layer - not the
@@ -103,14 +107,14 @@
     --neutral-fill-stealth-rest: transparent;
     flex: 0 0 auto;
     min-width: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: visible;
     background: var(--color-bg-surface, var(--neutral-layer-1));
     border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px));
 }
 
-.base-list-grid[data-mode="fits"] {
-    overflow: visible;
+.base-list-grid[data-mode="scroll"] {
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .base-list-hscroll {
@@ -252,6 +256,19 @@
     min-height: var(--base-list-row-height, 48px);
 }
 
+/*
+   The virtualizer works out the height of a row from the box of the row element, and a FluentUI row is
+   "display: contents", which has no box: the browser then reports only the text lines of its cells, a few pixels
+   short per block of rows, and the spacers drift by that much every time the rendered window moves, which showed as
+   the rows jumping while the page scrolled. A subgrid row spans the same tracks, so it looks the same and has a
+   box of its own.
+*/
+::deep tr.fluent-data-grid-row:not([row-type]) {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+}
+
 ::deep th.base-list-cell {
     overflow: hidden;
 }
@@ -315,22 +332,15 @@
     min-height: 40px;
 }
 
-.base-list-footer {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px 16px;
-    padding: 4px 0;
-}
-
 .base-list-count {
+    margin-right: auto;
     color: var(--color-text-muted, var(--neutral-foreground-hint));
     font-size: 0.875rem;
 }
 
-.base-list-footer ::deep .base-list-load-more {
-    min-height: 36px;
+.base-list-header:has(.base-list-count) .base-list-filter-toggle,
+.base-list-header:has(.base-list-count) .selection-count {
+    margin-right: 0;
 }
 
 ::deep tr.fluent-data-grid-row:not([row-type]) td {

@@ -64,19 +64,30 @@ export function restoreFocus(key) {
 }
 
 // The dialog that just closed makes the rest of the page inert until its script lets go a moment later, and
-// an inert element silently refuses focus - so the attempt is repeated until it takes.
+// an inert element silently refuses focus - so the attempt is repeated until it takes. A cell of a grid that
+// gets focus back this way is held (see holdFocusOn), because the grid may be reloading and about to replace it.
 function focusWithRetry(entry, attemptsLeft) {
     let target = entry.element && document.contains(entry.element) ? entry.element : findCell(entry.description);
 
     if (target) {
         target.focus({ preventScroll: true });
 
-        if (document.activeElement === target)
+        if (document.activeElement === target) {
+            holdFocusInItsGrid(target);
             return;
+        }
     }
 
     if (attemptsLeft > 1)
         setTimeout(() => focusWithRetry(entry, attemptsLeft - 1), 80);
+}
+
+function holdFocusInItsGrid(element) {
+    const grid = element.closest ? element.closest('.base-list-grid') : null;
+    const state = grid ? grids.get(grid) : null;
+
+    if (state)
+        holdFocusOn(state, element);
 }
 
 export function measureElement(element) {
@@ -125,22 +136,6 @@ function viewportBox(scroller) {
     return { top: box.top + scroller.clientTop, bottom: box.top + scroller.clientTop + scroller.clientHeight };
 }
 
-function isNearEnd(state) {
-    const view = viewportBox(state.scroller);
-    const remaining = state.grid.getBoundingClientRect().bottom - view.bottom;
-    return remaining <= Math.max(160, (view.bottom - view.top) * 0.25);
-}
-
-function requestMoreIfNeeded(state) {
-    if (!state.hasMore || state.requesting || !isNearEnd(state))
-        return;
-
-    state.requesting = true;
-    state.dotNetRef.invokeMethodAsync('OnGridNearEndAsync')
-        .catch(() => { })
-        .finally(() => { state.requesting = false; });
-}
-
 // A data grid is one Tab stop: FluentUI marks every cell tabindex=0, which makes a list of n rows cost
 // n x columns Tab presses to get past. The cell that has focus (or the first one) stays in the Tab order and
 // the arrow keys, which FluentUI handles, move between the others.
@@ -155,6 +150,52 @@ function applyRovingTabindex(state) {
         if (cell.getAttribute('tabindex') !== wanted)
             cell.setAttribute('tabindex', wanted);
     }
+}
+
+// A virtualized row is replaced when its data arrives (a placeholder row turns into the real one) or when the list
+// reloads, and a focused element that is replaced drops the keyboard on the page. The cell that had focus is
+// therefore remembered by position (row and column index) for a moment and focused again on the equivalent
+// cell once the rows have been rendered again, unless the user has moved on in the meantime.
+const heldFocusMilliseconds = 3000;
+
+function holdFocusOn(state, element) {
+    const description = describeCell(element);
+    state.heldFocus = description ? { description, until: performance.now() + heldFocusMilliseconds } : null;
+}
+
+function restoreHeldFocus(state) {
+    const held = state.heldFocus;
+    if (!held)
+        return;
+
+    const active = document.activeElement;
+    const lost = !active || active === document.body || active === document.documentElement;
+
+    if (!lost || performance.now() > held.until) {
+        state.heldFocus = null;
+        return;
+    }
+
+    const target = findCell(held.description);
+
+    if (!target)
+        return;
+
+    target.focus({ preventScroll: true });
+
+    if (document.activeElement === target)
+        state.heldFocus = null;
+}
+
+export function holdFocus(grid) {
+    const state = grids.get(grid);
+    if (!state)
+        return;
+
+    const active = document.activeElement;
+
+    if (active && grid.contains(active))
+        holdFocusOn(state, active);
 }
 
 // The grid never scrolls vertically, so the browser cannot keep its header on screen while the page scrolls
@@ -191,12 +232,20 @@ function updateLayout(state) {
             state.resizeObserver.unobserve(state.table);
 
         state.table = table;
+        state.readyChecks = 0;
 
         if (table)
             state.resizeObserver.observe(table);
     }
 
-    const wanted = grid.scrollWidth > grid.clientWidth + 1 ? 'scroll' : 'fits';
+    const virtualizerReady = table !== null && table.querySelector('tbody > tr[aria-hidden="true"][style*="table-row"]') !== null;
+
+    if (table !== null && !virtualizerReady && state.readyChecks < 40) {
+        state.readyChecks++;
+        setTimeout(() => updateLayout(state), 50);
+    }
+
+    const wanted = virtualizerReady && grid.scrollWidth > grid.clientWidth + 1 ? 'scroll' : 'fits';
 
     if (grid.dataset.mode !== wanted)
         grid.dataset.mode = wanted;
@@ -233,7 +282,7 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
 
     const state = {
         grid, dotNetRef, proxy, proxyContent: proxy ? proxy.firstElementChild : null, scroller: findScrollParent(grid),
-        table: null, hasMore: false, requesting: false, current: null, scheduled: false, pendingRestoreKey: restoreFocusKey || null
+        table: null, current: null, scheduled: false, pendingRestoreKey: restoreFocusKey || null
     };
 
     const schedule = () => {
@@ -245,17 +294,16 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
             state.scheduled = false;
             applyRovingTabindex(state);
             updateLayout(state);
+            restoreHeldFocus(state);
         });
     };
 
     state.onPageScroll = () => {
         updateStickyHeader(state);
-        requestMoreIfNeeded(state);
     };
 
     state.onResize = () => {
         updateLayout(state);
-        requestMoreIfNeeded(state);
     };
 
     state.onGridScroll = () => {
@@ -269,6 +317,8 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
     };
 
     state.onFocusIn = event => {
+        state.heldFocus = null;
+
         const cell = event.target && event.target.closest ? event.target.closest('td[role="gridcell"]') : null;
 
         if (cell && cell !== state.current) {
@@ -279,6 +329,17 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
             if (previous && previous !== cell)
                 previous.setAttribute('tabindex', '-1');
         }
+    };
+
+    state.onFocusOut = event => {
+        const target = event.target;
+
+        if (event.relatedTarget === null && target && target.classList && target.classList.contains('grid-cell-placeholder'))
+            holdFocusOn(state, target);
+    };
+
+    state.onPointerDown = () => {
+        state.heldFocus = null;
     };
 
     state.observer = new MutationObserver(schedule);
@@ -292,6 +353,8 @@ export function observeGrid(grid, dotNetRef, restoreFocusKey) {
     window.addEventListener('resize', state.onResize, { passive: true });
     grid.addEventListener('scroll', state.onGridScroll, { passive: true });
     grid.addEventListener('focusin', state.onFocusIn);
+    grid.addEventListener('focusout', state.onFocusOut);
+    document.addEventListener('pointerdown', state.onPointerDown, true);
 
     if (state.proxy)
         state.proxy.addEventListener('scroll', state.onProxyScroll, { passive: true });
@@ -317,17 +380,12 @@ export function scrollGridToTop(grid) {
         window.scrollBy(0, delta);
 }
 
-export function updateGrid(grid, hasMore) {
+export function updateGrid(grid) {
     const state = grids.get(grid);
     if (!state)
         return;
 
-    state.hasMore = hasMore;
-
-    requestAnimationFrame(() => {
-        updateLayout(state);
-        requestMoreIfNeeded(state);
-    });
+    requestAnimationFrame(() => updateLayout(state));
 
     if (state.pendingRestoreKey) {
         const key = state.pendingRestoreKey;
@@ -347,6 +405,8 @@ export function disposeGrid(grid) {
     window.removeEventListener('resize', state.onResize);
     grid.removeEventListener('scroll', state.onGridScroll);
     grid.removeEventListener('focusin', state.onFocusIn);
+    grid.removeEventListener('focusout', state.onFocusOut);
+    document.removeEventListener('pointerdown', state.onPointerDown, true);
 
     if (state.proxy)
         state.proxy.removeEventListener('scroll', state.onProxyScroll);

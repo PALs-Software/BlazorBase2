@@ -1,6 +1,8 @@
+using BlazorBase.CRUD.Components.Internal;
 using BlazorBase.CRUD.Configuration;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.Web.Virtualization;
 using Microsoft.Extensions.Localization;
 
 namespace BlazorBase.CRUD.Components;
@@ -11,7 +13,19 @@ namespace BlazorBase.CRUD.Components;
 /// </summary>
 public sealed class BaseListCardViewModel<TModel> where TModel : class
 {
-    public required IReadOnlyList<TModel> Items { get; init; }
+    public required ItemsProviderDelegate<TModel> ItemsProvider { get; init; }
+
+    /// <summary>How many items the list holds in total; the tile view shows nothing while it is zero.</summary>
+    public int TotalCount { get; init; }
+
+    /// <summary>Changes whenever the list loaded its data again, which makes the tile view ask for the visible tiles anew.</summary>
+    public int DataVersion { get; init; }
+
+    /// <summary>The height of a tile in rem, without its border. Every tile has this height, which is what lets the virtualizer place the rest.</summary>
+    public double TileHeight { get; init; } = BaseListTileMetrics.CustomBodyHeightRem;
+
+    /// <summary>The height of a tile's slot in the list, in pixels: the tile, its border and the gap below it.</summary>
+    public float ItemSize => (float)BaseListTileMetrics.ToSlotPixels(TileHeight);
 
     public required MobileCardPlan<TModel> Plan { get; init; }
 
