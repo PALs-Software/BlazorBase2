@@ -28,8 +28,26 @@
 }
 
 .base-list-filter-group ::deep .quick-filter {
-    min-width: min(200px, 60vw);
-    max-width: min(280px, 60vw);
+    min-width: 0;
+    width: auto;
+    max-width: min(240px, 55vw);
+    height: 36px;
+    min-height: 36px;
+    --neutral-fill-input-rest: var(--neutral-fill-stealth-rest);
+    --neutral-fill-input-hover: var(--neutral-fill-stealth-hover);
+    --neutral-fill-input-active: var(--neutral-fill-stealth-active);
+    --neutral-fill-input-focus: var(--neutral-fill-stealth-rest);
+    --neutral-stroke-control-rest: transparent;
+    --neutral-stroke-control-hover: transparent;
+    --neutral-stroke-control-active: transparent;
+    --neutral-stroke-control-focus: transparent;
+}
+
+.base-list-filter-group ::deep .quick-filter::part(control) {
+    height: 36px;
+    min-height: 36px;
+    background: var(--neutral-fill-stealth-rest);
+    border-color: transparent;
 }
 
 /*
