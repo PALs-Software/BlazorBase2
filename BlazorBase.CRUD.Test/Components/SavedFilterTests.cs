@@ -284,4 +284,81 @@ public class SavedFilterTests : BunitTestContextBase
         ExpandSavedFilters(cut);
         Assert.Empty(cut.FindAll(".saved-filters-save"));
     }
+
+    [Fact]
+    public void QuickFilter_IsHiddenWhileThereIsNothingToChooseFrom()
+    {
+        var cut = RenderList(Provider());
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-list-filter-toggle")));
+        Assert.Empty(cut.FindAll(".quick-filter"));
+    }
+
+    private static IRenderedComponent<FluentSelect<string>> QuickSelect(IRenderedComponent<BaseList<TestProduct>> cut) =>
+        cut.FindComponents<FluentSelect<string>>().Single(select => select.Instance.Class == "quick-filter");
+
+    private static void Choose(IRenderedComponent<BaseList<TestProduct>> cut, string key) =>
+        cut.InvokeAsync(() => QuickSelect(cut).Instance.ValueChanged.InvokeAsync(key)).GetAwaiter().GetResult();
+
+    [Fact]
+    public void QuickFilter_ShowsTheActivePreset_AndSwitchingAppliesTheOtherOneWithoutTheDrawer()
+    {
+        var provider = Provider();
+        var cut = RenderList(provider, CodeDefaults());
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".quick-filter")));
+        Assert.Equal("preset:pending", QuickSelect(cut).Instance.Value);
+        Assert.Equal(3, cut.FindAll(".quick-filter fluent-option").Count);
+
+        Choose(cut, "preset:active");
+
+        cut.WaitForAssertion(() => Assert.Equal("Active", FirstValueOf(provider.ReceivedQueries().Last())));
+        cut.WaitForAssertion(() => Assert.Equal("preset:active", QuickSelect(cut).Instance.Value));
+        Assert.Empty(cut.FindAll(".filter-panel"));
+    }
+
+    [Fact]
+    public void QuickFilter_NoFilterEntry_ClearsTheFilter()
+    {
+        var provider = Provider();
+        var cut = RenderList(provider, CodeDefaults());
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".quick-filter")));
+
+        Choose(cut, "none");
+
+        cut.WaitForAssertion(() => Assert.Null(FirstValueOf(provider.ReceivedQueries().Last())));
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".base-list-filter-count")));
+        Assert.Equal("none", QuickSelect(cut).Instance.Value);
+    }
+
+    [Fact]
+    public void QuickFilter_ListsTheUsersSavedFilters()
+    {
+        var store = new InMemoryListFilterStore();
+        store.SaveAsync(ListKey, new SavedListFilterInput { Name = "Mine", Filter = NameEquals("Mine") }).GetAwaiter().GetResult();
+        Services.AddSingleton<IListFilterStore>(store);
+        var provider = Provider();
+        var cut = RenderList(provider);
+        var saved = store.GetAsync(ListKey).GetAwaiter().GetResult().Single();
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".quick-filter")));
+        Choose(cut, "saved:" + saved.Id);
+
+        cut.WaitForAssertion(() => Assert.Equal("Mine", FirstValueOf(provider.ReceivedQueries().Last())));
+        cut.WaitForAssertion(() => Assert.Equal("saved:" + saved.Id, QuickSelect(cut).Instance.Value));
+    }
+
+    [Fact]
+    public void QuickFilter_OffersACustomEntryWhileTheFilterMatchesNoChoice()
+    {
+        var provider = Provider();
+        var cut = RenderList(provider, new ListFilterDefaultsBuilder<TestProduct>()
+            .Preset("active", "Only active", filter => filter.Is(product => product.Name, "Active"))
+            .DefaultFilter(filter => filter.Is(product => product.Name, "Other"))
+            .Build());
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".quick-filter")));
+
+        Assert.Equal("custom", QuickSelect(cut).Instance.Value);
+    }
 }

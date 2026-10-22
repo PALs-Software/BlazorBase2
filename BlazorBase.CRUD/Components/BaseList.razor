@@ -12,17 +12,26 @@
     <div class="base-list-header">
         @if (IsFilteringEnabled)
         {
-            <FluentButton Appearance="Appearance.Stealth"
-                          Class="base-list-filter-toggle"
-                          aria-label="@FilterButtonLabel"
-                          OnClick="@OpenFilterPanelAsync"
-                          IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Filter())">
-                @FrameworkLocalizer["Filter"]
-                @if (ActiveFilterCount > 0)
+            <div class="base-list-filter-group">
+                <FluentButton Appearance="Appearance.Stealth"
+                              Class="base-list-filter-toggle"
+                              aria-label="@FilterButtonLabel"
+                              OnClick="@OpenFilterPanelAsync"
+                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Filter())">
+                    @FrameworkLocalizer["Filter"]
+                    @if (ActiveFilterCount > 0)
+                    {
+                        <span class="base-list-filter-count" aria-hidden="true">@ActiveFilterCount</span>
+                    }
+                </FluentButton>
+                @if (SavedFilters is not null)
                 {
-                    <span class="base-list-filter-count" aria-hidden="true">@ActiveFilterCount</span>
+                    <QuickFilterMenu Saved="@SavedFilters"
+                                     Current="@ActiveFilterModel"
+                                     Revision="@SavedFilterRevision"
+                                     OnSelect="@ApplyQuickFilterAsync" />
                 }
-            </FluentButton>
+            </div>
         }
         @if (IsSelectionActive)
         {

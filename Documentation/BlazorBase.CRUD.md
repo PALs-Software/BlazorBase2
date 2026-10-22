@@ -446,7 +446,14 @@ The filter drawer has a **Saved filters** section (hidden when there is nothing 
   the **default** (star). Saved filters are stored per user, so they follow the user across browsers and devices.
 
 Choosing a preset or a saved filter applies it immediately and closes the drawer; the drawer's *Reset* clears the
-active filter. On the first load of a list the filter is resolved in this order:
+active filter.
+
+**Quick filter dropdown.** As soon as a list has at least one preset or saved filter, a dropdown appears right next to
+the *Filter* button. It shows the active choice ("No filter", a preset, a saved filter, or "Custom filter" when the
+active filter matches none of them) and switches between them, or back to unfiltered, without opening the drawer. It
+refreshes whenever the drawer closes, so filters saved or deleted there show up immediately.
+
+On the first load of a list the filter is resolved in this order:
 
 1. the user's **saved default** for the list (an empty saved filter, for example "All", is a valid default and
    suppresses the code default),

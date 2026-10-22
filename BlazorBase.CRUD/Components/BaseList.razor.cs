@@ -919,12 +919,14 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         FilterPanelOpen = false;
         WorkingFilterModel = null;
+        SavedFilterRevision++;
         ShouldRestoreFocusKey = FilterPanelFocusKey;
     }
 
     private async Task OnFilterApplyAsync(FilterGroupModel root)
     {
         ActiveFilterModel = root;
+        SavedFilterRevision++;
 
         var descriptor = FilterModelConverter.ToDescriptor(root);
         CurrentFilters = descriptor is null ? [] : [descriptor];

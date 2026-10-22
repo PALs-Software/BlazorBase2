@@ -1,0 +1,27 @@
+@using BlazorBase.CRUD.SavedFilters
+
+@if (HasChoices)
+{
+    <FluentSelect TOption="string"
+                  Class="quick-filter"
+                  Value="@SelectedKey"
+                  ValueChanged="@OnChangedAsync"
+                  Title="@T("QuickFilterTitle")"
+                  aria-label="@T("QuickFilterTitle")">
+        <FluentOption TOption="string" Value="@NoneKey" Selected="@(SelectedKey == NoneKey)">@T("QuickFilterNone")</FluentOption>
+        @if (SelectedKey == CustomKey)
+        {
+            <FluentOption TOption="string" Value="@CustomKey" Selected="true" Disabled="true">@T("QuickFilterCustom")</FluentOption>
+        }
+        @foreach (var preset in Saved.Presets)
+        {
+            var key = PresetPrefix + preset.Id;
+            <FluentOption TOption="string" Value="@key" Selected="@(SelectedKey == key)">@preset.Name</FluentOption>
+        }
+        @foreach (var item in Items)
+        {
+            var key = SavedPrefix + item.Id;
+            <FluentOption TOption="string" Value="@key" Selected="@(SelectedKey == key)">@item.Name</FluentOption>
+        }
+    </FluentSelect>
+}

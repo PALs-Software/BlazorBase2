@@ -23,6 +23,21 @@ public partial class BaseList<TModel>
 
     private SavedFilterContext? SavedFilters { get; set; }
 
+    private int SavedFilterRevision { get; set; }
+
+    /// <summary>
+    /// Applies a choice from the quick filter dropdown; null clears the filter.
+    /// </summary>
+    private async Task ApplyQuickFilterAsync(FilterGroupModel? filter)
+    {
+        ActiveFilterModel = filter ?? new FilterGroupModel();
+
+        var descriptor = FilterModelConverter.ToDescriptor(ActiveFilterModel);
+        CurrentFilters = descriptor is null ? [] : [descriptor];
+
+        await LoadDataAsync();
+    }
+
     /// <summary>
     /// Builds the saved-filter context and applies the filter a first load starts with: the user's saved default,
     /// otherwise the code default.

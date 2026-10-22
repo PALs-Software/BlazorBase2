@@ -78,4 +78,13 @@
   <data name="SavedFiltersUnavailable" xml:space="preserve">
     <value>Saved filters are currently unavailable.</value>
   </data>
+  <data name="QuickFilterTitle" xml:space="preserve">
+    <value>Switch filter</value>
+  </data>
+  <data name="QuickFilterNone" xml:space="preserve">
+    <value>No filter</value>
+  </data>
+  <data name="QuickFilterCustom" xml:space="preserve">
+    <value>Custom filter</value>
+  </data>
 </root>

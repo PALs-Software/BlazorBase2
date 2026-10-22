@@ -19,8 +19,17 @@
     min-height: 36px;
 }
 
-.base-list-filter-toggle {
+.base-list-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
     margin-right: auto;
+}
+
+.base-list-filter-group ::deep .quick-filter {
+    min-width: min(200px, 60vw);
+    max-width: min(280px, 60vw);
 }
 
 /*
