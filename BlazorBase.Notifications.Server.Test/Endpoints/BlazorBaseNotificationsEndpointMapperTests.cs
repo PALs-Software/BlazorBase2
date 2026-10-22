@@ -321,6 +321,19 @@ public sealed class BlazorBaseNotificationsEndpointMapperTests
         Assert.Equal([(userId, 42L)], testHost.InboxStore.DismissCalls);
     }
 
+    [Fact]
+    public async Task DismissAllAsync_CallsTheInboxStore_WithTheCallingUser()
+    {
+        using var testHost = await StartHostAsync();
+        using var client = testHost.CreateClient();
+        var userId = Guid.NewGuid();
+
+        var response = await SendAsync(client, HttpMethod.Post, "/api/notifications/dismiss-all", userId);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Equal([userId], testHost.InboxStore.DismissAllCalls);
+    }
+
     public static TheoryData<HttpMethod, string, HttpContent?> UserScopedEndpoints() => new()
     {
         { HttpMethod.Post, "/api/notifications/push/subscription", JsonContent.Create(new PushSubscriptionDto("https://push.example.test/unresolved", "p256dh", "auth", null)) },
@@ -330,6 +343,7 @@ public sealed class BlazorBaseNotificationsEndpointMapperTests
         { HttpMethod.Get, "/api/notifications/unread/count", null },
         { HttpMethod.Post, "/api/notifications/1/read", null },
         { HttpMethod.Post, "/api/notifications/1/dismiss", null },
+        { HttpMethod.Post, "/api/notifications/dismiss-all", null },
     };
 
     [Theory]

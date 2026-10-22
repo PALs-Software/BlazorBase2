@@ -38,4 +38,11 @@ public class HttpNotificationInboxClient(HttpClient httpClient) : INotificationI
         var response = await HttpClient.PostAsync($"{id}/dismiss", null, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
     }
+
+    /// <inheritdoc/>
+    public async Task DismissAllAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await HttpClient.PostAsync("dismiss-all", null, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+    }
 }

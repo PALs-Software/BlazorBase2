@@ -40,6 +40,15 @@
     background: var(--neutral-fill-stealth-hover);
 }
 
+.base-list-card-toolbar ::deep .base-list-card-sort fluent-option {
+    background: transparent;
+}
+
+.base-list-card-toolbar ::deep .base-list-card-sort fluent-option:hover,
+.base-list-card-toolbar ::deep .base-list-card-sort fluent-option[aria-selected="true"] {
+    background: var(--neutral-fill-stealth-hover);
+}
+
 .base-list-card-toolbar ::deep .base-list-card-sort-direction {
     --neutral-fill-stealth-rest: var(--base-list-control-fill, transparent);
     flex: 0 0 auto;

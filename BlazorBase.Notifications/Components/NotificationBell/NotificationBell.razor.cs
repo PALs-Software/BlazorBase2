@@ -11,7 +11,7 @@ namespace BlazorBase.Notifications.Components.NotificationBell;
 
 /// <summary>
 /// An icon button with an unread-count badge and a popover inbox: lists unread notifications,
-/// marks them read or dismisses them, and keeps itself current by polling every
+/// dismisses them one by one or all at once, and keeps itself current by polling every
 /// <see cref="NotificationClientOptions.PollInterval"/>, on tab focus, and on the push
 /// service-worker's refresh message.
 /// </summary>
@@ -117,15 +117,15 @@ public partial class NotificationBell(
             await CloseAsync();
     }
 
-    private async Task MarkReadAsync(InboxNotificationDto notification)
-    {
-        await InboxClient.MarkReadAsync(notification.Id);
-        await RefreshAsync();
-    }
-
     private async Task DismissAsync(InboxNotificationDto notification)
     {
         await InboxClient.DismissAsync(notification.Id);
+        await RefreshAsync();
+    }
+
+    private async Task DismissAllAsync()
+    {
+        await InboxClient.DismissAllAsync();
         await RefreshAsync();
     }
 

@@ -25,6 +25,15 @@
             }
             else
             {
+                <div class="notification-bell-toolbar">
+                    <span class="notification-bell-toolbar-title">@Localizer["BellLabel"]</span>
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Class="notification-bell-dismiss-all"
+                                  OnClick="DismissAllAsync"
+                                  IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())">
+                        @Localizer["DismissAll"]
+                    </FluentButton>
+                </div>
                 <ul class="notification-bell-list">
                     @foreach (var notification in Notifications)
                     {
@@ -32,17 +41,15 @@
                             <div class="notification-bell-item-header">
                                 <span class="notification-bell-item-title">@notification.Title</span>
                                 <span class="notification-bell-item-time">@notification.CreatedAt.ToLocalTime().ToString("g")</span>
+                                <FluentButton Appearance="Appearance.Stealth"
+                                              Class="notification-bell-item-dismiss"
+                                              Title="@Localizer["Dismiss"]"
+                                              aria-label="@($"{Localizer["Dismiss"]}: {notification.Title}")"
+                                              OnClick="@(() => DismissAsync(notification))"
+                                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())" />
                             </div>
                             <div class="notification-bell-item-message">
                                 <SanitizedHtml Value="@notification.Message" />
-                            </div>
-                            <div class="notification-bell-item-actions">
-                                <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => MarkReadAsync(notification))">
-                                    @Localizer["MarkRead"]
-                                </FluentButton>
-                                <FluentButton Appearance="Appearance.Stealth" OnClick="@(() => DismissAsync(notification))">
-                                    @Localizer["Dismiss"]
-                                </FluentButton>
                             </div>
                         </li>
                     }

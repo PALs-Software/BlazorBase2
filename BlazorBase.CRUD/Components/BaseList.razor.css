@@ -53,6 +53,15 @@
     max-width: min(360px, 90vw);
 }
 
+.base-list-filter-group ::deep .quick-filter fluent-option {
+    background: transparent;
+}
+
+.base-list-filter-group ::deep .quick-filter fluent-option:hover,
+.base-list-filter-group ::deep .quick-filter fluent-option[aria-selected="true"] {
+    background: var(--neutral-fill-stealth-hover);
+}
+
 /*
    The count is plain inline text, not a FluentUI badge: a badge positions itself relative to its own
    box and sat on top of the button caption it was supposed to follow.

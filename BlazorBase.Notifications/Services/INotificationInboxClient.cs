@@ -20,4 +20,7 @@ public interface INotificationInboxClient
 
     /// <summary>Dismisses the notification <paramref name="id"/>.</summary>
     Task DismissAsync(long id, CancellationToken cancellationToken = default);
+
+    /// <summary>Dismisses every notification that is currently unread for the signed-in user.</summary>
+    Task DismissAllAsync(CancellationToken cancellationToken = default);
 }

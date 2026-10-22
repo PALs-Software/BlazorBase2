@@ -19,6 +19,14 @@ public sealed class FakeNotificationInboxStore : INotificationInboxStore
 
     public List<(Guid UserId, long Id)> DismissCalls { get; } = [];
 
+    public List<Guid> DismissAllCalls { get; } = [];
+
+    public Task DismissAllAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        DismissAllCalls.Add(userId);
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyList<InboxNotificationDto>> GetUnreadAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         GetUnreadCalls.Add(userId);

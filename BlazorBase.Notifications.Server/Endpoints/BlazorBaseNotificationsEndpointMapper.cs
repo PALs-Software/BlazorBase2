@@ -32,6 +32,7 @@ public static class BlazorBaseNotificationsEndpointMapper
         group.MapGet("unread/count", GetUnreadCountAsync);
         group.MapPost("{id:long}/read", MarkReadAsync);
         group.MapPost("{id:long}/dismiss", DismissAsync);
+        group.MapPost("dismiss-all", DismissAllAsync);
 
         return endpoints;
     }
@@ -115,6 +116,16 @@ public static class BlazorBaseNotificationsEndpointMapper
             return Results.Unauthorized();
 
         await inboxStore.DismissAsync(userId.Value, id, cancellationToken);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> DismissAllAsync(HttpContext httpContext, INotificationUserIdResolver userIdResolver, INotificationInboxStore inboxStore, CancellationToken cancellationToken)
+    {
+        var userId = await userIdResolver.ResolveUserIdAsync(httpContext.User, cancellationToken);
+        if (userId is null)
+            return Results.Unauthorized();
+
+        await inboxStore.DismissAllAsync(userId.Value, cancellationToken);
         return Results.NoContent();
     }
 }

@@ -178,22 +178,6 @@ public sealed class NotificationBellTests : BunitContext
     }
 
     [Fact]
-    public async Task MarkRead_CallsTheClientAndRefreshes()
-    {
-        InboxClient.GetUnreadAsync(Arg.Any<CancellationToken>())
-            .Returns([new InboxNotificationDto(7, "Hello", "World", "Info", DateTime.UtcNow, false)]);
-
-        var cut = Render<NotificationBell>();
-        cut.Find(".notification-bell-button").Click();
-        var buttons = cut.FindAll(".notification-bell-item-actions fluent-button");
-
-        await cut.InvokeAsync(() => buttons[0].Click());
-
-        await InboxClient.Received(1).MarkReadAsync(7, Arg.Any<CancellationToken>());
-        await InboxClient.Received(2).GetUnreadAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
     public async Task Dismiss_CallsTheClientAndRefreshes()
     {
         InboxClient.GetUnreadAsync(Arg.Any<CancellationToken>())
@@ -201,11 +185,56 @@ public sealed class NotificationBellTests : BunitContext
 
         var cut = Render<NotificationBell>();
         cut.Find(".notification-bell-button").Click();
-        var buttons = cut.FindAll(".notification-bell-item-actions fluent-button");
 
-        await cut.InvokeAsync(() => buttons[1].Click());
+        await cut.InvokeAsync(() => cut.Find(".notification-bell-item-dismiss").Click());
 
         await InboxClient.Received(1).DismissAsync(7, Arg.Any<CancellationToken>());
+        await InboxClient.Received(2).GetUnreadAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void EveryItem_OffersASingleDismissButton_AndNoMarkReadButton()
+    {
+        InboxClient.GetUnreadAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new InboxNotificationDto(1, "First", "World", "Info", DateTime.UtcNow, false),
+            new InboxNotificationDto(2, "Second", "World", "Info", DateTime.UtcNow, false)
+        ]);
+
+        var cut = Render<NotificationBell>();
+        cut.Find(".notification-bell-button").Click();
+
+        Assert.Equal(2, cut.FindAll(".notification-bell-item-dismiss").Count);
+        Assert.Empty(cut.FindAll(".notification-bell-item-actions"));
+    }
+
+    [Fact]
+    public async Task DismissAll_CallsTheClientOnceAndRefreshes()
+    {
+        InboxClient.GetUnreadAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new InboxNotificationDto(1, "First", "World", "Info", DateTime.UtcNow, false),
+            new InboxNotificationDto(2, "Second", "World", "Info", DateTime.UtcNow, false)
+        ]);
+
+        var cut = Render<NotificationBell>();
+        cut.Find(".notification-bell-button").Click();
+
+        await cut.InvokeAsync(() => cut.Find(".notification-bell-dismiss-all").Click());
+
+        await InboxClient.Received(1).DismissAllAsync(Arg.Any<CancellationToken>());
+        await InboxClient.DidNotReceive().DismissAsync(Arg.Any<long>(), Arg.Any<CancellationToken>());
+        await InboxClient.Received(2).GetUnreadAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void WithoutNotifications_ThePanelShowsTheEmptyTextAndNoDismissAll()
+    {
+        var cut = Render<NotificationBell>();
+        cut.Find(".notification-bell-button").Click();
+
+        Assert.NotEmpty(cut.FindAll(".notification-bell-empty"));
+        Assert.Empty(cut.FindAll(".notification-bell-dismiss-all"));
     }
 
     [Fact]

@@ -129,6 +129,7 @@ public class NotificationInboxStore(AppDbContext dbContext) : INotificationInbox
     public async Task<int> GetUnreadCountAsync(Guid userId, CancellationToken cancellationToken = default) { /* ... */ }
     public async Task MarkReadAsync(Guid userId, long id, CancellationToken cancellationToken = default) { /* ... */ }
     public async Task DismissAsync(Guid userId, long id, CancellationToken cancellationToken = default) { /* ... */ }
+    // Optional: DismissAllAsync has a default (walks GetUnreadAsync); override it with one bulk update.
 }
 ```
 
@@ -248,8 +249,10 @@ list. Loads the unread list and count on first render, then keeps itself current
    notification (`blazorbase-push-sw.js` → `postMessage({ type: 'blazorbase-notification' })`), so an
    open tab reflects a push almost immediately instead of waiting for the next poll.
 
-Each list item can be marked read or dismissed; both actions round-trip through
-`INotificationInboxClient` and then refresh the list. The message body renders through
+Each list item has a single dismiss button (an X), and the panel header offers **Dismiss all**; both
+round-trip through `INotificationInboxClient` (`DismissAsync` / `DismissAllAsync`) and then refresh the
+list. Dismissing also counts as reading, so there is no separate "mark read" action in the UI (the
+`read` endpoint stays for other clients). The message body renders through
 `BlazorBase.Components.Html.SanitizedHtml`, so it is safe to display as HTML (sanitized when an
 `IHtmlSanitizer` is registered, HTML-encoded as plain text otherwise — never raw markup either way).
 
@@ -289,7 +292,8 @@ request body — a caller can only ever act on their own notifications and subsc
 | `GET` | `unread` | — | `InboxNotificationDto[]` | newest first |
 | `GET` | `unread/count` | — | `int` | |
 | `POST` | `{id}/read` | — | 204 | |
-| `POST` | `{id}/dismiss` | — | 204 | |
+| `POST` | `{id}/dismiss` | — | 204 | also marks the notification read |
+| `POST` | `dismiss-all` | — | 204 | dismisses every notification that is currently unread for the caller |
 
 ---
 

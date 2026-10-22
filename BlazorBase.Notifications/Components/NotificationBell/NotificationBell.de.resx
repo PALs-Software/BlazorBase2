@@ -21,10 +21,10 @@
   <data name="Empty" xml:space="preserve">
     <value>Sie haben keine ungelesenen Benachrichtigungen.</value>
   </data>
-  <data name="MarkRead" xml:space="preserve">
-    <value>Als gelesen markieren</value>
-  </data>
   <data name="Dismiss" xml:space="preserve">
     <value>Verwerfen</value>
+  </data>
+  <data name="DismissAll" xml:space="preserve">
+    <value>Alle verwerfen</value>
   </data>
 </root>

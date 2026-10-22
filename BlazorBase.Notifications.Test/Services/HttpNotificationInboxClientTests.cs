@@ -80,6 +80,26 @@ public sealed class HttpNotificationInboxClientTests
     }
 
     [Fact]
+    public async Task DismissAllAsync_PostsToDismissAll()
+    {
+        var (client, handler) = CreateClient(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)));
+
+        await client.DismissAllAsync();
+
+        var request = Assert.Single(handler.Requests);
+        Assert.Equal(HttpMethod.Post, request.Method);
+        Assert.Equal("https://portal.test/api/notifications/dismiss-all", request.RequestUri!.ToString());
+    }
+
+    [Fact]
+    public async Task DismissAllAsync_Failure_Throws()
+    {
+        var (client, _) = CreateClient(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.DismissAllAsync());
+    }
+
+    [Fact]
     public async Task MarkReadAsync_Failure_Throws()
     {
         var (client, _) = CreateClient(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));

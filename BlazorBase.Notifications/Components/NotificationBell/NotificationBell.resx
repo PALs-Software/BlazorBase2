@@ -21,10 +21,10 @@
   <data name="Empty" xml:space="preserve">
     <value>You have no unread notifications.</value>
   </data>
-  <data name="MarkRead" xml:space="preserve">
-    <value>Mark read</value>
-  </data>
   <data name="Dismiss" xml:space="preserve">
     <value>Dismiss</value>
+  </data>
+  <data name="DismissAll" xml:space="preserve">
+    <value>Dismiss all</value>
   </data>
 </root>

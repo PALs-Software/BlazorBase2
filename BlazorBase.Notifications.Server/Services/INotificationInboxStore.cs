@@ -21,4 +21,17 @@ public interface INotificationInboxStore
 
     /// <summary>Dismisses the notification <paramref name="id"/> for <paramref name="userId"/>.</summary>
     Task DismissAsync(Guid userId, long id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Dismisses every notification that is currently unread for <paramref name="userId"/>. The default
+    /// walks <see cref="GetUnreadAsync"/> and dismisses one by one; override it with a single bulk update
+    /// where the store allows.
+    /// </summary>
+    async Task DismissAllAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var unread = await GetUnreadAsync(userId, cancellationToken);
+
+        foreach (var notification in unread)
+            await DismissAsync(userId, notification.Id, cancellationToken);
+    }
 }
