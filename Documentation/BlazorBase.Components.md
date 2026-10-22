@@ -174,6 +174,7 @@ component owns the appearance of the tabs and the sheet, not where the bar lives
 | `Navigation` | The navigation content, usually `BaseSideNavigation`. Without it the header shows no navigation button. |
 | `HeaderContent` | Controls on the right of the header: theme toggle, language select, account button. |
 | `Banner` | Content shown above the page, inside the scrolling main area. |
+| `ShowHelp` | Default `false`. Shows a "?" button left of the settings button and the contextual help panel it opens — see [Contextual help](#contextual-help). |
 | `ChildContent` | The routed page. |
 
 **Responsive behavior.** The shell fills the dynamic viewport (`100dvh`, so a phone's collapsing address
@@ -218,6 +219,139 @@ the drawer when the location changes). A bUnit test of a page that hosts the lay
 JS interop set to loose mode or the `layout.js` module set up. Navigation placed in the `Navigation`
 slot receives a cascading `NavigationLayoutContext` (collapsed state and a function that closes the
 drawer), which `BaseSideNavigation` uses.
+---
+
+## Contextual help
+
+`BaseLayout` can show a page-specific help panel. The content is ordinary Markdown that lives in the host
+repository and is **single-sourced**: the same file is a page of the DocFX documentation site and the text
+the panel shows, so it is written and maintained once.
+
+### Wiring
+
+```csharp
+builder.Services.AddBlazorBaseHelp(options =>
+{
+    options.Assemblies.Add(typeof(App).Assembly);
+    options.CultureFolders["en"] = "en-US";
+    options.CultureFolders["de"] = "de-DE";
+    options.DocumentationBaseUrl = "https://docs.example.com/{culture}/";
+});
+```
+
+```razor
+<BaseLayout AppTitle="Notes" ShowHelp="true"> ... </BaseLayout>
+```
+
+```csharp
+@attribute [HelpTopic("pages/blog")]
+```
+
+`[HelpTopic]` goes on a routable component (one that has `@page`/`[Route]`). The topic is the path of a
+Markdown file below the culture folder without `.md`; `pages/blog` is read from
+`{ContentBasePath}/{culture}/pages/blog.md`. A page without the attribute, or whose topic has no file,
+shows `FallbackTopic`. `AddBlazorBaseHelp` is additive-safe and registers `HelpOptions`,
+`IHelpTopicResolver` (singleton) and `IHelpContentSource` (scoped).
+
+| `HelpOptions` | Default | Purpose |
+|---|---|---|
+| `Assemblies` | empty | Assemblies scanned for routable components with `[HelpTopic]`. Pages must be public types, as the router requires. |
+| `ContentBasePath` | `help` | Where the content is served from, relative to the application's base address. |
+| `DefaultCulture` | `en-US` | Culture folder tried when the content is missing in the current culture. |
+| `FallbackTopic` | `getting-started` | Topic for pages without a topic and for topics without content. |
+| `CultureFolders` | empty | Maps a UI culture (`en`, `de-AT`) to the folder name (`en-US`). Lookup order: full culture name, language, the name itself. |
+| `DocumentationBaseUrl` | `null` | Address of the DocFX site. Topics are appended with `.html`; `{culture}` is replaced by the culture folder. Null hides the "Open full documentation" link and turns links beyond the help content into plain text. |
+
+### How the panel behaves
+
+- The "?" button toggles the panel. From 1200 px the panel is **docked**: it takes its own column (360–420 px)
+  next to the page, which shrinks, so the user can read and work at the same time. Below 1200 px it is a modal
+  sheet with a dimmed backdrop and the page behind it `inert`. Opening the help closes the settings panel and the
+  navigation drawer, and opening the settings closes the help.
+- Focus moves into the panel on open and back to the "?" button on close; Escape and the close button close it.
+  A docked panel does not trap Tab; the sheet does.
+- It follows navigation while it is open and reloads only when the topic changes (not for query-string changes).
+  While loading it shows a status, and *"No help is available for this page yet."* when no content exists at all.
+- The header shows the title (front matter `title`, else the first `# H1`) and, with `DocumentationBaseUrl`, the
+  link to the same topic on the documentation site (new tab).
+- `BaseHelpPanel` can also be used without `BaseLayout`; it needs `IsOpen`, `IsDocked` and `OnClose`.
+
+### Topic resolution
+
+The layout never receives the router's route data, so `HelpTopicResolver` scans `HelpOptions.Assemblies`
+once for types with a `RouteAttribute` and a `HelpTopicAttribute` and matches the current URL against the route
+templates (`HelpRouteMap`). Literal segments match case-insensitively; `{name}`, `{name:constraint}` and
+`{name?}` match one segment (or none), `{*name}` the rest of the path. Of several matches the one with most
+literal segments wins. The reverse map (topic to parameterless route) turns in-panel links to other topics into
+real navigation. No change to the host's `Router` is needed. Under WebAssembly trimming keep the page types
+(the router needs them anyway).
+
+### File layout
+
+```text
+Docu/
+  en-US/
+    getting-started.md        fallback topic
+    pages/blog.md             topic pages/blog
+    includes/list-basics.md   shared text, [!INCLUDE]d by pages
+    images/blog-list.png
+    reference/…               documentation-only pages
+  de-DE/ …                    same structure
+  docfx.json, toc.yml
+```
+
+The host serves the files as static content below `ContentBasePath` (for a WebAssembly client, link them
+into `wwwroot/help` at build time instead of copying them into source control — see the sample host) and
+`IHelpContentSource` fetches `{ContentBasePath}/{culture}/{topic}.md` with an `HttpClient`, falls back to the
+default culture and then to the fallback topic, and caches every file for the lifetime of the scope. A
+Blazor Server host registers `AddHttpClient()` for it. A response of type `text/html` counts as "not
+found", because a host whose unknown URLs fall back to `index.html` would otherwise answer with the app.
+Implement `IHelpContentSource` to read the content from somewhere else.
+
+### Single-sourcing with DocFX
+
+| Marker | DocFX site | Help panel |
+|---|---|---|
+| plain Markdown | shown | shown |
+| `<!-- Docs-Only-Start -->` … `<!-- Docs-Only-End -->` (block or inline) | shown | removed |
+| `<!-- App-Only` … `-->` (Markdown inside the comment) | invisible, it is a comment | rendered |
+| `<!-- Internal-Start -->` … `<!-- Internal-End -->` | hidden in public builds | removed |
+
+`HelpMarkdownProcessor` (pure, no DI) prepares a file for the panel:
+
+- YAML front matter is removed; `title:` becomes the panel title. Otherwise a first-line `# H1` is the title.
+  The H1 itself is left out of the body, because the header shows the title.
+- Markers are applied as in the table. A start marker without its end removes the rest of the file; other
+  HTML comments are removed.
+- `[!INCLUDE [label](relative/path.md)]` is replaced by the file, relative to the including file, at most three
+  levels deep; a cycle is skipped. Markers and front matter of the included file are handled too. As in DocFX,
+  relative links and images inside an included file are resolved against the *including* page.
+- `> [!NOTE]`, `[!TIP]`, `[!IMPORTANT]`, `[!WARNING]` and `[!CAUTION]` become callouts: the quote gets
+  `class="help-callout help-callout-{kind}"` and `role="note"` and starts with a
+  `<p class="help-callout-title">` carrying the localized title. They are built in the Markdig syntax tree, not by
+  passing HTML through.
+- Images load from `{ContentBasePath}/{culture}/…`; a relative path that leaves the culture folder, a
+  root-relative path and a non-`http(s)` scheme become the alt text.
+- A relative link to another `pages/*.md` whose topic has a page navigates to that page (the panel stays open).
+  Other relative links go to `DocumentationBaseUrl` + the path (`.md` becomes `.html`) in a new tab, or are plain
+  text without a base URL. `#anchor`-only links are plain text. `http`/`https` links open in a new tab with
+  `rel="noopener noreferrer"`, `mailto:` as is, every other scheme becomes plain text.
+
+### Trusted Markdown
+
+`MarkdownConverter.ToHtml(string)` stays as safe as before. The overload
+`ToHtml(string, TrustedMarkdownOptions)` is for Markdown that ships with the application, never for user or model
+text: `AllowImages`, `OpenExternalLinksInNewTab`, `ResolveImageUrl`, `ResolveLinkUrl` and `AlertTitles`. Raw HTML
+is still escaped, URL schemes are still filtered (also the ones a resolver returns), and images only allow
+relative or `http(s)` URLs. `MarkdownView` takes the same object as `Options`; with it set the sanitizer seam is
+skipped, because the content is trusted.
+
+### Localization and styling
+
+Strings live in `BaseHelpPanel.razor(.de).resx` and the "Help" label in `BaseLayout.razor(.de).resx`. The panel's
+look follows the settings panel and the `--color-*` tokens, so it works in light and dark themes; callout
+colors come from `--color-accent`, `--color-success`, `--color-warning` and `--color-danger`.
+
 ---
 
 ## Editors and viewers

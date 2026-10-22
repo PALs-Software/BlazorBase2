@@ -1,0 +1,56 @@
+@namespace BlazorBase.Components.Help
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+
+@if (IsOpen)
+{
+    @if (!IsDocked)
+    {
+        <div class="base-help-overlay" @onclick="CloseAsync"></div>
+    }
+    <aside id="@PanelId"
+           class="base-help-panel @(IsDocked ? "docked" : "overlay")"
+           role="@(IsDocked ? "complementary" : "dialog")"
+           aria-modal="@(IsDocked ? null : "true")"
+           aria-labelledby="@TitleId"
+           tabindex="-1"
+           @key="IsDocked"
+           @ref="PanelElement"
+           @onkeydown="OnKeyDownAsync">
+        <div class="base-help-header">
+            <div class="base-help-heading">
+                <h2 id="@TitleId" class="base-help-title">@(Document?.Title ?? Localizer["Title"].Value)</h2>
+                @if (DocumentationUrl is not null)
+                {
+                    <a class="base-help-docs-link" href="@DocumentationUrl" target="_blank" rel="noopener noreferrer">
+                        @Localizer["OpenDocumentation"]
+                        <FluentIcon Value="@(new Size16.Open())" Color="Color.Accent" />
+                    </a>
+                }
+            </div>
+            <FluentButton Appearance="Appearance.Stealth"
+                          Class="base-help-close"
+                          Title="@Localizer["Close"]"
+                          aria-label="@Localizer["Close"]"
+                          OnClick="CloseAsync">
+                <FluentIcon Value="@(new Size20.Dismiss())" Color="Color.Neutral" />
+            </FluentButton>
+        </div>
+        <div class="base-help-body" @key="LoadCount" aria-busy="@(IsLoading ? "true" : null)">
+            @if (IsLoading)
+            {
+                <div class="base-help-status" role="status">
+                    <FluentProgressRing Width="20px" />
+                    <span>@Localizer["Loading"]</span>
+                </div>
+            }
+            else if (Document is null)
+            {
+                <p class="base-help-empty">@Localizer["NoHelp"]</p>
+            }
+            else
+            {
+                <MarkdownView Class="base-help-content" Value="@Document.Markdown" Options="@RenderOptions" />
+            }
+        </div>
+    </aside>
+}

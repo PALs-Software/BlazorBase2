@@ -27,6 +27,8 @@ namespace BlazorBase.Components.Layout;
 /// (<see cref="SettingsContent"/>), next to a quick theme toggle. Given <see cref="BottomNavigationItems"/>, a phone
 /// (768 px and below) also gets a bottom bar with quick links and a "More" tab that opens the drawer; the bar is a
 /// row of the shell, so the content never runs behind it, and it steps aside while the on-screen keyboard is open.
+/// With <see cref="ShowHelp"/> a help button left of the settings button opens the <see cref="BaseHelpPanel"/>;
+/// opening the help closes the settings panel and the navigation drawer, and the other way round.
 /// </remarks>
 public partial class BaseLayout(
     IThemeService themeService,
@@ -76,6 +78,14 @@ public partial class BaseLayout(
     [Parameter]
     public bool ShowSettings { get; set; } = true;
 
+    /// <summary>
+    /// Shows a help button ("?") left of the settings button and the <see cref="BaseHelpPanel"/> it opens, which
+    /// shows the help topic of the current page. Needs the services of <c>AddBlazorBaseHelp</c>. The panel sits next to
+    /// the page from 1200 px up and becomes a modal sheet below.
+    /// </summary>
+    [Parameter]
+    public bool ShowHelp { get; set; }
+
     /// <summary>Sections the host adds to the settings panel, below the language and the theme.</summary>
     [Parameter]
     public RenderFragment<SettingsPanelContext>? SettingsContent { get; set; }
@@ -109,20 +119,26 @@ public partial class BaseLayout(
     private DotNetObjectReference<BaseLayout>? SelfReference;
     private FluentButton? NavigationToggle;
     private FluentButton? SettingsToggle;
+    private FluentButton? HelpToggle;
     private ElementReference NavigationHost;
     private ElementReference MainContent;
     private bool IsCompact;
     private bool IsPhone;
+    private bool IsWide;
     private bool IsDrawerOpen;
     private bool IsSettingsOpen;
+    private bool IsHelpOpen;
     private bool IsCollapsed;
     private bool BrowserStateApplied;
     private bool FocusDrawerAfterRender;
     private bool RestoreFocusAfterRender;
 
     private const string SettingsPanelId = "base-settings";
+    private const string HelpPanelId = "base-help";
 
     private bool IsBrandCentered => BrandPosition == BrandPosition.Center;
+
+    private bool IsHelpModal => ShowHelp && IsHelpOpen && !IsWide;
 
     private bool HasBottomBar => IsPhone && BottomNavigationItems is { Count: > 0 };
 
@@ -139,7 +155,7 @@ public partial class BaseLayout(
 
     private NavigationLayoutContext NavigationContext => new(IsCollapsed && !IsCompact, CloseDrawerAsync);
 
-    private bool IsMainInert => (IsDrawerOpen && IsCompact) || IsSettingsOpen;
+    private bool IsMainInert => (IsDrawerOpen && IsCompact) || IsSettingsOpen || IsHelpModal;
 
     private string NavigationExpandedValue => (IsCompact ? IsDrawerOpen : !IsCollapsed) ? "true" : "false";
 
@@ -216,6 +232,16 @@ public partial class BaseLayout(
     });
 
     /// <summary>
+    /// Called from the browser when the viewport crosses the width from which the help panel sits next to the page.
+    /// </summary>
+    [JSInvokable]
+    public Task OnWideChanged(bool isWide) => InvokeAsync(() =>
+    {
+        IsWide = isWide;
+        StateHasChanged();
+    });
+
+    /// <summary>
     /// Called from the browser when Escape is pressed while the drawer is open and the focus is outside it.
     /// </summary>
     [JSInvokable]
@@ -250,14 +276,41 @@ public partial class BaseLayout(
         SelfReference ??= DotNetObjectReference.Create(this);
         IsCompact = await module.InvokeAsync<bool>("watchCompact", SelfReference);
         IsPhone = await module.InvokeAsync<bool>("watchPhone", SelfReference);
+        IsWide = await module.InvokeAsync<bool>("watchWide", SelfReference);
     }
 
     private async Task OpenSettingsAsync()
     {
+        IsHelpOpen = false;
+
         if (IsDrawerOpen)
             await CloseDrawerAsync();
 
         IsSettingsOpen = true;
+    }
+
+    private async Task ToggleHelpAsync()
+    {
+        if (IsHelpOpen)
+        {
+            await CloseHelpAsync();
+            return;
+        }
+
+        IsSettingsOpen = false;
+
+        if (IsDrawerOpen)
+            await CloseDrawerAsync();
+
+        IsHelpOpen = true;
+    }
+
+    private async Task CloseHelpAsync()
+    {
+        IsHelpOpen = false;
+
+        if (HelpToggle?.Element is { } toggle)
+            await toggle.FocusAsync();
     }
 
     private async Task CloseSettingsAsync()
@@ -348,6 +401,7 @@ public partial class BaseLayout(
             {
                 await Module.InvokeVoidAsync("unwatchCompact");
                 await Module.InvokeVoidAsync("unwatchPhone");
+                await Module.InvokeVoidAsync("unwatchWide");
                 await Module.DisposeAsync();
             }
             catch (JSDisconnectedException)

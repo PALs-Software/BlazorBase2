@@ -1,5 +1,6 @@
 const compactQuery = '(max-width: 1024px)';
 const phoneMedia = '(max-width: 768px)';
+const wideMedia = '(min-width: 1200px)';
 const collapsedKey = 'blazorbase-nav-collapsed';
 const groupKeyPrefix = 'blazorbase-nav-group:';
 const keyboardAttribute = 'data-base-keyboard-open';
@@ -13,6 +14,8 @@ let reference = null;
 let phoneQuery = null;
 let phoneHandler = null;
 let phoneReference = null;
+let wideQuery = null;
+let wideHandler = null;
 let keyboardBaseline = 0;
 let keyboardWidth = 0;
 
@@ -137,6 +140,33 @@ export function unwatchPhone() {
     phoneQuery = null;
     phoneHandler = null;
     phoneReference = null;
+}
+
+/**
+ * Tells the layout when the viewport is wide enough for the help panel to sit next to the page instead of
+ * covering it.
+ */
+export function watchWide(dotNetReference) {
+    unwatchWide();
+
+    if (!window.matchMedia) {
+        return false;
+    }
+
+    wideQuery = window.matchMedia(wideMedia);
+    wideHandler = event => dotNetReference.invokeMethodAsync('OnWideChanged', event.matches);
+    wideQuery.addEventListener('change', wideHandler);
+
+    return wideQuery.matches;
+}
+
+export function unwatchWide() {
+    if (wideQuery !== null) {
+        wideQuery.removeEventListener('change', wideHandler);
+    }
+
+    wideQuery = null;
+    wideHandler = null;
 }
 
 function layoutRoot() {
