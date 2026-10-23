@@ -298,10 +298,61 @@ Orphaned uploads (cancelled card, navigated away) are reclaimed by the server-si
 
 ---
 
+## Azure Blob Storage provider
+
+Opt-in companion package `BlazorBase.Files.Server.AzureBlob`. The file system provider stays the default;
+the Azure SDK is referenced only by this package.
+
+- **Registration** — call after `AddBlazorBaseFilesServer<TContext>()`; it only replaces `IFileStorage` and
+  `ITemporaryFileStoreCleaner`, everything else stays as registered:
+
+  ```csharp
+  builder.Services.AddBlazorBaseFilesServer<AppDbContext>();
+  builder.Services.AddBlazorBaseFilesAzureBlobStorage(settings =>
+  {
+      settings.ServiceUri = new Uri("https://myaccount.blob.core.windows.net");
+      settings.ContainerName = "mysite";
+  });
+  ```
+
+- **Settings** (`BlazorBaseAzureBlobFileStorageSettings`)
+  - `ServiceUri` + `TokenCredential` (default `DefaultAzureCredential`, i.e. managed identity on Azure) **or**
+    `ConnectionString` (Azurite / local development) — exactly one of `ServiceUri` / `ConnectionString`.
+  - `ContainerName` (default `files`), `TemporaryPrefix` (default `temp/`),
+    `CreateContainerIfMissing` (default `false`; leave off when infrastructure creates the container and the
+    identity only has data-plane rights on it).
+- **Config-driven switch** (optional) — `AddBlazorBaseFilesStorageProvider(configuration)` reads
+  `Files:Provider` (`FileSystem` = default, or `AzureBlob`) and binds `Files:AzureBlob` to the settings.
+  Without `Files:Provider` nothing changes. Pass a `configureSettings` callback to supply a `TokenCredential`.
+
+  ```json
+  { "Files": { "Provider": "AzureBlob", "AzureBlob": { "ServiceUri": "https://myaccount.blob.core.windows.net", "ContainerName": "mysite" } } }
+  ```
+
+- **Object names** are identical to the file system provider: `{id:N}{ext}` and `{id:N}_thumb{ext}` at the
+  container root, so an existing `FileStorePath` can be copied 1:1 (for example with AzCopy). Names are derived
+  from the file id and stored extension only.
+- **Temporary uploads** are stored under `TemporaryPrefix` (`temp/{id:N}{ext}`); commit is a server-side copy
+  followed by a delete of the temporary blob. A missing temporary file throws `FileNotFoundException`, as with
+  the file system.
+- **Reads** return a seekable stream, so range requests keep working.
+- **Cleanup** — `BlobTemporaryFileStoreCleaner` deletes blobs under `TemporaryPrefix` older than
+  `DeleteTemporaryFilesOlderThanSeconds`; storage errors are logged and retried on the next sweep. A storage
+  lifecycle rule on the prefix is a good additional safety net.
+- **Options not used** — `FileStorePath` and `TempFileStorePath` are ignored while the blob provider is active.
+- **Hashing** is shared with the file system provider (`FileContentHasher.ComputeSha256`).
+- **Tests** — `BlazorBase.Files.Server.AzureBlob.Test` runs one `IFileStorage` contract suite against both
+  providers. The blob tests carry `[Trait("Category", "Integration")]` and skip themselves unless Azurite is
+  reachable: set `BLAZORBASE_AZURITE_CONNECTION_STRING` (default `UseDevelopmentStorage=true`) and start Azurite
+  with `--skipApiVersionCheck`.
+
+---
+
 ## Solution Membership
 
 `BlazorBase.Files` is registered in `BlazorBase.slnx`. Its server companion
-`BlazorBase.Files.Server` is also registered in `BlazorBase.slnx`.
+`BlazorBase.Files.Server` is also registered in `BlazorBase.slnx`, as is the optional
+`BlazorBase.Files.Server.AzureBlob`.
 
 ---
 

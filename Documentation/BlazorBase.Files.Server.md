@@ -57,6 +57,7 @@ builder.Services.AddBlazorBaseFileAccessAuthorizer<MyHouseholdFileAccessAuthoriz
 - a scoped `DbContext` bridge (`DbContext` → the host's concrete `TContext`) so the controller and the default authorizer resolve the base `DbContext` without a separate host registration
 - `IBlazorBaseFileOptions` (singleton)
 - `IFileStorage` → `FileSystemFileStorage` (singleton)
+- `ITemporaryFileStoreCleaner` → `FileSystemTemporaryFileStoreCleaner` (singleton; sweeps `TempFileStorePath`)
 - `IImageService` → `ImageSharpImageService` (singleton)
 - `IFileAccessAuthorizer` → `OwnerScopedFileAccessAuthorizer` (**scoped** default, secure-by-default — grants access only when the file's `OwnerScopeKey` matches the caller; depends on the `DbContext`, see [Access Authorizer](#access-authorizer)); replace via `AddBlazorBaseFileAccessAuthorizer<T>()`, which also registers the host implementation **scoped** so it may depend on a `DbContext` or other per-request services
 - `IFileAccessTokenService` → `HmacFileAccessTokenService` (singleton)
@@ -373,11 +374,14 @@ Behavior/config changes bundled in this follow-up (no EF migration required):
 
 ## Temp-File Cleanup
 
-`TemporaryFileCleanupService` runs as a `BackgroundService` that sweeps `TempFileStorePath` every
-30 minutes when `AutomaticallyDeleteOldTemporaryFiles` is `true`. Files older than
-`DeleteTemporaryFilesOlderThanSeconds` are deleted.
+`TemporaryFileCleanupService` runs as a `BackgroundService` that sweeps the temporary store every
+30 minutes when `AutomaticallyDeleteOldTemporaryFiles` is `true`. The sweep itself is delegated to
+`ITemporaryFileStoreCleaner`; the default `FileSystemTemporaryFileStoreCleaner` sweeps `TempFileStorePath`
+and deletes files older than `DeleteTemporaryFilesOlderThanSeconds`. Storage providers that replace
+`IFileStorage` (see the Azure Blob provider in [BlazorBase.Files.md](BlazorBase.Files.md#azure-blob-storage-provider))
+replace the cleaner as well.
 
-Safety guards:
+Safety guards of the file system cleaner:
 - Refuses to operate when `TempFileStorePath` is null, empty, or resolves to a filesystem root (logs a warning and skips the sweep instead of throwing).
 - Non-deletable files are logged as warnings and skipped; the sweep continues.
 
