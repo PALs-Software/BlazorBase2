@@ -4,6 +4,12 @@ namespace BlazorBase.Chart.Models;
 
 public class ChartOptions
 {
+    /// <summary>
+    /// The axis that carries the categories of a bar chart: <c>x</c> (default, vertical bars) or <c>y</c> (horizontal bars).
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? IndexAxis { get; set; }
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? Responsive { get; set; } = true;
 
