@@ -180,9 +180,10 @@ component owns the appearance of the tabs and the sheet, not where the bar lives
 | `AppTitle` | Plain text at the start of the header. |
 | `Brand` | A `RenderFragment` that replaces `AppTitle`, for example a logo image. The brand is also what stays visible on a phone, where `AppTitle` is hidden. Give an image an `alt` text. |
 | `Navigation` | The navigation content, usually `BaseSideNavigation`. Without it the header shows no navigation button. |
-| `HeaderContent` | Controls on the right of the header: theme toggle, language select, account button. |
+| `HeaderContent` | Controls on the right of the header, in front of the built-in buttons (for example a notification bell). |
+| `HeaderEndContent` | Controls rendered after the built-in buttons, at the very end of the header (for example sign out). |
 | `Banner` | Content shown above the page, inside the scrolling main area. |
-| `ShowHelp` | Default `false`. Shows a "?" button left of the settings button and the contextual help panel it opens — see [Contextual help](#contextual-help). |
+| `ShowHelp` | Default `false`. Shows a "?" button in front of the theme toggle and the contextual help panel it opens — see [Contextual help](#contextual-help). |
 | `ChildContent` | The routed page. |
 
 **Responsive behavior.** The shell fills the dynamic viewport (`100dvh`, so a phone's collapsing address
@@ -198,10 +199,14 @@ guess, otherwise the page scrolls although its content fits.
 | 768 px and below | Same drawer. | `AppTitle` is hidden (a `Brand` stays), padding shrinks, the body padding drops to 12 px. |
 | coarse pointer | Header controls grow from 40 px to 44 px (`--base-header-control-size`). | |
 
+**Header order.** From left to right the end of the header shows `HeaderContent`, the help button
+(`ShowHelp`), the theme toggle (`ShowThemeToggle`), the settings button (`ShowSettings`) and finally
+`HeaderEndContent`.
+
 **Helper classes.** Two classes let a host move controls that do not fit a phone header into the
 drawer without writing its own media queries:
 
-- `base-header-wide-only` — put it on an element inside `HeaderContent`; it is hidden at 768 px and below.
+- `base-header-wide-only` — put it on an element inside `HeaderContent` or `HeaderEndContent`; it is hidden at 768 px and below.
 - `base-nav-narrow-only` — put it on an element inside `Navigation`; it is hidden on wide screens and
   shown at 768 px and below, at the bottom of the drawer.
 
@@ -210,8 +215,10 @@ drawer without writing its own media queries:
     <Brand><img src="images/logo.svg" alt="Notes" height="28" /></Brand>
     <HeaderContent>
         <BaseThemeToggle />
-        <FluentAnchor Href="/account" Class="base-header-wide-only">Account</FluentAnchor>
     </HeaderContent>
+    <HeaderEndContent>
+        <FluentAnchor Href="/account" Class="base-header-wide-only">Account</FluentAnchor>
+    </HeaderEndContent>
     <Navigation>
         <BaseSideNavigation Items="Items" />
         <div class="base-nav-narrow-only"><a href="/account">Account</a></div>

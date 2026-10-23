@@ -75,6 +75,10 @@ public partial class BaseLayout(
     [Parameter]
     public RenderFragment? HeaderContent { get; set; }
 
+    /// <summary>Controls rendered after the built-in buttons, at the very end of the header (e.g. sign out).</summary>
+    [Parameter]
+    public RenderFragment? HeaderEndContent { get; set; }
+
     /// <summary>Shows the quick theme toggle in the header, in front of the settings button.</summary>
     [Parameter]
     public bool ShowThemeToggle { get; set; } = true;

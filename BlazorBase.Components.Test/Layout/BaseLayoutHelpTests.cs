@@ -44,7 +44,7 @@ public sealed class BaseLayoutHelpTests : ComponentsBunitTestContextBase
     }
 
     [Fact]
-    public void ShowHelp_RendersALabelledButtonLeftOfTheSettingsButton()
+    public void ShowHelp_RendersALabelledButtonLeftOfTheThemeToggleAndTheSettingsButton()
     {
         using var english = new EnglishCulture();
         var cut = RenderLayout();
@@ -56,6 +56,45 @@ public sealed class BaseLayoutHelpTests : ComponentsBunitTestContextBase
         Assert.Equal("Help", help.GetAttribute("aria-label"));
         Assert.Equal("base-help", help.GetAttribute("aria-controls"));
         Assert.Equal("false", help.GetAttribute("aria-expanded"));
+    }
+
+    [Fact]
+    public void HeaderEnd_RendersHeaderContent_Help_Theme_Settings_HeaderEndContent_InThisOrder()
+    {
+        var cut = Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.ShowHelp, true)
+            .Add(p => p.HeaderContent, builder =>
+            {
+                builder.AddMarkupContent(0, "<span class=\"test-start\"></span>");
+            })
+            .Add(p => p.HeaderEndContent, builder =>
+            {
+                builder.AddMarkupContent(0, "<span class=\"test-end\"></span>");
+            })
+            .AddChildContent("<p id=\"page\">Page</p>"));
+
+        var html = cut.Find(".base-header-end").InnerHtml;
+        var start = html.IndexOf("test-start", StringComparison.Ordinal);
+        var help = html.IndexOf("base-help-toggle", StringComparison.Ordinal);
+        var theme = html.IndexOf("base-header-theme", StringComparison.Ordinal);
+        var settings = html.IndexOf("base-settings-toggle", StringComparison.Ordinal);
+        var end = html.IndexOf("test-end", StringComparison.Ordinal);
+
+        Assert.True(start >= 0 && start < help);
+        Assert.True(help < theme);
+        Assert.True(theme < settings);
+        Assert.True(settings < end);
+        Assert.Single(cut.FindAll(".base-header-end > .test-end"));
+        Assert.Equal("test-end", cut.Find(".base-header-end").LastElementChild!.ClassName);
+    }
+
+    [Fact]
+    public void WithoutHeaderEndContent_TheSettingsButtonIsTheLastHeaderControl()
+    {
+        var cut = RenderLayout();
+
+        Assert.Contains("base-settings-toggle", cut.Find(".base-header-end").LastElementChild!.ClassName);
     }
 
     [Fact]

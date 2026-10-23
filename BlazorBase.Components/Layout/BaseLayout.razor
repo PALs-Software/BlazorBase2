@@ -51,12 +51,6 @@
             {
                 @HeaderContent
             }
-            @if (ShowThemeToggle)
-            {
-                <span class="base-header-theme">
-                    <BaseThemeToggle />
-                </span>
-            }
             @if (ShowHelp)
             {
                 <FluentButton Appearance="Appearance.Stealth"
@@ -71,6 +65,12 @@
                     <FluentIcon Value="@(new Size20.QuestionCircle())" Color="Color.Neutral" />
                 </FluentButton>
             }
+            @if (ShowThemeToggle)
+            {
+                <span class="base-header-theme">
+                    <BaseThemeToggle />
+                </span>
+            }
             @if (ShowSettings)
             {
                 <FluentButton Appearance="Appearance.Stealth"
@@ -84,6 +84,10 @@
                               OnClick="OpenSettingsAsync">
                     <FluentIcon Value="@(new Size20.Settings())" Color="Color.Neutral" />
                 </FluentButton>
+            }
+            @if (HeaderEndContent is not null)
+            {
+                @HeaderEndContent
             }
         </div>
     </header>
