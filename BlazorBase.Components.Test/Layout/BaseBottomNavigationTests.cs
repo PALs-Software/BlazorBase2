@@ -326,4 +326,33 @@ public sealed class BaseBottomNavigationTests : ComponentsBunitTestContextBase
 
         Assert.Single(cut.FindAll("button.base-bottom-more"));
     }
+
+    [Fact]
+    public void BottomBarOnlyItems_BecomeTabsLikeAnyFlaggedItem()
+    {
+        var cut = RenderWith(
+        [
+            new() { Href = "/", Label = "Home", MatchAll = true, IsMobilePrimary = true },
+            new() { Href = "/alerts", Label = "Alerts", IsMobilePrimary = true, BottomBarOnly = true, BottomBarOrder = 1 },
+        ]);
+
+        Assert.Equal(["/", "/alerts"], TabHrefs(cut));
+    }
+
+    [Fact]
+    public async Task BottomBarOnlyItems_ThatDidNotBecomeATab_AreListedInTheMoreSheet()
+    {
+        var cut = RenderWith(
+        [
+            new() { Href = "/", Label = "Home", MatchAll = true, IsMobilePrimary = true },
+            new() { Href = "/alerts", Label = "Alerts", IsMobilePrimary = true, BottomBarOnly = true, BottomBarOrder = 1 },
+            new() { Href = "/more-alerts", Label = "More alerts", IsMobilePrimary = true, BottomBarOnly = true, BottomBarOrder = 2 },
+        ], parameters => parameters.Add(p => p.MaxPrimaryItems, 2));
+
+        Assert.Equal(["/", "/alerts"], TabHrefs(cut));
+
+        await cut.InvokeAsync(() => cut.Find("button.base-bottom-more").Click());
+
+        Assert.Contains("href=\"/more-alerts\"", cut.Find(".base-more-sheet").InnerHtml);
+    }
 }

@@ -148,6 +148,14 @@ apart:
 `NavigationVisibility` filters the tree once against the current principal, dropping entries whose
 `RequiredRole` does not match and groups left with no visible children.
 
+`NavigationItem.BottomBarOnly` marks an entry that exists for phones only, e.g. a fallback "Alerts" tab. It
+is never listed in `BaseSideNavigation` on wide screens (a group left without children is dropped there). On
+a phone it is a bottom tab when `IsMobilePrimary` selects it. If it does not make it into the bar (more
+flagged entries than `MaxBottomBarItems`), it is listed in "More": in the built-in sheet of
+`BaseBottomNavigation`, and — because `BaseLayout` lets the "More" tab open the navigation drawer — in the
+drawer's `BaseSideNavigation` while the bottom bar is shown (`NavigationLayoutContext.BottomBarMaxItems`).
+The drawer assumes the side navigation and `BottomNavigationItems` are driven by the same list.
+
 ```csharp
 private static readonly IReadOnlyList<NavigationItem> Items =
 [
@@ -217,8 +225,8 @@ drawer without writing its own media queries:
 `_content/BlazorBase.Components/js/layout.js` to watch the breakpoint) and `NavigationManager` (to close
 the drawer when the location changes). A bUnit test of a page that hosts the layout therefore needs the
 JS interop set to loose mode or the `layout.js` module set up. Navigation placed in the `Navigation`
-slot receives a cascading `NavigationLayoutContext` (collapsed state and a function that closes the
-drawer), which `BaseSideNavigation` uses.
+slot receives a cascading `NavigationLayoutContext` (collapsed state, a function that closes the
+drawer, and — while the bottom bar is shown — its tab capacity), which `BaseSideNavigation` uses.
 ---
 
 ## Contextual help

@@ -421,4 +421,53 @@ public sealed class BaseLayoutTests : ComponentsBunitTestContextBase
 
         Assert.Empty(cut.FindAll(".base-bottom-host"));
     }
+
+    private IRenderedComponent<BaseLayout> RenderWithSharedNavigation(IReadOnlyList<NavigationItem> items, int maxBottomBarItems = 4) =>
+        Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.BottomNavigationItems, items)
+            .Add(p => p.MaxBottomBarItems, maxBottomBarItems)
+            .Add(p => p.Navigation, builder =>
+            {
+                builder.OpenComponent<BaseSideNavigation>(0);
+                builder.AddAttribute(1, nameof(BaseSideNavigation.Items), items);
+                builder.CloseComponent();
+            }));
+
+    private static IReadOnlyList<NavigationItem> QuickLinksWithBottomBarOnlyAlerts() =>
+    [
+        new() { Href = "/", Label = "Home", MatchAll = true, IsMobilePrimary = true },
+        new() { Href = "/alerts", Label = "Alerts", IsMobilePrimary = true, BottomBarOnly = true, BottomBarOrder = 1 },
+    ];
+
+    [Fact]
+    public void BottomBarOnlyTab_IsInTheBarOnAPhone_ButNotInTheDrawerList()
+    {
+        SimulatePhoneViewport(alsoCompact: true);
+
+        var cut = RenderWithSharedNavigation(QuickLinksWithBottomBarOnlyAlerts());
+
+        Assert.Single(cut.FindAll(".base-bottom-host a[href=\"/alerts\"]"));
+        Assert.Empty(cut.FindAll("aside#base-navigation a[href=\"/alerts\"]"));
+    }
+
+    [Fact]
+    public void BottomBarOnlyItem_BeyondTheBarCapacity_IsListedInTheDrawerOnAPhone()
+    {
+        SimulatePhoneViewport(alsoCompact: true);
+
+        var cut = RenderWithSharedNavigation(QuickLinksWithBottomBarOnlyAlerts(), maxBottomBarItems: 1);
+
+        Assert.Empty(cut.FindAll(".base-bottom-host a[href=\"/alerts\"]"));
+        Assert.Single(cut.FindAll("aside#base-navigation a[href=\"/alerts\"]"));
+    }
+
+    [Fact]
+    public void BottomBarOnlyItem_IsNotListedInTheSidebarOnWideScreens()
+    {
+        var cut = RenderWithSharedNavigation(QuickLinksWithBottomBarOnlyAlerts());
+
+        Assert.Empty(cut.FindAll("a[href=\"/alerts\"]"));
+        Assert.Single(cut.FindAll("aside#base-navigation a[href=\"/\"]"));
+    }
 }

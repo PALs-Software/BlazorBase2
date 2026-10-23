@@ -225,4 +225,77 @@ public sealed class BaseSideNavigationTests : ComponentsBunitTestContextBase
         cut.FindAll("button.base-side-nav-group-toggle")[0].Click();
 
         Assert.False(cut.Find("#base-nav-group-administration").HasAttribute("hidden"));
-    }}
+    }
+
+    private static IReadOnlyList<NavigationItem> BottomBarOnlyItems() =>
+    [
+        new() { Href = "/", MatchAll = true, Label = "Home", IsMobilePrimary = true, BottomBarOrder = 0 },
+        new() { Href = "/alerts", Label = "Alerts", IsMobilePrimary = true, BottomBarOnly = true, BottomBarOrder = 1 },
+        new() { Href = "/more-alerts", Label = "More alerts", IsMobilePrimary = true, BottomBarOnly = true, BottomBarOrder = 2 },
+        new()
+        {
+            Label = "Mobile only group",
+            Key = "mobile-only",
+            Children = [new() { Href = "/mobile-only/child", Label = "Mobile child", BottomBarOnly = true }],
+        },
+        new()
+        {
+            Label = "Mixed group",
+            Key = "mixed",
+            Children =
+            [
+                new() { Href = "/mixed/shown", Label = "Shown child" },
+                new() { Href = "/mixed/hidden", Label = "Hidden child", BottomBarOnly = true },
+            ],
+        },
+    ];
+
+    [Fact]
+    public void BottomBarOnlyItems_AreNotListedOnWideScreens()
+    {
+        var cut = Render(BottomBarOnlyItems());
+
+        Assert.Contains("href=\"/\"", cut.Markup);
+        Assert.DoesNotContain("href=\"/alerts\"", cut.Markup);
+        Assert.DoesNotContain("href=\"/more-alerts\"", cut.Markup);
+        Assert.DoesNotContain("href=\"/mobile-only/child\"", cut.Markup);
+        Assert.DoesNotContain("Mobile only group", cut.Markup);
+        Assert.DoesNotContain("href=\"/mixed/hidden\"", cut.Markup);
+        Assert.Contains("href=\"/mixed/shown\"", cut.Markup);
+    }
+
+    [Fact]
+    public void BottomBarOnlyItems_AreNotListedInTheDrawer_WhenTheyAreTabsOfTheBottomBar()
+    {
+        var cut = Render<BaseSideNavigation>(parameters => parameters
+            .Add(p => p.Items, BottomBarOnlyItems())
+            .AddCascadingValue(new NavigationLayoutContext(false, () => Task.CompletedTask, 4)));
+
+        Assert.DoesNotContain("href=\"/alerts\"", cut.Markup);
+        Assert.DoesNotContain("href=\"/more-alerts\"", cut.Markup);
+    }
+
+    [Fact]
+    public void BottomBarOnlyItems_ThatDidNotBecomeATab_AreListedInTheDrawerAsMore()
+    {
+        var cut = Render<BaseSideNavigation>(parameters => parameters
+            .Add(p => p.Items, BottomBarOnlyItems())
+            .AddCascadingValue(new NavigationLayoutContext(false, () => Task.CompletedTask, 2)));
+
+        Assert.DoesNotContain("href=\"/alerts\"", cut.Markup);
+        Assert.Contains("href=\"/more-alerts\"", cut.Markup);
+        Assert.Contains("href=\"/mobile-only/child\"", cut.Markup);
+        Assert.Contains("href=\"/mixed/hidden\"", cut.Markup);
+    }
+
+    [Fact]
+    public void BottomBarOnlyItems_AreNotListedWithoutABottomBar_EvenWhenTheLayoutContextExists()
+    {
+        var cut = Render<BaseSideNavigation>(parameters => parameters
+            .Add(p => p.Items, BottomBarOnlyItems())
+            .AddCascadingValue(new NavigationLayoutContext(false, () => Task.CompletedTask)));
+
+        Assert.DoesNotContain("href=\"/alerts\"", cut.Markup);
+        Assert.DoesNotContain("href=\"/more-alerts\"", cut.Markup);
+    }
+}

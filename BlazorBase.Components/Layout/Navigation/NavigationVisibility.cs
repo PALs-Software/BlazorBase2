@@ -19,6 +19,38 @@ internal static class NavigationVisibility
         return Filter(items, user);
     }
 
+    /// <summary>
+    /// Removes the <see cref="NavigationItem.BottomBarOnly"/> entries from a list the user may see. With
+    /// <paramref name="selectedTabs"/> set (the bottom bar is on screen and this list is its "More"), only the
+    /// entries that are one of those tabs (compared by reference) are removed and the others stay. Groups left
+    /// without children are dropped.
+    /// </summary>
+    public static IReadOnlyList<NavigationItem> WithoutBottomBarOnly(
+        IReadOnlyList<NavigationItem> items,
+        IReadOnlyCollection<NavigationItem>? selectedTabs = null)
+    {
+        var result = new List<NavigationItem>();
+        foreach (var item in items)
+        {
+            if (item.BottomBarOnly && (selectedTabs is null || selectedTabs.Contains(item, ReferenceEqualityComparer.Instance)))
+                continue;
+
+            if (!item.IsGroup)
+            {
+                result.Add(item);
+                continue;
+            }
+
+            var remainingChildren = WithoutBottomBarOnly(item.Children, selectedTabs);
+            if (remainingChildren.Count == 0)
+                continue;
+
+            result.Add(item with { Children = remainingChildren });
+        }
+
+        return result;
+    }
+
     private static IReadOnlyList<NavigationItem> Filter(IReadOnlyList<NavigationItem> items, ClaimsPrincipal? user)
     {
         var result = new List<NavigationItem>();

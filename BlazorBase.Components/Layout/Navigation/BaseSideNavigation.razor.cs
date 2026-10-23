@@ -63,7 +63,11 @@ public partial class BaseSideNavigation(
 
     protected override async Task OnParametersSetAsync()
     {
-        VisibleItems = await NavigationVisibility.FilterAsync(Items, AuthenticationState);
+        var visible = await NavigationVisibility.FilterAsync(Items, AuthenticationState);
+        var bottomBarMax = LayoutContext?.BottomBarMaxItems;
+        VisibleItems = NavigationVisibility.WithoutBottomBarOnly(
+            visible,
+            bottomBarMax is null ? null : BottomBarSelector.Select(visible, bottomBarMax.Value));
 
         try
         {
