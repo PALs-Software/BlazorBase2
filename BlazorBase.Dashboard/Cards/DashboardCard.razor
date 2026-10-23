@@ -1,0 +1,28 @@
+@namespace BlazorBase.Dashboard
+<section class="dc @Class" aria-labelledby="@(HasTitle ? TitleId : null)" aria-busy="@(Loading ? "true" : null)" @attributes="AdditionalAttributes">
+    @if (HasTitle || HasHeaderEnd)
+    {
+        <header class="dc-header">
+            @if (HasTitle)
+            {
+                <h2 class="dc-title" id="@TitleId">@Title</h2>
+            }
+            @if (HasHeaderEnd)
+            {
+                <div class="dc-header-end">
+                    @Tools
+                    @if (!String.IsNullOrWhiteSpace(MoreHref))
+                    {
+                        <a class="dc-more" href="@MoreHref">
+                            <span>@(MoreText ?? Localizer["ShowAll"].Value)</span>
+                            <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" focusable="false"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                        </a>
+                    }
+                </div>
+            }
+        </header>
+    }
+    <div class="dc-body">
+        @ChildContent
+    </div>
+</section>

@@ -1,0 +1,32 @@
+@namespace BlazorBase.Dashboard
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+
+<div class="rc @Class" role="region" aria-label="@Localizer["RoleCenterLabel"]">
+    <CascadingValue TValue="IDashboardRefreshService" Value="Refresh" IsFixed="true">
+        @Headline
+        <div class="rc-meta">
+            <div class="rc-meta-start">
+                @MetaContent
+                @if (MetaContent is not null)
+                {
+                    <span class="rc-separator" aria-hidden="true">·</span>
+                }
+                <span class="rc-updated" role="status">@UpdatedText</span>
+            </div>
+            <div class="rc-meta-end">
+                @Tools
+                <FluentButton Class="rc-refresh" Appearance="Appearance.Stealth" Disabled="@IsRefreshing"
+                              aria-busy="@(IsRefreshing ? "true" : null)" OnClick="@RefreshAsync"
+                              IconStart="@(new Size16.ArrowClockwise())">
+                    @(IsRefreshing ? Localizer["Refreshing"].Value : Localizer["Refresh"].Value)
+                </FluentButton>
+            </div>
+        </div>
+        <div class="rc-grid">
+            @foreach (var part in VisibleParts)
+            {
+                <DashboardPartFrame @key="part.Id" Registration="part" Refresh="Refresh" />
+            }
+        </div>
+    </CascadingValue>
+</div>

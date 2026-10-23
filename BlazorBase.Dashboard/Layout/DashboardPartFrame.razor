@@ -1,0 +1,48 @@
+@namespace BlazorBase.Dashboard
+@implements IDashboardPartHost
+
+@{
+    RenderFragment failureCard = @<div class="pf-error" role="alert">
+        @if (!String.IsNullOrWhiteSpace(Registration.Title))
+        {
+            <strong class="pf-error-title">@Registration.Title</strong>
+        }
+        <p class="pf-error-text">@Localizer["PartFailed"]</p>
+        <button type="button" class="pf-retry" @onclick="Retry">@Localizer["PartRetry"]</button>
+    </div>;
+}
+
+<div class="pf @(IsCollapsed ? "pf--collapsed" : null) @(IsLoading ? "pf--loading" : null)" style="--pf-columns: @Registration.Columns" data-part-id="@Registration.Id" aria-busy="@(IsLoading ? "true" : null)">
+    <CascadingValue TValue="IDashboardPartHost" Value="this" IsFixed="true">
+        <DashboardPartErrorBoundary @key="Generation" OnFailure="OnBoundaryFailed">
+            <ChildContent>
+                @if (RefreshFailure is null)
+                {
+                    <DynamicComponent @ref="Dynamic" Type="Registration.ComponentType" />
+                }
+                else
+                {
+                    @failureCard
+                }
+            </ChildContent>
+            <ErrorContent>
+                @failureCard
+            </ErrorContent>
+        </DashboardPartErrorBoundary>
+    </CascadingValue>
+    @if (IsLoading)
+    {
+        <div class="pf-skeleton" aria-hidden="true">
+            @if (!String.IsNullOrWhiteSpace(Registration.Title))
+            {
+                <span class="pf-skeleton-title">@Registration.Title</span>
+            }
+            else
+            {
+                <span class="pf-skeleton-bar pf-skeleton-bar--title"></span>
+            }
+            <span class="pf-skeleton-bar"></span>
+            <span class="pf-skeleton-bar pf-skeleton-bar--short"></span>
+        </div>
+    }
+</div>

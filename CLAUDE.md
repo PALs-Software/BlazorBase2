@@ -36,6 +36,7 @@ Every library follows the same principle — UI/abstraction lives in `net10.0` R
 BlazorBase.Localization     (standalone — localizer composition, no Blazor, no FluentUI)
 BlazorBase.Components       (standalone — layout, navigation, theming, editors, routing helpers)
 BlazorBase.Chart            (standalone — Chart.js interop)
+BlazorBase.Dashboard        → BlazorBase.Chart   (role center: part registry, cues, headline, list/chart parts; browser-safe)
 BlazorBase.Mailing          (standalone — SMTP + Razor-rendered email)
 BlazorBase.DataProtection   (standalone — browser-safe encryption)
 BlazorBase.Speech           (standalone — push-to-talk, narrator, Markdown-to-speech)
@@ -108,6 +109,7 @@ audio may play. See [Documentation/BlazorBase.Speech.md](Documentation/BlazorBas
 
 - **BlazorBase.Chart** — `Bar`/`Line`/`Pie` components over a Chart.js JS module loaded via `ChartInterop` (`./_content/BlazorBase.Chart/js/blazorChart.js`); strongly-typed `ChartConfig`/`ChartOptions` models.
 - **BlazorBase.Mailing** — `AddBlazorBaseMailing(configuration, sectionName = "Smtp")` wires `SmtpSettings` (options pattern), a MailKit-based `IEmailSender`, and an `IEmailTemplateRenderer` that renders Razor components to HTML via the built-in `HtmlRenderer`.
+- **BlazorBase.Dashboard** — role-center building blocks: `AddBlazorBaseDashboard(options => options.AddPart<T>(id, priority, columns, DashboardVisibility.ForRoles(...)))`, `RoleCenter` (12-column container-query grid, per-part skeleton/error isolation/collapse, silent auto refresh while the tab is visible), `Cue`/`CueGroup`/`CueThresholds`, `HeadlinePart`, `ListPart<T>`, `ChartPart`. See [Documentation/BlazorBase.Dashboard.md](Documentation/BlazorBase.Dashboard.md). Its filtered drill-down links rely on the `?preset=` deep link of `BaseList` (`ListPresetLink.Build`, in BlazorBase.CRUD).
 
 ## Conventions for code in this repo
 

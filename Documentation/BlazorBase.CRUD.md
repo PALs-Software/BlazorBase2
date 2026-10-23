@@ -770,6 +770,31 @@ var config = new BaseListBuilder<Order>()
 Preset names are localizable: the display text is looked up as `FilterPreset_<id>` in the model's resources
 (`<Model>.resx` / `.de.resx`, the usual model-near localization) and falls back to the `name` passed in code.
 
+**Deep link a preset.** A list route answers to `?preset=<id>`: `/BudgetBoosts?preset=my-pending` opens the list with
+that preset applied. This is what a dashboard tile, a menu entry, a mail or a shared link uses to open "exactly the
+rows the number counted".
+
+- It applies on the **first load** of the list and takes precedence over the user's saved default and the code default
+  **for this visit only**; it is never stored as the user's default. The quick filter dropdown shows the preset as the
+  active choice, and the user can switch away from it like from any other filter.
+- The id is the `FilterPreset.Id` and is matched case-insensitively. An **unknown id is ignored silently** and the
+  normal default applies. A preset without conditions ("All") is valid and opens the list unfiltered, even when a
+  default is declared.
+- It works together with the card deep link: `/BudgetBoosts?item=<id>&preset=my-pending` filters the list behind the
+  card (the order of the parameters does not matter), and opening or closing a card keeps the `preset` parameter.
+- Only lists with `EnableDeepLinking` (the default) read it; a list in a dialog or a `BaseListPart` ignores the URL.
+  `BaseList.PresetParameterName` (default `preset`) renames the parameter.
+
+Build such links with `ListPresetLink.Build` (`BlazorBase.CRUD.SavedFilters`, pure and WASM-safe) instead of
+concatenating strings; it keeps an existing query string, replaces an existing `preset` parameter, keeps a fragment at
+the end and URL-encodes the id:
+
+```csharp
+ListPresetLink.Build("/BudgetBoosts", "my-pending");        // "/BudgetBoosts?preset=my-pending"
+ListPresetLink.Build("/Users?team=7", "no-team");           // "/Users?team=7&preset=no-team"
+ListPresetLink.Build("/Jobs?preset=old#top", "failed");     // "/Jobs?preset=failed#top"
+```
+
 **List keys.** Saved filters, the saved default and the "My filters" list belong to a *list key*. By default the key is
 `<model full name>@<page route>`, for example `Dev.Acadon.Shared.Modules.Users.Models.User@/users`, so two pages that list
 the same model (a "Users" and an "Enrolled users" page) never share filters or defaults. The route is the page path

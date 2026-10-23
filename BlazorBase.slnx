@@ -2,6 +2,7 @@
   <Folder Name="/Documentation/">
     <File Path="Documentation/README.md" />
     <File Path="Documentation/BlazorBase.Chart.md" />
+    <File Path="Documentation/BlazorBase.Dashboard.md" />
     <File Path="Documentation/BlazorBase.CRUD.md" />
     <File Path="Documentation/BlazorBase.CRUD.Generators.md" />
     <File Path="Documentation/BlazorBase.Files.md" />
@@ -16,6 +17,7 @@
     <File Path="Documentation/BlazorBase.Speech.Server.md" />
   </Folder>
   <Project Path="BlazorBase.Chart/BlazorBase.Chart.csproj" />
+  <Project Path="BlazorBase.Dashboard/BlazorBase.Dashboard.csproj" />
   <Project Path="BlazorBase.Mailing/BlazorBase.Mailing.csproj" />
   <Project Path="BlazorBase.DataProtection/BlazorBase.DataProtection.csproj" />
   <Project Path="BlazorBase.DataProtection.AzureKeyVault/BlazorBase.DataProtection.AzureKeyVault.csproj" />
@@ -53,5 +55,6 @@
     <Project Path="BlazorBase.User.SecurityHarness.Test/BlazorBase.User.SecurityHarness.Test.csproj" />
     <Project Path="BlazorBase.Speech.Test/BlazorBase.Speech.Test.csproj" />
     <Project Path="BlazorBase.Speech.Server.Test/BlazorBase.Speech.Server.Test.csproj" />
+    <Project Path="BlazorBase.Dashboard.Test/BlazorBase.Dashboard.Test.csproj" />
   </Folder>
 </Solution>

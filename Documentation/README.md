@@ -14,6 +14,7 @@ This folder contains the documentation for all reusable BlazorBase libraries shi
 | **BlazorBase.CRUD** | Razor Class Library (net10.0) | [BlazorBase.CRUD.md](BlazorBase.CRUD.md) |
 | **BlazorBase.CRUD.Generators** | Roslyn Source Generator (netstandard2.0) | [BlazorBase.CRUD.Generators.md](BlazorBase.CRUD.Generators.md) |
 | **BlazorBase.Chart** | Razor Class Library (net10.0) | [BlazorBase.Chart.md](BlazorBase.Chart.md) |
+| **BlazorBase.Dashboard** | Razor Class Library (net10.0, browser-safe) | [BlazorBase.Dashboard.md](BlazorBase.Dashboard.md) |
 | **BlazorBase.DataProtection** | .NET library (net10.0, browser-safe) | [BlazorBase.DataProtection.md](BlazorBase.DataProtection.md) |
 | **BlazorBase.DataProtection.AzureKeyVault** | .NET library (net10.0), opt-in | [BlazorBase.DataProtection.AzureKeyVault.md](BlazorBase.DataProtection.AzureKeyVault.md) |
 | **BlazorBase.Mailing** | .NET library (net10.0) | [BlazorBase.Mailing.md](BlazorBase.Mailing.md) |
@@ -80,6 +81,8 @@ BlazorBase.Components      (standalone RCL)
 
 BlazorBase.Chart           (standalone)
 
+BlazorBase.Dashboard       (browser-safe RCL)
+  └─ BlazorBase.Chart
 BlazorBase.Mailing         (standalone)
 
 BlazorBase.DataProtection  (standalone, browser-safe)
@@ -175,6 +178,8 @@ References:
 | App shell, navigation, theming, confirmation seam, query-string reader | BlazorBase.Components |
 | Localizer chaining and the empty fallback | BlazorBase.Localization |
 | Chart.js wrapper (Bar/Line/Pie) | BlazorBase.Chart |
+| Role center: part registry, cues, headline, list and chart parts, refresh | BlazorBase.Dashboard |
+| `?preset=` deep link and `ListPresetLink` for filtered list links | BlazorBase.CRUD |
 | Login / Setup / User management UI | BlazorBase.User |
 | Auth state read from the server, session expiry handling, language service | BlazorBase.User |
 | Identity, token issuance, account management and two-factor, Auth/User controllers | BlazorBase.User.Server |
