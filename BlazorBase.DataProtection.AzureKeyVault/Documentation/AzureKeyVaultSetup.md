@@ -50,7 +50,7 @@ az vm identity assign --name <vmName> --resource-group <resourceGroup> --identit
 
 ## 3. Grant RBAC roles
 
-The identity needs exactly two roles - no key management permissions, only usage:
+The identity needs exactly one role - no key management permissions, only usage:
 
 - **Key Vault Crypto Service Encryption User** on the Key Vault (wrap/unwrap only).
 
