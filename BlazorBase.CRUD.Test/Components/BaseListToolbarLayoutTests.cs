@@ -16,7 +16,7 @@ using Xunit;
 namespace BlazorBase.CRUD.Test.Components;
 
 /// <summary>
-/// The list header holds the filter, the count, Add and the declared toolbar actions (no Edit, View or Delete button:
+/// The list header holds Add and the declared toolbar actions on the left, the count, and the filter on the far right (no Edit, View or Delete button:
 /// those live in the row menu), shows the selection info only in multi-select mode, and lets the declared actions
 /// collapse into the "more actions" menu on narrow widths.
 /// </summary>
@@ -68,6 +68,22 @@ public class BaseListToolbarLayoutTests : BunitTestContextBase
 
         Assert.True(buttons.IndexOf(Framework["Add"].Value) < buttons.IndexOf("Run"));
         Assert.Equal("true", cut.Find(".base-list-header .base-action-toolbar").GetAttribute("data-overflow"));
+    }
+
+    [Fact]
+    public void Header_OrdersAddThenToolbarThenTheFilterGroupLast()
+    {
+        var cut = RenderList(Group(Action("Run", CrudActionScope.None)));
+
+        var children = cut.Find(".base-list-header").Children.ToList();
+        var add = children.FindIndex(element => element.ClassList.Contains("base-list-add"));
+        var toolbar = children.FindIndex(element => element.ClassList.Contains("base-action-toolbar"));
+        var filterGroup = children.FindIndex(element => element.ClassList.Contains("base-list-filter-group"));
+
+        Assert.True(add >= 0);
+        Assert.True(add < toolbar);
+        Assert.True(toolbar < filterGroup);
+        Assert.Equal(children.Count - 1, filterGroup);
     }
 
     [Fact]

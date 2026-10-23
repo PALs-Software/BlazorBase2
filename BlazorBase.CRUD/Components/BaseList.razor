@@ -10,42 +10,6 @@
     </CascadingValue>
 
     <div class="base-list-header">
-        @if (IsFilteringEnabled)
-        {
-            <div class="base-list-filter-group">
-                <FluentButton Appearance="Appearance.Stealth"
-                              Class="base-list-filter-toggle"
-                              aria-label="@FilterButtonLabel"
-                              OnClick="@OpenFilterPanelAsync"
-                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Filter())">
-                    @FrameworkLocalizer["Filter"]
-                    @if (ActiveFilterCount > 0)
-                    {
-                        <span class="base-list-filter-count" aria-hidden="true">@ActiveFilterCount</span>
-                    }
-                </FluentButton>
-                @if (SavedFilters is not null)
-                {
-                    <QuickFilterMenu Saved="@SavedFilters"
-                                     Current="@ActiveFilterModel"
-                                     Revision="@SavedFilterRevision"
-                                     OnSelect="@ApplyQuickFilterAsync" />
-                }
-            </div>
-        }
-        @if (HasRows && !IsMobileLayout)
-        {
-            <span class="base-list-count" role="status">@string.Format(FrameworkLocalizer[TotalCount == 1 ? "TotalEntry" : "TotalEntries"].Value, TotalCount)</span>
-        }
-        @if (ShowsSelectionColumn && !IsMobileLayout)
-        {
-            <FluentLabel Class="selection-count">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</FluentLabel>
-            <FluentButton Appearance="Appearance.Stealth"
-                          OnClick="@DeselectAll"
-                          IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.DismissCircle())">
-                @FrameworkLocalizer["DeselectAll"]
-            </FluentButton>
-        }
         @if (CanAdd)
         {
             var addText = AddButtonText ?? FrameworkLocalizer["Add"].Value;
@@ -69,6 +33,42 @@
                                Localizer="@Localizer"
                                OnBlockedItemsChanged="@OnBlockedItemsChanged"
                                OnActionExecuted="@RefreshAsync" />
+        }
+        @if (HasRows && !IsMobileLayout)
+        {
+            <span class="base-list-count" role="status">@string.Format(FrameworkLocalizer[TotalCount == 1 ? "TotalEntry" : "TotalEntries"].Value, TotalCount)</span>
+        }
+        @if (ShowsSelectionColumn && !IsMobileLayout)
+        {
+            <FluentLabel Class="selection-count">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</FluentLabel>
+            <FluentButton Appearance="Appearance.Stealth"
+                          OnClick="@DeselectAll"
+                          IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.DismissCircle())">
+                @FrameworkLocalizer["DeselectAll"]
+            </FluentButton>
+        }
+        @if (IsFilteringEnabled)
+        {
+            <div class="base-list-filter-group">
+                <FluentButton Appearance="Appearance.Stealth"
+                              Class="base-list-filter-toggle"
+                              aria-label="@FilterButtonLabel"
+                              OnClick="@OpenFilterPanelAsync"
+                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Filter())">
+                    @FrameworkLocalizer["Filter"]
+                    @if (ActiveFilterCount > 0)
+                    {
+                        <span class="base-list-filter-count" aria-hidden="true">@ActiveFilterCount</span>
+                    }
+                </FluentButton>
+                @if (SavedFilters is not null)
+                {
+                    <QuickFilterMenu Saved="@SavedFilters"
+                                     Current="@ActiveFilterModel"
+                                     Revision="@SavedFilterRevision"
+                                     OnSelect="@ApplyQuickFilterAsync" />
+                }
+            </div>
         }
     </div>
 

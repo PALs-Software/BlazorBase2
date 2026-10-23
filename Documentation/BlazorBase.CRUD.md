@@ -345,7 +345,7 @@ UI features:
 The list is virtualized **and** the page scrolls: there is one vertical scrollbar, the one of the layout's main
 area, and the sticky header stays on screen. Only the rows near the visible part of the page exist in the DOM
 (about 30 to 45, whatever the length of the list), so a list of 100,000 rows costs what one of 100 rows costs.
-The status text beside the filter button ("100,000 entries") is the total the data provider reported; it is shown
+The status text beside the actions ("100,000 entries") is the total the data provider reported; it is shown
 with the table and left out on the smartphone tile layout.
 
 **One first query.** A list sends its first query once, when it opens. `RefreshAsync()` called before that first load
@@ -1044,8 +1044,11 @@ supported for other sites (legacy) and renders after the declared actions, separ
 
 #### Header layout and the more-actions menu
 
-The list header is one row, in this order: Filter + quick filter, the entry count, the selection info (only in multi-select
-mode: "N selected" and "Deselect all"), **Add** (accent), then the declared `ListToolbar` actions ordered by group `Order`.
+The list header is one row, in this order from left to right: **Add** (accent), the declared `ListToolbar` actions ordered by
+group `Order`, the entry count, the selection info (only in multi-select mode: "N selected" and "Deselect all"), and at the far
+right the **Filter** button with its quick filter (a list without filtering has no such group). The actions sit on the left,
+where they have room to grow; the filter group is pushed to the right edge, also when the header wraps onto a second row, and
+the quick-filter dropdown opens right-aligned with its control so it stays inside the window.
 There are no Edit/View/Delete buttons in the header; those live in the row menu (three-dot button and right-click).
 
 All header buttons (Filter, quick filter, every declared action, group menu buttons, the more button) use
