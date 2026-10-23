@@ -17,6 +17,8 @@ This folder contains the documentation for all reusable BlazorBase libraries shi
 | **BlazorBase.Dashboard** | Razor Class Library (net10.0, browser-safe) | [BlazorBase.Dashboard.md](BlazorBase.Dashboard.md) |
 | **BlazorBase.DataProtection** | .NET library (net10.0, browser-safe) | [BlazorBase.DataProtection.md](BlazorBase.DataProtection.md) |
 | **BlazorBase.DataProtection.AzureKeyVault** | .NET library (net10.0), opt-in | [BlazorBase.DataProtection.AzureKeyVault.md](BlazorBase.DataProtection.AzureKeyVault.md) |
+| **BlazorBase.Hosting** | ASP.NET Core library (net10.0), opt-in | [BlazorBase.Hosting.md](BlazorBase.Hosting.md) |
+| **BlazorBase.Hosting.AzureMonitor** | ASP.NET Core library (net10.0), opt-in | [BlazorBase.Hosting.md](BlazorBase.Hosting.md) |
 | **BlazorBase.Mailing** | .NET library (net10.0) | [BlazorBase.Mailing.md](BlazorBase.Mailing.md) |
 | **BlazorBase.Files** | Razor Class Library (net10.0, browser-safe) | [BlazorBase.Files.md](BlazorBase.Files.md) |
 | **BlazorBase.Files.Server** | ASP.NET Core library (net10.0) | [BlazorBase.Files.Server.md](BlazorBase.Files.Server.md) |
