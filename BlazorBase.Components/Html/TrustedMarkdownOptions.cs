@@ -34,4 +34,11 @@ public sealed class TrustedMarkdownOptions
     /// into callouts titled with the value stored under the alert's upper-case name; null leaves them as quotes.
     /// </summary>
     public IReadOnlyDictionary<string, string>? AlertTitles { get; init; }
+
+    /// <summary>
+    /// Called with the parsed document after links, images and alerts were rewritten and before it is rendered, so
+    /// the application can add attributes (for example heading ids) to its blocks. The Markdown and the document stay
+    /// as safe as without it; null does nothing.
+    /// </summary>
+    public Action<Markdig.Syntax.MarkdownDocument>? PrepareDocument { get; init; }
 }

@@ -252,7 +252,8 @@ Markdown file below the culture folder without `.md`; `general/blog` is read fro
 `{ContentBasePath}/{culture}/general/blog.md`. A topic is usually `<category>/<page>`, where the category folder
 follows the sidebar group of the page (`general`, `administration`, ...). A page without the attribute, or whose
 topic has no file, shows `FallbackTopic`. `AddBlazorBaseHelp` is additive-safe and registers `HelpOptions`,
-`IHelpTopicResolver` (singleton) and `IHelpContentSource` (scoped).
+`IHelpTopicResolver` (singleton), `IHelpContentSource` (scoped) and `IHelpFieldIndex` (scoped, backs the field
+tooltips).
 
 | `HelpOptions` | Default | Purpose |
 |---|---|---|
@@ -262,6 +263,7 @@ topic has no file, shows `FallbackTopic`. `AddBlazorBaseHelp` is additive-safe a
 | `FallbackTopic` | `getting-started` | Topic for pages without a topic and for topics without content. |
 | `CultureFolders` | empty | Maps a UI culture (`en`, `de-AT`) to the folder name (`en-US`). Lookup order: full culture name, language, the name itself. |
 | `DocumentationBaseUrl` | `null` | Address of the DocFX site. Topics are appended with `.html`; `{culture}` is replaced by the culture folder. Null hides the "Open full documentation" link and turns links beyond the help content into plain text. |
+| `ShowFieldTooltips` | `true` | Shows the [field tooltips](#table-of-contents-anchors-and-field-tooltips) on labels of the page. `false` renders nothing and registers no listener in the browser. |
 
 ### How the panel behaves
 
@@ -283,6 +285,80 @@ topic has no file, shows `FallbackTopic`. `AddBlazorBaseHelp` is additive-safe a
   A link to a topic **with** a page keeps navigating to that page, with the panel open. A topic that does not exist
   shows the "no help" text instead of the fallback topic, and back still works.
 - `BaseHelpPanel` can also be used without `BaseLayout`; it needs `IsOpen`, `IsDocked` and `OnClose`.
+
+### Table of contents, anchors and field tooltips
+
+**Table of contents.** Below the header the panel shows a bar with a **Contents** (de: *Inhalt*) button, outside the
+scrolling content, so it stays visible while the user reads. The button shows the current section (scroll spy:
+the last heading at or above the top of the content) and toggles a nested list of the `##` and `###` headings of
+the shown topic — a `###` belongs to the `##` above it. Selecting an entry scrolls to the heading and closes the
+list (on the docked panel and on the phone sheet alike); Escape closes the list before it closes the panel. The
+bar is hidden when the topic has fewer than two such headings. It follows the shown topic, so it works with the
+topic history (back button), in light and dark theme and on the phone sheet (the list is an overlay inside the panel).
+
+**Anchors.** Every rendered heading gets an `id` that is its slug (`HelpSlug`: lower case, hyphens, `ä ö ü ß` to
+`ae oe ue ss`, other accents removed, unique per document with `-2`, `-3`, … — de-DE and en-US headings give
+different ids, so link anchors per language). The panel can open a topic at an anchor, scrolls to the element and highlights it briefly
+(`help-anchor-highlight`, no animation with reduced motion):
+
+- `BaseHelpPanel` parameters `AnchorTopic`, `Anchor` and `AnchorRequest` (a counter: every change asks for the
+  anchor once, also when it is the same as before). When the shown topic is not `AnchorTopic` the panel shows that topic
+  first (the topic shown before goes to the history stack).
+- `[JSInvokable("OpenTopicAtAnchor")] OpenTopicAtAnchorAsync(topic, anchor)` does the same from script.
+  `OpenTopicAsync(topic)` stays as it was.
+- `HelpFieldTooltips.OnOpenHelp` (`EventCallback<HelpAnchorTarget>`) is what `BaseLayout` uses to open the panel (and
+  close the settings panel and the navigation drawer) at a field entry.
+
+**Fields section.** A help page can list the labels of its UI after the marker `<!-- help:fields -->`:
+
+```markdown
+## Fields
+<!-- help:fields -->
+### Post
+- **Title**: The headline of the post. Shown in lists and in the feed.
+- **Status**: Draft or published. Only published posts are visible to readers.
+## See also
+```
+
+The field entries are the top-level list items between the marker and the next `##` heading (`###` group headings
+are fine) whose first paragraph starts with a bold label; the label may carry the colon inside or outside the bold
+text. `HelpMarkdownProcessor` removes the marker from the Markdown and keeps its line in
+`HelpDocument.FieldsStartLine` (a marker inside a Docs-Only block or an unreadable file is gone, so the page has no
+entries); `HelpStructureReader.Read(document)` returns `HelpDocumentStructure` with every `Headings` entry,
+the nested `TableOfContents` and the `Fields`. A field entry is rendered as `<li id="field-{slug of label}" class="help-field">`
+(unique in the document, together with the heading ids), which is what an anchor can point at.
+The short text of an entry is its **first sentence**: up to a `.`, `!` or `?` followed by white space and an
+upper-case letter (or the end); the whole entry text when there is none. Write short first sentences without
+abbreviations that end in a period followed by a capital. It is rendered as safe inline HTML — bold, italic, strikethrough and
+code are kept, links become plain text, everything is HTML-encoded.
+
+**Field tooltips.** `BaseLayout` (with `ShowHelp`, `HelpOptions.ShowFieldTooltips` on and `IHelpFieldIndex`
+registered — `AddBlazorBaseHelp` does that) renders the component `HelpFieldTooltips`, which loads `helpTooltips.js`:
+
+- The script listens (delegated, capturing, passive) on the document, but only reacts inside the main content
+  (`#base-main`) and inside dialogs (`fluent-dialog`) — never inside the help panel, the header or the navigation.
+  It registers nothing when the option is off, and `HelpFieldTooltips` removes every listener and the popover when it is
+  disposed (and hides the popover on navigation).
+- **How a label is found.** The element under the pointer (or the keyboard focus) is a candidate, and so are its ancestors up
+  to three levels. The *visible text* of an element (`innerText`, trimmed, whitespace collapsed, a trailing `:` and `*`
+  removed, lower case — `HelpLabelKey.Normalize` does the same on the server) is compared with the label keys of the page's
+  field entries. That covers `th` of tables (also with a sort button in it), `label` elements, small label spans and
+  headings of cards and tiles. Elements whose text is longer than 80 characters, text inputs, text areas and selects
+  are never candidates (a value is not a label); for a focused form control the associated `label`, a slotted
+  Fluent `label`, `aria-label` or `label` attribute is used instead.
+- **Lazy loading.** The first time the pointer rests on an element with a short text, the script asks the component for the
+  index of the current page once (`IHelpFieldIndex.GetForPathAsync`: the topic of the page through `IHelpTopicResolver`,
+  its content through `IHelpContentSource`, the fallback topic is *not* used). It is requested again after navigation
+  to another path or a culture change; an index that came back empty (no topic, not signed in, no entries) is asked for
+  again after 60 seconds at the earliest. Everything after that is matching in the browser, with no further round trips. A user
+  who may not read the help content simply gets no tooltips and no error (the content endpoint answers `401` or `403`).
+- **The popover** appears after about 400 ms of hovering a matching label, or when a matching element gets keyboard
+  focus. It is theme-aware (`--color-*` tokens, rules in `blazorbase.css`), shows the short text and the link **More in help**
+  (de: *Mehr in der Hilfe*), is linked to the element with `aria-describedby`, and hides when the pointer leaves, on scroll, resize, click and
+  Escape. It never intercepts clicks, sorting or focus of the label. Touch input (`pointerType` touch) shows no tooltip.
+  The link opens the panel at the field entry (see anchors above). The popover's link is not part of the page's Tab order;
+  keyboard users reach the entry through the help panel and its table of contents.
+- A label that appears twice in the field section gets one tooltip (the first entry).
 
 ### Topic resolution
 
@@ -374,6 +450,7 @@ app.MapFallbackToFile("index.html");
 | `<!-- Docs-Only-Start -->` … `<!-- Docs-Only-End -->` (block or inline) | shown | removed |
 | `<!-- App-Only` … `-->` (Markdown inside the comment) | invisible, it is a comment | rendered |
 | `<!-- Internal-Start -->` … `<!-- Internal-End -->` | hidden in public builds | removed |
+| `<!-- help:fields -->` | invisible, it is a comment | removed; starts the [fields section](#table-of-contents-anchors-and-field-tooltips) |
 
 `HelpMarkdownProcessor` (pure, no DI) prepares a file for the panel:
 
@@ -404,16 +481,19 @@ app.MapFallbackToFile("index.html");
 
 `MarkdownConverter.ToHtml(string)` stays as safe as before. The overload
 `ToHtml(string, TrustedMarkdownOptions)` is for Markdown that ships with the application, never for user or model
-text: `AllowImages`, `OpenExternalLinksInNewTab`, `ResolveImageUrl`, `ResolveLinkUrl` and `AlertTitles`. Raw HTML
+text: `AllowImages`, `OpenExternalLinksInNewTab`, `ResolveImageUrl`, `ResolveLinkUrl`, `AlertTitles` and `PrepareDocument`
+(a callback that receives the parsed Markdig document just before it is rendered — the help panel uses it to write heading and
+field ids). Raw HTML
 is still escaped, URL schemes are still filtered (also the ones a resolver returns), and images only allow
 relative or `http(s)` URLs. `MarkdownView` takes the same object as `Options`; with it set the sanitizer seam is
 skipped, because the content is trusted.
 
 ### Localization and styling
 
-Strings live in `BaseHelpPanel.razor(.de).resx` and the "Help" label in `BaseLayout.razor(.de).resx`. The panel's
+Strings live in `BaseHelpPanel.razor(.de).resx` ("Contents" and "More in help" included) and the "Help" label in `BaseLayout.razor(.de).resx`. The panel's
 look follows the settings panel and the `--color-*` tokens, so it works in light and dark themes; callout
-colors come from `--color-accent`, `--color-success`, `--color-warning` and `--color-danger`.
+colors come from `--color-accent`, `--color-success`, `--color-warning` and `--color-danger`. The tooltip popover and
+the anchor highlight are global rules in `css/blazorbase.css` (the popover is created by script, so scoped CSS cannot reach it).
 
 ---
 

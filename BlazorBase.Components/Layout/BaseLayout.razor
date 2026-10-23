@@ -121,7 +121,15 @@
             <BaseHelpPanel PanelId="@HelpPanelId"
                            IsOpen="IsHelpOpen"
                            IsDocked="IsWide"
+                           AnchorTopic="@HelpAnchorTopic"
+                           Anchor="@HelpAnchor"
+                           AnchorRequest="HelpAnchorRequest"
                            OnClose="CloseHelpAsync" />
+        }
+        @if (AreFieldTooltipsEnabled)
+        {
+            <HelpFieldTooltips CultureName="@System.Globalization.CultureInfo.CurrentUICulture.Name"
+                               OnOpenHelp="OpenHelpAtAsync" />
         }
     </div>
 

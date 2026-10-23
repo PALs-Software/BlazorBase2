@@ -45,4 +45,10 @@
   <data name="AlertCaution" xml:space="preserve">
     <value>Achtung</value>
   </data>
+  <data name="Contents" xml:space="preserve">
+    <value>Inhalt</value>
+  </data>
+  <data name="MoreInHelp" xml:space="preserve">
+    <value>Mehr in der Hilfe</value>
+  </data>
 </root>

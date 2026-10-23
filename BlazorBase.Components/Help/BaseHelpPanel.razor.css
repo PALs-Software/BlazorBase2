@@ -103,6 +103,115 @@
     min-height: 44px;
 }
 
+.base-help-toc {
+    position: relative;
+    flex: none;
+    background: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.base-help-toc-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 44px;
+    padding: 6px 20px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: 0.875rem;
+    text-align: start;
+    cursor: pointer;
+}
+
+.base-help-toc-toggle:hover {
+    background: var(--color-bg-hover);
+}
+
+.base-help-toc-toggle:focus-visible,
+.base-help-toc-link:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.base-help-toc-label {
+    flex: none;
+    font-weight: 600;
+}
+
+.base-help-toc-current {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-text-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.base-help-toc-current:not(:empty)::before {
+    content: "· ";
+}
+
+.base-help-toc-list {
+    position: absolute;
+    inset-inline: 0;
+    top: 100%;
+    z-index: 2;
+    max-height: min(60vh, 420px);
+    margin: 0;
+    padding: 6px 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    list-style: none;
+    background: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border);
+    box-shadow: 0 8px 16px rgb(0 0 0 / 0.2);
+}
+
+.base-help-toc-list[hidden] {
+    display: none;
+}
+
+.base-help-toc-list ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.base-help-toc-link {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 36px;
+    padding: 6px 20px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: 0.875rem;
+    text-align: start;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+
+.base-help-toc-link.child {
+    padding-inline-start: 36px;
+    color: var(--color-text-secondary);
+}
+
+.base-help-toc-link:hover {
+    background: var(--color-bg-hover);
+}
+
+.base-help-toc-link[aria-current] {
+    background: var(--color-bg-selected);
+    color: var(--color-accent);
+    font-weight: 600;
+}
+
 .base-help-body {
     flex: 1 1 auto;
     min-height: 0;
@@ -136,6 +245,10 @@
 
 .base-help-body ::deep .base-help-content > :first-child {
     margin-top: 0;
+}
+
+.base-help-body ::deep .base-help-content [tabindex="-1"]:focus {
+    outline: none;
 }
 
 .base-help-body ::deep .base-help-content h1,

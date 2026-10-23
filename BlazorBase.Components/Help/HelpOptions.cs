@@ -34,6 +34,13 @@ public sealed class HelpOptions
     /// <summary>The assemblies scanned for routable components carrying a <see cref="HelpTopicAttribute"/>.</summary>
     public IList<Assembly> Assemblies { get; } = [];
 
+    /// <summary>
+    /// Shows a small popover with the first sentence of the field's help entry when the user hovers (or focuses) a
+    /// label of the page that matches an entry below the <c>&lt;!-- help:fields --&gt;</c> marker of the page's topic.
+    /// Needs <c>BaseLayout.ShowHelp</c>; false registers nothing in the browser.
+    /// </summary>
+    public bool ShowFieldTooltips { get; set; } = true;
+
     /// <summary>Returns the folder name of the content for <paramref name="culture"/>.</summary>
     public string ResolveCultureFolder(string culture)
     {

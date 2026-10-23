@@ -82,8 +82,13 @@ public static partial class MarkdownConverter
             foreach (var quote in document.Descendants<QuoteBlock>().ToList())
                 ConvertAlert(quote, options.AlertTitles);
 
+        options.PrepareDocument?.Invoke(document);
+
         return document.ToHtml(TrustedPipeline);
     }
+
+    /// <summary>Parses <paramref name="markdown"/> with the pipeline of the trusted overload, so callers that analyze the structure see the same blocks the rendering does.</summary>
+    internal static MarkdownDocument ParseTrusted(string markdown) => Markdown.Parse(markdown, TrustedPipeline);
 
     private static void ApplyTrusted(LinkInline link, TrustedMarkdownOptions options)
     {

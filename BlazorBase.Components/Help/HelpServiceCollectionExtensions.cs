@@ -8,7 +8,7 @@ public static class HelpServiceCollectionExtensions
 {
     /// <summary>
     /// Registers what <c>BaseLayout</c> needs to show the help panel when its <c>ShowHelp</c> parameter is on: the
-    /// <see cref="HelpOptions"/>, the topic resolver and the content source.
+    /// <see cref="HelpOptions"/>, the topic resolver, the content source and the index of field tooltips.
     /// </summary>
     /// <remarks>
     /// The default content source reads the Markdown files over HTTP from the same origin (cookies are sent) and therefore needs an <see cref="HttpClient"/>
@@ -28,6 +28,7 @@ public static class HelpServiceCollectionExtensions
 
         services.TryAddSingleton<IHelpTopicResolver, HelpTopicResolver>();
         services.TryAddScoped<IHelpContentSource, HelpContentSource>();
+        services.TryAddScoped<IHelpFieldIndex, HelpFieldIndexProvider>();
 
         return services;
     }

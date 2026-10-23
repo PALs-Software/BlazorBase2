@@ -1,9 +1,12 @@
+using BlazorBase.Components.Help;
 using BlazorBase.Components.Layout.Navigation;
 using BlazorBase.Components.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Options;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.JSInterop;
 
@@ -35,7 +38,8 @@ public partial class BaseLayout(
     ILanguageService languageService,
     IJSRuntime jsRuntime,
     NavigationManager navigationManager,
-    IStringLocalizer<BaseLayout> localizer) : ComponentBase, IAsyncDisposable
+    IStringLocalizer<BaseLayout> localizer,
+    IServiceProvider serviceProvider) : ComponentBase, IAsyncDisposable
 {
     #region Injects
 
@@ -44,6 +48,7 @@ public partial class BaseLayout(
     private readonly IJSRuntime JsRuntime = jsRuntime;
     private readonly NavigationManager NavigationManager = navigationManager;
     private readonly IStringLocalizer<BaseLayout> Localizer = localizer;
+    private readonly IServiceProvider ServiceProvider = serviceProvider;
 
     #endregion
 
@@ -128,6 +133,9 @@ public partial class BaseLayout(
     private bool IsDrawerOpen;
     private bool IsSettingsOpen;
     private bool IsHelpOpen;
+    private string? HelpAnchorTopic;
+    private string? HelpAnchor;
+    private int HelpAnchorRequest;
     private bool IsCollapsed;
     private bool BrowserStateApplied;
     private bool FocusDrawerAfterRender;
@@ -139,6 +147,11 @@ public partial class BaseLayout(
     private bool IsBrandCentered => BrandPosition == BrandPosition.Center;
 
     private bool IsHelpModal => ShowHelp && IsHelpOpen && !IsWide;
+
+    private bool AreFieldTooltipsEnabled =>
+        ShowHelp
+        && ServiceProvider.GetService<IOptions<HelpOptions>>()?.Value.ShowFieldTooltips == true
+        && ServiceProvider.GetService<IHelpFieldIndex>() is not null;
 
     private bool HasBottomBar => IsPhone && BottomNavigationItems is { Count: > 0 };
 
@@ -296,6 +309,26 @@ public partial class BaseLayout(
             await CloseHelpAsync();
             return;
         }
+
+        IsSettingsOpen = false;
+
+        if (IsDrawerOpen)
+            await CloseDrawerAsync();
+
+        IsHelpOpen = true;
+    }
+
+    private async Task OpenHelpAtAsync(HelpAnchorTarget target)
+    {
+        if (!ShowHelp)
+            return;
+
+        HelpAnchorTopic = target.Topic;
+        HelpAnchor = target.Anchor;
+        HelpAnchorRequest++;
+
+        if (IsHelpOpen)
+            return;
 
         IsSettingsOpen = false;
 

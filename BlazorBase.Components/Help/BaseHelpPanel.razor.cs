@@ -6,6 +6,8 @@ using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using Microsoft.JSInterop;
 using BlazorBase.Components.Html;
+using Microsoft.FluentUI.AspNetCore.Components;
+using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular;
 
 namespace BlazorBase.Components.Help;
 
@@ -62,12 +64,35 @@ public partial class BaseHelpPanel(
     [Parameter]
     public string PanelId { get; set; } = "base-help";
 
+    /// <summary>The topic that <see cref="Anchor"/> belongs to; null when it belongs to whatever topic the panel shows.</summary>
+    [Parameter]
+    public string? AnchorTopic { get; set; }
+
+    /// <summary>
+    /// The id of a heading or field entry to scroll to and highlight, see <see cref="AnchorRequest"/>. The panel shows
+    /// <see cref="AnchorTopic"/> first when it differs from the topic that is shown.
+    /// </summary>
+    [Parameter]
+    public string? Anchor { get; set; }
+
+    /// <summary>
+    /// Changes every time the host wants <see cref="Anchor"/> shown (also when the anchor is the same as before): a
+    /// change makes the panel scroll to the anchor once the topic is shown.
+    /// </summary>
+    [Parameter]
+    public int AnchorRequest { get; set; }
+
     #region Members
 
     private IJSObjectReference? Module;
+    private IJSObjectReference? StructureModule;
     private ElementReference PanelElement;
+    private ElementReference BodyElement;
+    private ElementReference TocElement;
     private CancellationTokenSource? LoadSource;
     private HelpDocument? Document;
+    private HelpDocumentStructure Structure = HelpDocumentStructure.Empty;
+    private IReadOnlyList<HelpTocEntry> TocEntries = [];
     private TrustedMarkdownOptions? RenderOptions;
     private string? DocumentationUrl;
     private DotNetObjectReference<BaseHelpPanel>? SelfReference;
@@ -75,17 +100,27 @@ public partial class BaseHelpPanel(
     private string? ShownTopic;
     private string? PageTopic;
     private string? LoadedPath;
+    private string? PendingAnchor;
     private bool IsLoading;
     private bool IsFocusPending;
     private bool IsLinkBindingPending;
+    private bool IsStructureBindingPending;
     private bool IsPanelFocusPending;
+    private bool IsTocOpen;
     private bool WasOpen;
     private bool WasDocked;
     private int LoadCount;
+    private int HandledAnchorRequest;
 
     #endregion
 
     private string TitleId => PanelId + "-title";
+
+    private string TocListId => PanelId + "-toc";
+
+    private bool ShowToc => !IsLoading && Document is not null && Structure.HasTableOfContents;
+
+    private Icon TocChevron => IsTocOpen ? new Size16.ChevronUp() : new Size16.ChevronDown();
 
     private bool CanGoBack => History.Count > 0;
 
@@ -107,17 +142,29 @@ public partial class BaseHelpPanel(
 
     protected override async Task OnParametersSetAsync()
     {
+        var hasNewAnchorRequest = AnchorRequest != HandledAnchorRequest;
+        HandledAnchorRequest = AnchorRequest;
+
+        if (hasNewAnchorRequest && !string.IsNullOrWhiteSpace(Anchor))
+            PendingAnchor = Anchor;
+
         if (!IsOpen)
         {
             CancelLoad();
             IsFocusPending = false;
             IsLinkBindingPending = false;
+            IsStructureBindingPending = false;
             IsPanelFocusPending = false;
+            IsTocOpen = false;
             WasOpen = false;
             History.Clear();
             ShownTopic = null;
             PageTopic = null;
             LoadedPath = null;
+
+            if (!hasNewAnchorRequest)
+                PendingAnchor = null;
+
             return;
         }
 
@@ -127,9 +174,14 @@ public partial class BaseHelpPanel(
             {
                 IsFocusPending = true;
                 IsLinkBindingPending = true;
+                IsStructureBindingPending = true;
             }
 
             WasDocked = IsDocked;
+
+            if (hasNewAnchorRequest && !string.IsNullOrWhiteSpace(Anchor))
+                await ShowTopicAsync(AnchorTopic ?? ShownTopic, Anchor);
+
             return;
         }
 
@@ -152,6 +204,21 @@ public partial class BaseHelpPanel(
             Module ??= await ImportModuleAsync();
             SelfReference ??= DotNetObjectReference.Create(this);
             await Module.InvokeVoidAsync("bindHelpLinks", PanelElement, SelfReference);
+        }
+
+        if (IsStructureBindingPending && !IsLoading && Document is not null)
+        {
+            IsStructureBindingPending = false;
+            StructureModule ??= await ImportStructureModuleAsync();
+            await StructureModule.InvokeVoidAsync("bindHelpToc", BodyElement, ShowToc ? TocElement : (ElementReference?)null);
+        }
+
+        if (PendingAnchor is not null && !IsLoading && Document is not null)
+        {
+            var anchor = PendingAnchor;
+            PendingAnchor = null;
+            StructureModule ??= await ImportStructureModuleAsync();
+            await StructureModule.InvokeVoidAsync("scrollToHelpAnchor", BodyElement, anchor);
         }
 
         if (IsPanelFocusPending && !IsLoading)
@@ -183,15 +250,44 @@ public partial class BaseHelpPanel(
     [JSInvokable]
     public Task OpenTopicAsync(string topic) => InvokeAsync(async () =>
     {
-        if (!IsOpen || !HelpPaths.IsSafe(topic) || String.Equals(topic, ShownTopic, StringComparison.OrdinalIgnoreCase))
+        if (!IsOpen || String.Equals(topic, ShownTopic, StringComparison.OrdinalIgnoreCase))
             return;
+
+        await ShowTopicAsync(topic, anchor: null);
+    });
+
+    /// <summary>
+    /// Shows <paramref name="topic"/> like <see cref="OpenTopicAsync"/> and scrolls to the heading or field entry
+    /// <paramref name="anchor"/> in it, highlighting it briefly; when the topic is already shown it only scrolls.
+    /// </summary>
+    /// <param name="topic">The topic, e.g. <c>general/blog</c>.</param>
+    /// <param name="anchor">The id of a heading or field entry of the topic; null or empty scrolls nowhere.</param>
+    [JSInvokable("OpenTopicAtAnchor")]
+    public Task OpenTopicAtAnchorAsync(string topic, string? anchor) => InvokeAsync(() => IsOpen ? ShowTopicAsync(topic, anchor) : Task.CompletedTask);
+
+    private async Task ShowTopicAsync(string? topic, string? anchor)
+    {
+        if (!string.IsNullOrWhiteSpace(anchor))
+            PendingAnchor = anchor;
+
+        if (topic is null || !HelpPaths.IsSafe(topic))
+        {
+            StateHasChanged();
+            return;
+        }
+
+        if (String.Equals(topic, ShownTopic, StringComparison.OrdinalIgnoreCase))
+        {
+            StateHasChanged();
+            return;
+        }
 
         if (ShownTopic is not null)
             History.Push(ShownTopic);
 
         IsPanelFocusPending = true;
         await LoadAsync(topic, allowFallback: false);
-    });
+    }
 
     private async Task BackAsync()
     {
@@ -208,10 +304,29 @@ public partial class BaseHelpPanel(
     private async Task<IJSObjectReference> ImportModuleAsync() =>
         await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./_content/BlazorBase.Components/js/layout.js");
 
+    private async Task<IJSObjectReference> ImportStructureModuleAsync() =>
+        await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./_content/BlazorBase.Components/js/helpPanel.js");
+
+    private void ToggleToc() => IsTocOpen = !IsTocOpen;
+
+    private void SelectTocEntry(string id)
+    {
+        IsTocOpen = false;
+        PendingAnchor = id;
+    }
+
     private async Task OnKeyDownAsync(KeyboardEventArgs args)
     {
-        if (args.Key == "Escape")
-            await CloseAsync();
+        if (args.Key != "Escape")
+            return;
+
+        if (IsTocOpen)
+        {
+            IsTocOpen = false;
+            return;
+        }
+
+        await CloseAsync();
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
@@ -247,6 +362,7 @@ public partial class BaseHelpPanel(
         ShownTopic = topic;
         LoadCount++;
         IsLoading = true;
+        IsTocOpen = false;
         StateHasChanged();
 
         try
@@ -263,7 +379,7 @@ public partial class BaseHelpPanel(
             {
                 var context = CreateContext(content);
                 document = await HelpMarkdownProcessor.ProcessAsync(content.Markdown, context, source.Token);
-                renderOptions = HelpMarkdownProcessor.CreateRenderOptions(context);
+                renderOptions = HelpMarkdownProcessor.CreateRenderOptions(context, document);
             }
 
             if (source.IsCancellationRequested)
@@ -271,6 +387,8 @@ public partial class BaseHelpPanel(
 
             Document = document;
             RenderOptions = renderOptions;
+            Structure = document is null ? HelpDocumentStructure.Empty : HelpStructureReader.Read(document);
+            TocEntries = Structure.TableOfContents;
             DocumentationUrl = content is null ? null : HelpMarkdownProcessor.GetDocumentationUrl(content.Topic, Settings.DocumentationBaseUrl, content.Culture);
         }
         catch (OperationCanceledException)
@@ -279,6 +397,11 @@ public partial class BaseHelpPanel(
         }
 
         IsLoading = false;
+        IsStructureBindingPending = Document is not null;
+
+        if (Document is null)
+            PendingAnchor = null;
+
         StateHasChanged();
     }
 
@@ -325,6 +448,19 @@ public partial class BaseHelpPanel(
             }
 
             Module = null;
+        }
+
+        if (StructureModule is not null)
+        {
+            try
+            {
+                await StructureModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+
+            StructureModule = null;
         }
 
         GC.SuppressFinalize(this);

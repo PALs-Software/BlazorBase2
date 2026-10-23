@@ -13,6 +13,8 @@ namespace BlazorBase.Components.Help;
 /// <item><c>&lt;!-- Docs-Only-Start --&gt;</c> … <c>&lt;!-- Docs-Only-End --&gt;</c> and <c>&lt;!-- Internal-Start --&gt;</c> … <c>&lt;!-- Internal-End --&gt;</c>
 /// are removed, inline or as a block; a start marker without an end marker removes the rest of the document.</item>
 /// <item><c>&lt;!-- App-Only … --&gt;</c> is unwrapped: its Markdown is shown, while DocFX sees a comment.</item>
+/// <item><c>&lt;!-- help:fields --&gt;</c> marks the start of the field entries: it is removed from the Markdown and its
+/// line is kept in <see cref="HelpDocument.FieldsStartLine"/> (see <see cref="HelpStructureReader"/>).</item>
 /// <item>Other HTML comments are removed.</item>
 /// <item><c>[!INCLUDE [label](path)]</c> is replaced by the file, relative to the including file, up to three
 /// levels deep; a file that includes itself, directly or through others, is skipped.</item>
@@ -22,7 +24,7 @@ namespace BlazorBase.Components.Help;
 /// Relative links and images, including those of included files, are resolved against the including document,
 /// as DocFX does. A link to a <c>.md</c> file becomes a link to the page that carries the topic, or — when no page
 /// does, e.g. for a category topic — an in-panel link (<see cref="TopicLinkAttribute"/>) that the panel opens itself;
-/// other relative files link to the documentation site. <see cref="CreateRenderOptions"/> describes the rewriting; see <see cref="TrustedMarkdownOptions"/>.
+/// other relative files link to the documentation site. <see cref="CreateRenderOptions(HelpProcessingContext)"/> describes the rewriting; see <see cref="TrustedMarkdownOptions"/>.
 /// </remarks>
 public static partial class HelpMarkdownProcessor
 {
@@ -53,8 +55,21 @@ public static partial class HelpMarkdownProcessor
         var path = context.Topic + ".md";
         var expanded = await ExpandIncludesAsync(cleaned, HelpPaths.DirectoryOf(path), context, [path], 0, cancellationToken);
         var (headingTitle, withoutHeading) = ExtractTitle(expanded);
+        var (finalMarkdown, fieldsStartLine) = ExtractFieldsMarker(withoutHeading.Trim());
 
-        return new HelpDocument(frontMatterTitle ?? headingTitle, withoutHeading.Trim());
+        return new HelpDocument(frontMatterTitle ?? headingTitle, finalMarkdown, fieldsStartLine);
+    }
+
+    private static (string Markdown, int? FieldsStartLine) ExtractFieldsMarker(string markdown)
+    {
+        var first = FieldsMarker().Match(markdown);
+
+        if (!first.Success)
+            return (markdown, null);
+
+        var line = markdown.AsSpan(0, first.Index).Count('\n');
+
+        return (FieldsMarker().Replace(markdown, string.Empty), line);
     }
 
     /// <summary>Describes how the Markdown of the document is rendered: images from the help folder, links to topics to their routes.</summary>
@@ -72,12 +87,35 @@ public static partial class HelpMarkdownProcessor
         };
     }
 
-    /// <summary>Renders <paramref name="document"/> as HTML with the options of <see cref="CreateRenderOptions"/>.</summary>
+    /// <summary>
+    /// Describes how <paramref name="document"/> is rendered: as <see cref="CreateRenderOptions(HelpProcessingContext)"/>, plus
+    /// the ids of its headings and field entries (see <see cref="HelpStructureReader"/>), so the panel can scroll to them.
+    /// </summary>
+    public static TrustedMarkdownOptions CreateRenderOptions(HelpProcessingContext context, HelpDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(document);
+
+        var fieldsStartLine = document.FieldsStartLine;
+        var options = CreateRenderOptions(context);
+
+        return new TrustedMarkdownOptions
+        {
+            AllowImages = options.AllowImages,
+            OpenExternalLinksInNewTab = options.OpenExternalLinksInNewTab,
+            ResolveImageUrl = options.ResolveImageUrl,
+            ResolveLinkUrl = options.ResolveLinkUrl,
+            AlertTitles = options.AlertTitles,
+            PrepareDocument = parsed => HelpStructureReader.Analyze(parsed, fieldsStartLine, applyIds: true),
+        };
+    }
+
+    /// <summary>Renders <paramref name="document"/> as HTML with the options of <see cref="CreateRenderOptions(HelpProcessingContext, HelpDocument)"/>.</summary>
     public static string ToHtml(HelpDocument document, HelpProcessingContext context)
     {
         ArgumentNullException.ThrowIfNull(document);
 
-        return MarkdownConverter.ToHtml(document.Markdown, CreateRenderOptions(context));
+        return MarkdownConverter.ToHtml(document.Markdown, CreateRenderOptions(context, document));
     }
 
     /// <summary>Returns the address of <paramref name="topic"/> on the documentation site, or null when no site is configured.</summary>
@@ -252,8 +290,11 @@ public static partial class HelpMarkdownProcessor
     [GeneratedRegex(@"<!--\s*App-Only\b(.*?)-->", RegexOptions.Singleline | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex AppOnly();
 
-    [GeneratedRegex(@"<!--.*?-->", RegexOptions.Singleline)]
+    [GeneratedRegex(@"<!--(?!\s*(?i:help:fields)\s*-->).*?-->", RegexOptions.Singleline)]
     private static partial Regex Comment();
+
+    [GeneratedRegex(@"<!--\s*help:fields\s*-->", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex FieldsMarker();
 
     [GeneratedRegex(@"^#[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$")]
     private static partial Regex Heading();
