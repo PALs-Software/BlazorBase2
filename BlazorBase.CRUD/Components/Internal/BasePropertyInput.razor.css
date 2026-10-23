@@ -63,6 +63,63 @@
     align-items: flex-start;
 }
 
+.base-property-input-readonly {
+    --base-readonly-text: color-mix(in srgb, var(--neutral-foreground-rest) 40%, var(--neutral-foreground-hint));
+    --base-readonly-fill: var(--neutral-layer-2);
+    --base-readonly-border: color-mix(in srgb, var(--neutral-foreground-hint) 70%, transparent);
+    color: var(--base-readonly-text);
+}
+
+.base-property-input-readonly ::deep fluent-text-field,
+.base-property-input-readonly ::deep fluent-text-area,
+.base-property-input-readonly ::deep fluent-select,
+.base-property-input-readonly ::deep fluent-switch,
+.base-property-input-readonly ::deep fluent-combobox {
+    color: var(--base-readonly-text);
+    cursor: not-allowed;
+}
+
+.base-property-input-readonly ::deep fluent-select[disabled],
+.base-property-input-readonly ::deep fluent-combobox[disabled],
+.base-property-input-readonly ::deep fluent-text-field[disabled],
+.base-property-input-readonly ::deep fluent-text-area[disabled],
+.base-property-input-readonly ::deep fluent-select::part(control),
+.base-property-input-readonly ::deep fluent-combobox::part(control) {
+    opacity: 1;
+}
+
+.base-property-input-readonly ::deep fluent-text-field::part(root),
+.base-property-input-readonly ::deep fluent-text-area::part(control),
+.base-property-input-readonly ::deep fluent-select::part(control),
+.base-property-input-readonly ::deep fluent-combobox::part(control) {
+    background: var(--base-readonly-fill);
+    border: 1px dashed var(--base-readonly-border);
+    color: var(--base-readonly-text);
+    cursor: not-allowed;
+}
+
+.base-property-input-readonly ::deep fluent-text-field::part(control),
+.base-property-input-readonly ::deep fluent-select::part(selected-value),
+.base-property-input-readonly ::deep fluent-combobox::part(selected-value) {
+    color: var(--base-readonly-text);
+    -webkit-text-fill-color: var(--base-readonly-text);
+    cursor: not-allowed;
+}
+
+.base-property-input-readonly ::deep fluent-text-field::part(end),
+.base-property-input-readonly ::deep fluent-select::part(indicator) {
+    opacity: 0.6;
+}
+
+.base-property-input-readonly ::deep fluent-switch::part(label) {
+    color: var(--base-readonly-text);
+}
+
+.base-property-input-readonly ::deep fluent-switch::part(switch) {
+    opacity: 0.55;
+    border-style: dashed;
+}
+
 .base-bool-field ::deep fluent-switch {
     min-height: 32px;
     align-items: center;

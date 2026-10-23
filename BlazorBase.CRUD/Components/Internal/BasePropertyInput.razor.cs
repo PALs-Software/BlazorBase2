@@ -48,6 +48,16 @@ public partial class BasePropertyInput<TModel> : IDisposable
     [Parameter]
     public bool IsEditing { get; set; }
 
+    /// <summary>
+    /// True when this field is the read-only exception inside an editable card. The field then carries the
+    /// <c>base-property-input-readonly</c> class and a muted, subdued look, so it is recognisable as unchangeable at
+    /// first sight. Left false for the fields of a card that is read-only as a whole, which keep their calm look.
+    /// </summary>
+    [Parameter]
+    public bool HighlightReadOnly { get; set; }
+
+    private bool IsReadOnlyException => HighlightReadOnly && !IsEditing;
+
     [Parameter]
     public IStringLocalizer? Localizer { get; set; }
 

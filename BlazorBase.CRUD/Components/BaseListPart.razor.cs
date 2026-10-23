@@ -303,17 +303,7 @@ public partial class BaseListPart<TModel> : ComponentBase, IListPartFlushable, I
             CardType = CardType
         };
 
-        var dialogParameters = new DialogParameters
-        {
-            Title = string.Empty,
-            PrimaryAction = string.Empty,
-            SecondaryAction = string.Empty,
-            Width = "min(600px, calc(100vw - 2rem))",
-            PreventDismissOnOverlayClick = true,
-            ShowDismiss = false
-        };
-
-        var dialog = await DialogService.ShowDialogAsync<BaseListPartItemDialog<TModel>>(dialogData, dialogParameters);
+        var dialog = await DialogService.ShowDialogAsync<BaseListPartItemDialog<TModel>>(dialogData, CardDialogDefaults.Create());
         var result = await dialog.Result;
 
         if (result is { Cancelled: false, Data: Dictionary<string, object?> changedFields })
