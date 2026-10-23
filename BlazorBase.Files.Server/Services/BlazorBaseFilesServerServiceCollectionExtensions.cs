@@ -2,6 +2,7 @@ using BlazorBase.Files.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace BlazorBase.Files.Server.Services;
@@ -52,6 +53,9 @@ public static class BlazorBaseFilesServerServiceCollectionExtensions
         services.AddSingleton<IBlazorBaseFileOptions>(fileOptions);
 
         services.AddSingleton<IFileStorage, FileSystemFileStorage>();
+        services.AddSingleton<ITemporaryFileStoreCleaner>(serviceProvider => new FileSystemTemporaryFileStoreCleaner(
+            serviceProvider.GetRequiredService<IBlazorBaseFileOptions>(),
+            serviceProvider.GetRequiredService<ILogger<FileSystemTemporaryFileStoreCleaner>>()));
         services.AddSingleton<IImageService, ImageSharpImageService>();
         services.AddScoped<IFileAccessAuthorizer, OwnerScopedFileAccessAuthorizer>();
         services.AddSingleton<IFileAccessTokenService, HmacFileAccessTokenService>();

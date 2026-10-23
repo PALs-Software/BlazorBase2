@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using BlazorBase.Files.Models;
 using Microsoft.Extensions.Logging;
 
@@ -96,12 +95,7 @@ public class FileSystemFileStorage(IBlazorBaseFileOptions options, ILogger<FileS
     }
 
     /// <inheritdoc/>
-    public string ComputeSha256(Stream content)
-    {
-        content.Seek(0, SeekOrigin.Begin);
-        var hashBytes = SHA256.HashData(content);
-        return Convert.ToHexString(hashBytes).ToLowerInvariant();
-    }
+    public string ComputeSha256(Stream content) => FileContentHasher.ComputeSha256(content);
 
     private static string BuildPath(string directory, Guid fileId, string extension) =>
         Path.Combine(directory, $"{fileId:N}{extension}");
