@@ -114,7 +114,8 @@ options.AddPart(DashboardPartRegistration registration);
 | `Columns` | Width on the 12-column desktop grid, clamped to 1-12. Narrower containers render the part full width. |
 | `ComponentType` | A component type; the registry rejects anything else. |
 | `IsVisibleAsync` | Visibility rule, default `DashboardVisibility.ForAnyUser()`. |
-| `Title` | Optional name shown in the loading skeleton and the retry card. |
+| `Title` | Optional name shown in the loading skeleton, the retry card and the personalization edit mode (without it the part id is humanized). |
+| `TitleFactory` | Optional `Func<IServiceProvider, string?>` for a localized name; wins over `Title` and runs on every render, so it follows the current culture. Example: `titleFactory: sp => sp.GetRequiredService<IStringLocalizer<GovernancePart>>()["Title"].Value`. |
 
 Registrations can also be created with `DashboardPartRegistration.For<TPart>(...)` and added to any
 `IDashboardPartRegistry` directly (for example from a module initializer).
@@ -510,7 +511,7 @@ Namespace `BlazorBase.Dashboard` (and `BlazorBase.Dashboard.Localization` for `D
 | `DashboardServiceCollectionExtensions` | static | `AddBlazorBaseDashboard(configure?)`, `AddHeadlineInsightProvider<T>()` |
 | `DashboardOptions` | class | `AutoRefreshInterval`, `AddPart(...)`, `AddPart<T>(...)`, `AddHeadlineInsightProvider<T>()` |
 | `DashboardSettings` | class | Runtime `AutoRefreshInterval`, `LayoutLoadTimeout` |
-| `DashboardPartRegistration` | class | `Id`, `ComponentType`, `Priority`, `Columns`, `Title`, `IsVisibleAsync`, `For<T>(...)` |
+| `DashboardPartRegistration` | class | `Id`, `ComponentType`, `Priority`, `Columns`, `Title`, `TitleFactory`, `ResolveTitle(...)`, `IsVisibleAsync`, `For<T>(...)` |
 | `DashboardPartContext` | record | `User`, `Services`, `CancellationToken` |
 | `DashboardVisibility` | static | `ForAnyUser()`, `ForRoles(...)`, `ForUsers(...)` |
 | `IDashboardPartRegistry` / `DashboardPartRegistry` | interface / class | `Parts`, `Register(...)` |

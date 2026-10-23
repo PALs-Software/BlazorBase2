@@ -43,14 +43,16 @@ public sealed class DashboardOptions
     /// <param name="columns">Desktop width on the 12-column grid (1-12).</param>
     /// <param name="isVisibleAsync">Visibility rule, for example <see cref="DashboardVisibility.ForRoles"/>; everyone by default.</param>
     /// <param name="title">Optional name for the loading and error states.</param>
+    /// <param name="titleFactory">Optional localized name; wins over <paramref name="title"/> and follows the current culture.</param>
     public DashboardOptions AddPart<TPart>(
         string id,
         int priority = 0,
         int columns = 12,
         Func<DashboardPartContext, ValueTask<bool>>? isVisibleAsync = null,
-        string? title = null)
+        string? title = null,
+        Func<IServiceProvider, string?>? titleFactory = null)
         where TPart : IComponent =>
-        AddPart(DashboardPartRegistration.For<TPart>(id, priority, columns, isVisibleAsync, title));
+        AddPart(DashboardPartRegistration.For<TPart>(id, priority, columns, isVisibleAsync, title, titleFactory));
 
     /// <summary>
     /// Registers a scoped <see cref="IHeadlineInsightProvider"/>.

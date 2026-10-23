@@ -68,7 +68,7 @@ public partial class RoleCenter
     private string ConfirmTextId => $"rc-{InstanceId}-confirm-text";
 
     private string TitleOf(DashboardPartRegistration registration) =>
-        String.IsNullOrWhiteSpace(registration.Title) ? HumanizeId(registration.Id) : registration.Title;
+        registration.ResolveTitle(ServiceProvider) is { Length: > 0 } title ? title : HumanizeId(registration.Id);
 
     private static string HumanizeId(string id)
     {

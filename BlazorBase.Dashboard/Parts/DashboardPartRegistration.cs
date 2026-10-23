@@ -42,6 +42,23 @@ public sealed class DashboardPartRegistration
     public string? Title { get; init; }
 
     /// <summary>
+    /// Optional factory for a localized name; it wins over <see cref="Title"/> and runs with the services of the rendering
+    /// scope on every render, so the name follows the current culture.
+    /// </summary>
+    public Func<IServiceProvider, string?>? TitleFactory { get; init; }
+
+    /// <summary>
+    /// Resolves the display name of the part: the <see cref="TitleFactory"/> result, then <see cref="Title"/>, otherwise
+    /// <see langword="null"/>.
+    /// </summary>
+    /// <param name="services">The services of the rendering scope.</param>
+    public string? ResolveTitle(IServiceProvider services)
+    {
+        var resolved = TitleFactory?.Invoke(services);
+        return String.IsNullOrWhiteSpace(resolved) ? Title : resolved;
+    }
+
+    /// <summary>
     /// Decides per render whether the signed-in user sees the part. A rule that throws hides the part. Defaults to
     /// <see cref="DashboardVisibility.ForAnyUser"/>.
     /// </summary>
@@ -55,7 +72,8 @@ public sealed class DashboardPartRegistration
         int priority = 0,
         int columns = 12,
         Func<DashboardPartContext, ValueTask<bool>>? isVisibleAsync = null,
-        string? title = null)
+        string? title = null,
+        Func<IServiceProvider, string?>? titleFactory = null)
         where TPart : IComponent =>
         new()
         {
@@ -64,6 +82,7 @@ public sealed class DashboardPartRegistration
             Priority = priority,
             Columns = columns,
             Title = title,
+            TitleFactory = titleFactory,
             IsVisibleAsync = isVisibleAsync ?? DashboardVisibility.ForAnyUser(),
         };
 }

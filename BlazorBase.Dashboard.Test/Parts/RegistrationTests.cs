@@ -35,6 +35,20 @@ public sealed class RegistrationTests
     public void Registry_RejectsAMissingId() =>
         Assert.Throws<InvalidOperationException>(() => new DashboardPartRegistry().Register(new DashboardPartRegistration { Id = " ", ComponentType = typeof(PartA) }));
 
+    [Fact]
+    public void ResolveTitle_PrefersTheFactory_ThenTheTitle_ThenNull()
+    {
+        var services = new ServiceCollection().BuildServiceProvider();
+
+        var withFactory = DashboardPartRegistration.For<PartA>("a", title: "Static", titleFactory: _ => "Localized");
+        var withBlankFactory = DashboardPartRegistration.For<PartA>("a", title: "Static", titleFactory: _ => " ");
+        var withNothing = DashboardPartRegistration.For<PartA>("a");
+
+        Assert.Equal("Localized", withFactory.ResolveTitle(services));
+        Assert.Equal("Static", withBlankFactory.ResolveTitle(services));
+        Assert.Null(withNothing.ResolveTitle(services));
+    }
+
     [Theory]
     [InlineData(0, 1)]
     [InlineData(-4, 1)]
