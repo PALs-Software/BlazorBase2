@@ -8,6 +8,7 @@
     <File Path="Documentation/BlazorBase.Files.md" />
     <File Path="Documentation/BlazorBase.Files.Server.md" />
     <File Path="Documentation/BlazorBase.Notifications.md" />
+    <File Path="Documentation/BlazorBase.Hosting.md" />
     <File Path="Documentation/BlazorBase.DataProtection.AzureKeyVault.md" />
     <File Path="Documentation/BlazorBase.User.md" />
     <File Path="Documentation/BlazorBase.User.Server.md" />
@@ -26,6 +27,8 @@
   <Project Path="BlazorBase.Files.Server/BlazorBase.Files.Server.csproj" />
   <Project Path="BlazorBase.Notifications/BlazorBase.Notifications.csproj" />
   <Project Path="BlazorBase.Notifications.Server/BlazorBase.Notifications.Server.csproj" />
+  <Project Path="BlazorBase.Hosting/BlazorBase.Hosting.csproj" />
+  <Project Path="BlazorBase.Hosting.AzureMonitor/BlazorBase.Hosting.AzureMonitor.csproj" />
   <Project Path="BlazorBase.CRUD.Generators/BlazorBase.CRUD.Generators.csproj" />
   <Project Path="BlazorBase.Components.Test/BlazorBase.Components.Test.csproj" />
   <Project Path="BlazorBase.Components/BlazorBase.Components.csproj" />
@@ -53,6 +56,7 @@
     <Project Path="BlazorBase.Notifications.Server.Test/BlazorBase.Notifications.Server.Test.csproj" />
     <Project Path="BlazorBase.Notifications.Test/BlazorBase.Notifications.Test.csproj" />
     <Project Path="BlazorBase.User.SecurityHarness.Test/BlazorBase.User.SecurityHarness.Test.csproj" />
+    <Project Path="BlazorBase.Hosting.Test/BlazorBase.Hosting.Test.csproj" />
     <Project Path="BlazorBase.Speech.Test/BlazorBase.Speech.Test.csproj" />
     <Project Path="BlazorBase.Speech.Server.Test/BlazorBase.Speech.Server.Test.csproj" />
     <Project Path="BlazorBase.Dashboard.Test/BlazorBase.Dashboard.Test.csproj" />
