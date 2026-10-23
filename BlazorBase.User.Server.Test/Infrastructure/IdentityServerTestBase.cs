@@ -45,6 +45,14 @@ public abstract class IdentityServerTestBase : IDisposable
     }
 
     /// <summary>
+    /// Hook for a derived fixture to adjust the <see cref="TestUserDbContext"/> options, for example to
+    /// swap the execution strategy.
+    /// </summary>
+    protected virtual void ConfigureDbContextOptions(DbContextOptionsBuilder options)
+    {
+    }
+
+    /// <summary>
     /// A test-controllable clock, so refresh-token expiry can be proven without a real wall-clock
     /// wait. Exposed for a derived fixture to advance.
     /// </summary>
@@ -82,7 +90,11 @@ public abstract class IdentityServerTestBase : IDisposable
         services.AddSingleton(new BlazorBaseUserServerOptions());
         services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
         services.AddSingleton(Configuration);
-        services.AddDbContext<TestUserDbContext>(options => options.UseSqlite(Connection));
+        services.AddDbContext<TestUserDbContext>(options =>
+        {
+            options.UseSqlite(Connection);
+            ConfigureDbContextOptions(options);
+        });
 
         services.AddIdentityCore<TestUser>(options =>
             {

@@ -123,9 +123,13 @@ public class AuthTokenIssuer<TUser>(
     public async Task<LoginResponse?> RotateAsync(StoredRefreshToken stored, ClaimsPrincipal principal, CancellationToken cancellationToken = default)
     {
         var strategy = DbContext.Database.CreateExecutionStrategy();
+        var attempt = 0;
 
         return await strategy.ExecuteAsync<LoginResponse?>(async () =>
         {
+            if (attempt++ > 0)
+                DetachPendingRefreshTokens();
+
             await using var transaction = await DbContext.Database.BeginTransactionAsync(cancellationToken);
 
             var revoked = await DbContext.RefreshTokens
@@ -140,6 +144,12 @@ public class AuthTokenIssuer<TUser>(
             await transaction.CommitAsync(cancellationToken);
             return response;
         });
+    }
+
+    private void DetachPendingRefreshTokens()
+    {
+        foreach (var entry in DbContext.ChangeTracker.Entries<RefreshToken>().Where(entry => entry.State == EntityState.Added).ToList())
+            entry.State = EntityState.Detached;
     }
 
     private LoginResponse BuildTokenPair(ClaimsPrincipal principal, Guid? familyId)

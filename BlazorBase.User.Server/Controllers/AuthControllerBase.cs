@@ -78,40 +78,60 @@ public abstract class AuthControllerBase<TUser>(
             return Conflict(new { message = "System is already set up." });
 
         var dbContext = HttpContext.RequestServices.GetRequiredService<BaseUserDbContext<TUser>>();
-        await using var transaction = await dbContext.Database.BeginTransactionAsync();
+        var strategy = dbContext.Database.CreateExecutionStrategy();
+        TUser? createdUser = null;
+        var markerSaved = false;
+        var attempt = 0;
 
-        dbContext.SetupCompletionMarkers.Add(new SetupCompletionMarker());
+        ActionResult? failure;
         try
         {
-            await dbContext.SaveChangesAsync();
+            failure = await strategy.ExecuteAsync<ActionResult?>(async () =>
+            {
+                if (attempt++ > 0)
+                    dbContext.ChangeTracker.Clear();
+
+                markerSaved = false;
+                await using var transaction = await dbContext.Database.BeginTransactionAsync();
+
+                dbContext.SetupCompletionMarkers.Add(new SetupCompletionMarker());
+                await dbContext.SaveChangesAsync();
+                markerSaved = true;
+
+                var user = new TUser
+                {
+                    UserName = request.Email,
+                    Email = request.Email,
+                    DisplayName = request.DisplayName,
+                };
+
+                var result = await UserManager.CreateAsync(user, request.Password);
+                if (!result.Succeeded)
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+                }
+
+                await EnsureRolesExist();
+                await UserManager.AddToRoleAsync(user, "Admin");
+
+                await OnAfterUserCreatedAsync(user, request);
+
+                await transaction.CommitAsync();
+
+                createdUser = user;
+                return null;
+            });
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException) when (!markerSaved)
         {
             return Conflict(new { message = "System is already set up." });
         }
 
-        var user = new TUser
-        {
-            UserName = request.Email,
-            Email = request.Email,
-            DisplayName = request.DisplayName,
-        };
+        if (failure is not null)
+            return failure;
 
-        var result = await UserManager.CreateAsync(user, request.Password);
-        if (!result.Succeeded)
-        {
-            await transaction.RollbackAsync();
-            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
-        }
-
-        await EnsureRolesExist();
-        await UserManager.AddToRoleAsync(user, "Admin");
-
-        await OnAfterUserCreatedAsync(user, request);
-
-        await transaction.CommitAsync();
-
-        return Ok(await GenerateTokenResponse(user));
+        return Ok(await GenerateTokenResponse(createdUser!));
     }
 
     /// <summary>
