@@ -30,6 +30,7 @@ public class BaseListPartInteractionTests : BunitTestContextBase
     private const string Divider = "-";
 
     private readonly List<BaseDialogData<TestProduct>> openedItems = [];
+    private readonly List<DialogParameters> openedParameters = [];
     private readonly List<BaseDialogData<TestReview>> openedReviews = [];
     private readonly TestProduct alpha = new() { Id = Guid.NewGuid(), Name = "Alpha" };
     private readonly TestProduct beta = new() { Id = Guid.NewGuid(), Name = "Beta" };
@@ -149,6 +150,18 @@ public class BaseListPartInteractionTests : BunitTestContextBase
         Assert.Equal(["Beta"], SelectedNames(cut));
         Assert.Equal(["Beta"], opened);
         Assert.Equal("button", cut.FindAll(LabelSelector)[1].GetAttribute("role"));
+    }
+
+    [Fact]
+    public void TheItemDialog_IsOpenedWithTheSharedCardDialogDefaults()
+    {
+        var cut = RenderPart();
+
+        cut.FindAll(LabelSelector)[1].Click();
+
+        var parameters = Assert.Single(openedParameters);
+        Assert.Equal(CardDialogDefaults.Width, parameters.Width);
+        Assert.False(parameters.TrapFocus);
     }
 
     [Fact]
@@ -794,6 +807,7 @@ public class BaseListPartInteractionTests : BunitTestContextBase
             .Returns(call =>
             {
                 openedItems.Add((BaseDialogData<TestProduct>)call[0]);
+                openedParameters.Add((DialogParameters)call[1]);
                 return Task.FromResult(reference);
             });
         Services.AddSingleton(dialogService);

@@ -2,7 +2,7 @@
 @using BlazorBase.CRUD.Configuration
 @typeparam TModel
 
-<div class="base-property-input @(ValidationMessages.Count > 0 ? "base-property-input-invalid" : null)" id="@TooltipAnchorId">
+<div class="base-property-input @(ValidationMessages.Count > 0 ? "base-property-input-invalid" : null) @(IsReadOnlyException ? "base-property-input-readonly" : null)" id="@TooltipAnchorId" data-readonly="@(IsReadOnlyException ? "true" : null)">
     @if (FieldConfig.EditorTemplate is not null && IsEditing)
     {
         <div class="base-template-field" role="group" aria-labelledby="@LabelElementId">

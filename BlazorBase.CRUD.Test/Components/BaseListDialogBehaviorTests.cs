@@ -46,6 +46,23 @@ public class BaseListDialogBehaviorTests : BunitTestContextBase
     }
 
     [Fact]
+    public async Task TheCardDialog_IsOpenedWithTheSharedCardDialogDefaults()
+    {
+        var product = new TestProduct { Id = Guid.NewGuid(), Name = "Widget" };
+        var dialogService = SubstituteDialogService();
+        await RenderListAsync(product, dialogService);
+
+        Services.GetRequiredService<NavigationManager>().NavigateTo($"/?item={product.Id}");
+
+        await WaitUntilAsync(() => dialogService.ReceivedCalls().Any(IsCardDialogRequest));
+        var request = dialogService.ReceivedCalls().First(IsCardDialogRequest);
+        var parameters = Assert.IsType<DialogParameters>(request.GetArguments()[1]);
+        Assert.Equal(CardDialogDefaults.Width, parameters.Width);
+        Assert.False(parameters.TrapFocus);
+        Assert.False(parameters.ShowTitle);
+    }
+
+    [Fact]
     public async Task OpeningAnotherItemWhileOneIsOpen_ClosesTheFirstAndOpensTheSecond()
     {
         var first = new TestProduct { Id = Guid.NewGuid(), Name = "First" };

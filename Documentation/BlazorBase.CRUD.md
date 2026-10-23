@@ -873,6 +873,36 @@ Behavior:
 - Catches **409 Conflict** and shows a friendly `FluentMessageBar`.
 - Renders inputs via `BasePropertyInput` (typed automatically: string → `FluentTextField`, bool → `FluentSwitch`, enum → `FluentSelect`, DateTime → `FluentDatePicker`, navigation → select or browse). A nullable enum property (`MyEnum?`) gets an extra blank "— Select —" option mapping to `null`; an existing `null` value shows that blank option instead of visually defaulting to the first enum member. Non-nullable enums are unaffected.
 - In the read-only ("View") card the fields show values only, so a read-only field carries no required marker (the asterisk appears only while a field is editable).
+- **A field that cannot be changed inside an editable card looks read-only at first sight.** When the card itself is
+  editable (`ReadOnly` false) and a field is not editable for the user (`.Editable(false)`, no modify right on the
+  property, a calculated value), its wrapper carries the class `base-property-input-readonly` and the attribute
+  `data-readonly="true"`. The stylesheet then draws the control with a muted text colour, a subdued fill
+  (`--neutral-layer-2`), a dashed border and the `not-allowed` cursor, for text, number, date, text area, select and
+  switch alike, in the light and the dark theme (FluentUI tokens only; the muted text keeps WCAG AA contrast on the
+  subdued fill). A card that is read-only as a whole (the "View" card) keeps its calm look: no marker, no subdued
+  controls. `BasePropertyInput` takes this from its `HighlightReadOnly` parameter, which `BaseCard` sets to
+  `!ReadOnly`; custom property displays inherit the muted text colour from the wrapper.
+
+### `CardDialogDefaults`
+
+`BlazorBase.CRUD.Components.CardDialogDefaults` is the single source of truth for the shape of a dialog that hosts a
+card. `BaseList` (card dialog) and `BaseListPart` (item dialog) open their dialogs with it; open your own card dialog
+with the same shape through `CardDialogDefaults.Create()`:
+
+```csharp
+var dialog = await DialogService.ShowDialogAsync<MyCardDialog>(data, CardDialogDefaults.Create());
+```
+
+`Create()` returns a new `DialogParameters` the caller may adjust: no title bar (the card renders its header), no
+primary or secondary action (the card renders its buttons), no dismiss by overlay click, no dismiss button and
+FluentUI's focus trap off (the card's `DialogBehavior` makes everything outside it inert instead).
+
+The width is fluid, `CardDialogDefaults.Width` = `min(calc(100vw - 2rem), clamp(600px, 62vw, 1100px))`: 600 px on a
+tablet, growing with the window to at most 1100 px on a wide desktop (a card then reaches its three-column layout and
+needs less vertical scrolling), and never wider than the viewport minus 2 rem (a phone gets the full width). The number
+of columns still comes from the card's own container width (`BaseCard.razor.css`), and a card higher than the window
+scrolls inside the dialog. The parts of the formula are public constants (`MinimumWidth`, `PreferredWidth`,
+`MaximumWidth`, `ViewportMargin`).
 
 ### `BaseListPart<TModel>`
 

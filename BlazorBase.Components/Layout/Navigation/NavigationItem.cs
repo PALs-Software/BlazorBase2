@@ -31,6 +31,15 @@ public sealed record NavigationItem
     /// </summary>
     public bool IsMobilePrimary { get; init; }
 
+    /// <summary>
+    /// The entry exists for the phone only and is never listed in <see cref="BaseSideNavigation"/> on wide
+    /// screens. On a phone it is a bottom bar tab when <see cref="IsMobilePrimary"/> selects it; when it does not
+    /// make it into the bar (more tabs than the bar holds) it is listed in "More" — the built-in sheet of
+    /// <see cref="BaseBottomNavigation"/> or the navigation drawer of <see cref="BaseLayout"/> — so it never
+    /// vanishes from the phone menu. A flagged group hides its whole subtree from the side navigation.
+    /// </summary>
+    public bool BottomBarOnly { get; init; }
+
     /// <summary>Position among the bottom bar tabs; lower values come first, equal values keep the order of the list.</summary>
     public int BottomBarOrder { get; init; }
 

@@ -166,7 +166,7 @@ public partial class BaseLayout(
         _ => DesignThemeModes.System,
     };
 
-    private NavigationLayoutContext NavigationContext => new(IsCollapsed && !IsCompact, CloseDrawerAsync);
+    private NavigationLayoutContext NavigationContext => new(IsCollapsed && !IsCompact, CloseDrawerAsync, HasBottomBar ? MaxBottomBarItems : null);
 
     private bool IsMainInert => (IsDrawerOpen && IsCompact) || IsSettingsOpen || IsHelpModal;
 

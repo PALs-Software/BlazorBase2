@@ -10,7 +10,7 @@
    A select or text field has an intrinsic minimum width of its own, so a field in the last column pushed out
    past the dialog edge. Letting the control shrink to the column keeps every field inside the dialog. The
    number of columns comes from the card's own container queries (BaseCard.razor.css), never from the viewport:
-   the dialog is 600px wide on a desktop, so a viewport query would squeeze three columns into it.
+   the dialog's width follows the window (CardDialogDefaults), so a viewport query would squeeze three columns into it.
 */
 .base-dialog ::deep .base-card-field fluent-select,
 .base-dialog ::deep .base-card-field fluent-combobox,

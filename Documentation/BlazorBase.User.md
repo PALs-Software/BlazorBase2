@@ -789,6 +789,7 @@ An immutable `record` describing one entry:
 | `MatchAll` | Match the route in full (`NavLinkMatch.All`), e.g. the `/` home link. |
 | `RequiredRole` | When set, the entry is only shown to users in any of the listed roles. A single role name or a comma-separated list (e.g. `"Admin,Member"`). `null` means always visible. |
 | `IsMobilePrimary` | Whether the entry is a primary tab in the bottom bar; otherwise it lands in the "More" sheet. |
+| `BottomBarOnly` | The entry exists for phones only and is never listed in `BaseSideNavigation` on wide screens. It is a bottom bar tab when `IsMobilePrimary` selects it; when it does not fit into the bar (more tabs than `MaxBottomBarItems`/`MaxPrimaryItems`) it is listed in "More" — the built-in sheet of `BaseBottomNavigation`, or the navigation drawer of `BaseLayout` while the bottom bar is shown — so it never vanishes from the phone menu. Default `false`. |
 | `IsDanger` | Renders with a destructive accent (e.g. logout). |
 | `OnClick` | Action invoked instead of navigating (e.g. logout). |
 | `Children` | A non-empty list turns the entry into a group that reveals its children instead of navigating. |

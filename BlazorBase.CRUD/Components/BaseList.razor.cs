@@ -1131,7 +1131,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         {
             await RememberFocusAsync(CardDialogFocusKey);
 
-            var dialog = await DialogService.ShowDialogAsync<BaseDialog<TModel>>(dialogData, BuildCardDialogParameters());
+            var dialog = await DialogService.ShowDialogAsync<BaseDialog<TModel>>(dialogData, CardDialogDefaults.Create());
             return await dialog.Result;
         }
         finally
@@ -1386,7 +1386,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             CardType = CardType
         };
 
-        var dialog = await DialogService.ShowDialogAsync<BaseDialog<TModel>>(dialogData, BuildCardDialogParameters());
+        var dialog = await DialogService.ShowDialogAsync<BaseDialog<TModel>>(dialogData, CardDialogDefaults.Create());
 
         if (!IsCurrentDeepLink(ticket))
         {
@@ -1488,27 +1488,6 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         return null;
     }
-
-    /// <summary>
-    /// The shared shape of every card dialog.
-    /// </summary>
-    /// <remarks>
-    /// FluentUI's own focus trap stays off. A card can raise a second modal dialog on top of itself (the discard
-    /// prompt), and two traps each pull focus back into their own dialog and fight over it. The card's
-    /// <see cref="BaseDialog{TModel}"/> instead makes everything outside itself inert, which holds focus inside
-    /// without any cooperation between the dialogs.
-    /// </remarks>
-    private static DialogParameters BuildCardDialogParameters() => new()
-    {
-        Title = string.Empty,
-        ShowTitle = false,
-        PrimaryAction = string.Empty,
-        SecondaryAction = string.Empty,
-        Width = "min(600px, calc(100vw - 2rem))",
-        PreventDismissOnOverlayClick = true,
-        ShowDismiss = false,
-        TrapFocus = false
-    };
 
     #endregion
 
