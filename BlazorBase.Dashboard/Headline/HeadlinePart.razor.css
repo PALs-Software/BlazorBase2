@@ -6,10 +6,29 @@
     justify-content: space-between;
     gap: var(--space-3) var(--space-4);
     padding: 18px 20px;
-    color: var(--color-text-on-accent);
-    background: linear-gradient(120deg, var(--color-accent) 0%, color-mix(in srgb, var(--color-accent) 72%, var(--color-bg-elevated)) 100%);
+    color: var(--color-text-primary);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-top: 4px solid var(--color-accent);
     border-radius: var(--radius-md);
     font-family: var(--font-base);
+    --hl-primary-fill: var(--color-accent);
+    --hl-primary-fill-hover: color-mix(in srgb, var(--hl-primary-fill) 88%, black);
+    --hl-primary-text: var(--color-text-on-accent);
+}
+
+:root[data-theme="dark"] .hl {
+    --hl-primary-fill: color-mix(in srgb, var(--color-accent) 60%, black);
+    --hl-primary-fill-hover: color-mix(in srgb, var(--color-accent) 50%, black);
+    --hl-primary-text: #FFFFFF;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .hl {
+        --hl-primary-fill: color-mix(in srgb, var(--color-accent) 60%, black);
+        --hl-primary-fill-hover: color-mix(in srgb, var(--color-accent) 50%, black);
+        --hl-primary-text: #FFFFFF;
+    }
 }
 
 .hl-text {
@@ -68,18 +87,22 @@
     display: block;
     width: 8px;
     height: 8px;
-    background: color-mix(in srgb, var(--color-text-on-accent) 45%, transparent);
+    background: var(--color-border-strong);
     border-radius: var(--radius-pill);
-    transition: width 0.2s ease;
+    transition: width 0.2s ease, background-color 0.15s ease;
+}
+
+.hl-dot:hover .hl-dot-mark {
+    background: var(--color-text-muted);
 }
 
 .hl-dot[aria-current="true"] .hl-dot-mark {
     width: 20px;
-    background: var(--color-text-on-accent);
+    background: var(--color-accent);
 }
 
 .hl-dot:focus-visible {
-    outline: 2px solid var(--color-text-on-accent);
+    outline: 2px solid var(--color-accent);
     outline-offset: -2px;
 }
 
@@ -94,6 +117,7 @@
 
 .hl-actions ::deep a,
 .hl-actions ::deep button {
+    box-sizing: border-box;
     display: inline-flex;
     align-items: center;
     min-height: 36px;
@@ -103,20 +127,34 @@
     font-size: 13px;
     white-space: nowrap;
     text-decoration: none;
-    background: color-mix(in srgb, var(--color-text-on-accent) 10%, transparent);
-    border: 1px solid color-mix(in srgb, var(--color-text-on-accent) 55%, transparent);
+    background: transparent;
+    border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-sm);
     cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .hl-actions ::deep a:hover,
 .hl-actions ::deep button:hover {
-    background: color-mix(in srgb, var(--color-text-on-accent) 20%, transparent);
+    background: var(--color-bg-subtle);
+    border-color: var(--color-text-muted);
+}
+
+.hl-actions ::deep > :first-child {
+    color: var(--hl-primary-text);
+    font-weight: 600;
+    background: var(--hl-primary-fill);
+    border-color: var(--hl-primary-fill);
+}
+
+.hl-actions ::deep > :first-child:hover {
+    background: var(--hl-primary-fill-hover);
+    border-color: var(--hl-primary-fill-hover);
 }
 
 .hl-actions ::deep a:focus-visible,
 .hl-actions ::deep button:focus-visible {
-    outline: 2px solid var(--color-text-on-accent);
+    outline: 2px solid var(--color-accent);
     outline-offset: 2px;
 }
 
@@ -137,7 +175,9 @@
         animation: none;
     }
 
-    .hl-dot-mark {
+    .hl-dot-mark,
+    .hl-actions ::deep a,
+    .hl-actions ::deep button {
         transition: none;
     }
 }
@@ -155,8 +195,11 @@
         flex: 1 1 100%;
         flex-wrap: nowrap;
         justify-content: flex-start;
+        margin-block: -3px;
         margin-inline: -14px;
+        padding-block: 3px;
         padding-inline: 14px;
+        scroll-padding-inline: 14px;
         overflow-x: auto;
         scroll-snap-type: x proximity;
         scrollbar-width: thin;
@@ -182,8 +225,11 @@
         flex: 1 1 100%;
         flex-wrap: nowrap;
         justify-content: flex-start;
+        margin-block: -3px;
         margin-inline: -14px;
+        padding-block: 3px;
         padding-inline: 14px;
+        scroll-padding-inline: 14px;
         overflow-x: auto;
         scroll-snap-type: x proximity;
         scrollbar-width: thin;
