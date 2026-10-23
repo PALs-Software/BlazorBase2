@@ -250,7 +250,8 @@ cues: `ForCount(boosts, CueStyle.Unfavorable)`.
 
 ## Headline and insight providers
 
-`HeadlinePart` is a gradient banner (accent tokens, `--color-text-on-accent` text) with
+`HeadlinePart` is a neutral card (`--color-bg-elevated` surface, 1 px `--color-border`, a 4 px `--color-accent` top line,
+`--color-text-primary` text) with
 
 - a **greeting by time of day** and culture ("Good morning, Patrick" / "Guten Morgen, Patrick"): 05:00 to 11:59 morning,
   12:00 to 17:59 afternoon, otherwise evening. The time is the user's: the first component asks the browser for its UTC
@@ -259,8 +260,13 @@ cues: `ForCount(boosts, CueStyle.Unfavorable)`.
   the display name claim (`name` / identity name); a login that is an e-mail address is never shown;
 - up to `MaxInsights` (default 3) **insights**, ordered by priority across all providers (lower first), rotating every
   `RotationInterval` (default 8 s);
-- an `Actions` slot for quick actions: plain `<a>` / `<button>` elements, styled as chips; on phones a horizontally
-  scrollable row below the text.
+- an `Actions` slot for quick actions: plain `<a>` / `<button>` elements, styled as buttons; on phones a horizontally
+  scrollable row below the text. The **first** action is the primary button (filled, bold); the others are outline
+  buttons. A single action is the primary one. The primary fill comes from `--hl-primary-fill` (hover
+  `--hl-primary-fill-hover`, text `--hl-primary-text`), defined on `.hl`: in the light theme the accent with
+  `--color-text-on-accent`; in the dark theme (both `data-theme="dark"` and the `prefers-color-scheme: dark` default) a
+  darker mix of the accent with white text, so the text keeps a contrast of at least 4.5:1 at rest and on hover. A theme
+  can override the three variables.
 
 ```csharp
 public sealed class BoostInsightProvider(IBoostService boosts) : IHeadlineInsightProvider
@@ -466,7 +472,7 @@ For a host that wants no server storage: `services.AddBlazorBaseDashboardLayouts
 - **Container queries**, not only the viewport: a container of **1100 px and wider** uses the 12-column grid with the
   registered column widths (16 px gaps); a narrower container renders every part full width; below **640 px** the gaps
   shrink, cue groups become two columns, wide cues span both, chart areas are capped at 200 px and the headline actions
-  become a scrollable chip row. Each rule is also written as a viewport media query, so the building blocks behave on a
+  become a scrollable button row. Each rule is also written as a viewport media query, so the building blocks behave on a
   phone even outside a `RoleCenter`.
 - The root of `RoleCenter` is a `container-name: rolecenter` / `container-type: inline-size` container.
 - All colours, radii, spacing and fonts come from the BlazorBase/acadon tokens (`--color-*`, `--radius-*`, `--space-*`,

@@ -317,6 +317,18 @@ public sealed class HeadlinePartTests : DashboardTestContext
     }
 
     [Fact]
+    public void ActionsSlot_RendersTheActionsAsDirectChildren_SoTheFirstOneIsThePrimaryAction()
+    {
+        var cut = RenderHeadline(p => p.Add(h => h.Actions, (RenderFragment)(builder => builder.AddMarkupContent(0, "<a href=\"/first\">First</a><button type=\"button\">Second</button><a href=\"/third\">Third</a>"))));
+
+        var actions = cut.Find(".hl-actions");
+
+        Assert.Equal(3, actions.Children.Length);
+        Assert.Equal("/first", actions.FirstElementChild!.GetAttribute("href"));
+        Assert.Equal("Second", actions.Children[1].TextContent);
+    }
+
+    [Fact]
     public void NoActions_RenderNoActionsContainer()
     {
         var cut = RenderHeadline();

@@ -43,7 +43,7 @@ public partial class HeadlinePart(
 
     /// <summary>
     /// Quick actions, shown on the right of the banner; on phones a horizontally scrollable row of chips below the text.
-    /// Use plain <c>&lt;a&gt;</c> or <c>&lt;button&gt;</c> elements; they are styled as chips.
+    /// Use plain <c>&lt;a&gt;</c> or <c>&lt;button&gt;</c> elements; they are styled as buttons, the first one as the primary button.
     /// </summary>
     [Parameter]
     public RenderFragment? Actions { get; set; }
