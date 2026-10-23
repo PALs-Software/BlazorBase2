@@ -96,4 +96,91 @@
   <data name="ChartFallbackLabel" xml:space="preserve">
     <value>Chart</value>
   </data>
+  <data name="Personalize" xml:space="preserve">
+    <value>Personalize</value>
+  </data>
+  <data name="PersonalizeTitle" xml:space="preserve">
+    <value>Personalize your dashboard</value>
+  </data>
+  <data name="PersonalizeHint" xml:space="preserve">
+    <value>Hide parts or change their order. Select Done to save your arrangement.</value>
+  </data>
+  <data name="PersonalizeDone" xml:space="preserve">
+    <value>Done</value>
+  </data>
+  <data name="PersonalizeCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="PersonalizeReset" xml:space="preserve">
+    <value>Reset to default</value>
+  </data>
+  <data name="PersonalizeResetConfirm" xml:space="preserve">
+    <value>Reset the dashboard to the default layout? Your arrangement is discarded.</value>
+  </data>
+  <data name="PersonalizeResetConfirmYes" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="PersonalizeResetConfirmNo" xml:space="preserve">
+    <value>Keep my layout</value>
+  </data>
+  <data name="PersonalizeStarted" xml:space="preserve">
+    <value>Personalize mode is on. Use the buttons of each part to move or hide it.</value>
+  </data>
+  <data name="PersonalizeCancelled" xml:space="preserve">
+    <value>Changes discarded.</value>
+  </data>
+  <data name="PartMoveUp" xml:space="preserve">
+    <value>Move up</value>
+  </data>
+  <data name="PartMoveDown" xml:space="preserve">
+    <value>Move down</value>
+  </data>
+  <data name="PartHide" xml:space="preserve">
+    <value>Hide</value>
+  </data>
+  <data name="PartShow" xml:space="preserve">
+    <value>Show</value>
+  </data>
+  <data name="PartMoveUpLabel" xml:space="preserve">
+    <value>Move {0} up</value>
+  </data>
+  <data name="PartMoveDownLabel" xml:space="preserve">
+    <value>Move {0} down</value>
+  </data>
+  <data name="PartHideLabel" xml:space="preserve">
+    <value>Hide {0}</value>
+  </data>
+  <data name="PartShowLabel" xml:space="preserve">
+    <value>Show {0}</value>
+  </data>
+  <data name="PartHidden" xml:space="preserve">
+    <value>Hidden</value>
+  </data>
+  <data name="PartMoved" xml:space="preserve">
+    <value>{0} moved to position {1} of {2}.</value>
+  </data>
+  <data name="PartAlreadyFirst" xml:space="preserve">
+    <value>{0} is already the first part.</value>
+  </data>
+  <data name="PartAlreadyLast" xml:space="preserve">
+    <value>{0} is already the last part.</value>
+  </data>
+  <data name="PartHiddenAnnouncement" xml:space="preserve">
+    <value>{0} hidden.</value>
+  </data>
+  <data name="PartShownAnnouncement" xml:space="preserve">
+    <value>{0} shown.</value>
+  </data>
+  <data name="LayoutSaved" xml:space="preserve">
+    <value>Layout saved.</value>
+  </data>
+  <data name="LayoutReset" xml:space="preserve">
+    <value>Layout reset to default.</value>
+  </data>
+  <data name="LayoutSaveFailed" xml:space="preserve">
+    <value>The layout could not be saved. Try again.</value>
+  </data>
+  <data name="LayoutResetFailed" xml:space="preserve">
+    <value>The layout could not be reset. Try again.</value>
+  </data>
 </root>

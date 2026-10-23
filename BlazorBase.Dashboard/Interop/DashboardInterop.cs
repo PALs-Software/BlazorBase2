@@ -33,6 +33,17 @@ public sealed class DashboardInterop(IJSRuntime jsRuntime) : IAsyncDisposable, I
     public async ValueTask<ChartPalette> ReadChartPaletteAsync() => await TryInvokeAsync<ChartPalette>("readChartPalette") ?? ChartPalette.Fallback;
 
     /// <summary>
+    /// Moves the keyboard focus to a personalization control of a part ("up", "down" or "visibility"). Returns false when the
+    /// control does not exist or the browser cannot be reached.
+    /// </summary>
+    public async ValueTask<bool> FocusControlAsync(string partId, string action) => await TryInvokeAsync<bool>("focusControl", partId, action);
+
+    /// <summary>
+    /// Moves the keyboard focus to the element with the given id. Returns false when it does not exist or the browser cannot be reached.
+    /// </summary>
+    public async ValueTask<bool> FocusByIdAsync(string id) => await TryInvokeAsync<bool>("focusById", id);
+
+    /// <summary>
     /// Calls <paramref name="onChanged"/> with the new visibility whenever the tab is shown or hidden. Dispose to stop.
     /// </summary>
     public ValueTask<IAsyncDisposable> ObserveVisibilityAsync(Func<bool, Task> onChanged) => ObserveAsync("observeVisibility", onChanged);
@@ -82,12 +93,12 @@ public sealed class DashboardInterop(IJSRuntime jsRuntime) : IAsyncDisposable, I
         }
     }
 
-    private async ValueTask<T?> TryInvokeAsync<T>(string function)
+    private async ValueTask<T?> TryInvokeAsync<T>(string function, params object?[] arguments)
     {
         try
         {
             var module = await ModuleTask.Value;
-            return await module.InvokeAsync<T>(function);
+            return await module.InvokeAsync<T>(function, arguments);
         }
         catch (Exception exception) when (IsJsUnavailable(exception))
         {

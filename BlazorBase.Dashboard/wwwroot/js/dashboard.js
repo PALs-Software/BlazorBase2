@@ -96,6 +96,29 @@ export function observeTheme(reference) {
     return id;
 }
 
+export function focusControl(partId, action) {
+    const controls = document.querySelectorAll('[data-edit-action]');
+
+    for (const control of controls) {
+        if (control.dataset.editPart === partId && control.dataset.editAction === action) {
+            control.focus();
+            return true;
+        }
+    }
+
+    return false;
+}
+
+export function focusById(id) {
+    const element = document.getElementById(id);
+
+    if (!element)
+        return false;
+
+    element.focus();
+    return true;
+}
+
 export function unobserve(id) {
     const dispose = observers.get(id);
 

@@ -44,15 +44,21 @@ public sealed class ManualTimeProvider : TimeProvider
 
     private sealed class ManualTimer(TimerCallback callback, object? state, DateTimeOffset firstDue, TimeSpan period) : ITimer
     {
+        private bool HasFired;
+
         public bool IsDisposed { get; private set; }
 
         public DateTimeOffset NextDue { get; private set; } = firstDue;
 
-        public bool IsDue(DateTimeOffset target) => !IsDisposed && period > TimeSpan.Zero && NextDue <= target;
+        public bool IsDue(DateTimeOffset target) => !IsDisposed && NextDue <= target && (period > TimeSpan.Zero || !HasFired);
 
         public void Fire()
         {
-            NextDue += period;
+            HasFired = true;
+
+            if (period > TimeSpan.Zero)
+                NextDue += period;
+
             callback(state);
         }
 

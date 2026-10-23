@@ -4,7 +4,8 @@ A Razor Class Library for **role center** start pages in the style of Business C
 traffic-light style and a drill-down), chart parts and list parts, each shown only to the users it is meant for, loaded
 and refreshed independently.
 
-> Target framework: `net10.0` · browser-safe (no server-only APIs) · works in Server, WebAssembly and MAUI ·
+> Target framework: `net10.0` · the components and the client stores are browser-safe (the server-side storage lives in
+> `BlazorBase.Dashboard.Server` and is never referenced by client code) · works in Server, WebAssembly and MAUI ·
 > depends on FluentUI and [BlazorBase.Chart](BlazorBase.Chart.md).
 
 ---
@@ -23,6 +24,7 @@ and refreshed independently.
 - [Drill-down links and filter presets](#drill-down-links-and-filter-presets)
 - [Refresh](#refresh)
 - [Visibility](#visibility)
+- [Personalization](#personalization)
 - [Layout, phones and theming](#layout-phones-and-theming)
 - [Accessibility](#accessibility)
 - [Localization](#localization)
@@ -179,8 +181,9 @@ loaded." + *Retry*); *Retry* creates a fresh instance of the part. A failure dur
 |---|---|
 | `Headline` | Content above the meta row, normally a `HeadlinePart`. The headline joins the refresh. |
 | `MetaContent` | Start of the meta row, before "Updated hh:mm", for example the month the numbers belong to. |
-| `Tools` | End of the meta row, before the refresh button, for example a "Personalize" button. |
+| `Tools` | End of the meta row, before the refresh button (and before the *Personalize* button when a layout store is registered). |
 | `AutoRefreshInterval` | Overrides the interval configured in `AddBlazorBaseDashboard` for this role center; `TimeSpan.Zero` = off. |
+| `LayoutKey` | The key the user's personal layout is stored under; defaults to `"/"` (the start page). Set it when a host has more than one role center. See [Personalization](#personalization). |
 | `Class` | Extra CSS class on the root. |
 | `RefreshService` (property) | The `IDashboardRefreshService` the role center cascades; reachable through `@ref`. |
 
@@ -388,6 +391,75 @@ the data of a part must still be protected on the server.
 
 ---
 
+## Personalization
+
+Every user can hide parts and change their order. The arrangement is a `DashboardLayout` (`Parts`: one
+`DashboardPartPreference` with `PartId`, `Hidden` and `Order` per part), stored **per user and per dashboard key**
+(`RoleCenter.LayoutKey`, default `"/"`) in an `IDashboardLayoutStore`. It works like the saved list filters of
+[BlazorBase.CRUD](BlazorBase.CRUD.md): register a store and the feature appears; **no store registered = no
+personalization UI**, the role center behaves exactly as before.
+
+| Host | Registration | Storage |
+|---|---|---|
+| WASM / MAUI with a server | `services.AddBlazorBaseDashboardLayoutsClient(c => c.BaseAddress = new Uri(api, "api/dashboard-layouts/"), b => b.AddHttpMessageHandler<…>())` | Server, per user (`HttpDashboardLayoutStore`) |
+| Server | `services.AddBlazorBaseDashboardLayouts<TContext>()` + `app.MapBlazorBaseDashboardLayouts()` + `modelBuilder.ApplySavedDashboardLayoutConfiguration<TUser>()` in `OnModelCreating` (then add an EF migration) | EF Core table `SavedDashboardLayouts` (`EfDashboardLayoutRepository<TContext>`) |
+| No server storage | `services.AddBlazorBaseDashboardLayoutsLocalStorage()` or `AddBlazorBaseDashboardLayoutsInMemory()` | Browser `localStorage` (per browser profile, not per user) / process memory |
+
+`TContext` must be registered with `AddDbContextFactory<TContext>`. The server-only types live in the namespace
+`BlazorBase.Dashboard.Server` (`SavedDashboardLayout`, `IDashboardLayoutRepository`, `EfDashboardLayoutRepository`,
+`MapBlazorBaseDashboardLayouts`, `AddBlazorBaseDashboardLayouts`, `ApplySavedDashboardLayoutConfiguration`) and are never
+referenced by client code; the client only uses `IDashboardLayoutStore`, `HttpDashboardLayoutStore` and the DTOs.
+`ApplySavedDashboardLayoutConfiguration()` adds no foreign key; the generic overload `<TUser>` adds a cascading one to
+the host's user table (hosts without a user table call `IDashboardLayoutRepository.DeleteAllForUserAsync` when a user is removed).
+
+**Endpoints** (`MapBlazorBaseDashboardLayouts(route = "api/dashboard-layouts")`), all `RequireAuthorization()`; the user is
+always the authenticated principal, never a request value, so a caller can only read, replace or delete their own layout:
+
+| Verb | Route | Result |
+|---|---|---|
+| `GET` | `?dashboardKey=/` | `200` with the layout (empty `parts` when never arranged) |
+| `PUT` | `?dashboardKey=/` with `{"parts":[{"partId":"...","hidden":false,"order":0}]}` | `204`; `400` when the key or layout is invalid |
+| `DELETE` | `?dashboardKey=/` | `204` (also when there was nothing to delete) |
+
+Limits (`DashboardLayoutValidator`): key 1-256 characters, at most **64 parts**, part ids 1-100 characters and unique,
+`order` 0-10000. The table has a unique index on user + key.
+
+`IDashboardLayoutStore` has `GetAsync(key)` (a never-arranged dashboard returns an empty layout, not null),
+`SaveAsync(key, layout)` and `ResetAsync(key)`.
+
+**How a layout is applied** (`DashboardLayoutArranger`):
+
+1. Role rules always run first. A layout can only reorder and hide the parts the user may see anyway; ids of parts the
+   user may not (or no longer may) see, or that no longer exist, are ignored. A layout never grants visibility.
+2. The saved layout is read **before the first part is rendered**: a hidden part is neither rendered nor fetched.
+3. The saved order replaces `Priority` for this user. A part the layout does not know (added after the user saved) takes
+   its default place: right after the part that precedes it in the default order, or at the start when none does.
+4. If the store cannot be reached (error, or no answer within `DashboardSettings.LayoutLoadTimeout`, default 5 s) the
+   default layout is shown and the page keeps working; the failure is logged as a warning.
+
+**Edit mode.** With a store registered, the meta row shows a *Personalize* button. It switches the role center into edit
+mode: an edit bar (*Reset to default*, *Cancel*, *Done*) appears and every part the user may see gets a card header with
+**Move up**, **Move down** and **Hide / Show**; hidden parts stay in the list as dimmed cards with *Show*. The live parts
+are shown inert underneath, so nothing navigates away by accident. *Done* saves (the order is stored as `0..n-1`, all
+role-visible parts are written); *Cancel* discards; *Reset to default* asks for confirmation inline and deletes the
+stored layout. A failed save or reset keeps the edit mode open with an alert and the changes intact.
+
+Accessibility of the edit mode: all controls are real `<button>`s with accessible names that contain the part title
+("Move Cost trend up", "Hide Cost trend"), at least 44 × 44 px, keyboard operable; a move keeps the focus on the control
+that was used (and the end buttons use `aria-disabled` instead of `disabled`, so the focus is not lost); every action is
+announced in a polite live region ("Cost trend moved to position 2 of 5."); entering the edit mode moves the focus to
+the edit bar, leaving it returns the focus to *Personalize*. On phones the cards are full width with the same controls.
+
+```csharp
+services.AddBlazorBaseDashboardLayoutsClient(
+    client => client.BaseAddress = new Uri(apiBaseAddress, "api/dashboard-layouts/"),
+    builder => builder.AddHttpMessageHandler<CsrfHeaderHandler>());
+```
+
+For a host that wants no server storage: `services.AddBlazorBaseDashboardLayoutsLocalStorage();`.
+
+---
+
 ## Layout, phones and theming
 
 - **Container queries**, not only the viewport: a container of **1100 px and wider** uses the 12-column grid with the
@@ -423,7 +495,8 @@ the data of a part must still be protected on the server.
 
 Every string the package produces itself comes from `DashboardResources` (`.resx` + `.de.resx` in
 `BlazorBase.Dashboard/Localization`), resolved through `IStringLocalizer<DashboardResources>`: cue status words, greetings,
-"Updated {0}", *Refresh*, the retry card, "Show all", "Nothing to show.", the insight dot names. Your own texts (titles,
+"Updated {0}", *Refresh*, the retry card, "Show all", "Nothing to show.", the insight dot names, and the whole personalization
+edit mode (buttons, accessible names, announcements, error texts). Your own texts (titles,
 labels) are yours to localize.
 
 ---
@@ -436,7 +509,7 @@ Namespace `BlazorBase.Dashboard` (and `BlazorBase.Dashboard.Localization` for `D
 |---|---|---|
 | `DashboardServiceCollectionExtensions` | static | `AddBlazorBaseDashboard(configure?)`, `AddHeadlineInsightProvider<T>()` |
 | `DashboardOptions` | class | `AutoRefreshInterval`, `AddPart(...)`, `AddPart<T>(...)`, `AddHeadlineInsightProvider<T>()` |
-| `DashboardSettings` | class | Runtime `AutoRefreshInterval` |
+| `DashboardSettings` | class | Runtime `AutoRefreshInterval`, `LayoutLoadTimeout` |
 | `DashboardPartRegistration` | class | `Id`, `ComponentType`, `Priority`, `Columns`, `Title`, `IsVisibleAsync`, `For<T>(...)` |
 | `DashboardPartContext` | record | `User`, `Services`, `CancellationToken` |
 | `DashboardVisibility` | static | `ForAnyUser()`, `ForRoles(...)`, `ForUsers(...)` |
@@ -454,3 +527,10 @@ Namespace `BlazorBase.Dashboard` (and `BlazorBase.Dashboard.Localization` for `D
 | `ListPart<TItem>` | component | Top-N list |
 | `ChartPart`, `ChartPalette` | component / class | Chart card and theme colours |
 | `DashboardInterop`, `DashboardClock`, `DashboardJsCallback` | classes | JS bridge and user-local time (infrastructure) |
+| `DashboardLayout`, `DashboardPartPreference` | classes | The personal arrangement: `Parts` with `PartId`, `Hidden`, `Order`; `DashboardLayout.DefaultKey` |
+| `IDashboardLayoutStore` | interface | `GetAsync`, `SaveAsync`, `ResetAsync` per dashboard key |
+| `HttpDashboardLayoutStore`, `LocalStorageDashboardLayoutStore`, `InMemoryDashboardLayoutStore` | classes | The store implementations |
+| `DashboardLayoutClientExtensions` | static | `AddBlazorBaseDashboardLayoutsClient`, `...LocalStorage`, `...InMemory` |
+| `DashboardLayoutArranger`, `DashboardArrangedPart` | static / record | Applies a layout to the role-visible parts |
+| `DashboardLayoutValidator`, `DashboardLayoutValidationException`, `DashboardLayoutSerializer` | static / exception / static | Limits, validation and JSON of a layout |
+| `BlazorBase.Dashboard.Server`: `SavedDashboardLayout`, `SavedDashboardLayoutEntityConfiguration`, `IDashboardLayoutRepository`, `EfDashboardLayoutRepository<TContext>`, `DashboardLayoutEndpointMapper`, `DashboardLayoutServerExtensions` | server-only | EF table, repository, `MapBlazorBaseDashboardLayouts`, `AddBlazorBaseDashboardLayouts<TContext>` |

@@ -109,12 +109,16 @@ public partial class RoleCenter(
         LastUpdated = TimeProvider.GetUtcNow();
         Refresh.BeforeRefreshAllAsync = UpdateVisibleAsync;
         Refresh.RefreshAllCompleted += OnRefreshAllCompleted;
+        await LoadLayoutAsync();
         await UpdateVisibleAsync();
     }
 
     /// <inheritdoc />
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (PendingControlFocus is not null || PendingFocusId is not null)
+            await ApplyPendingFocusAsync();
+
         if (!firstRender)
             return;
 
@@ -210,6 +214,7 @@ public partial class RoleCenter(
             return;
 
         VisibleParts = visible;
+        RefreshArrangement();
         await InvokeAsync(StateHasChanged);
     }
 
