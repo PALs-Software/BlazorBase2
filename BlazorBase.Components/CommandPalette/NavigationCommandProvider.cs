@@ -11,7 +11,8 @@ namespace BlazorBase.Components.CommandPalette;
 /// without the layout. Groups are flattened: a page is listed under "Pages" with its breadcrumb as subtitle (for
 /// example "Administration › Users"), an entry with <see cref="NavigationItem.OnClick"/> under "Actions". Entries
 /// the current user may not see (<see cref="NavigationItem.RequiredRole"/> of the entry or any parent) are not
-/// returned, and groups without a target are skipped.
+/// returned, and groups without a target are skipped. The entries carry <see cref="CommandPaletteEntry.Order"/> in the
+/// depth-first position of the tree, so the palette lists them as the navigation shows them.
 /// </remarks>
 public sealed class NavigationCommandProvider(IReadOnlyList<NavigationItem> items, IStringLocalizer<BaseCommandPalette> localizer) : ICommandPaletteProvider
 {
@@ -43,7 +44,7 @@ public sealed class NavigationCommandProvider(IReadOnlyList<NavigationItem> item
 
             var entry = ToEntry(item, parents);
             if (entry is not null)
-                entries.Add(entry);
+                entries.Add(entry with { Order = entries.Count });
         }
     }
 

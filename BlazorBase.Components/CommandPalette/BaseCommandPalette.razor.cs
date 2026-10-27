@@ -134,7 +134,7 @@ public partial class BaseCommandPalette(
         if (IsShown && !IsActivated)
         {
             IsActivated = true;
-            await (await LoadModuleAsync()).InvokeVoidAsync("activate", Panel, Input);
+            await (await LoadModuleAsync()).InvokeVoidAsync("activate", Panel, Input, SelfReference);
         }
         else if (!IsShown && IsActivated)
         {
@@ -158,6 +158,10 @@ public partial class BaseCommandPalette(
         else
             await Service.OpenAsync();
     });
+
+    /// <summary>Called from the browser when Escape was pressed while the palette is shown, wherever the focus is.</summary>
+    [JSInvokable]
+    public Task OnEscape() => InvokeAsync(Service.CloseAsync);
 
     private void OnServiceChanged() => _ = InvokeAsync(HandleServiceChangedAsync);
 
@@ -296,7 +300,7 @@ public partial class BaseCommandPalette(
     private async Task OpenTargetAsync(CommandPaletteEntry entry)
     {
         var href = entry.Href!;
-        var isAbsolute = Uri.TryCreate(href, UriKind.Absolute, out var absolute);
+        var isAbsolute = TryParseAbsolute(href, out var absolute);
 
         if (isAbsolute && !AllowedSchemes.Contains(absolute!.Scheme, StringComparer.OrdinalIgnoreCase))
         {
@@ -467,7 +471,15 @@ public partial class BaseCommandPalette(
         ?? (entry.Execute is not null ? Localizer["HintAction"] : IsExternalAddress(entry) ? Localizer["HintLink"] : Localizer["HintPage"]);
 
     private static bool IsExternalAddress(CommandPaletteEntry entry) =>
-        entry.Href is not null && Uri.TryCreate(entry.Href, UriKind.Absolute, out _);
+        entry.Href is not null && TryParseAbsolute(entry.Href, out _);
+
+    /// <summary>A root relative address such as "/Blog" is an absolute file address on Unix based runtimes (WebAssembly); it is an address inside the application. Protocol relative addresses ("//host") are not.</summary>
+    private static bool TryParseAbsolute(string href, out Uri? absolute)
+    {
+        absolute = null;
+        var isInternal = href.StartsWith('/') && !href.StartsWith("//", StringComparison.Ordinal);
+        return !isInternal && Uri.TryCreate(href, UriKind.Absolute, out absolute);
+    }
 
     public async ValueTask DisposeAsync()
     {

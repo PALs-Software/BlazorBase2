@@ -313,6 +313,74 @@ public sealed class CommandPaletteSearcherTests
     }
 
     [Fact]
+    public async Task EmptyQuery_ListsEntriesWithAnOrderFirst_WhateverTheProviderOrder()
+    {
+        var navigation = Provider(Page("a", "Dashboard") with { Order = 0 }, Page("b", "Blog") with { Order = 1 });
+        var extra = Provider(Page("x", "Notification settings"));
+
+        var extraFirst = await SearchAsync(CreateSearcher(), string.Empty, [extra, navigation]);
+        var navigationFirst = await SearchAsync(CreateSearcher(), string.Empty, [navigation, extra]);
+
+        Assert.Equal(["Dashboard", "Blog", "Notification settings"], Titles(extraFirst));
+        Assert.Equal(["Dashboard", "Blog", "Notification settings"], Titles(navigationFirst));
+    }
+
+    [Fact]
+    public async Task EmptyQuery_SortsByOrderAscending_KeepsDeliveryOrderForTiesAndMissingOrders()
+    {
+        var provider = Provider(
+            Page("n1", "NoOrderOne"),
+            Page("c", "Third") with { Order = 5 },
+            Page("a", "First") with { Order = 1 },
+            Page("n2", "NoOrderTwo"),
+            Page("b1", "SecondA") with { Order = 3 },
+            Page("b2", "SecondB") with { Order = 3 });
+
+        var result = await SearchAsync(CreateSearcher(options => options.MaxSuggestionsPerGroup = 10), string.Empty, [provider]);
+
+        Assert.Equal(["First", "SecondA", "SecondB", "Third", "NoOrderOne", "NoOrderTwo"], Titles(result));
+    }
+
+    [Fact]
+    public async Task EmptyQuery_AppliesTheGroupCapAfterOrdering()
+    {
+        var provider = Provider(
+            Page("x1", "Extra"),
+            Page("p3", "Three") with { Order = 3 },
+            Page("p0", "Zero") with { Order = 0 },
+            Page("p2", "Two") with { Order = 2 },
+            Page("p1", "One") with { Order = 1 });
+
+        var result = await SearchAsync(CreateSearcher(options => options.MaxSuggestionsPerGroup = 3), string.Empty, [provider]);
+
+        Assert.Equal(["Zero", "One", "Two"], Titles(result));
+    }
+
+    [Fact]
+    public async Task EqualScores_ListTheLowerOrderBeforeTheShorterTitle()
+    {
+        var provider = Provider(
+            Page("a", "Budget changes") with { Order = 0 },
+            Page("b", "Budgets") with { Order = 2 },
+            Page("c", "Budget boosts") with { Order = 1 },
+            Page("d", "Budget none"));
+
+        var result = await SearchAsync(CreateSearcher(), "bud", [provider]);
+
+        Assert.Equal(["Budget changes", "Budget boosts", "Budgets", "Budget none"], Titles(result));
+    }
+
+    [Fact]
+    public async Task Matching_StillPrefersTheBetterScoreOverTheOrder()
+    {
+        var provider = Provider(Page("a", "Monthly Budgets") with { Order = 0 }, Page("b", "Budgets") with { Order = 1 });
+
+        var result = await SearchAsync(CreateSearcher(), "bud", [provider]);
+
+        Assert.Equal(["Budgets", "Monthly Budgets"], Titles(result));
+    }
+
+    [Fact]
     public async Task NoMatchAtAll_ReturnsNoGroups()
     {
         var provider = Provider(Page("a", "Budgets"));

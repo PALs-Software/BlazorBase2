@@ -41,10 +41,11 @@ export function unregisterShortcut() {
 
 /**
  * Called when the palette is shown: remembers the element that had the focus, moves the focus to the input, keeps
- * the arrow, Enter and (for an empty input) Home and End keys from acting on the text field and keeps Tab inside
- * the palette.
+ * the arrow, Enter and (for an empty input) Home and End keys from acting on the text field, keeps Tab inside the
+ * palette, closes it on Escape wherever the focus is (through the .NET reference) and keeps a mouse press on a
+ * non-interactive spot of the panel from taking the focus away from the input.
  */
-export function activate(panel, input) {
+export function activate(panel, input, reference) {
     if (session === null) {
         const previous = document.activeElement;
         const onKeyDown = event => {
@@ -64,8 +65,29 @@ export function activate(panel, input) {
             }
         };
 
+        const onDocumentKeyDown = event => {
+            if (event.key !== 'Escape' || event.isComposing || !reference) {
+                return;
+            }
+
+            reference.invokeMethodAsync('OnEscape').catch(() => { });
+        };
+
+        const onMouseDown = event => {
+            if (keepsFocusOnPress(event)) {
+                return;
+            }
+
+            event.preventDefault();
+            if (document.activeElement !== input) {
+                input.focus({ preventScroll: true });
+            }
+        };
+
         panel.addEventListener('keydown', onKeyDown);
-        session = { previous, panel, onKeyDown };
+        panel.addEventListener('mousedown', onMouseDown);
+        document.addEventListener('keydown', onDocumentKeyDown, true);
+        session = { previous, panel, onKeyDown, onMouseDown, onDocumentKeyDown };
     }
 
     input.focus({ preventScroll: true });
@@ -79,9 +101,11 @@ export function deactivate() {
         return;
     }
 
-    const { previous, panel, onKeyDown } = session;
+    const { previous, panel, onKeyDown, onMouseDown, onDocumentKeyDown } = session;
     session = null;
     panel.removeEventListener('keydown', onKeyDown);
+    panel.removeEventListener('mousedown', onMouseDown);
+    document.removeEventListener('keydown', onDocumentKeyDown, true);
 
     if (previous && previous.isConnected && typeof previous.focus === 'function') {
         previous.focus({ preventScroll: true });
@@ -124,6 +148,21 @@ export function writeRecent(key, ids) {
 /** Opens an address in a new tab without giving the new page access to this one. */
 export function openExternal(url) {
     window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function keepsFocusOnPress(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+        return true;
+    }
+
+    if (target.closest('input, textarea, select, button, a[href]')) {
+        return true;
+    }
+
+    const onVerticalScrollbar = target.scrollHeight > target.clientHeight && event.offsetX >= target.clientWidth;
+    const onHorizontalScrollbar = target.scrollWidth > target.clientWidth && event.offsetY >= target.clientHeight;
+    return onVerticalScrollbar || onHorizontalScrollbar;
 }
 
 function isEditable(event) {

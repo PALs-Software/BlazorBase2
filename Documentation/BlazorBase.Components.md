@@ -355,6 +355,7 @@ does not answer within `ProviderTimeout` (5 s) is logged and skipped; the others
 | `Id` | Required, unique across all providers (the first entry wins); it is the key of the recent list. |
 | `Title`, `Subtitle` | The row texts, already localized. The subtitle is searched with a lower priority. |
 | `Group`, `GroupOrder` | The already localized group heading and its position (lower first, then by name). |
+| `Order` | Optional `int?`, position within the group: lower values first; entries without a value follow in the order the providers delivered them, ties keep the delivery order (stable sort). `NavigationCommandProvider` numbers its entries in the depth-first order of the tree, `AppLinkCommandProvider` in the order of groups and links. |
 | `Href` / `Execute` | **Exactly one.** `Href`: a relative address or an absolute one below the application is navigated to; any other absolute `http`, `https`, `mailto` or `tel` address opens in a new tab (`noopener noreferrer`); other schemes (such as `javascript:`) are never opened. `Execute`: awaited; an exception is caught, logged and shown as a toast. An entry with neither or both is dropped and logged. |
 | `OpenInNewTab` | Opens `Href` in a new tab even when it points into the application. |
 | `Icon` / `IconSrc` | A Fluent icon or an image for the tile; a default glyph by kind otherwise. |
@@ -374,9 +375,11 @@ exactly like the side navigation and the app switcher do (a role on a parent hid
 the query must match. A word scores by its best match, strongest first: title starts with, keyword starts with, word
 in the title starts with, word in a keyword starts with, title contains, keyword contains, subtitle starts with,
 a word of the subtitle starts with, subtitle contains; the entry takes the average over its words, plus a bonus
-for a title equal to the query. Equal scores list the shorter title first, then alphabetically. Groups keep
+for a title equal to the query. Equal scores list the lower `Order` first (entries without one last), then the
+shorter title, then alphabetically. Groups keep
 their stable order (`GroupOrder`, then name); while typing at most 6 results per group and 30 in total are shown,
-while the query is empty 5 suggestions per group. Recently used entries (the last 5 ids, stored in the browser's
+while the query is empty 5 suggestions per group, taken after sorting the group by `Order` (so the first five
+pages of the navigation, extra entries of other providers after them). Recently used entries (the last 5 ids, stored in the browser's
 `localStorage` per user name) are listed first under "Recent" when the query is empty — only while a provider still
 returns them for the empty query — and ranked higher while typing. The providers are asked 120 ms after the last
 keystroke, a stale search is cancelled, and a loading indicator appears only when a search takes longer than 300 ms.
@@ -401,15 +404,17 @@ or `CloseAsync()`; `IsOpen`, `InitialQuery` and the `Changed` event expose the s
 | Up / Down | Moves the selection, wrapping around. |
 | Home / End | Jumps to the first / last result while the field is empty, otherwise with Ctrl (so the caret still works in the text). |
 | Enter | Runs the selected entry; the palette closes first. |
-| Esc | Closes the palette; the focus returns to the element that had it before. |
+| Esc | Closes the palette wherever the focus is (also after a mouse click on a title or an empty spot); the focus returns to the element that had it before. |
 | Tab | Stays inside the palette. |
 
 **Markup and accessibility.** The palette is plain elements (no `FluentDialog`), so it is bUnit testable: a
 `role="dialog"` with `aria-modal`, a `role="combobox"` input with `aria-controls` and `aria-activedescendant`
 pointing at the selected `role="option"` of a `role="listbox"`, group headings as `role="group"` labels, matched text
 in `<mark>` (rendered as text, never as HTML) and a polite live region that announces the number of results. A small
-WASM-safe module, `_content/BlazorBase.Components/js/commandPalette.js`, only provides the global shortcut, the Tab
-trap, focus restore, scroll into view, the recent list in `localStorage` and the new tab for external addresses. On
+WASM-safe module, `_content/BlazorBase.Components/js/commandPalette.js`, only provides the global shortcut, the Escape
+key on the whole page while the palette is shown, the Tab trap, keeping the focus in the input when a non-interactive
+spot of the panel is pressed (the panel itself has `tabindex="-1"` as a safety net), focus restore, scroll into view,
+the recent list in `localStorage` and the new tab for external addresses. On
 a phone (768 px and below) the palette fills the screen with 56 px rows and a close button instead of the key hint.
 Its strings are localized in English and German (`BaseCommandPalette.razor.resx`, `BaseLayout.razor.resx`).
 

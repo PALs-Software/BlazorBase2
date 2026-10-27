@@ -255,6 +255,51 @@ public sealed class BaseCommandPaletteTests : ComponentsBunitTestContextBase
     }
 
     [Fact]
+    public async Task OnEscape_FromTheBrowser_ClosesThePaletteWhereverTheFocusIs()
+    {
+        var cut = await OpenAsync(null, Provider(Page("a", "Alpha")));
+
+        await cut.InvokeAsync(() => cut.Instance.OnEscape());
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".base-command-palette")));
+        Assert.False(PaletteService.IsOpen);
+        Module.VerifyInvoke("deactivate");
+    }
+
+    [Fact]
+    public async Task OnEscape_WhenAlreadyClosed_DoesNothing()
+    {
+        var cut = await OpenAsync(null, Provider(Page("a", "Alpha")));
+        await cut.InvokeAsync(() => cut.Instance.OnEscape());
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".base-command-palette")));
+
+        await cut.InvokeAsync(() => cut.Instance.OnEscape());
+
+        Assert.Empty(cut.FindAll(".base-command-palette"));
+        Assert.False(PaletteService.IsOpen);
+    }
+
+    [Fact]
+    public async Task Open_PassesTheComponentReferenceToTheModuleForTheEscapeCallback()
+    {
+        var cut = await OpenAsync(null, Provider(Page("a", "Alpha")));
+
+        var activation = Module.Invocations["activate"].Single();
+
+        Assert.Equal(3, activation.Arguments.Count);
+        Assert.IsType<Microsoft.JSInterop.DotNetObjectReference<BaseCommandPalette>>(activation.Arguments[2]);
+        Assert.NotNull(cut.Find(".base-command-palette"));
+    }
+
+    [Fact]
+    public async Task ThePanel_CanTakeTheFocusProgrammaticallyButIsNotATabStop()
+    {
+        var cut = await OpenAsync(null, Provider(Page("a", "Alpha")));
+
+        Assert.Equal("-1", cut.Find(".base-command-palette").GetAttribute("tabindex"));
+    }
+
+    [Fact]
     public async Task ClickingTheBackdrop_Closes()
     {
         var cut = await OpenAsync(null, Provider(Page("a", "Alpha")));

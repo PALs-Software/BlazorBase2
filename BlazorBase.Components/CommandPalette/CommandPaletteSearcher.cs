@@ -159,6 +159,7 @@ internal sealed class CommandPaletteSearcher(CommandPaletteOptions options, ILog
 
             var ranked = group.Entries
                 .OrderByDescending(entry => scores[entry])
+                .ThenBy(entry => entry.Order ?? int.MaxValue)
                 .ThenBy(entry => entry.Title.Length)
                 .ThenBy(entry => entry.Title, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(entry => entry.Id, StringComparer.Ordinal)
@@ -177,5 +178,5 @@ internal sealed class CommandPaletteSearcher(CommandPaletteOptions options, ILog
             .GroupBy(entry => entry.Group, StringComparer.CurrentCultureIgnoreCase)
             .OrderBy(group => group.Min(entry => entry.GroupOrder))
             .ThenBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase)
-            .Select(group => new CommandPaletteResultGroup(group.Key, group.ToList()));
+            .Select(group => new CommandPaletteResultGroup(group.Key, [.. group.OrderBy(entry => entry.Order ?? int.MaxValue)]));
 }

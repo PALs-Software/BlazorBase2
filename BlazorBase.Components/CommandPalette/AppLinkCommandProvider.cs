@@ -40,6 +40,7 @@ public sealed class AppLinkCommandProvider(IReadOnlyList<AppLinkGroup> groups, I
                     RequiredRole = link.RequiredRole,
                     OpenInNewTab = link.OpenInNewTab,
                     Hint = hint,
+                    Order = entries.Count,
                 });
             }
         }

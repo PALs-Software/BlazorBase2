@@ -27,6 +27,14 @@ public sealed record CommandPaletteEntry
     public int GroupOrder { get; init; }
 
     /// <summary>
+    /// Position of the entry within its group; lower values come first. Entries without a value follow the ones
+    /// with a value, in the order the providers delivered them, and equal values keep the delivery order. With an
+    /// empty query it decides the order of the suggestions; while typing it breaks ties between entries with the
+    /// same match score.
+    /// </summary>
+    public int? Order { get; init; }
+
+    /// <summary>
     /// The address to open. A relative address (or an absolute one below the application's base address) is
     /// navigated to inside the application; any other absolute http, https, mailto or tel address opens in a new tab.
     /// </summary>

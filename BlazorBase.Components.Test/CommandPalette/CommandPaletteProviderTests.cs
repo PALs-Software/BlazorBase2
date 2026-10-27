@@ -72,6 +72,23 @@ public sealed class CommandPaletteProviderTests
     }
 
     [Fact]
+    public async Task Navigation_NumbersTheEntriesInTheOrderOfTheTree()
+    {
+        var entries = await NavigationEntriesAsync(UserWithRoles("Admin", "Auditor"));
+
+        Assert.Equal([0, 1, 2, 3, 4, 5], entries.Select(entry => entry.Order));
+    }
+
+    [Fact]
+    public async Task Navigation_Order_IgnoresEntriesTheUserMayNotSee()
+    {
+        var entries = await NavigationEntriesAsync(UserWithRoles("Auditor"));
+
+        Assert.Equal(["Home", "Budgets", "Sign out"], entries.Select(entry => entry.Title));
+        Assert.Equal([0, 1, 2], entries.Select(entry => entry.Order));
+    }
+
+    [Fact]
     public async Task Navigation_TurnsActionsIntoExecuteEntriesInTheirOwnGroup()
     {
         var entries = await NavigationEntriesAsync(UserWithRoles("Admin", "Auditor"));
@@ -145,6 +162,20 @@ public sealed class CommandPaletteProviderTests
         Assert.Equal(["Home of the cosmos"], first.Keywords);
         Assert.True(first.OpenInNewTab);
         Assert.False(entries[1].OpenInNewTab);
+    }
+
+    [Fact]
+    public async Task AppLinks_AreNumberedAcrossGroupsInTheirOrder()
+    {
+        IReadOnlyList<AppLinkGroup> groups =
+        [
+            new() { Key = "one", Label = "One", Links = [new() { Key = "a", Label = "A", Href = "https://a.example/" }, new() { Key = "b", Label = "B", Href = "https://b.example/" }] },
+            new() { Key = "two", Label = "Two", Links = [new() { Key = "c", Label = "C", Href = "https://c.example/" }] },
+        ];
+
+        var entries = await new AppLinkCommandProvider(groups, new KeyLocalizer()).GetEntriesAsync(Request(UserWithRoles()), CancellationToken.None);
+
+        Assert.Equal([0, 1, 2], entries.Select(entry => entry.Order));
     }
 
     [Fact]
