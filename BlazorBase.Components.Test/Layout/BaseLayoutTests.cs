@@ -1,4 +1,5 @@
 using BlazorBase.Components.Layout;
+using BlazorBase.Components.Layout.AppSwitcher;
 using BlazorBase.Components.Layout.Navigation;
 using BlazorBase.Components.Services;
 using BlazorBase.Components.Test.Infrastructure;
@@ -290,6 +291,77 @@ public sealed class BaseLayoutTests : ComponentsBunitTestContextBase
         Assert.Contains("brand-start", atStart.Find("header").ClassList);
         Assert.Empty(atStart.FindAll(".base-header-center"));
         Assert.Single(atStart.FindAll(".base-header-start .base-header-brand"));
+    }
+
+    [Fact]
+    public void AppSwitcher_RendersRightAfterTheNavigationButton_AndReplacesTheBrandAndTheTitle()
+    {
+        var items = new List<NavigationItem> { new() { Href = "/projects", Label = "Projects" } };
+
+        var cut = Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.Brand, "<img alt=\"logo\" />")
+            .Add(p => p.AppSwitcher, "<span id=\"switcher\">Switcher</span>")
+            .Add(p => p.Navigation, builder =>
+            {
+                builder.OpenComponent<BaseSideNavigation>(0);
+                builder.AddAttribute(1, nameof(BaseSideNavigation.Items), (IReadOnlyList<NavigationItem>)items);
+                builder.CloseComponent();
+            }));
+
+        var start = cut.Find(".base-header-start");
+        Assert.Equal("fluent-button", start.Children[0].LocalName);
+        Assert.Contains("base-nav-toggle", start.Children[0].ClassList);
+        Assert.Equal("switcher", start.Children[1].Id);
+        Assert.Empty(cut.FindAll(".base-header-brand"));
+        Assert.Empty(cut.FindAll(".base-header-title"));
+        Assert.Empty(cut.FindAll(".base-header-center"));
+        Assert.Contains("brand-start", cut.Find("header").ClassList);
+        Assert.DoesNotContain("brand-centered", cut.Find("header").ClassList);
+    }
+
+    [Fact]
+    public void AppSwitcher_LeftAlignsTheHeaderEvenWithACenteredBrandPosition()
+    {
+        var cut = Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.BrandPosition, BrandPosition.Center)
+            .Add(p => p.AppSwitcher, "<span id=\"switcher\">Switcher</span>"));
+
+        Assert.Single(cut.FindAll(".base-header-start #switcher"));
+        Assert.Empty(cut.FindAll(".base-header-center"));
+    }
+
+    [Fact]
+    public void WithoutAnAppSwitcher_TheBrandStaysWhereItWas()
+    {
+        var cut = Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.Brand, "<img alt=\"logo\" />"));
+
+        Assert.Single(cut.FindAll(".base-header-center .base-header-brand"));
+        Assert.Empty(cut.FindAll(".base-app-switcher"));
+    }
+
+    [Fact]
+    public void AppSwitcherComponent_RendersItsChipInTheHeader()
+    {
+        var groups = new List<AppLinkGroup>
+        {
+            new() { Key = "g", Label = "G", Links = [new() { Key = "dev", Label = "dev", Href = "https://dev.example/" }] },
+        };
+
+        var cut = Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.AppSwitcher, builder =>
+            {
+                builder.OpenComponent<BaseAppSwitcher>(0);
+                builder.AddAttribute(1, nameof(BaseAppSwitcher.Groups), (IReadOnlyList<AppLinkGroup>)groups);
+                builder.AddAttribute(2, nameof(BaseAppSwitcher.CurrentKey), "dev");
+                builder.CloseComponent();
+            }));
+
+        Assert.Equal("dev", cut.Find(".base-header-start .base-app-switcher-chip-label").TextContent);
     }
 
     [Fact]

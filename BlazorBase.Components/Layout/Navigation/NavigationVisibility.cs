@@ -75,15 +75,20 @@ internal static class NavigationVisibility
         return result;
     }
 
-    private static bool IsAllowed(NavigationItem item, ClaimsPrincipal? user)
+    private static bool IsAllowed(NavigationItem item, ClaimsPrincipal? user) => IsRoleAllowed(item.RequiredRole, user);
+
+    /// <summary>
+    /// True when <paramref name="requiredRole"/> is null or the user is in at least one of its comma separated roles.
+    /// </summary>
+    internal static bool IsRoleAllowed(string? requiredRole, ClaimsPrincipal? user)
     {
-        if (item.RequiredRole is null)
+        if (requiredRole is null)
             return true;
 
         if (user is null)
             return false;
 
-        foreach (var role in item.RequiredRole.Split(','))
+        foreach (var role in requiredRole.Split(','))
         {
             var trimmed = role.Trim();
             if (trimmed.Length > 0 && user.IsInRole(trimmed))

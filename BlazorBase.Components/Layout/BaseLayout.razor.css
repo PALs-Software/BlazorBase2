@@ -125,6 +125,36 @@
     outline-offset: -2px;
 }
 
+.base-header ::deep fluent-button.stealth {
+    --neutral-fill-stealth-rest: transparent;
+    --neutral-fill-stealth-hover: var(--color-bg-hover);
+    --neutral-fill-stealth-active: var(--color-bg-subtle);
+    --neutral-fill-stealth-focus: transparent;
+    border-radius: var(--radius-md, 10px);
+}
+
+.base-header ::deep fluent-button.stealth::part(control) {
+    border-color: transparent;
+    border-radius: var(--radius-md, 10px);
+    color: var(--color-text-secondary);
+}
+
+.base-header ::deep fluent-button.stealth::part(control):hover {
+    color: var(--color-text-primary);
+}
+
+.base-header ::deep fluent-button.stealth svg {
+    fill: currentColor !important;
+}
+
+.base-header ::deep fluent-button.stealth[aria-expanded="true"]:not(.base-nav-toggle) {
+    --neutral-fill-stealth-rest: var(--color-bg-selected);
+}
+
+.base-header ::deep fluent-button.stealth[aria-expanded="true"]:not(.base-nav-toggle)::part(control) {
+    color: var(--color-text-primary);
+}
+
 .main-content {
     position: relative;
     display: flex;

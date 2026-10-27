@@ -179,6 +179,7 @@ component owns the appearance of the tabs and the sheet, not where the bar lives
 |---|---|
 | `AppTitle` | Plain text at the start of the header. |
 | `Brand` | A `RenderFragment` that replaces `AppTitle`, for example a logo image. The brand is also what stays visible on a phone, where `AppTitle` is hidden. Give an image an `alt` text. |
+| `AppSwitcher` | A `RenderFragment`, normally a `BaseAppSwitcher`, rendered right after the navigation button. It replaces `Brand` and `AppTitle` (neither is rendered) and left-aligns the header; without it the header is unchanged. See [App switcher](#app-switcher). |
 | `Navigation` | The navigation content, usually `BaseSideNavigation`. Without it the header shows no navigation button. |
 | `HeaderContent` | Controls on the right of the header, in front of the built-in buttons (for example a notification bell). |
 | `HeaderEndContent` | Controls rendered after the built-in buttons, at the very end of the header (for example sign out). |
@@ -202,6 +203,82 @@ guess, otherwise the page scrolls although its content fits.
 **Header order.** From left to right the end of the header shows `HeaderContent`, the help button
 (`ShowHelp`), the theme toggle (`ShowThemeToggle`), the settings button (`ShowSettings`) and finally
 `HeaderEndContent`.
+
+**Plain header icons.** The icon buttons in the header — the navigation button, the notification bell, help,
+theme toggle, settings and whatever a host puts into `HeaderContent` / `HeaderEndContent` as a Fluent stealth
+button — are drawn plain: transparent and borderless at rest, in the muted secondary text color, 40 px (44 px on
+touch screens) with a rounded hit area. They show `--color-bg-hover` on hover, `--color-bg-subtle` while pressed,
+`--color-bg-selected` while their popup is open (`aria-expanded="true"`) and a 2 px focus ring. The layout does
+this centrally (even for icons that use an accent color), so hosts and other packages need no styling of their
+own. The unread badge of the notification bell is not affected.
+
+### App switcher
+
+`BaseAppSwitcher` (namespace `BlazorBase.Components.Layout.AppSwitcher`) is a website switcher for the header: a
+chip with the icon and name of the current app and a chevron, which opens a popover with grouped links to the
+other apps and websites. Pass it to `BaseLayout.AppSwitcher`; the chip then sits next to the navigation button
+and replaces the brand and the title.
+
+```razor
+<BaseLayout AppTitle="Notes" ShowHelp="true">
+    <AppSwitcher>
+        <BaseAppSwitcher Groups="Groups" CurrentKey="notes" />
+    </AppSwitcher>
+    <ChildContent>@Body</ChildContent>
+</BaseLayout>
+```
+
+```csharp
+private static readonly IReadOnlyList<AppLinkGroup> Groups =
+[
+    new()
+    {
+        Key = "apps", Label = "My apps",
+        Links =
+        [
+            new() { Key = "notes", Label = "Notes", Href = "https://notes.example/", IconSrc = "images/apps/notes.svg" },
+            new() { Key = "tasks", Label = "Tasks", Href = "https://tasks.example/", IconSrc = "images/apps/tasks.svg" },
+        ],
+    },
+    new()
+    {
+        Key = "internal", Label = "Internal", RequiredRole = "Employee",
+        Links = [ new() { Key = "wiki", Label = "Wiki", Href = "https://wiki.example/", OpenInNewTab = false } ],
+    },
+];
+```
+
+| Type / parameter | Purpose |
+|---|---|
+| `AppLink` | One entry: `Key`, `Label`, `Href` (required); `IconSrc`, `Description` (second line), `RequiredRole`, `OpenInNewTab` (default `true`). |
+| `AppLinkGroup` | A titled group: `Key`, `Label` (required), `Links`, `RequiredRole`. |
+| `Groups` | The groups to offer. |
+| `CurrentKey` | The `AppLink.Key` of the app the user is in. That link is marked (accent ring, small check, `aria-current="true"`), and its label and icon fill the chip. |
+| `CurrentLabel`, `CurrentIconSrc` | Override the chip's name and icon; useful when the current app is not in the list. |
+| `AriaLabel` | Accessible name of the chip; defaults to a localized "<current>, switch website". |
+
+**Role filtering.** `RequiredRole` on a link or group is a comma separated list of which the user needs at least
+one, evaluated against the cascading `Task<AuthenticationState>` exactly like `NavigationItem.RequiredRole`. Hidden
+links are never rendered, and a group without visible links disappears. If nothing is visible the chip is shown as
+a plain, non-interactive label (or not at all without a current label).
+
+**Behavior.** The popover is a plain `role="dialog"` region of real `<a>` elements (no `FluentMenu`, so it works
+without a menu provider and is bUnit-testable); it is only in the DOM while open. Links open in a new tab with
+`rel="noopener noreferrer"` unless `OpenInNewTab` is `false`. The popover closes on Escape, on a pointer press or
+focus outside, on the chip and after a link was chosen; focus then returns to the chip (not after a click
+elsewhere). On open, focus moves to the current link; arrow keys, Home and End move between the links. The
+outside/Escape/arrow handling is a small WASM-safe module, `_content/BlazorBase.Components/js/appSwitcher.js`,
+attached only while the popover is open and detached on close and dispose.
+
+| Viewport width | Chip | Popover |
+|---|---|---|
+| above 768 px | Icon, name, chevron (rotates while open). | Anchored below the chip, up to 600 px wide, two columns of balanced height, scrolls when the viewport is short. |
+| 768 px and below | Icon only. | As above; from 720 px down it spans the viewport width. |
+| 640 px and below | Icon only. | Bottom sheet: slides up with a dimmed backdrop and a grab handle, up to 86 % of the viewport high, links as larger tiles in two columns (one below 360 px). |
+
+All strings (`SwitchWebsite`, `SwitchWebsiteFrom`, `PopoverLabel`) are localized in English and German.
+
+### Header helper classes and services
 
 **Helper classes.** Two classes let a host move controls that do not fit a phone header into the
 drawer without writing its own media queries:

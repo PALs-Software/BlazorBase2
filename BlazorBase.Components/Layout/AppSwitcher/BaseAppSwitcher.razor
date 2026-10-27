@@ -1,0 +1,109 @@
+@namespace BlazorBase.Components.Layout.AppSwitcher
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+
+@if (HasVisibleLinks)
+{
+    <div class="base-app-switcher @(IsOpen ? "open" : null)" @ref="Root" @onkeydown="OnKeyDownAsync">
+        <button type="button"
+                class="base-app-switcher-chip"
+                aria-haspopup="dialog"
+                aria-expanded="@(IsOpen ? "true" : "false")"
+                aria-controls="@(IsOpen ? PopoverId : null)"
+                aria-label="@ChipLabel"
+                title="@ChipLabel"
+                @ref="Chip"
+                @onclick="ToggleAsync">
+            @ChipIcon
+            @if (!String.IsNullOrEmpty(ResolvedLabel))
+            {
+                <span class="base-app-switcher-chip-label">@ResolvedLabel</span>
+            }
+            <FluentIcon Value="@(new Size16.ChevronDown())" Color="Color.Custom" CustomColor="currentColor" Class="base-app-switcher-chevron" />
+        </button>
+        @if (IsOpen)
+        {
+            <div class="base-app-switcher-backdrop" @onclick="@(() => CloseAsync(true))"></div>
+            <div id="@PopoverId"
+                 class="base-app-switcher-popover"
+                 role="dialog"
+                 tabindex="-1"
+                 aria-label="@Localizer["PopoverLabel"]"
+                 @ref="Popover">
+                <div class="base-app-switcher-grab" aria-hidden="true"><span></span></div>
+                <div class="base-app-switcher-columns">
+                    @foreach (var column in Columns)
+                    {
+                        <div class="base-app-switcher-column">
+                            @foreach (var group in column)
+                            {
+                                <section class="base-app-switcher-group" @key="group.Key">
+                                    <p class="base-app-switcher-group-title" id="@GroupTitleId(group)">@group.Label</p>
+                                    <ul class="base-app-switcher-list" aria-labelledby="@GroupTitleId(group)">
+                                        @foreach (var link in group.Links)
+                                        {
+                                            var isCurrent = IsCurrent(link);
+                                            <li @key="link.Key">
+                                                <a class="base-app-switcher-item @(isCurrent ? "current" : null)"
+                                                   href="@link.Href"
+                                                   target="@(link.OpenInNewTab ? "_blank" : null)"
+                                                   rel="@(link.OpenInNewTab ? "noopener noreferrer" : null)"
+                                                   aria-current="@(isCurrent ? "true" : null)"
+                                                   @onclick="@(() => CloseAsync(true))">
+                                                    <span class="base-app-switcher-tile">
+                                                        @if (!String.IsNullOrEmpty(link.IconSrc))
+                                                        {
+                                                            <img src="@link.IconSrc" alt="" loading="lazy" />
+                                                        }
+                                                        else
+                                                        {
+                                                            <FluentIcon Value="@(new Size20.Apps())" Color="Color.Custom" CustomColor="currentColor" />
+                                                        }
+                                                        @if (isCurrent)
+                                                        {
+                                                            <span class="base-app-switcher-check" aria-hidden="true">
+                                                                <FluentIcon Value="@(new Size12.Checkmark())" Color="Color.Custom" CustomColor="currentColor" />
+                                                            </span>
+                                                        }
+                                                    </span>
+                                                    <span class="base-app-switcher-text">
+                                                        <span class="base-app-switcher-name">@link.Label</span>
+                                                        @if (!String.IsNullOrEmpty(link.Description))
+                                                        {
+                                                            <span class="base-app-switcher-desc">@link.Description</span>
+                                                        }
+                                                    </span>
+                                                </a>
+                                            </li>
+                                        }
+                                    </ul>
+                                </section>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+else if (!String.IsNullOrEmpty(ResolvedLabel) || !String.IsNullOrEmpty(ResolvedIconSrc))
+{
+    <div class="base-app-switcher">
+        <span class="base-app-switcher-chip static">
+            @ChipIcon
+            <span class="base-app-switcher-chip-label">@ResolvedLabel</span>
+        </span>
+    </div>
+}
+
+@code {
+    private RenderFragment ChipIcon => @<text>
+        @if (!String.IsNullOrEmpty(ResolvedIconSrc))
+        {
+            <img class="base-app-switcher-chip-icon" src="@ResolvedIconSrc" alt="" />
+        }
+        else
+        {
+            <FluentIcon Value="@(new Size20.Apps())" Color="Color.Custom" CustomColor="currentColor" Class="base-app-switcher-chip-glyph" />
+        }
+    </text>;
+}

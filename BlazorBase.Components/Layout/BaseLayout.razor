@@ -35,7 +35,11 @@
                     <FluentIcon Value="@(new Size20.Navigation())" Color="Color.Neutral" />
                 </FluentButton>
             }
-            @if (!IsBrandCentered)
+            @if (HasAppSwitcher)
+            {
+                @AppSwitcher
+            }
+            else if (!IsBrandCentered)
             {
                 @brand
             }

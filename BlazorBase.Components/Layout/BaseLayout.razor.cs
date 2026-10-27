@@ -32,6 +32,8 @@ namespace BlazorBase.Components.Layout;
 /// row of the shell, so the content never runs behind it, and it steps aside while the on-screen keyboard is open.
 /// With <see cref="ShowHelp"/> a help button left of the settings button opens the <see cref="BaseHelpPanel"/>;
 /// opening the help closes the settings panel and the navigation drawer, and the other way round.
+/// An <see cref="AppSwitcher"/> chip next to the navigation button replaces the brand and the title and
+/// left-aligns the header.
 /// </remarks>
 public partial class BaseLayout(
     IThemeService themeService,
@@ -65,6 +67,14 @@ public partial class BaseLayout(
     /// </summary>
     [Parameter]
     public BrandPosition BrandPosition { get; set; } = BrandPosition.Center;
+
+    /// <summary>
+    /// The website switcher, usually a <see cref="BlazorBase.Components.Layout.AppSwitcher.BaseAppSwitcher"/>. It is rendered right after the
+    /// navigation button at the start of the header and replaces the brand and the title, which are then not
+    /// rendered; the header content is left aligned. Without it the header behaves as before.
+    /// </summary>
+    [Parameter]
+    public RenderFragment? AppSwitcher { get; set; }
 
     [Parameter]
     public RenderFragment? Navigation { get; set; }
@@ -148,7 +158,9 @@ public partial class BaseLayout(
     private const string SettingsPanelId = "base-settings";
     private const string HelpPanelId = "base-help";
 
-    private bool IsBrandCentered => BrandPosition == BrandPosition.Center;
+    private bool HasAppSwitcher => AppSwitcher is not null;
+
+    private bool IsBrandCentered => !HasAppSwitcher && BrandPosition == BrandPosition.Center;
 
     private bool IsHelpModal => ShowHelp && IsHelpOpen && !IsWide;
 
