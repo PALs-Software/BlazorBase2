@@ -51,7 +51,7 @@ internal static class NavigationVisibility
         return result;
     }
 
-    private static IReadOnlyList<NavigationItem> Filter(IReadOnlyList<NavigationItem> items, ClaimsPrincipal? user)
+    internal static IReadOnlyList<NavigationItem> Filter(IReadOnlyList<NavigationItem> items, ClaimsPrincipal? user)
     {
         var result = new List<NavigationItem>();
         foreach (var item in items)

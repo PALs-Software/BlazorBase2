@@ -99,6 +99,65 @@
     min-width: 0;
 }
 
+.base-header-search {
+    flex: 0 1 560px;
+    max-width: 560px;
+    padding-inline: 8px;
+}
+
+.base-command-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-sizing: border-box;
+    width: 100%;
+    height: var(--base-header-control-size);
+    padding: 0 8px 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md, 10px);
+    background: var(--color-bg-surface);
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    text-align: start;
+    cursor: pointer;
+    transition: border-color 140ms ease, background 140ms ease;
+}
+
+.base-command-search:hover {
+    border-color: var(--color-border-strong);
+    background: var(--color-bg-hover);
+}
+
+.base-command-search:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.base-command-search-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.base-command-search-key {
+    padding: 2px 6px;
+    border: 1px solid var(--color-border-strong);
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    background: var(--color-bg-elevated);
+    color: var(--color-text-secondary);
+    font: 600 11px var(--font-base);
+    white-space: nowrap;
+}
+
+.base-header ::deep fluent-button.base-command-search-icon {
+    display: none;
+}
+
 .base-header.brand-centered .base-header-brand,
 .base-header.brand-centered .base-header-title {
     margin-inline-start: 0;
@@ -265,6 +324,31 @@
 
     .base-header-title {
         display: none;
+    }
+
+    .base-header-search {
+        display: none;
+    }
+
+    .base-header.has-command-palette .base-header-start {
+        min-width: 0;
+    }
+
+    .base-header.has-command-palette .base-header-brand {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .base-header.has-command-palette .base-header-brand ::deep img {
+        min-width: 0;
+        max-width: 100%;
+        object-fit: contain;
+        object-position: left center;
+    }
+
+    .base-header ::deep fluent-button.base-command-search-icon {
+        display: inline-flex;
     }
 
     .layout-root {

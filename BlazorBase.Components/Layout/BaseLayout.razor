@@ -1,3 +1,4 @@
+@using BlazorBase.Components.CommandPalette
 @using BlazorBase.Components.Help
 @using BlazorBase.Components.Layout.Navigation
 @using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
@@ -20,7 +21,7 @@
 <div class="layout-root @(HasBottomBar ? "has-bottom-bar" : null)">
     <button type="button" class="base-skip-link" @onclick="FocusMainAsync">@Localizer["SkipToContent"]</button>
 
-    <header class="base-header @(IsBrandCentered ? "brand-centered" : "brand-start")">
+    <header class="base-header @(IsBrandCentered ? "brand-centered" : "brand-start") @(ShowCommandPalette ? "has-command-palette" : null)">
         <div class="base-header-start">
             @if (Navigation is not null)
             {
@@ -37,7 +38,9 @@
             }
             @if (HasAppSwitcher)
             {
-                @AppSwitcher
+                <CascadingValue Value="SwitcherContext">
+                    @(AppSwitcher ?? DefaultAppSwitcher)
+                </CascadingValue>
             }
             else if (!IsBrandCentered)
             {
@@ -50,7 +53,34 @@
                 @brand
             </div>
         }
+        else if (ShowCommandPalette)
+        {
+            <div class="base-header-center base-header-search">
+                <button type="button"
+                        class="base-command-search"
+                        aria-haspopup="dialog"
+                        aria-keyshortcuts="Control+K"
+                        title="@Localizer["Search"]"
+                        @onclick="OpenCommandPaletteAsync">
+                    <FluentIcon Value="@(new Size20.Search())" Color="Color.Custom" CustomColor="currentColor" />
+                    <span class="base-command-search-text">@Localizer["SearchPlaceholder"]</span>
+                    <kbd class="base-command-search-key" aria-hidden="true">Ctrl K</kbd>
+                </button>
+            </div>
+        }
         <div class="base-header-end">
+            @if (ShowCommandPalette)
+            {
+                <FluentButton Appearance="Appearance.Stealth"
+                              Class="base-command-search-icon"
+                              Title="@Localizer["Search"]"
+                              aria-label="@Localizer["Search"]"
+                              aria-haspopup="dialog"
+                              aria-keyshortcuts="Control+K"
+                              OnClick="OpenCommandPaletteAsync">
+                    <FluentIcon Value="@(new Size20.Search())" Color="Color.Neutral" />
+                </FluentButton>
+            }
             @if (HeaderContent is not null)
             {
                 @HeaderContent
@@ -161,6 +191,11 @@
                        LanguageOptions="LanguageOptions"
                        OnLanguageSelected="OnLanguageSelected"
                        ChildContent="SettingsContent" />
+}
+
+@if (ShowCommandPalette)
+{
+    <BaseCommandPalette Providers="PaletteProviders" />
 }
 
 <FluentToastProvider MaxToastCount="3" />

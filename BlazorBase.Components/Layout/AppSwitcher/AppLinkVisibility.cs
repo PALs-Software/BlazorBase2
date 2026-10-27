@@ -21,7 +21,7 @@ internal static class AppLinkVisibility
         return Filter(groups, user);
     }
 
-    private static List<AppLinkGroup> Filter(IReadOnlyList<AppLinkGroup> groups, ClaimsPrincipal? user)
+    internal static List<AppLinkGroup> Filter(IReadOnlyList<AppLinkGroup> groups, ClaimsPrincipal? user)
     {
         var result = new List<AppLinkGroup>();
         foreach (var group in groups)

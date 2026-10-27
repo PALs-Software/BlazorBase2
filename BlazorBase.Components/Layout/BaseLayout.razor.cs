@@ -1,4 +1,6 @@
+using BlazorBase.Components.CommandPalette;
 using BlazorBase.Components.Help;
+using BlazorBase.Components.Layout.AppSwitcher;
 using BlazorBase.Components.Layout.Navigation;
 using BlazorBase.Components.Services;
 using Microsoft.AspNetCore.Components;
@@ -33,7 +35,9 @@ namespace BlazorBase.Components.Layout;
 /// With <see cref="ShowHelp"/> a help button left of the settings button opens the <see cref="BaseHelpPanel"/>;
 /// opening the help closes the settings panel and the navigation drawer, and the other way round.
 /// An <see cref="AppSwitcher"/> chip next to the navigation button replaces the brand and the title and
-/// left-aligns the header.
+/// left-aligns the header. With <see cref="ShowCommandPalette"/> a search field takes the center of the header (a
+/// search button on a phone), the brand moves next to the navigation button, and Ctrl+K opens the
+/// <see cref="BaseCommandPalette"/>.
 /// </remarks>
 public partial class BaseLayout(
     IThemeService themeService,
@@ -75,6 +79,38 @@ public partial class BaseLayout(
     /// </summary>
     [Parameter]
     public RenderFragment? AppSwitcher { get; set; }
+
+    /// <summary>
+    /// The groups of links to other apps and websites, passed once for everything that uses them. Given
+    /// links, the header shows a default <see cref="BlazorBase.Components.Layout.AppSwitcher.BaseAppSwitcher"/> when
+    /// <see cref="AppSwitcher"/> is not set; a <c>BaseAppSwitcher</c> placed in <see cref="AppSwitcher"/> without
+    /// groups of its own shows them too, and the command palette offers them under "Apps".
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<AppLinkGroup>? AppLinks { get; set; }
+
+    /// <summary>The <see cref="AppLink.Key"/> of the app the user is in, for the app switcher chip.</summary>
+    [Parameter]
+    public string? CurrentAppKey { get; set; }
+
+    /// <summary>
+    /// Shows the search field in the header (a search button on a phone) and the <see cref="BaseCommandPalette"/> it
+    /// opens, which Ctrl+K opens from anywhere. The brand then moves next to the navigation button. Needs the services
+    /// of <c>AddBlazorBaseComponents</c>; the palette offers <see cref="NavigationItems"/> (else
+    /// <see cref="BottomNavigationItems"/>) as pages and <see cref="AppLinks"/> as apps, plus every registered
+    /// <see cref="ICommandPaletteProvider"/>. Without it the header is unchanged.
+    /// </summary>
+    [Parameter]
+    public bool ShowCommandPalette { get; set; }
+
+    /// <summary>
+    /// The application's navigation entries, normally the list the side navigation shows. The command palette lists
+    /// them as pages; it uses <see cref="BottomNavigationItems"/> when this is not set, so a host that already passes
+    /// the list for the bottom bar passes nothing more. Unlike <see cref="BottomNavigationItems"/> it does not show a
+    /// bottom bar.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<NavigationItem>? NavigationItems { get; set; }
 
     [Parameter]
     public RenderFragment? Navigation { get; set; }
@@ -158,9 +194,21 @@ public partial class BaseLayout(
     private const string SettingsPanelId = "base-settings";
     private const string HelpPanelId = "base-help";
 
-    private bool HasAppSwitcher => AppSwitcher is not null;
+    private static readonly RenderFragment DefaultAppSwitcher = builder =>
+    {
+        builder.OpenComponent<BaseAppSwitcher>(0);
+        builder.CloseComponent();
+    };
 
-    private bool IsBrandCentered => !HasAppSwitcher && BrandPosition == BrandPosition.Center;
+    private AppSwitcherContext SwitcherContext = new([], null);
+    private IReadOnlyList<ICommandPaletteProvider> PaletteProviders = [];
+    private IReadOnlyList<NavigationItem>? PaletteNavigationSource;
+    private IReadOnlyList<AppLinkGroup>? PaletteLinksSource;
+    private bool PaletteProvidersBuilt;
+
+    private bool HasAppSwitcher => AppSwitcher is not null || AppLinks is { Count: > 0 };
+
+    private bool IsBrandCentered => !HasAppSwitcher && !ShowCommandPalette && BrandPosition == BrandPosition.Center;
 
     private bool IsHelpModal => ShowHelp && IsHelpOpen && !IsWide;
 
@@ -195,6 +243,53 @@ public partial class BaseLayout(
         (false, _, true) => Localizer["ExpandNavigation"],
         _ => Localizer["CollapseNavigation"],
     };
+
+    protected override void OnParametersSet()
+    {
+        UpdateSwitcherContext();
+        UpdatePaletteProviders();
+    }
+
+    private void UpdateSwitcherContext()
+    {
+        var groups = AppLinks ?? Array.Empty<AppLinkGroup>();
+        if (ReferenceEquals(SwitcherContext.Groups, groups) && SwitcherContext.CurrentKey == CurrentAppKey)
+            return;
+
+        SwitcherContext = new AppSwitcherContext(groups, CurrentAppKey);
+    }
+
+    private void UpdatePaletteProviders()
+    {
+        if (!ShowCommandPalette)
+        {
+            PaletteProviders = [];
+            PaletteNavigationSource = null;
+            PaletteLinksSource = null;
+            PaletteProvidersBuilt = false;
+            return;
+        }
+
+        var navigation = NavigationItems ?? BottomNavigationItems;
+        if (PaletteProvidersBuilt && ReferenceEquals(navigation, PaletteNavigationSource) && ReferenceEquals(AppLinks, PaletteLinksSource))
+            return;
+
+        var providerLocalizer = ServiceProvider.GetRequiredService<IStringLocalizer<BaseCommandPalette>>();
+        var providers = new List<ICommandPaletteProvider>();
+        if (navigation is { Count: > 0 })
+            providers.Add(new NavigationCommandProvider(navigation, providerLocalizer));
+
+        if (AppLinks is { Count: > 0 })
+            providers.Add(new AppLinkCommandProvider(AppLinks, providerLocalizer));
+
+        PaletteProviders = providers;
+        PaletteNavigationSource = navigation;
+        PaletteLinksSource = AppLinks;
+        PaletteProvidersBuilt = true;
+    }
+
+    private Task OpenCommandPaletteAsync() =>
+        ServiceProvider.GetRequiredService<ICommandPaletteService>().OpenAsync();
 
     protected override async Task OnInitializedAsync()
     {

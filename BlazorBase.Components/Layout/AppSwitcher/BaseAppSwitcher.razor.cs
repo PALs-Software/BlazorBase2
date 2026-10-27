@@ -29,11 +29,17 @@ public partial class BaseAppSwitcher(
 
     #endregion
 
-    /// <summary>The groups of links to offer.</summary>
+    /// <summary>
+    /// The groups of links to offer. When empty, the links of <see cref="BaseLayout.AppLinks"/> are used, so a switcher
+    /// inside the layout needs no groups of its own.
+    /// </summary>
     [Parameter]
     public IReadOnlyList<AppLinkGroup> Groups { get; set; } = [];
 
-    /// <summary>The <see cref="AppLink.Key"/> of the app the user is in; that link is marked in the popover.</summary>
+    /// <summary>
+    /// The <see cref="AppLink.Key"/> of the app the user is in; that link is marked in the popover. Defaults to
+    /// <see cref="BaseLayout.CurrentAppKey"/>.
+    /// </summary>
     [Parameter]
     public string? CurrentKey { get; set; }
 
@@ -52,6 +58,9 @@ public partial class BaseAppSwitcher(
     [CascadingParameter]
     private Task<AuthenticationState>? AuthenticationState { get; set; }
 
+    [CascadingParameter]
+    private AppSwitcherContext? LayoutContext { get; set; }
+
     private static int Counter;
 
     private readonly string PopoverId = $"base-app-switcher-{Interlocked.Increment(ref Counter)}";
@@ -68,9 +77,13 @@ public partial class BaseAppSwitcher(
 
     private bool HasVisibleLinks => VisibleGroups.Count > 0;
 
-    private AppLink? CurrentLink => String.IsNullOrEmpty(CurrentKey)
+    private IReadOnlyList<AppLinkGroup> EffectiveGroups => Groups.Count > 0 ? Groups : LayoutContext?.Groups ?? [];
+
+    private string? EffectiveKey => CurrentKey ?? LayoutContext?.CurrentKey;
+
+    private AppLink? CurrentLink => String.IsNullOrEmpty(EffectiveKey)
         ? null
-        : Groups.SelectMany(group => group.Links).FirstOrDefault(link => link.Key == CurrentKey);
+        : EffectiveGroups.SelectMany(group => group.Links).FirstOrDefault(link => link.Key == EffectiveKey);
 
     private string? ResolvedLabel => CurrentLabel ?? CurrentLink?.Label;
 
@@ -79,13 +92,13 @@ public partial class BaseAppSwitcher(
     private string ChipLabel => AriaLabel
         ?? (String.IsNullOrEmpty(ResolvedLabel) ? Localizer["SwitchWebsite"] : Localizer["SwitchWebsiteFrom", ResolvedLabel]);
 
-    private bool IsCurrent(AppLink link) => !String.IsNullOrEmpty(CurrentKey) && link.Key == CurrentKey;
+    private bool IsCurrent(AppLink link) => !String.IsNullOrEmpty(EffectiveKey) && link.Key == EffectiveKey;
 
     private string GroupTitleId(AppLinkGroup group) => $"{PopoverId}-{group.Key}";
 
     protected override async Task OnParametersSetAsync()
     {
-        VisibleGroups = await AppLinkVisibility.FilterAsync(Groups, AuthenticationState);
+        VisibleGroups = await AppLinkVisibility.FilterAsync(EffectiveGroups, AuthenticationState);
         Columns = SplitIntoColumns(VisibleGroups);
 
         if (!HasVisibleLinks)

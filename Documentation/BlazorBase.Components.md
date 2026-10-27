@@ -180,6 +180,9 @@ component owns the appearance of the tabs and the sheet, not where the bar lives
 | `AppTitle` | Plain text at the start of the header. |
 | `Brand` | A `RenderFragment` that replaces `AppTitle`, for example a logo image. The brand is also what stays visible on a phone, where `AppTitle` is hidden. Give an image an `alt` text. |
 | `AppSwitcher` | A `RenderFragment`, normally a `BaseAppSwitcher`, rendered right after the navigation button. It replaces `Brand` and `AppTitle` (neither is rendered) and left-aligns the header; without it the header is unchanged. See [App switcher](#app-switcher). |
+| `AppLinks`, `CurrentAppKey` | The `AppLinkGroup` list and the key of the current app, **passed once**: the layout shows a default `BaseAppSwitcher` for them when `AppSwitcher` is not set, a `BaseAppSwitcher` inside `AppSwitcher` that has no `Groups` of its own uses them too, and the command palette offers them under "Apps". See [App switcher](#app-switcher) and [Command palette](#command-palette). |
+| `ShowCommandPalette` | Default `false`. Shows the search field in the center of the header (a search button on a phone) and the command palette it opens; the brand then sits next to the navigation button. See [Command palette](#command-palette). |
+| `NavigationItems` | The navigation entries the command palette lists as pages (falls back to `BottomNavigationItems`). Unlike `BottomNavigationItems` it shows no bottom bar. |
 | `Navigation` | The navigation content, usually `BaseSideNavigation`. Without it the header shows no navigation button. |
 | `HeaderContent` | Controls on the right of the header, in front of the built-in buttons (for example a notification bell). |
 | `HeaderEndContent` | Controls rendered after the built-in buttons, at the very end of the header (for example sign out). |
@@ -200,7 +203,8 @@ guess, otherwise the page scrolls although its content fits.
 | 768 px and below | Same drawer. | `AppTitle` is hidden (a `Brand` stays), padding shrinks, the body padding drops to 12 px. |
 | coarse pointer | Header controls grow from 40 px to 44 px (`--base-header-control-size`). | |
 
-**Header order.** From left to right the end of the header shows `HeaderContent`, the help button
+**Header order.** From left to right the end of the header shows the search button of the command palette
+(`ShowCommandPalette`, phones only), `HeaderContent`, the help button
 (`ShowHelp`), the theme toggle (`ShowThemeToggle`), the settings button (`ShowSettings`) and finally
 `HeaderEndContent`.
 
@@ -277,6 +281,137 @@ attached only while the popover is open and detached on close and dispose.
 | 640 px and below | Icon only. | Bottom sheet: slides up with a dimmed backdrop and a grab handle, up to 86 % of the viewport high, links as larger tiles in two columns (one below 360 px). |
 
 All strings (`SwitchWebsite`, `SwitchWebsiteFrom`, `PopoverLabel`) are localized in English and German.
+
+**Passing the links once.** Instead of a `BaseAppSwitcher` with its own `Groups`, give the layout
+`AppLinks` and `CurrentAppKey`:
+
+```razor
+<BaseLayout AppTitle="Notes" AppLinks="Groups" CurrentAppKey="notes" ShowCommandPalette="true" ...>
+```
+
+The layout then shows a default switcher, a `BaseAppSwitcher` placed in `AppSwitcher` without `Groups` or
+`CurrentKey` takes both from the layout (an explicit `Groups` or `CurrentKey` wins), and the command palette
+lists the same links under "Apps". A switcher with its own `Groups` and no `AppLinks` on the layout still works
+as before, but the palette does not know its links.
+
+### Command palette
+
+`BaseCommandPalette` (namespace `BlazorBase.Components.CommandPalette`) is a generic "go anywhere, do anything"
+search: a centered panel that Ctrl+K opens, with grouped results for pages, apps and actions. The framework
+owns the UI, the ranking and the permission gate; a site only feeds it through providers. Turn it on with
+`BaseLayout.ShowCommandPalette`; without it nothing changes.
+
+```razor
+<BaseLayout AppTitle="Notes"
+            ShowCommandPalette="true"
+            NavigationItems="Items"
+            AppLinks="AppLinkGroups"
+            CurrentAppKey="notes">
+```
+
+With that, the palette already offers every page of `Items` ("Pages", the breadcrumb as subtitle, for example
+"GitHub Copilot › Budgets", entries with `NavigationItem.OnClick` as "Actions") and every app link ("Apps", the
+group title as subtitle). `NavigationItems` is optional: the palette uses `BottomNavigationItems` when it is not
+set, so a site that already passes the list for the bottom bar passes nothing more. These built-in providers are
+`NavigationCommandProvider` and `AppLinkCommandProvider`; both are public and can also be registered on their own
+(`services.AddCommandPaletteProvider(sp => new NavigationCommandProvider(items, localizer))`).
+
+**Header.** The search field is a button in the center of the header: a search icon, "Search pages, actions and
+apps…" and a `Ctrl K` hint. At 768 px and below it collapses into a plain search icon button at the start of the
+header's end area, and the palette becomes a full screen sheet. With the field shown the brand (or the title) sits
+next to the navigation button, exactly like with the app switcher.
+
+**Registration.** `AddBlazorBaseComponents()` already registers the palette (`AddBlazorBaseCommandPalette()`, safe
+on Blazor Server and WebAssembly; call it again with an options delegate to tune it). Add the providers of the
+site:
+
+```csharp
+services.AddCommandPaletteProvider<ProjectSearchProvider>();
+services.AddCommandPaletteProvider((request, ct) => ValueTask.FromResult<IReadOnlyList<CommandPaletteEntry>>(
+[
+    new() { Id = "action:new-note", Title = "New note", Group = "Actions", GroupOrder = 300, Execute = CreateNoteAsync },
+]));
+services.AddCommandPaletteProvider([new CommandPaletteEntry { Id = "help", Title = "Help", Group = "Pages", Href = "/help" }]);
+```
+
+| Registration | Use |
+|---|---|
+| `AddCommandPaletteProvider<T>()` | A class implementing `ICommandPaletteProvider`, created per scope (circuit or browser); may use injected services. |
+| `AddCommandPaletteProvider(factory)` | A provider built by a `Func<IServiceProvider, ICommandPaletteProvider>`. |
+| `AddCommandPaletteProvider(search)` | One function of `(CommandPaletteRequest, CancellationToken)`. |
+| `AddCommandPaletteProvider(entries)` | A fixed list of entries. |
+
+**Provider contract.** `ICommandPaletteProvider.GetEntriesAsync(CommandPaletteRequest, CancellationToken)` receives the
+trimmed `Query`, the `User` (an anonymous principal when nobody is signed in), the `Culture` and the `MaxResults` hint.
+An empty query means the palette has just opened: return the entries to suggest, preferably all of them, because the
+palette ranks, filters and caps the result itself. A provider can be a synchronous in-memory list or a server backed
+search; it must honor the token (the palette cancels the call when the user types on). A provider that throws or
+does not answer within `ProviderTimeout` (5 s) is logged and skipped; the others still show.
+
+`CommandPaletteEntry`:
+
+| Member | Meaning |
+|---|---|
+| `Id` | Required, unique across all providers (the first entry wins); it is the key of the recent list. |
+| `Title`, `Subtitle` | The row texts, already localized. The subtitle is searched with a lower priority. |
+| `Group`, `GroupOrder` | The already localized group heading and its position (lower first, then by name). |
+| `Href` / `Execute` | **Exactly one.** `Href`: a relative address or an absolute one below the application is navigated to; any other absolute `http`, `https`, `mailto` or `tel` address opens in a new tab (`noopener noreferrer`); other schemes (such as `javascript:`) are never opened. `Execute`: awaited; an exception is caught, logged and shown as a toast. An entry with neither or both is dropped and logged. |
+| `OpenInNewTab` | Opens `Href` in a new tab even when it points into the application. |
+| `Icon` / `IconSrc` | A Fluent icon or an image for the tile; a default glyph by kind otherwise. |
+| `Keywords` | Extra search terms that are not shown. |
+| `Hint` | The already localized kind at the end of the row; defaults to "Action" (`Execute`), "Link" (absolute `Href`) or "Page". |
+| `RequiredRole` | See the permission rules below. |
+| `PreMatched` | The provider matched the entry against the query itself (fuzzy or full text search); it is listed even when the query does not occur in its texts and ranks below text matches. |
+
+**Permission rules.** The palette gates centrally: after collecting, it drops every entry whose `RequiredRole`
+(comma separated, at least one role needed, evaluated like `NavigationItem.RequiredRole`) the current user does
+not have, **whatever provider returned it**. An unauthenticated user therefore only gets entries without a role.
+Finer checks (authorization policies, per record permissions, tenants) are the provider's job: it must never return
+an entry the user may not use. The built-in providers additionally filter the navigation tree and the link groups
+exactly like the side navigation and the app switcher do (a role on a parent hides its children).
+
+**Ranking.** Matching is case and diacritic insensitive over `Title`, `Keywords` and `Subtitle`; every word of
+the query must match. A word scores by its best match, strongest first: title starts with, keyword starts with, word
+in the title starts with, word in a keyword starts with, title contains, keyword contains, subtitle starts with,
+a word of the subtitle starts with, subtitle contains; the entry takes the average over its words, plus a bonus
+for a title equal to the query. Equal scores list the shorter title first, then alphabetically. Groups keep
+their stable order (`GroupOrder`, then name); while typing at most 6 results per group and 30 in total are shown,
+while the query is empty 5 suggestions per group. Recently used entries (the last 5 ids, stored in the browser's
+`localStorage` per user name) are listed first under "Recent" when the query is empty — only while a provider still
+returns them for the empty query — and ranked higher while typing. The providers are asked 120 ms after the last
+keystroke, a stale search is cancelled, and a loading indicator appears only when a search takes longer than 300 ms.
+All numbers are `CommandPaletteOptions` (`MaxResults`, `MaxResultsPerGroup`, `MaxSuggestionsPerGroup`, `MaxRecent`,
+`SearchDebounce`, `ProviderTimeout`, `LoadingIndicatorDelay`, `SlashOpensPalette`).
+
+**Opening from code.** Inject `ICommandPaletteService` (scoped) and call `OpenAsync(string? initialQuery = null)`
+or `CloseAsync()`; `IsOpen`, `InitialQuery` and the `Changed` event expose the state.
+
+```razor
+@inject ICommandPaletteService Palette
+
+<FluentButton OnClick="@(() => Palette.OpenAsync("budget"))">Find budgets</FluentButton>
+```
+
+**Keyboard.**
+
+| Key | Action |
+|---|---|
+| Ctrl+K or Cmd+K | Opens the palette from anywhere, or closes it again. |
+| `/` | Opens the palette while no input, text area, select or editable element has the focus (switch off with `SlashOpensPalette`). |
+| Up / Down | Moves the selection, wrapping around. |
+| Home / End | Jumps to the first / last result while the field is empty, otherwise with Ctrl (so the caret still works in the text). |
+| Enter | Runs the selected entry; the palette closes first. |
+| Esc | Closes the palette; the focus returns to the element that had it before. |
+| Tab | Stays inside the palette. |
+
+**Markup and accessibility.** The palette is plain elements (no `FluentDialog`), so it is bUnit testable: a
+`role="dialog"` with `aria-modal`, a `role="combobox"` input with `aria-controls` and `aria-activedescendant`
+pointing at the selected `role="option"` of a `role="listbox"`, group headings as `role="group"` labels, matched text
+in `<mark>` (rendered as text, never as HTML) and a polite live region that announces the number of results. A small
+WASM-safe module, `_content/BlazorBase.Components/js/commandPalette.js`, only provides the global shortcut, the Tab
+trap, focus restore, scroll into view, the recent list in `localStorage` and the new tab for external addresses. On
+a phone (768 px and below) the palette fills the screen with 56 px rows and a close button instead of the key hint.
+Its strings are localized in English and German (`BaseCommandPalette.razor.resx`, `BaseLayout.razor.resx`).
 
 ### Header helper classes and services
 

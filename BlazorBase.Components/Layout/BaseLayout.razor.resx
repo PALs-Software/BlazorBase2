@@ -36,4 +36,10 @@
   <data name="Help" xml:space="preserve">
     <value>Help</value>
   </data>
+  <data name="Search" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="SearchPlaceholder" xml:space="preserve">
+    <value>Search pages, actions and apps…</value>
+  </data>
 </root>
