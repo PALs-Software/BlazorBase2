@@ -1,5 +1,6 @@
 @using BlazorBase.Components.CommandPalette
 @using BlazorBase.Components.Help
+@using BlazorBase.Components.HeaderActions
 @using BlazorBase.Components.Layout.Navigation
 @using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
 
@@ -85,6 +86,10 @@
             {
                 @HeaderContent
             }
+            @if (HasHeaderActions)
+            {
+                <BaseHeaderActions Items="HeaderActions" MaxInline="@(IsPhone ? MaxPhoneHeaderActions : null)" />
+            }
             @if (ShowHelp)
             {
                 <FluentButton Appearance="Appearance.Stealth"
@@ -169,6 +174,7 @@
             <HelpFieldTooltips CultureName="@System.Globalization.CultureInfo.CurrentUICulture.Name"
                                OnOpenHelp="OpenHelpAtAsync" />
         }
+        @LayoutOverlays
     </div>
 
     @if (HasBottomBar)
