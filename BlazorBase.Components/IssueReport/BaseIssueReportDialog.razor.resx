@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="ReportIssue" xml:space="preserve"><value>Report an issue</value></data>
+  <data name="Summary" xml:space="preserve"><value>Summary</value></data>
+  <data name="SummaryPlaceholder" xml:space="preserve"><value>What is the problem in one sentence?</value></data>
+  <data name="Category" xml:space="preserve"><value>Category (optional)</value></data>
+  <data name="NoCategory" xml:space="preserve"><value>No category</value></data>
+  <data name="Description" xml:space="preserve"><value>Description</value></data>
+  <data name="DescriptionPlaceholder" xml:space="preserve"><value>What did you want to do, what happened and what did you expect?</value></data>
+  <data name="IncludeDiagnostics" xml:space="preserve"><value>Include diagnostics</value></data>
+  <data name="DiagnosticsPreview" xml:space="preserve"><value>Diagnostics that will be added to the mail</value></data>
+  <data name="Truncated" xml:space="preserve"><value>The mail link is too long for some mail programs, so part of the diagnostics was left out. "Copy details" copies everything.</value></data>
+  <data name="TooLong" xml:space="preserve"><value>Your text is long for a mail link and the diagnostics were left out. If the mail program does not open, use "Copy details".</value></data>
+  <data name="AttachHint" xml:space="preserve"><value>Attach screenshots in your mail program after it opens.</value></data>
+  <data name="OpenMail" xml:space="preserve"><value>Open in mail program</value></data>
+  <data name="CopyDetails" xml:space="preserve"><value>Copy details</value></data>
+  <data name="CopyDetailsAgain" xml:space="preserve"><value>Copy details again</value></data>
+  <data name="Copied" xml:space="preserve"><value>The details were copied to the clipboard.</value></data>
+  <data name="CopyFailed" xml:space="preserve"><value>The browser did not allow copying. Select and copy the text below manually.</value></data>
+  <data name="Cancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="Close" xml:space="preserve"><value>Close</value></data>
+  <data name="OpenedTitle" xml:space="preserve"><value>Your mail program should open now</value></data>
+  <data name="OpenedText" xml:space="preserve"><value>Check the mail, attach screenshots if useful and send it. Nothing has been sent yet.</value></data>
+  <data name="FallbackTitle" xml:space="preserve"><value>The mail program did not open</value></data>
+  <data name="FallbackText" xml:space="preserve"><value>Paste the details into a new mail to {0} and send it.</value></data>
+</root>
