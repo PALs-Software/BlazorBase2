@@ -1,0 +1,53 @@
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+
+@if (Inline.Count > 0 || Overflow.Count > 0)
+{
+    <div class="base-header-actions" role="group" aria-label="@Localizer["Actions"]" @onkeydown="OnKeyDown">
+        @foreach (var item in Inline)
+        {
+            <FluentButton Appearance="Appearance.Stealth"
+                          Class="base-header-action"
+                          Title="@item.Title"
+                          aria-label="@item.Title"
+                          aria-haspopup="@item.PopupKind"
+                          aria-pressed="@PressedValue(item)"
+                          data-action-id="@item.Id"
+                          OnClick="() => ActivateAsync(item)">
+                <FluentIcon Value="@item.Icon" Color="Color.Neutral" />
+            </FluentButton>
+        }
+        @if (Overflow.Count > 0)
+        {
+            <span class="base-header-actions-more">
+                <FluentButton Appearance="Appearance.Stealth"
+                              Class="base-header-action base-header-actions-toggle"
+                              Title="@Localizer["More"]"
+                              aria-label="@Localizer["More"]"
+                              aria-haspopup="menu"
+                              aria-expanded="@(IsMenuOpen ? "true" : "false")"
+                              aria-controls="@MenuId"
+                              OnClick="ToggleMenu">
+                    <FluentIcon Value="@(new Size20.MoreHorizontal())" Color="Color.Neutral" />
+                </FluentButton>
+                @if (IsMenuOpen)
+                {
+                    <div class="base-header-actions-backdrop" @onclick="CloseMenu"></div>
+                    <div id="@MenuId" class="base-header-actions-menu" role="menu" aria-label="@Localizer["More"]">
+                        @foreach (var item in Overflow)
+                        {
+                            <button type="button"
+                                    role="menuitem"
+                                    class="base-header-actions-menu-item"
+                                    data-action-id="@item.Id"
+                                    aria-haspopup="@item.PopupKind"
+                                    @onclick="() => ActivateAsync(item)">
+                                <FluentIcon Value="@item.Icon" Color="Color.Custom" CustomColor="currentColor" />
+                                <span>@item.Title</span>
+                            </button>
+                        }
+                    </div>
+                }
+            </span>
+        }
+    </div>
+}

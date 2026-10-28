@@ -1,4 +1,5 @@
 using BlazorBase.Components.CommandPalette;
+using BlazorBase.Components.HeaderActions;
 using BlazorBase.Components.Help;
 using BlazorBase.Components.Layout.AppSwitcher;
 using BlazorBase.Components.Layout.Navigation;
@@ -125,6 +126,25 @@ public partial class BaseLayout(
     [Parameter]
     public RenderFragment? HeaderEndContent { get; set; }
 
+    /// <summary>
+    /// Header actions in addition to those registered with <c>AddHeaderAction</c>; an item with the same id replaces
+    /// the registered one. They are rendered as plain icon buttons in order, after <see cref="HeaderContent"/> and in
+    /// front of the help button, when the user's role, policy and the item's visibility allow it.
+    /// </summary>
+    [Parameter]
+    public IReadOnlyList<HeaderActionItem>? HeaderActions { get; set; }
+
+    /// <summary>The most header actions a phone (768 px and below) shows directly; the rest move into a "more" menu.</summary>
+    [Parameter]
+    public int MaxPhoneHeaderActions { get; set; } = 2;
+
+    /// <summary>
+    /// Content rendered inside the layout after the main content and the help panel, as a sibling in the row of the
+    /// page. It hosts floating or docked panels such as an assistant panel; the layout does not wrap or position it.
+    /// </summary>
+    [Parameter]
+    public RenderFragment? LayoutOverlays { get; set; }
+
     /// <summary>Shows the quick theme toggle in the header, in front of the settings button.</summary>
     [Parameter]
     public bool ShowThemeToggle { get; set; } = true;
@@ -207,6 +227,8 @@ public partial class BaseLayout(
     private bool PaletteProvidersBuilt;
 
     private bool HasAppSwitcher => AppSwitcher is not null || AppLinks is { Count: > 0 };
+
+    private bool HasHeaderActions => HeaderActions is { Count: > 0 } || ServiceProvider.GetService<IHeaderActionService>() is not null;
 
     private bool IsBrandCentered => !HasAppSwitcher && !ShowCommandPalette && BrandPosition == BrandPosition.Center;
 
