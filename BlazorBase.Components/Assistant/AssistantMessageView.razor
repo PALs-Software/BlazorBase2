@@ -1,0 +1,162 @@
+@namespace BlazorBase.Components.Assistant
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+
+@switch (Message.Role)
+{
+    case AssistantMessageRole.User:
+        <div class="assistant-message user">
+            <div class="assistant-bubble">
+                <span class="assistant-sr">@Localizer["You"]: </span>@Message.Text
+            </div>
+            @if (Message.Attachments.Count > 0)
+            {
+                <ul class="assistant-attachments" aria-label="@Localizer["Attachments"]">
+                    @foreach (var attachment in Message.Attachments)
+                    {
+                        <li>
+                            <FluentIcon Value="@(new Size16.Attach())" Color="Color.Custom" CustomColor="currentColor" />
+                            <span>@attachment.FileName</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+        break;
+
+    case AssistantMessageRole.Notice:
+        <div class="assistant-notice" role="status">@Message.Text</div>
+        break;
+
+    default:
+        <div class="assistant-message assistant" aria-busy="@(Message.IsStreaming ? "true" : null)">
+            @if (Message.ToolStatus is not null)
+            {
+                <div class="assistant-tool" role="status">
+                    <FluentProgressRing Width="14px" />
+                    <span>@Message.ToolStatus</span>
+                </div>
+            }
+            @if (Segments.Count > 0)
+            {
+                <div class="assistant-answer">
+                    <span class="assistant-sr">@DisplayName: </span>
+                    @foreach (var segment in Segments)
+                    {
+                        @if (segment.IsCode)
+                        {
+                            <AssistantCodeBlock Code="@(segment.Code!)" Language="@segment.Language" />
+                        }
+                        else
+                        {
+                            <div class="assistant-markdown">@((MarkupString)segment.Html)</div>
+                        }
+                    }
+                </div>
+            }
+            else if (Message.IsStreaming && Message.ToolStatus is null)
+            {
+                <div class="assistant-thinking" role="status">
+                    <span class="assistant-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <span>@Localizer["Thinking"]</span>
+                </div>
+            }
+            @if (Message.Citations.Count > 0)
+            {
+                <div class="assistant-citations">
+                    <span class="assistant-citations-label">@Localizer["Sources"]</span>
+                    <ol>
+                        @foreach (var citation in Message.Citations)
+                        {
+                            <li title="@citation.Snippet">
+                                @if (AssistantUrl.IsAbsoluteWebUrl(citation.Url))
+                                {
+                                    <a href="@citation.Url" target="_blank" rel="noopener noreferrer">@citation.Title</a>
+                                }
+                                else if (AssistantUrl.IsRelativeUrl(citation.Url))
+                                {
+                                    <a href="@citation.Url">@citation.Title</a>
+                                }
+                                else
+                                {
+                                    <span>@citation.Title</span>
+                                }
+                            </li>
+                        }
+                    </ol>
+                </div>
+            }
+            @if (Message.Error is not null)
+            {
+                <div class="assistant-error" role="alert">@Message.Error.Message</div>
+            }
+            @if (Message.IsStopped)
+            {
+                <div class="assistant-stopped">@Localizer["Stopped"]</div>
+            }
+            @if (Message.PendingAction is { } action)
+            {
+                <div class="assistant-action @StateClass(action)" role="group" aria-label="@Localizer["ActionTitle"]">
+                    @if (action.State is AssistantActionState.Pending or AssistantActionState.Working)
+                    {
+                        <span class="assistant-action-kind">@Localizer["ActionTitle"]</span>
+                    }
+                    <div class="assistant-action-summary">@action.Summary</div>
+                    @if (action.Parameters.Count > 0)
+                    {
+                        <dl class="assistant-action-parameters">
+                            @foreach (var (name, value) in action.Parameters)
+                            {
+                                <dt>@name</dt>
+                                <dd>@value</dd>
+                            }
+                        </dl>
+                    }
+                    @if (action.State is AssistantActionState.Pending or AssistantActionState.Working)
+                    {
+                        <div class="assistant-action-buttons">
+                            <FluentButton Appearance="Appearance.Accent"
+                                          Class="assistant-action-confirm"
+                                          Disabled="@(action.State == AssistantActionState.Working)"
+                                          OnClick="OnConfirm">@Localizer["Confirm"]</FluentButton>
+                            <FluentButton Appearance="Appearance.Outline"
+                                          Class="assistant-action-decline"
+                                          Disabled="@(action.State == AssistantActionState.Working)"
+                                          OnClick="OnDecline">@Localizer["Decline"]</FluentButton>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="assistant-action-result" role="status">
+                            <strong>@StateText(action.State)</strong>
+                            @if (!string.IsNullOrWhiteSpace(action.ResultMessage))
+                            {
+                                <span> @action.ResultMessage</span>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            @if (CanRate)
+            {
+                <div class="assistant-feedback" role="group" aria-label="@Localizer["Feedback"]">
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Class="assistant-thumb-up"
+                                  Title="@Localizer["Helpful"]"
+                                  aria-label="@Localizer["Helpful"]"
+                                  aria-pressed="@(Message.Rating == AssistantRating.Up ? "true" : "false")"
+                                  OnClick="() => OnRate.InvokeAsync(AssistantRating.Up)">
+                        <FluentIcon Value="@(new Size16.ThumbLike())" Color="Color.Neutral" />
+                    </FluentButton>
+                    <FluentButton Appearance="Appearance.Stealth"
+                                  Class="assistant-thumb-down"
+                                  Title="@Localizer["NotHelpful"]"
+                                  aria-label="@Localizer["NotHelpful"]"
+                                  aria-pressed="@(Message.Rating == AssistantRating.Down ? "true" : "false")"
+                                  OnClick="() => OnRate.InvokeAsync(AssistantRating.Down)">
+                        <FluentIcon Value="@(new Size16.ThumbDislike())" Color="Color.Neutral" />
+                    </FluentButton>
+                </div>
+            }
+        </div>
+        break;
+}

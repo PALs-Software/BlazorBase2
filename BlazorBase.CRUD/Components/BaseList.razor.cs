@@ -25,10 +25,11 @@ using Microsoft.JSInterop;
 using BlazorBase.Components.Routing;
 using BlazorBase.Components.Dialogs;
 using BlazorBase.Components.Services;
+using BlazorBase.Components.Assistant;
 
 namespace BlazorBase.CRUD.Components;
 
-public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>, IActionGroupCollector<TModel>, IFilterConfigCollector<TModel>, IAsyncDisposable where TModel : class, new()
+public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>, IActionGroupCollector<TModel>, IFilterConfigCollector<TModel>, IAssistantContextProvider, IAsyncDisposable where TModel : class, new()
 {
     #region Injects
 
@@ -361,6 +362,20 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     void IFilterConfigCollector<TModel>.RegisterFilterConfig(FilterConfig<TModel> filterConfig)
     {
         CollectedFilterConfigComponent = filterConfig;
+    }
+
+    private IDisposable? AssistantRegistration { get; set; }
+
+    protected override void OnInitialized()
+    {
+        AssistantRegistration = ServiceProvider.GetService<AssistantContextService>()?.Register(this);
+    }
+
+    void IAssistantContextProvider.Contribute(AssistantContextBuilder builder)
+    {
+        builder.EntityType = typeof(TModel).Name;
+        builder.EntityKey = CurrentOpenKey ?? builder.EntityKey;
+        builder.Filters = ActiveFilterCount > 0 ? $"{ActiveFilterCount} conditions" : builder.Filters;
     }
 
     private List<FilterDescriptor>? PreviousAdditionalFilters;
@@ -1856,6 +1871,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         IsDisposed = true;
         DeepLinkTicket++;
         CurrentOpenKey = null;
+        AssistantRegistration?.Dispose();
+        AssistantRegistration = null;
 
         if (DeepLinkSubscribed)
             Navigation.LocationChanged -= OnLocationChanged;

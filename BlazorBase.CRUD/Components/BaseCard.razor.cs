@@ -12,6 +12,7 @@ using BlazorBase.CRUD.Models;
 using BlazorBase.CRUD.Navigation;
 using BlazorBase.CRUD.Security;
 using BlazorBase.Components.Services;
+using BlazorBase.Components.Assistant;
 using BlazorBase.CRUD.Validation;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -23,7 +24,7 @@ using Microsoft.JSInterop;
 
 namespace BlazorBase.CRUD.Components;
 
-public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, IListPartCollector<TModel>, IActionGroupCollector<TModel>, IDisplayKeyCollector<TModel>, IAsyncDisposable
+public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, IListPartCollector<TModel>, IActionGroupCollector<TModel>, IDisplayKeyCollector<TModel>, IAssistantContextProvider, IAsyncDisposable
     where TModel : class, new()
 {
     #region Injects
@@ -307,6 +308,19 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
     /// (<c>null</c>) made every new model look like an existing row — which captioned the dialog
     /// "edit", checked modify instead of insert rights, and sent the save down the update path.
     /// </remarks>
+    private IDisposable? AssistantRegistration { get; set; }
+
+    void IAssistantContextProvider.Contribute(AssistantContextBuilder builder)
+    {
+        builder.EntityType = typeof(TModel).Name;
+
+        if (IsNewModel)
+            return;
+
+        var key = typeof(TModel).GetProperty(DisplayKeyResolver.GetPrimaryKeyPropertyName(typeof(TModel)))?.GetValue(Model);
+        builder.EntityKey = Convert.ToString(key, System.Globalization.CultureInfo.InvariantCulture) ?? builder.EntityKey;
+    }
+
     private bool InferIsNewFromKey()
     {
         var idProperty = typeof(TModel).GetProperty("Id");
@@ -444,6 +458,7 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
     protected override async Task OnInitializedAsync()
     {
+        AssistantRegistration = ServiceProvider.GetService<AssistantContextService>()?.Register(this);
         CloseGuard?.Register(this, () => HasUnsavedChanges, RequestGuardedCloseAsync);
 
         var authStateProvider = ServiceProvider.GetService<AuthenticationStateProvider>();
@@ -813,6 +828,8 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
     public async ValueTask DisposeAsync()
     {
+        AssistantRegistration?.Dispose();
+        AssistantRegistration = null;
         CloseGuard?.Unregister(this);
 
         try
