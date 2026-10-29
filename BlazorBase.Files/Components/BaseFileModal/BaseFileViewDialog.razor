@@ -1,0 +1,32 @@
+@using BlazorBase.Components.Dialogs
+@inherits BaseDialogInstance<FileViewDialogContent>
+
+<BaseDialogBody>
+    <ChildContent>
+        @if (Content.File.ContentType.StartsWith("image", StringComparison.OrdinalIgnoreCase))
+        {
+            <div class="modal-image-container">
+                <img src="@Content.DownloadUrl" alt="@Content.ImageAltText" class="modal-image" />
+            </div>
+        }
+        else
+        {
+            <div class="modal-file-info">
+                <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size48.Document())" />
+                <FluentText Class="modal-file-name">@Content.File.FileName@Content.File.Extension</FluentText>
+            </div>
+        }
+    </ChildContent>
+    <ActionTemplate>
+        <FluentAnchorButton Href="@Content.DownloadUrl"
+                            Appearance="ButtonAppearance.Primary"
+                            IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ArrowDownload())"
+                            AdditionalAttributes="@DownloadAttributes"
+                            Class="base-file-download">
+            @Content.DownloadText
+        </FluentAnchorButton>
+        <FluentButton Appearance="ButtonAppearance.Outline" OnClick="@CancelAsync" Class="base-file-close">
+            @Content.CloseText
+        </FluentButton>
+    </ActionTemplate>
+</BaseDialogBody>

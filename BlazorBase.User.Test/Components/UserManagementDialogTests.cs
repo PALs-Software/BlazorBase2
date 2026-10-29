@@ -1,5 +1,5 @@
+using BlazorBase.CRUD.Components;
 using BlazorBase.CRUD.Core;
-using BlazorBase.CRUD.Localization;
 using BlazorBase.User.Models;
 using BlazorBase.User.Pages;
 using BlazorBase.User.Services;
@@ -7,7 +7,6 @@ using BlazorBase.User.Test.Infrastructure;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Localization;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Xunit;
 
@@ -44,28 +43,27 @@ public class UserManagementDialogTests : UserBunitTestContextBase
         builder.CloseComponent();
     };
 
-    /// <summary>
-    /// Resolves the framework captions the same way <c>BaseCard</c> does, so the assertions hold
-    /// whichever culture the test run happens to use.
-    /// </summary>
-    private string FrameworkCaption(string key)
-        => Services.GetRequiredService<IStringLocalizerFactory>()
-            .Create(typeof(BlazorBaseCrudResources))[key].Value;
+    private IRenderedComponent<IComponent> OpenAddDialog()
+    {
+        SetupServices();
+        var cut = Render(ViewWithDialogProvider);
+        cut.Find(".base-list-add").Click();
+        cut.WaitForElement(".base-card-save", TimeSpan.FromSeconds(2));
+        return cut;
+    }
+
+    private static DialogOptions OptionsOf(IRenderedComponent<IComponent> cut) =>
+        cut.FindComponent<BaseDialog<UserModel>>().Instance.DialogInstance.Options;
 
     [Fact]
     public void AddDialog_HasSingleSaveAndCancel_NoDuplicateFooter()
     {
-        SetupServices();
-        var cut = Render(ViewWithDialogProvider);
-        cut.Find("fluent-button[appearance='accent']").Click();
-        cut.WaitForElement("fluent-dialog", TimeSpan.FromSeconds(2));
+        var cut = OpenAddDialog();
 
-        var buttons = cut.FindAll("fluent-button");
-        var saveButtons = buttons.Count(button => button.TextContent.Contains(FrameworkCaption("Save")));
-        var cancelButtons = buttons.Count(button => button.TextContent.Contains(FrameworkCaption("Cancel")));
-
-        Assert.Equal(1, saveButtons);
-        Assert.Equal(1, cancelButtons);
+        Assert.Single(cut.FindAll(".base-card-save"));
+        Assert.Single(cut.FindAll(".base-card-cancel"));
+        Assert.False(OptionsOf(cut).Footer.PrimaryAction.Visible);
+        Assert.False(OptionsOf(cut).Footer.SecondaryAction.Visible);
     }
 
     /// <summary>
@@ -75,30 +73,22 @@ public class UserManagementDialogTests : UserBunitTestContextBase
     [Fact]
     public void AddDialog_RendersNoDismissCross()
     {
-        SetupServices();
-        var cut = Render(ViewWithDialogProvider);
-        cut.Find("fluent-button[appearance='accent']").Click();
-        cut.WaitForElement("fluent-dialog", TimeSpan.FromSeconds(2));
+        var cut = OpenAddDialog();
 
-        Assert.Empty(cut.FindAll("#dialog_close"));
+        Assert.False(OptionsOf(cut).Header.CloseAction.Visible);
     }
 
     /// <summary>
-    /// Likewise for the overlay click and the Escape key, both of which reach the component as a
-    /// dismiss event: the dialog stays open so an accidental click outside costs nothing.
+    /// Likewise for the Escape key, which would otherwise close the dialog behind the card's back: the
+    /// dialog stays open so an accidental key press costs nothing.
     /// </summary>
     [Fact]
-    public void AddDialog_IgnoresADismissEvent()
+    public void AddDialog_IgnoresEscape()
     {
-        SetupServices();
-        var cut = Render(ViewWithDialogProvider);
-        cut.Find("fluent-button[appearance='accent']").Click();
-        cut.WaitForElement("fluent-dialog", TimeSpan.FromSeconds(2));
-        var dialog = cut.Find("fluent-dialog");
+        var cut = OpenAddDialog();
 
-        dialog.TriggerEvent("ondialogdismiss", new DialogEventArgs { Id = dialog.Id, Reason = "dismiss" });
-
-        Assert.Single(cut.FindAll("fluent-dialog"));
+        Assert.True(OptionsOf(cut).PreventDismissOnEscape);
+        Assert.Single(cut.FindComponents<BaseDialog<UserModel>>());
     }
 
     /// <summary>
@@ -107,17 +97,10 @@ public class UserManagementDialogTests : UserBunitTestContextBase
     [Fact]
     public void ClickingCancel_ClosesDialog()
     {
-        SetupServices();
-        var cut = Render(ViewWithDialogProvider);
-        cut.Find("fluent-button[appearance='accent']").Click();
-        cut.WaitForElement("fluent-dialog", TimeSpan.FromSeconds(2));
+        var cut = OpenAddDialog();
 
-        var cancelCaption = FrameworkCaption("Cancel");
+        cut.Find(".base-card-actions .base-card-cancel").Click();
 
-        cut.FindAll("fluent-button")
-            .First(button => button.TextContent.Contains(cancelCaption))
-            .Click();
-
-        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("fluent-dialog")), TimeSpan.FromSeconds(2));
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindComponents<BaseDialog<UserModel>>()), TimeSpan.FromSeconds(2));
     }
 }

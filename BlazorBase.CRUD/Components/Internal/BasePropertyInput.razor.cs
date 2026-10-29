@@ -205,7 +205,32 @@ public partial class BasePropertyInput<TModel> : IDisposable
 
     private bool IsIntegerType => PropertyType == typeof(int) || PropertyType == typeof(long);
 
-    private InputMode NumericInputMode => IsIntegerType ? InputMode.Numeric : InputMode.Decimal;
+    private TextInputMode NumericInputMode => IsIntegerType ? TextInputMode.Numeric : TextInputMode.Decimal;
+
+    private static readonly Func<IFluentField, bool> NoFluentMessage = FluentFieldCondition.Never;
+
+    internal sealed record EnumOption(string Value, string Text);
+
+    private IReadOnlyList<EnumOption> EnumOptions
+    {
+        get
+        {
+            var options = new List<EnumOption>();
+
+            if (IsNullableEnum)
+                options.Add(new EnumOption(string.Empty, FrameworkLocalizer["SelectEmpty"].Value));
+
+            foreach (var enumValue in Enum.GetValues(PropertyType))
+                options.Add(new EnumOption(enumValue.ToString()!, ResolveEnumLabel(enumValue)));
+
+            return options;
+        }
+    }
+
+    private IReadOnlyList<LookupItem> NavigationOptions =>
+        [new LookupItem(string.Empty, FrameworkLocalizer["SelectEmpty"].Value), .. LookupItems];
+
+    private string TextAreaHeight => FormattableString.Invariant($"{FieldConfig.Lines * 20 + 16}px");
 
     private bool IsNullableEnum =>
         PropertyType.IsEnum && PropertyInfo is not null && Nullable.GetUnderlyingType(PropertyInfo.PropertyType) is not null;
@@ -238,7 +263,7 @@ public partial class BasePropertyInput<TModel> : IDisposable
     private bool HasMoreBrowseItems => BrowseItems.Count < BrowseTotalCount;
     private string? CurrentFkStringValue => ForeignKeyPropertyInfo?.GetValue(Model)?.ToString();
 
-    private sealed record LookupItem(string Id, string DisplayText);
+    internal sealed record LookupItem(string Id, string DisplayText);
 
     /// <summary>
     /// Key for the navigation FluentSelect. Bumped exactly once — after the options and an initial foreign-key value

@@ -44,7 +44,7 @@ public sealed class HelpFieldTooltips(
 
     /// <summary>A CSS selector for the areas whose labels get tooltips: the main content and the dialogs of the application shell by default; never the help panel.</summary>
     [Parameter]
-    public string ScopeSelector { get; set; } = "#base-main, fluent-dialog";
+    public string ScopeSelector { get; set; } = "#base-main, .base-dialog";
 
     #region Members
 

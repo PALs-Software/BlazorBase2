@@ -25,7 +25,7 @@ public class CustomPropertyInputTests : BunitTestContextBase
         var cut = RenderInput(new TestProduct { Name = "P" }, Field(p => p.Name));
 
         Assert.Single(cut.FindComponents<SampleNameInput>());
-        Assert.Empty(cut.FindComponents<FluentTextField>());
+        Assert.Empty(cut.FindComponents<FluentTextInput>());
     }
 
     [Fact]
@@ -36,7 +36,7 @@ public class CustomPropertyInputTests : BunitTestContextBase
         var cut = RenderInput(new TestProduct { Description = "D" }, Field(p => p.Description));
 
         Assert.Empty(cut.FindComponents<SampleNameInput>());
-        Assert.Single(cut.FindComponents<FluentTextField>());
+        Assert.Single(cut.FindComponents<FluentTextInput>());
     }
 
     [Fact]

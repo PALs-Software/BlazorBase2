@@ -153,7 +153,7 @@ public sealed class RoleCenterTests : DashboardTestContext
         Assert.Contains("Updated 09:24", cut.Find(".rc-updated").TextContent);
 
         Time.Advance(TimeSpan.FromMinutes(2));
-        cut.Find("fluent-button.rc-refresh").Click();
+        cut.Find(".rc-refresh").Click();
 
         cut.WaitForAssertion(() => Assert.Equal(1, Probe.Refreshes));
         cut.WaitForAssertion(() => Assert.Contains("Updated 09:26", cut.Find(".rc-updated").TextContent));
@@ -168,7 +168,7 @@ public sealed class RoleCenterTests : DashboardTestContext
         var cut = RenderRoleCenter();
         Probe.ShouldFailOnRefresh = true;
 
-        cut.Find("fluent-button.rc-refresh").Click();
+        cut.Find(".rc-refresh").Click();
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".pf-error")));
         Assert.Equal(["PartA"], PartNames(cut));
@@ -346,7 +346,7 @@ public sealed class RoleCenterTests : DashboardTestContext
 
         var cut = RenderRoleCenter();
 
-        Assert.Contains("Aktualisieren", cut.Find("fluent-button.rc-refresh").TextContent);
+        Assert.Contains("Aktualisieren", cut.Find(".rc-refresh").TextContent);
         Assert.Contains("Aktualisiert 09:24", cut.Find(".rc-updated").TextContent);
     }
 

@@ -4,13 +4,9 @@
 }
 
 ::deep .setup-card {
-    padding: 2rem;
+    padding: var(--space-5);
     width: 100%;
     max-width: 400px;
-}
-
-::deep .form-stack {
-    gap: 1rem;
 }
 
 ::deep .full-width {

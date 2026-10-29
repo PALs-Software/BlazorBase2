@@ -304,26 +304,27 @@
     margin-inline-start: -6px;
 }
 
-.assistant-feedback ::deep fluent-button {
-    min-width: 32px;
-    min-height: 32px;
+.assistant-feedback ::deep .assistant-feedback-button {
+    min-width: var(--control-height-md);
+    min-height: var(--control-height-md);
     color: var(--color-text-muted);
 }
 
-.assistant-feedback ::deep fluent-button[aria-pressed="true"] {
-    color: var(--color-accent);
-    --neutral-fill-stealth-rest: var(--color-bg-selected);
+.assistant-feedback ::deep .assistant-feedback-button[aria-pressed="true"] {
+    color: var(--color-accent-text);
+    background-color: var(--color-bg-selected);
 }
 
 @media (max-width: 768px) {
-    .assistant-action-buttons ::deep fluent-button {
+    .assistant-action-buttons ::deep .assistant-action-confirm,
+    .assistant-action-buttons ::deep .assistant-action-decline {
         flex: 1 1 0;
-        min-height: 44px;
+        min-height: var(--control-height-touch);
     }
 
-    .assistant-feedback ::deep fluent-button {
-        min-width: 44px;
-        min-height: 44px;
+    .assistant-feedback ::deep .assistant-feedback-button {
+        min-width: var(--control-height-touch);
+        min-height: var(--control-height-touch);
     }
 }
 

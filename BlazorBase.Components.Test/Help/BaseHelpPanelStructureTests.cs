@@ -234,7 +234,7 @@ public sealed class BaseHelpPanelStructureTests : ComponentsBunitTestContextBase
         await cut.InvokeAsync(() => cut.Instance.OpenTopicAsync("concepts/budgets"));
         cut.WaitForAssertion(() => AssertTocTitles(cut, "Rules", "Limits"));
 
-        await cut.InvokeAsync(() => cut.Find("fluent-button.base-help-back").Click());
+        await cut.InvokeAsync(() => cut.Find(".base-help-back").Click());
         cut.WaitForAssertion(() => AssertTocTitles(cut, "One", "Two"));
     }
 }

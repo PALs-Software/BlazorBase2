@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 using NSubstitute;
+using Microsoft.FluentUI.AspNetCore.Components;
 using Xunit;
 
 namespace BlazorBase.CRUD.Test.Components;
@@ -32,8 +33,8 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
         var cut = RenderList(BaseListMobileLayout.Always);
 
         cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
-        Assert.Empty(cut.FindAll("tr.fluent-data-grid-row"));
-        Assert.Empty(cut.FindAll("fluent-data-grid"));
+        Assert.Empty(cut.FindAll("tr.base-list-row"));
+        Assert.Empty(cut.FindAll(".base-list-table"));
     }
 
     [Fact]
@@ -41,7 +42,7 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
     {
         var cut = RenderList(BaseListMobileLayout.Never);
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
         Assert.Empty(cut.FindAll(".base-list-card"));
     }
 
@@ -50,7 +51,7 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
     {
         var cut = RenderList(BaseListMobileLayout.Auto);
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
         Assert.Empty(cut.FindAll(".base-list-card"));
     }
 
@@ -63,7 +64,7 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
         var cut = RenderList(BaseListMobileLayout.Auto);
 
         cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
-        Assert.Empty(cut.FindAll("tr.fluent-data-grid-row"));
+        Assert.Empty(cut.FindAll("tr.base-list-row"));
         Assert.Equal(MobileCardPlanResolver.DefaultBreakpoint, (int)module.Invocations["observeLayout"].Single().Arguments[2]!);
     }
 
@@ -96,7 +97,7 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
 
         var cut = RenderList(BaseListMobileLayout.Auto, breakpoint: 0);
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
         Assert.DoesNotContain(JSInterop.Invocations, invocation => invocation.Identifier == "observeLayout");
     }
 
@@ -106,16 +107,16 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
         var module = JSInterop.SetupModule(MobileModulePath);
         module.Setup<bool>("observeLayout", _ => true).SetResult(false);
         var cut = RenderList(BaseListMobileLayout.Auto);
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
 
         await cut.InvokeAsync(() => cut.Instance.OnMobileLayoutChangedAsync(true));
 
         cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
-        Assert.Empty(cut.FindAll("tr.fluent-data-grid-row"));
+        Assert.Empty(cut.FindAll("tr.base-list-row"));
 
         await cut.InvokeAsync(() => cut.Instance.OnMobileLayoutChangedAsync(false));
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
         Assert.Empty(cut.FindAll(".base-list-card"));
     }
 
@@ -222,7 +223,7 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
     public void TheEntryCount_StaysOnTheTableLayout()
     {
         var cut = RenderList(BaseListMobileLayout.Never);
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
 
         Assert.NotEmpty(cut.FindAll(".base-list-count"));
     }
@@ -394,7 +395,7 @@ public class BaseListMobileLayoutTests : BunitTestContextBase
         var cut = RenderList(BaseListMobileLayout.Always);
         cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card").Count));
 
-        var options = cut.FindAll("fluent-select.base-list-card-sort fluent-option").Select(option => option.TextContent.Trim()).ToList();
+        var options = cut.FindComponent<FluentSelect<MobileSortOption, string>>().Instance.Items!.Select(option => option.Title).ToList();
 
         Assert.Equal(Framework["SortDefault"].Value, options[0]);
         Assert.Contains("Name", options);

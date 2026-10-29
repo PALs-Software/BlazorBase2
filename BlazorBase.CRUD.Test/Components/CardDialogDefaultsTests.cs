@@ -26,15 +26,13 @@ public class CardDialogDefaultsTests
     [Fact]
     public void Create_UsesTheSharedCardDialogShape()
     {
-        var parameters = CardDialogDefaults.Create();
+        var options = CardDialogDefaults.Create();
 
-        Assert.Equal(string.Empty, parameters.Title);
-        Assert.False(parameters.ShowTitle);
-        Assert.Equal(string.Empty, parameters.PrimaryAction);
-        Assert.Equal(string.Empty, parameters.SecondaryAction);
-        Assert.True(parameters.PreventDismissOnOverlayClick);
-        Assert.False(parameters.ShowDismiss);
-        Assert.False(parameters.TrapFocus);
+        Assert.Null(options.Title);
+        Assert.True(options.PreventDismissOnEscape);
+        Assert.False(options.ShowCloseButton);
+        Assert.True(options.Modal);
+        Assert.Empty(options.Parameters);
     }
 
     [Fact]

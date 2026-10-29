@@ -50,7 +50,7 @@ public class BaseActionToolbarTests : BunitTestContextBase
     }
 
     private static bool IsDisabled(IRenderedComponent<BaseActionToolbar<TestProduct>> cut) =>
-        cut.Find("fluent-button").HasAttribute("disabled");
+        cut.Find(".base-action-toolbar-button").HasAttribute("disabled");
 
     private static CrudAction<TestProduct> Action(CrudActionScope scope, Func<TestProduct, bool>? enabled = null) => new()
     {
@@ -115,7 +115,7 @@ public class BaseActionToolbarTests : BunitTestContextBase
         Assert.Equal(Framework["ActionSelectRowFirst"].Value, wrapper.GetAttribute("title"));
         Assert.Equal(Framework["ActionSelectRowFirst"].Value, reason.TextContent);
         Assert.Equal(reason.Id, wrapper.GetAttribute("aria-describedby"));
-        Assert.Equal(reason.Id, cut.Find("fluent-button").GetAttribute("aria-describedby"));
+        Assert.Equal(reason.Id, cut.Find(".base-action-toolbar-button").GetAttribute("aria-describedby"));
         Assert.Equal("0", wrapper.GetAttribute("tabindex"));
     }
 
@@ -220,7 +220,7 @@ public class BaseActionToolbarTests : BunitTestContextBase
         };
 
         var cut = RenderToolbar(action, [a, b]);
-        cut.Find("fluent-button").Click();
+        cut.Find(".base-action-toolbar-button").Click();
 
         Assert.NotNull(received);
         Assert.Equal([a, b], received.SelectedItems);
@@ -240,7 +240,7 @@ public class BaseActionToolbarTests : BunitTestContextBase
         };
 
         var cut = RenderToolbar(action, [a]);
-        cut.Find("fluent-button").Click();
+        cut.Find(".base-action-toolbar-button").Click();
 
         Assert.NotNull(received);
         Assert.Same(a, received.Item);
@@ -256,7 +256,7 @@ public class BaseActionToolbarTests : BunitTestContextBase
         var cut = RenderToolbar(action);
 
         Assert.Empty(cut.FindAll(".base-action-toolbar-item"));
-        Assert.Empty(cut.FindAll("fluent-button"));
+        Assert.Empty(cut.FindAll(".base-action-toolbar-button"));
     }
 
     [Fact]
@@ -268,7 +268,7 @@ public class BaseActionToolbarTests : BunitTestContextBase
 
         var cut = RenderToolbar(action, group: group);
 
-        Assert.Empty(cut.FindAll("fluent-button"));
+        Assert.Empty(cut.FindAll(".base-action-toolbar-button"));
     }
 
     [Fact]
@@ -277,8 +277,8 @@ public class BaseActionToolbarTests : BunitTestContextBase
         var action = Action(CrudActionScope.Single);
         action.Visible = args => Task.FromResult(args.Item is { IsActive: true });
 
-        Assert.Single(RenderToolbar(action, [Product("A")]).FindAll("fluent-button"));
-        Assert.Empty(RenderToolbar(action, [Product("B", false)]).FindAll("fluent-button"));
+        Assert.Single(RenderToolbar(action, [Product("A")]).FindAll(".base-action-toolbar-button"));
+        Assert.Empty(RenderToolbar(action, [Product("B", false)]).FindAll(".base-action-toolbar-button"));
     }
 
     [Fact]
@@ -289,13 +289,13 @@ public class BaseActionToolbarTests : BunitTestContextBase
 
         var cut = RenderToolbar(action);
 
-        Assert.Single(cut.FindAll("fluent-button"));
+        Assert.Single(cut.FindAll(".base-action-toolbar-button"));
         Assert.True(IsDisabled(cut));
 
         var hidden = Action(CrudActionScope.Single);
         hidden.Visible = _ => Task.FromResult(false);
 
-        Assert.Empty(RenderToolbar(hidden).FindAll("fluent-button"));
+        Assert.Empty(RenderToolbar(hidden).FindAll(".base-action-toolbar-button"));
     }
 
     [Fact]
@@ -324,7 +324,7 @@ public class BaseActionToolbarTests : BunitTestContextBase
 
         var cut = RenderToolbar(action, [Product("A")]);
 
-        Assert.Empty(cut.FindAll("fluent-button"));
+        Assert.Empty(cut.FindAll(".base-action-toolbar-button"));
     }
 
     private IRenderedComponent<BaseActionToolbar<TestProduct>> RenderOverflowToolbar(
@@ -350,7 +350,7 @@ public class BaseActionToolbarTests : BunitTestContextBase
 
     private static void OpenMore(IRenderedComponent<BaseActionToolbar<TestProduct>> cut)
     {
-        cut.Find(".base-action-toolbar-more fluent-button").Click();
+        cut.Find(".base-action-toolbar-more .base-action-toolbar-button").Click();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-action-toolbar-menu")));
     }
 
@@ -372,7 +372,7 @@ public class BaseActionToolbarTests : BunitTestContextBase
         var cut = RenderOverflowToolbar(null, null, Group(Action(CrudActionScope.None)));
 
         Assert.Single(cut.FindAll(".base-action-toolbar-inline .base-action-toolbar-item"));
-        Assert.Equal(Framework["MoreActions"].Value, cut.Find(".base-action-toolbar-more fluent-button").GetAttribute("aria-label"));
+        Assert.Equal(Framework["MoreActions"].Value, cut.Find(".base-action-toolbar-more .base-action-toolbar-button").GetAttribute("aria-label"));
         Assert.Empty(cut.FindAll(".base-action-toolbar-menu"));
     }
 
@@ -469,10 +469,10 @@ public class BaseActionToolbarTests : BunitTestContextBase
     public void OverflowMenu_ClosesOnEscapeAndOnTheMoreButtonAgain()
     {
         var cut = RenderOverflowToolbar(null, null, Group(Action(CrudActionScope.None)));
-        var more = cut.Find(".base-action-toolbar-more fluent-button");
+        var more = cut.Find(".base-action-toolbar-more .base-action-toolbar-button");
 
         more.Click();
-        Assert.Equal("true", cut.Find(".base-action-toolbar-more fluent-button").GetAttribute("aria-expanded"));
+        Assert.Equal("true", cut.Find(".base-action-toolbar-more .base-action-toolbar-button").GetAttribute("aria-expanded"));
         cut.Find(".base-action-toolbar-menu").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" });
         Assert.Empty(cut.FindAll(".base-action-toolbar-menu"));
 
@@ -506,7 +506,7 @@ public class BaseActionToolbarTests : BunitTestContextBase
         second.Caption = "Import B";
 
         var cut = RenderOverflowToolbar(null, null, MultiGroup("Import", first, second));
-        var trigger = cut.Find(".base-action-toolbar-inline .base-action-toolbar-trigger fluent-button");
+        var trigger = cut.Find(".base-action-toolbar-inline .base-action-toolbar-trigger .base-action-toolbar-button");
 
         Assert.Equal("menu", trigger.GetAttribute("aria-haspopup"));
         Assert.Contains("Import", trigger.TextContent);

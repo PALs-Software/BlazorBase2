@@ -1,28 +1,22 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
-using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace BlazorBase.Components.Dialogs;
 
-public partial class BaseDateInputDialog : ComponentBase, IDialogContentComponent<DateInputDialogContent>
+public partial class BaseDateInputDialog : BaseDialogInstance<DateInputDialogContent>
 {
     [Inject]
-    private IStringLocalizer<BaseDateInputDialog> Localizer { get; set; } = default!;
-
-    [Parameter]
-    public DateInputDialogContent Content { get; set; } = default!;
-
-    [CascadingParameter]
-    private FluentDialog? Dialog { get; set; }
+    private IStringLocalizer<BaseDateInputDialog> DialogLocalizer { get; set; } = default!;
 
     private DateTime? SelectedDate;
 
-    private string ConfirmText => Content.ConfirmButtonText ?? Localizer["Confirm"];
+    private string ConfirmText => Content.ConfirmButtonText ?? DialogLocalizer["Confirm"];
 
-    private string CancelText => Content.CancelButtonText ?? Localizer["Cancel"];
+    private string CancelText => Content.CancelButtonText ?? DialogLocalizer["Cancel"];
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
+        await base.OnInitializedAsync();
         SelectedDate = Content.InitialDate;
     }
 
@@ -31,17 +25,11 @@ public partial class BaseDateInputDialog : ComponentBase, IDialogContentComponen
         SelectedDate = value;
     }
 
-    private async Task ConfirmAsync()
+    private async Task ConfirmDateAsync()
     {
-        if (Dialog is null || SelectedDate is null)
+        if (SelectedDate is null)
             return;
 
-        await Dialog.CloseAsync(new DateInputDialogResult { Date = SelectedDate.Value });
-    }
-
-    private async Task CancelAsync()
-    {
-        if (Dialog is not null)
-            await Dialog.CancelAsync();
+        await ConfirmWithResultAsync(new DateInputDialogResult { Date = SelectedDate.Value });
     }
 }

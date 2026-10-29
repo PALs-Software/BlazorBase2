@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using BlazorBase.CRUD.Components;
+using BlazorBase.CRUD.Components.Filtering;
 using BlazorBase.CRUD.Core;
 using BlazorBase.CRUD.Filtering;
 using BlazorBase.CRUD.Models;
@@ -9,6 +10,7 @@ using BlazorBase.CRUD.Test.Infrastructure.TestEntities;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.FluentUI.AspNetCore.Components;
 using NSubstitute;
 using Xunit;
 
@@ -179,8 +181,8 @@ public class PresetDeepLinkTests : BunitTestContextBase
 
         cut.WaitForAssertion(() =>
         {
-            var selected = cut.FindAll("fluent-option[selected]");
-            Assert.Contains(selected, option => option.GetAttribute("value") == "preset:active");
+            var select = cut.FindComponent<FluentSelect<QuickFilterMenu.QuickFilterChoice, string>>();
+            Assert.Equal("preset:active", select.Instance.Value);
         });
     }
 

@@ -293,7 +293,8 @@ public partial class BaseCommandPalette(
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
             Logger.LogError(exception, "The command palette entry {EntryId} failed.", entry.Id);
-            ServiceProvider.GetService<IToastService>()?.ShowError(Localizer["ActionFailed"]);
+            if (ServiceProvider.GetService<INotificationService>() is { } notifications)
+                await notifications.ShowErrorToastAsync(Localizer["ActionFailed"]);
         }
     }
 

@@ -1,5 +1,9 @@
 .base-lookup-search {
-    margin-bottom: 12px;
+    margin-bottom: var(--space-3);
+}
+
+.base-lookup-search ::deep .base-lookup-field {
+    width: 100%;
 }
 
 .base-lookup-items {
@@ -8,16 +12,16 @@
 }
 
 .base-lookup-item {
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
     cursor: pointer;
-    border-radius: var(--radius-sm, 4px);
+    border-radius: var(--radius-sm);
 }
 
 .base-lookup-item:hover {
-    background: var(--color-bg-hover, var(--neutral-layer-2));
+    background: var(--color-bg-hover);
 }
 
 .base-lookup-item.selected {
-    background: var(--color-accent, var(--accent-fill-rest));
-    color: var(--color-text-on-accent, var(--foreground-on-accent-rest));
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
 }

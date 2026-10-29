@@ -7,6 +7,14 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <BlazorBaseLibsPath Condition="'$(BlazorBaseLibsPath)' == ''">..\Libs\</BlazorBaseLibsPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(BlazorBaseLibsPath)BlazorBase.Components.Test\Infrastructure\FluentStyleGuard.cs" Link="Infrastructure\FluentStyleGuard.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="bunit" />
     <PackageReference Include="coverlet.collector" />

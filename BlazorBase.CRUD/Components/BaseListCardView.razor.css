@@ -18,48 +18,19 @@
     align-items: center;
     gap: 8px;
     padding: 8px 0;
-    background: var(--color-bg-surface, var(--neutral-layer-1));
+    background: var(--color-bg-surface);
 }
 
 .base-list-card-toolbar ::deep .base-list-card-sort {
     flex: 1 1 auto;
     min-width: 0;
     width: 100%;
-    height: 36px;
-    min-height: 36px;
-}
-
-.base-list-card-toolbar ::deep .base-list-card-sort::part(control) {
-    height: 36px;
-    min-height: 36px;
-    background: var(--base-list-control-fill, var(--neutral-fill-stealth-rest));
-    border-color: transparent;
-}
-
-.base-list-card-toolbar ::deep .base-list-card-sort:hover::part(control) {
-    background: var(--base-list-control-fill-hover, var(--neutral-fill-stealth-hover));
-}
-
-.base-list-card-toolbar ::deep .base-list-card-sort:active::part(control),
-.base-list-card-toolbar ::deep .base-list-card-sort[open]::part(control) {
-    background: var(--base-list-control-fill-active, var(--neutral-fill-stealth-active));
-}
-
-.base-list-card-toolbar ::deep .base-list-card-sort fluent-option {
-    background: transparent;
-}
-
-.base-list-card-toolbar ::deep .base-list-card-sort fluent-option:hover,
-.base-list-card-toolbar ::deep .base-list-card-sort fluent-option[aria-selected="true"] {
-    background: var(--neutral-fill-stealth-hover);
 }
 
 .base-list-card-toolbar ::deep .base-list-card-sort-direction {
-    --neutral-fill-stealth-rest: var(--base-list-control-fill, transparent);
-    --neutral-fill-stealth-hover: var(--base-list-control-fill-hover);
     flex: 0 0 auto;
-    min-width: 36px;
-    min-height: 36px;
+    min-width: var(--control-height-touch);
+    min-height: var(--control-height-touch);
 }
 
 .base-list-cards {
@@ -92,32 +63,32 @@
     align-items: start;
     height: 100%;
     overflow: hidden;
-    background: var(--color-bg-elevated, var(--neutral-layer-2));
-    border: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
-    border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px));
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
 }
 
 .base-list-card.base-list-card-placeholder {
-    background: var(--color-bg-hover, var(--neutral-fill-secondary-rest));
+    background: var(--color-bg-hover);
     border-color: transparent;
     opacity: 0.6;
 }
 
 .base-list-card.is-selected {
     background:
-        linear-gradient(var(--color-bg-selected, var(--neutral-fill-secondary-rest)), var(--color-bg-selected, var(--neutral-fill-secondary-rest))),
-        var(--color-bg-elevated, var(--neutral-layer-2));
-    border-color: var(--color-accent, var(--accent-fill-rest));
-    box-shadow: inset 0 0 0 1px var(--color-accent, var(--accent-fill-rest));
+        linear-gradient(var(--color-bg-selected), var(--color-bg-selected)),
+        var(--color-bg-elevated);
+    border-color: var(--color-accent);
+    box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
 .base-list-card.is-blocked {
-    box-shadow: inset 4px 0 0 var(--color-warning, var(--warning));
+    box-shadow: inset 4px 0 0 var(--color-warning);
 }
 
 .base-list-card.is-selected.is-blocked {
-    box-shadow: inset 0 0 0 1px var(--color-accent, var(--accent-fill-rest)), inset 4px 0 0 var(--color-warning, var(--warning));
+    box-shadow: inset 0 0 0 1px var(--color-accent), inset 4px 0 0 var(--color-warning);
 }
 
 /*
@@ -143,7 +114,7 @@
     padding: 0.75rem 4px 0.75rem 14px;
     overflow: hidden;
     border: 0;
-    border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px));
+    border-radius: var(--radius-md);
     background: none;
     color: inherit;
     font: inherit;
@@ -160,17 +131,17 @@
 }
 
 .base-list-card-body.is-interactive:active {
-    background: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
+    background: var(--color-bg-hover);
 }
 
 .base-list-card-body.is-interactive:focus-visible {
-    outline: 2px solid var(--color-accent, var(--accent-fill-rest));
+    outline: 2px solid var(--color-accent);
     outline-offset: -2px;
 }
 
 @media (hover: hover) {
     .base-list-card-body.is-interactive:hover {
-        background: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
+        background: var(--color-bg-hover);
     }
 }
 
@@ -193,7 +164,7 @@
     line-clamp: 1;
     overflow: hidden;
     overflow-wrap: anywhere;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
     font-size: 0.875rem;
     line-height: 1.3;
 }
@@ -217,10 +188,10 @@
     min-width: 0;
     max-width: 100%;
     padding: 0 10px;
-    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-pill, 999px);
-    background: var(--color-bg-surface, var(--neutral-layer-1));
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
     font-size: 0.75rem;
     font-weight: 600;
     line-height: 1.2;
@@ -230,14 +201,14 @@
 
 .base-list-card-badge.is-flag {
     padding-inline-start: 6px;
-    border-color: var(--color-accent, var(--accent-fill-rest));
+    border-color: var(--color-accent);
     background: var(--color-bg-selected, transparent);
 }
 
 .base-list-card-badge.is-flag.is-off {
-    border-color: var(--color-border, var(--neutral-stroke-divider-rest));
+    border-color: var(--color-border);
     background: none;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
     font-weight: 400;
 }
 
@@ -257,7 +228,7 @@
 }
 
 .base-list-card-empty {
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
 }
 
 .base-list-card-fields {
@@ -274,7 +245,7 @@
 
 .base-list-card-label {
     overflow: hidden;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
     font-size: 0.75rem;
     line-height: 1.3;
     text-overflow: ellipsis;
@@ -316,17 +287,17 @@
 .base-list-card-check-mark {
     width: 22px;
     height: 22px;
-    border: 2px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border: 2px solid var(--color-border-strong);
     border-radius: 50%;
 }
 
 .base-list-card-check.is-selected .base-list-card-check-mark {
-    border-color: var(--color-accent, var(--accent-fill-rest));
-    background: var(--color-accent, var(--accent-fill-rest));
+    border-color: var(--color-accent);
+    background: var(--color-accent);
 }
 
 .base-list-card-check:focus-visible {
-    outline: 2px solid var(--color-accent, var(--accent-fill-rest));
+    outline: 2px solid var(--color-accent);
     outline-offset: -2px;
 }
 
@@ -355,10 +326,6 @@
     display: none;
 }
 
-.base-list-card-actions ::deep fluent-button {
-    min-height: 44px;
-}
-
-.base-list-card-actions ::deep fluent-button::part(control) {
-    min-height: 44px;
+.base-list-card-actions ::deep > * {
+    min-height: var(--control-height-touch);
 }

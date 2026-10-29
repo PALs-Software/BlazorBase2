@@ -108,7 +108,7 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
     /// The dialog hosting the card, if any; its presence is what tells a dialog card from one shown on a page.
     /// </summary>
     [CascadingParameter]
-    private FluentDialog? HostingDialog { get; set; }
+    private IDialogInstance? HostingDialog { get; set; }
 
     private bool IsInline => HostingDialog is null;
 

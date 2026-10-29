@@ -1,50 +1,21 @@
 const stack = [];
 let counter = 0;
 let replayingEscape = false;
-const focusHistory = document.activeElement ? [document.activeElement] : [];
-
-// FluentUI hands focus back itself only when the dialog is closed through its own close call; Escape and an overlay
-// click close it through the dialog service, which does not. So the element that had focus before a dialog opened is
-// tracked here and put back when the dialog goes away and focus was left on nothing.
-document.addEventListener('focusin', event => {
-    if (focusHistory[focusHistory.length - 1] !== event.target) {
-        focusHistory.push(event.target);
-
-        if (focusHistory.length > 12)
-            focusHistory.shift();
-    }
-}, true);
-
-function findOpener(dialog) {
-    for (let index = focusHistory.length - 1; index >= 0; index--) {
-        const candidate = focusHistory[index];
-
-        if (document.contains(candidate) && !dialog.contains(candidate))
-            return candidate;
-    }
-
-    return null;
-}
 
 const FIELD_SELECTOR = [
     'input:not([type="hidden"])',
     'textarea',
     'select',
-    'fluent-text-field',
-    'fluent-text-area',
-    'fluent-number-field',
-    'fluent-select',
-    'fluent-combobox',
-    'fluent-checkbox',
-    'fluent-switch',
-    'fluent-radio',
-    'fluent-search',
+    '[slot="input"]',
+    '[slot="control"]',
     '[contenteditable="true"]'
 ].join(',');
 
-const ACTION_SELECTOR = 'button, fluent-button, a[href], [tabindex]:not([tabindex="-1"])';
+const ACTION_SELECTOR = 'button, [role="button"], a[href], [tabindex]:not([tabindex="-1"])';
 
-const SKIPPED_TAGS = new Set(['SCRIPT', 'STYLE', 'LINK', 'TEMPLATE']);
+function isFocusHost(element) {
+    return !!element.shadowRoot && element.shadowRoot.delegatesFocus === true;
+}
 
 function isUsable(element) {
     if (!element || element.disabled === true || element.hasAttribute('disabled') || element.hasAttribute('readonly'))
@@ -66,8 +37,8 @@ function findInitialFocusTarget(root) {
             return field;
     }
 
-    for (const action of root.querySelectorAll(ACTION_SELECTOR)) {
-        if (isUsable(action) && !action.classList.contains('base-card-close'))
+    for (const action of root.querySelectorAll('*')) {
+        if ((action.matches(ACTION_SELECTOR) || isFocusHost(action)) && isUsable(action) && !action.classList.contains('base-card-close'))
             return action;
     }
 
@@ -81,25 +52,6 @@ function deepActiveElement() {
         active = active.shadowRoot.activeElement;
 
     return active;
-}
-
-function makeBackgroundInert(dialog) {
-    const marked = [];
-    let node = dialog;
-
-    while (node && node.parentElement && node !== document.body) {
-        for (const sibling of node.parentElement.children) {
-            if (sibling === node || SKIPPED_TAGS.has(sibling.tagName) || sibling.hasAttribute('inert'))
-                continue;
-
-            sibling.setAttribute('inert', '');
-            marked.push(sibling);
-        }
-
-        node = node.parentElement;
-    }
-
-    return marked;
 }
 
 function isExpanded(host, active) {
@@ -116,13 +68,6 @@ function onKeyDown(event) {
 
     if (!host || !top.root.contains(host) || isExpanded(host, active))
         return;
-
-    if (top.dismissOnEscape && typeof top.dialog.dismiss === 'function') {
-        event.stopPropagation();
-        event.preventDefault();
-        top.dialog.dismiss();
-        return;
-    }
 
     if (!top.commitOnEscape || !active || !(active.matches('input, textarea') || active.isContentEditable))
         return;
@@ -143,27 +88,26 @@ function onKeyDown(event) {
         }
     }, 40);
 }
+
 /**
- * Makes the dialog the only thing the keyboard and pointer can reach, moves focus into it, and (optionally)
- * commits a half-typed field when Escape is pressed so a dirty check sees it.
+ * Moves focus into the dialog it is rendered in and, optionally, commits a half-typed field when Escape is
+ * pressed so a dirty check sees it. The dialog itself is the native modal of the Fluent dialog: it makes the page
+ * behind it inert, closes on Escape and hands focus back to the opener.
  * @param {HTMLElement} root element rendered inside the dialog by DialogBehavior
- * @param {{initialFocus: boolean, commitOnEscape: boolean, dismissOnEscape: boolean}} options
+ * @param {{initialFocus: boolean, commitOnEscape: boolean}} options
  * @returns {string|null} token to pass to unregister
  */
 export function register(root, options) {
-    const dialog = root && root.closest('fluent-dialog');
+    const dialog = root && root.closest('.base-dialog');
     if (!dialog)
         return null;
 
     const token = (++counter).toString();
-    const marked = makeBackgroundInert(dialog);
 
     if (stack.length === 0)
         window.addEventListener('keydown', onKeyDown, true);
 
-    const opener = findOpener(dialog);
-
-    stack.push({ token, root, dialog, marked, opener, commitOnEscape: options.commitOnEscape, dismissOnEscape: options.dismissOnEscape });
+    stack.push({ token, root, commitOnEscape: options.commitOnEscape });
 
     if (options.initialFocus) {
         setTimeout(() => {
@@ -185,29 +129,8 @@ export function unregister(token) {
     if (index === -1)
         return;
 
-    const entry = stack[index];
     stack.splice(index, 1);
-
-    for (const element of entry.marked) {
-        if (!stack.some(other => other.marked.includes(element)))
-            element.removeAttribute('inert');
-    }
 
     if (stack.length === 0)
         window.removeEventListener('keydown', onKeyDown, true);
-
-    setTimeout(() => giveFocusBack(entry.opener, 4), 120);
-}
-
-function giveFocusBack(opener, attemptsLeft) {
-    const active = document.activeElement;
-    const focusIsLost = !active || active === document.body || !document.contains(active);
-
-    if (!opener || !document.contains(opener) || !focusIsLost)
-        return;
-
-    opener.focus({ preventScroll: true });
-
-    if (document.activeElement !== opener && attemptsLeft > 1)
-        setTimeout(() => giveFocusBack(opener, attemptsLeft - 1), 80);
 }

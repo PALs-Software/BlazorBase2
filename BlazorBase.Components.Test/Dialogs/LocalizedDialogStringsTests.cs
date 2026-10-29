@@ -4,6 +4,7 @@ using BlazorBase.Components.Test.Infrastructure;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
+using Microsoft.FluentUI.AspNetCore.Components;
 using Xunit;
 
 namespace BlazorBase.Components.Test.Dialogs;
@@ -20,9 +21,9 @@ public class LocalizedDialogStringsTests : ComponentsBunitTestContextBase
         using var culture = new CultureScope("de-DE");
         Services.AddLocalization();
 
-        var cut = Render<BaseFileInputDialog>(parameters => parameters.Add(p => p.Content, FileContent()));
+        var dialog = DialogHarness<BaseFileInputDialog>.Open(this, "Datei", FileContent());
 
-        var buttons = cut.FindAll("fluent-button").Select(button => button.TextContent.Trim()).ToList();
+        var buttons = Captions(dialog.Content);
         Assert.Contains("Importieren", buttons);
         Assert.Contains("Abbrechen", buttons);
     }
@@ -33,9 +34,9 @@ public class LocalizedDialogStringsTests : ComponentsBunitTestContextBase
         using var culture = new CultureScope("en-US");
         Services.AddLocalization();
 
-        var cut = Render<BaseFileInputDialog>(parameters => parameters.Add(p => p.Content, FileContent()));
+        var dialog = DialogHarness<BaseFileInputDialog>.Open(this, "File", FileContent());
 
-        var buttons = cut.FindAll("fluent-button").Select(button => button.TextContent.Trim()).ToList();
+        var buttons = Captions(dialog.Content);
         Assert.Contains("Import", buttons);
         Assert.Contains("Cancel", buttons);
     }
@@ -46,7 +47,7 @@ public class LocalizedDialogStringsTests : ComponentsBunitTestContextBase
         using var culture = new CultureScope("de-DE");
         Services.AddLocalization();
 
-        var cut = Render<BaseFileInputDialog>(parameters => parameters.Add(p => p.Content, new FileInputDialogContent
+        var dialog = DialogHarness<BaseFileInputDialog>.Open(this, "Datei", new FileInputDialogContent
         {
             Message = "Pick",
             FileInputCaption = "File",
@@ -54,9 +55,9 @@ public class LocalizedDialogStringsTests : ComponentsBunitTestContextBase
             MaxFileSize = 1024,
             ConfirmButtonText = "Hochladen",
             CancelButtonText = "Zurück"
-        }));
+        });
 
-        var buttons = cut.FindAll("fluent-button").Select(button => button.TextContent.Trim()).ToList();
+        var buttons = Captions(dialog.Content);
         Assert.Contains("Hochladen", buttons);
         Assert.Contains("Zurück", buttons);
     }
@@ -67,9 +68,9 @@ public class LocalizedDialogStringsTests : ComponentsBunitTestContextBase
         using var culture = new CultureScope("de-DE");
         Services.AddLocalization();
 
-        var cut = Render<BaseDateInputDialog>(parameters => parameters.Add(p => p.Content, new DateInputDialogContent { Message = "Pick a date" }));
+        var dialog = DialogHarness<BaseDateInputDialog>.Open(this, "Datum", new DateInputDialogContent { Message = "Pick a date" });
 
-        var buttons = cut.FindAll("fluent-button").Select(button => button.TextContent.Trim()).ToList();
+        var buttons = Captions(dialog.Content);
         Assert.Contains("Bestätigen", buttons);
         Assert.Contains("Abbrechen", buttons);
     }
@@ -106,6 +107,12 @@ public class LocalizedDialogStringsTests : ComponentsBunitTestContextBase
 
         Assert.Equal("The selected file is empty.", result);
     }
+
+    private static List<string> Captions(IRenderedComponent<BaseFileInputDialog> content) =>
+        content.FindComponents<FluentButton>().Select(button => button.Caption()).ToList();
+
+    private static List<string> Captions(IRenderedComponent<BaseDateInputDialog> content) =>
+        content.FindComponents<FluentButton>().Select(button => button.Caption()).ToList();
 
     private IStringLocalizer<BaseFileInputDialog> Localizer()
     {

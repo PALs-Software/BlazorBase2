@@ -1,3 +1,4 @@
+using BlazorBase.Components.Services;
 using BlazorBase.Notifications.Components.NotificationBell;
 using BlazorBase.Notifications.Interop;
 using BlazorBase.Notifications.Models;
@@ -24,7 +25,7 @@ public sealed class NotificationBellTests : BunitContext
     public NotificationBellTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddFluentUIComponents();
+        Services.AddBlazorBaseFluentUI();
         Services.AddLocalization();
         Services.AddSingleton(InboxClient);
         Services.AddSingleton(RefreshInterop);

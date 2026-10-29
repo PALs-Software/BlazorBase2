@@ -5,17 +5,14 @@ public interface IThemeService
     ThemePreference CurrentTheme { get; }
 
     /// <summary>
-    /// The accent the active theme resolves to, for handing on to FluentUI's design system so its own
-    /// components adopt the palette instead of staying on their default blue. Null until
-    /// <see cref="ApplyAsync"/> has run.
+    /// The accent the active theme resolves to (<c>--color-accent</c>), for code that needs the colour on this
+    /// side, such as a chart. Null until <see cref="ApplyAsync"/> has run.
     /// </summary>
     string? AccentColor { get; }
 
     /// <summary>
-    /// The seed FluentUI derives its neutral ramp from, read from <c>--color-neutral-base</c>. Its
-    /// controls paint their surfaces, borders and disabled text from that ramp rather than from the
-    /// tokens, so without it a button stays grey-blue on a palette that is not. Null until
-    /// <see cref="ApplyAsync"/> has run.
+    /// The neutral base of the active theme (<c>--color-neutral-base</c>), the swatch the disabled and skeleton
+    /// colours are tinted from. Null until <see cref="ApplyAsync"/> has run.
     /// </summary>
     string? NeutralBaseColor { get; }
 

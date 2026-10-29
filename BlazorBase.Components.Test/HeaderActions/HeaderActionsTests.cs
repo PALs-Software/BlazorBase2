@@ -96,7 +96,7 @@ public sealed class BaseHeaderActionsTests : ComponentsBunitTestContextBase
     };
 
     private IReadOnlyList<string> RenderedIds(IRenderedComponent<BaseHeaderActions> cut) =>
-        cut.FindAll(".base-header-actions > fluent-button[data-action-id]").Select(button => button.GetAttribute("data-action-id")!).ToList();
+        cut.FindAll(".base-header-actions > .base-header-action[data-action-id]").Select(button => button.GetAttribute("data-action-id")!).ToList();
 
     [Fact]
     public void ButtonsAreRenderedInOrderWithAccessibleNames()
@@ -107,7 +107,7 @@ public sealed class BaseHeaderActionsTests : ComponentsBunitTestContextBase
         var cut = Render<BaseHeaderActions>();
 
         Assert.Equal(["first", "second"], RenderedIds(cut));
-        var button = cut.Find("fluent-button[data-action-id=first]");
+        var button = cut.Find(".base-header-action[data-action-id=first]");
         Assert.Equal("Title first", button.GetAttribute("aria-label"));
         Assert.Equal("Title first", button.GetAttribute("title"));
     }
@@ -194,7 +194,7 @@ public sealed class BaseHeaderActionsTests : ComponentsBunitTestContextBase
         Service.Register(Item("a"));
         var cut = Render<BaseHeaderActions>();
 
-        cut.Find("fluent-button[data-action-id=a]").Click();
+        cut.Find(".base-header-action[data-action-id=a]").Click();
 
         Assert.Equal(["a"], Invoked);
     }
@@ -208,9 +208,9 @@ public sealed class BaseHeaderActionsTests : ComponentsBunitTestContextBase
 
         var cut = Render<BaseHeaderActions>();
 
-        Assert.Equal("true", cut.Find("fluent-button[data-action-id=on]").GetAttribute("aria-pressed"));
-        Assert.Equal("false", cut.Find("fluent-button[data-action-id=off]").GetAttribute("aria-pressed"));
-        Assert.Null(cut.Find("fluent-button[data-action-id=plain]").GetAttribute("aria-pressed"));
+        Assert.Equal("true", cut.Find(".base-header-action[data-action-id=on]").GetAttribute("aria-pressed"));
+        Assert.Equal("false", cut.Find(".base-header-action[data-action-id=off]").GetAttribute("aria-pressed"));
+        Assert.Null(cut.Find(".base-header-action[data-action-id=plain]").GetAttribute("aria-pressed"));
     }
 
     [Fact]
@@ -224,7 +224,7 @@ public sealed class BaseHeaderActionsTests : ComponentsBunitTestContextBase
 
         Assert.Equal(["a", "b"], RenderedIds(cut));
         Assert.Empty(cut.FindAll("[role=menu]"));
-        var toggle = cut.Find("fluent-button.base-header-actions-toggle");
+        var toggle = cut.Find(".base-header-actions-toggle");
         Assert.Equal("false", toggle.GetAttribute("aria-expanded"));
         Assert.Equal("menu", toggle.GetAttribute("aria-haspopup"));
 
@@ -244,7 +244,7 @@ public sealed class BaseHeaderActionsTests : ComponentsBunitTestContextBase
         Service.Register(Item("a", 1));
         Service.Register(Item("b", 2));
         var cut = Render<BaseHeaderActions>(parameters => parameters.Add(p => p.MaxInline, 1));
-        cut.Find("fluent-button.base-header-actions-toggle").Click();
+        cut.Find(".base-header-actions-toggle").Click();
         Assert.NotEmpty(cut.FindAll("[role=menu]"));
 
         cut.Find(".base-header-actions").KeyDown(new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" });

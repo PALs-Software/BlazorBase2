@@ -17,16 +17,16 @@
 }
 
 ::deep a {
-    color: var(--color-accent, var(--accent-foreground-rest));
+    color: var(--color-accent-text);
     text-decoration: underline;
 }
 
 ::deep a:hover {
-    color: var(--color-accent, var(--accent-foreground-hover));
+    color: var(--color-accent-hover);
 }
 
 ::deep strong {
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
 }
 
 ::deep em {
@@ -34,54 +34,54 @@
 }
 
 ::deep h1 {
-    font-size: var(--type-ramp-plus-3-font-size, 28px);
-    line-height: var(--type-ramp-plus-3-line-height, 36px);
-    font-weight: 600;
+    font-size: var(--font-size-xxl);
+    line-height: var(--line-height-xxl);
+    font-weight: var(--font-weight-semibold);
     margin: 0 0 0.5em 0;
 }
 
 ::deep h2 {
-    font-size: var(--type-ramp-plus-2-font-size, 20px);
-    line-height: var(--type-ramp-plus-2-line-height, 28px);
-    font-weight: 600;
+    font-size: var(--font-size-lg);
+    line-height: var(--line-height-lg);
+    font-weight: var(--font-weight-semibold);
     margin: 0 0 0.5em 0;
 }
 
 ::deep h3 {
-    font-size: var(--type-ramp-plus-1-font-size, 16px);
-    line-height: var(--type-ramp-plus-1-line-height, 22px);
-    font-weight: 600;
+    font-size: var(--font-size-md);
+    line-height: var(--line-height-md);
+    font-weight: var(--font-weight-semibold);
     margin: 0 0 0.5em 0;
 }
 
 ::deep h4 {
-    font-size: var(--type-ramp-base-font-size, 14px);
-    line-height: var(--type-ramp-base-line-height, 20px);
-    font-weight: 600;
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    font-weight: var(--font-weight-semibold);
     margin: 0 0 0.5em 0;
 }
 
 ::deep blockquote {
     margin: 0 0 0.75em 0;
     padding: 0.5em 0 0.5em 1em;
-    border-left: 3px solid var(--color-border-strong, var(--neutral-stroke-rest));
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    border-left: 3px solid var(--color-border-strong);
+    color: var(--color-text-muted);
 }
 
 ::deep code {
-    font-family: var(--font-monospace, monospace);
+    font-family: var(--font-monospace);
     font-size: 0.875em;
-    background: var(--color-bg-subtle, var(--neutral-layer-2));
+    background: var(--color-bg-subtle);
     padding: 0.15em 0.35em;
-    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
+    border-radius: var(--radius-sm);
 }
 
 ::deep pre {
-    font-family: var(--font-monospace, monospace);
+    font-family: var(--font-monospace);
     font-size: 0.875em;
-    background: var(--color-bg-subtle, var(--neutral-layer-2));
+    background: var(--color-bg-subtle);
     padding: 0.75em 1em;
-    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
+    border-radius: var(--radius-sm);
     overflow-x: auto;
     margin: 0 0 0.75em 0;
 }

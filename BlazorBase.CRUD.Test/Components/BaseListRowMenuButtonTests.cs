@@ -24,10 +24,12 @@ namespace BlazorBase.CRUD.Test.Components;
 public class BaseListRowMenuButtonTests : BunitTestContextBase
 {
     private const string InteropModulePath = "./_content/BlazorBase.CRUD/js/baseListInterop.js";
-    private const string RowSelector = "tr.fluent-data-grid-row:not([row-type])";
+    private const string RowSelector = "tr.base-list-row:not([row-type])";
     private const string Divider = "-";
 
-    private readonly List<BaseDialogData<TestProduct>> openedCards = [];
+    private TestDialogService? dialogs;
+
+    private List<BaseDialogData<TestProduct>> openedCards => dialogs?.CardData<TestProduct>() ?? [];
     private readonly TestProduct first = new() { Id = Guid.NewGuid(), Name = "Alpha", Stock = 1, IsActive = true };
     private readonly TestProduct second = new() { Id = Guid.NewGuid(), Name = "Beta", Stock = 2, IsActive = true };
 
@@ -322,16 +324,7 @@ public class BaseListRowMenuButtonTests : BunitTestContextBase
         module.SetupVoid("rememberFocus", _ => true).SetVoidResult();
         module.SetupVoid("restoreFocus", _ => true).SetVoidResult();
 
-        var dialogService = Substitute.For<IDialogService>();
-        var reference = Substitute.For<IDialogReference>();
-        reference.Result.Returns(Task.FromResult(DialogResult.Cancel()));
-        dialogService.ShowDialogAsync<BaseDialog<TestProduct>>(Arg.Any<object>(), Arg.Any<DialogParameters>())
-            .Returns(call =>
-            {
-                openedCards.Add((BaseDialogData<TestProduct>)call[0]);
-                return Task.FromResult(reference);
-            });
-        Services.AddSingleton(dialogService);
+        dialogs = TestDialogService.Register(this, DialogResult.Cancel());
 
         var provider = Substitute.For<IBaseDataProvider<TestProduct>>();
         provider.GetListAsync(Arg.Any<BaseQuery>(), Arg.Any<Expression<Func<TestProduct, bool>>>(), Arg.Any<CancellationToken>())

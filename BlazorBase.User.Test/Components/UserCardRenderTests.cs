@@ -54,7 +54,7 @@ public class UserCardRenderTests : UserBunitTestContextBase
 
         Assert.Single(cut.FindComponents<UserRoleInput>());
         Assert.Single(cut.FindComponents<UserPasswordInput>());
-        Assert.Equal(TextFieldType.Password, cut.FindComponent<UserPasswordInput>().FindComponent<FluentTextField>().Instance.TextFieldType);
+        Assert.Equal(TextInputType.Password, cut.FindComponent<UserPasswordInput>().FindComponent<FluentTextInput>().Instance.TextInputType);
         Assert.Contains("Admin", cut.Markup);
     }
 

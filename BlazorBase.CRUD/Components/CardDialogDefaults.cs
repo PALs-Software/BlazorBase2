@@ -1,3 +1,4 @@
+using BlazorBase.Components.Dialogs;
 using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace BlazorBase.CRUD.Components;
@@ -28,26 +29,54 @@ public static class CardDialogDefaults
     public const string Width = $"min(calc(100vw - {ViewportMargin}), clamp({MinimumWidth}, {PreferredWidth}, {MaximumWidth}))";
 
     /// <summary>
-    /// Creates the dialog parameters of a card dialog: no title bar of its own (the card renders its header),
-    /// no primary or secondary action (the card renders its buttons), a fluid <see cref="Width"/>, no dismiss
-    /// by a click on the overlay and no dismiss button.
+    /// Creates the options of a card dialog: no title bar of its own (the card renders its header and its buttons),
+    /// a fluid <see cref="Width"/> and no close button. Escape and a click next to the dialog are handled by the
+    /// card, which asks about unsaved changes first.
     /// </summary>
-    /// <remarks>
-    /// FluentUI's own focus trap stays off. A card can raise a second modal dialog on top of itself (the discard
-    /// prompt), and two traps each pull focus back into their own dialog and fight over it. The card's dialog
-    /// content instead makes everything outside itself inert, which holds focus inside without any cooperation
-    /// between the dialogs.
-    /// </remarks>
-    /// <returns>A new <see cref="DialogParameters"/> instance the caller may adjust.</returns>
-    public static DialogParameters Create() => new()
+    /// <returns>A new <see cref="BaseDialogOptions"/> instance the caller may adjust.</returns>
+    public static BaseDialogOptions Create() => new()
     {
-        Title = string.Empty,
-        ShowTitle = false,
-        PrimaryAction = string.Empty,
-        SecondaryAction = string.Empty,
+        Title = null,
         Width = Width,
-        PreventDismissOnOverlayClick = true,
-        ShowDismiss = false,
-        TrapFocus = false
+        PreventDismissOnEscape = true,
+        ShowCloseButton = false
     };
+}
+
+/// <summary>
+/// Opens the dialogs that host a card.
+/// </summary>
+public static class CardDialogServiceExtensions
+{
+    /// <summary>
+    /// Opens a <see cref="BaseDialog{TModel}"/> with the shape of <see cref="CardDialogDefaults"/>. The task completes
+    /// when the dialog closes: a saved card returns the model as <see cref="DialogResult.Value"/>.
+    /// </summary>
+    public static Task<DialogResult> ShowCardDialogAsync<TModel>(this IDialogService dialogService, BaseDialogData<TModel> content)
+        where TModel : class, new()
+    {
+        ArgumentNullException.ThrowIfNull(dialogService);
+        ArgumentNullException.ThrowIfNull(content);
+
+        var options = CardDialogDefaults.Create();
+        options.Parameters[nameof(BaseDialog<TModel>.Content)] = content;
+
+        return dialogService.ShowBaseDialogAsync<BaseDialog<TModel>>(options);
+    }
+
+    /// <summary>
+    /// Opens a <see cref="BaseListPartItemDialog{TModel}"/> that edits one item of a list part. A saved card returns
+    /// the changed fields as a dictionary in <see cref="DialogResult.Value"/>.
+    /// </summary>
+    public static Task<DialogResult> ShowListPartItemDialogAsync<TModel>(this IDialogService dialogService, BaseDialogData<TModel> content)
+        where TModel : class, new()
+    {
+        ArgumentNullException.ThrowIfNull(dialogService);
+        ArgumentNullException.ThrowIfNull(content);
+
+        var options = CardDialogDefaults.Create();
+        options.Parameters[nameof(BaseListPartItemDialog<TModel>.Content)] = content;
+
+        return dialogService.ShowBaseDialogAsync<BaseListPartItemDialog<TModel>>(options);
+    }
 }

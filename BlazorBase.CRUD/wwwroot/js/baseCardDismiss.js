@@ -1,7 +1,22 @@
-import { isPopupOpen } from './baseSelectPopup.js';
-
 const stack = [];
 let counter = 0;
+
+function deepActiveElement() {
+    let active = document.activeElement;
+
+    while (active && active.shadowRoot && active.shadowRoot.activeElement)
+        active = active.shadowRoot.activeElement;
+
+    return active;
+}
+
+// A select with an open popup is the focused element and reports aria-expanded; the key that closes the popup must not also close the dialog.
+function isPopupOpen() {
+    const host = document.activeElement;
+    const active = deepActiveElement();
+
+    return (!!host && host.getAttribute('aria-expanded') === 'true') || (!!active && active.getAttribute('aria-expanded') === 'true');
+}
 
 function onKeyDown(event) {
     if (event.key !== 'Escape')
@@ -18,14 +33,21 @@ function onKeyDown(event) {
 }
 
 export function register(dialogElement, dotNetRef) {
-    const dialog = dialogElement && dialogElement.closest('fluent-dialog');
+    const dialog = dialogElement && dialogElement.closest('.base-dialog');
     if (!dialog)
         return null;
 
     const token = (++counter).toString();
 
     const onOverlayClick = (event) => {
-        if (event.target === dialog)
+        if (event.target !== dialog)
+            return;
+
+        const inner = event.composedPath()[0];
+        const box = inner && inner.getBoundingClientRect ? inner.getBoundingClientRect() : null;
+        const insideBox = box && event.clientX >= box.left && event.clientX <= box.right && event.clientY >= box.top && event.clientY <= box.bottom;
+
+        if (!insideBox)
             dotNetRef.invokeMethodAsync('RequestCloseAsync');
     };
 
@@ -51,14 +73,14 @@ export function unregister(token) {
         document.removeEventListener('keydown', onKeyDown, true);
 }
 
-const FocusableSelector = 'fluent-text-field, fluent-text-area, fluent-select, fluent-date-picker, fluent-switch, fluent-number-field, input, textarea, select, [contenteditable="true"]';
+const FocusableSelector = '[slot="input"], input, textarea, select, [contenteditable="true"]';
 
 export function focusFirstError(root) {
     const message = root && root.querySelector('.base-field-errors');
     if (!message)
         return;
 
-    const accordionItem = message.closest('fluent-accordion-item');
+    const accordionItem = message.closest('.base-card-group');
     if (accordionItem && !accordionItem.expanded)
         accordionItem.expanded = true;
 

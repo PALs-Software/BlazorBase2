@@ -6,22 +6,20 @@
         @if (View.SortOptions.Count > 0)
         {
             <div class="base-list-card-toolbar">
-                <FluentSelect TOption="string"
+                <FluentSelect TOption="MobileSortOption"
+                              TValue="string"
                               Class="base-list-card-sort"
+                              Items="@View.SortOptions"
+                              OptionValue="@(option => option?.PropertyName)"
+                              OptionText="@(option => option?.Title ?? string.Empty)"
                               Value="@View.SortProperty"
                               ValueChanged="@OnSortPropertyChangedAsync"
-                              aria-label="@View.Localizer["SortBy"].Value"
-                              Title="@View.Localizer["SortBy"].Value">
-                    @foreach (var option in View.SortOptions)
-                    {
-                        <FluentOption TOption="string" Value="@option.PropertyName" Selected="@(option.PropertyName == View.SortProperty)">@option.Title</FluentOption>
-                    }
-                </FluentSelect>
-                <FluentButton Appearance="Appearance.Stealth"
+                              AriaLabel="@View.Localizer["SortBy"].Value" />
+                <FluentButton Appearance="ButtonAppearance.Transparent"
                               Class="base-list-card-sort-direction"
                               Disabled="@(View.SortProperty.Length == 0)"
                               Title="@SortDirectionLabel"
-                              aria-label="@SortDirectionLabel"
+                              IconOnly="true"
                               IconStart="@SortDirectionIcon"
                               OnClick="@OnSortDirectionClickedAsync" />
             </div>
@@ -82,7 +80,7 @@
                         <div class="base-list-card-body">@RenderBody(item)</div>
                     }
 
-                    <FluentButton Appearance="Appearance.Stealth"
+                    <FluentButton Appearance="ButtonAppearance.Transparent"
                                   Class="base-list-row-menu base-list-card-more"
                                   Title="@View.Localizer["MoreActions"].Value"
                                   aria-label="@View.Localizer["MoreActions"].Value"

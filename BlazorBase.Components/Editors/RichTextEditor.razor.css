@@ -8,51 +8,51 @@
 
 .rte-label {
     display: block;
-    font-size: var(--type-ramp-minus-1-font-size, 12px);
-    font-weight: 600;
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
-    margin-bottom: 4px;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-1);
 }
 
 .rte-toolbar {
     display: flex;
     flex-wrap: wrap;
-    gap: 2px;
-    padding: 4px 6px;
-    background: var(--color-bg-subtle, var(--neutral-layer-2));
-    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    gap: var(--space-0);
+    padding: var(--space-1) 6px;
+    background: var(--color-bg-subtle);
+    border: var(--stroke-width-thin) solid var(--color-border-strong);
     border-bottom: none;
-    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px)) var(--radius-sm, calc(var(--control-corner-radius) * 1px)) 0 0;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
 .rte-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 32px;
-    height: 32px;
+    min-width: var(--control-height-md);
+    height: var(--control-height-md);
     padding: 0 6px;
     background: transparent;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
+    border: var(--stroke-width-thin) solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-primary);
     cursor: pointer;
     font-size: 13px;
     line-height: 1;
-    transition: background 0.1s;
+    transition: background var(--duration-fast);
 }
 
 .rte-btn:hover {
-    background: var(--color-bg-hover, var(--neutral-fill-stealth-hover));
-    border-color: var(--color-border-strong, var(--neutral-stroke-rest));
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-strong);
 }
 
 .rte-btn:active {
-    background: var(--color-bg-hover, var(--neutral-fill-stealth-active));
+    background: var(--color-bg-hover);
 }
 
 .rte-btn:focus-visible {
-    outline: 2px solid var(--color-border-focus, var(--accent-stroke-control-rest));
+    outline: var(--stroke-width-thick) solid var(--color-border-focus);
     outline-offset: 1px;
 }
 
@@ -60,8 +60,8 @@
     display: inline-block;
     width: 1px;
     height: 20px;
-    background: var(--color-border, var(--neutral-stroke-divider-rest));
-    margin: 4px 4px;
+    background: var(--color-border);
+    margin: var(--space-1);
     align-self: center;
 }
 
@@ -69,27 +69,27 @@
     min-height: 200px;
     max-height: 60dvh;
     resize: vertical;
-    padding: 8px 10px;
-    background: var(--color-bg-surface, var(--neutral-layer-1));
-    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
-    border-radius: 0 0 var(--radius-sm, calc(var(--control-corner-radius) * 1px)) var(--radius-sm, calc(var(--control-corner-radius) * 1px));
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
-    font-size: var(--type-ramp-base-font-size, 14px);
-    line-height: var(--type-ramp-base-line-height, 1.5);
+    padding: var(--space-2) 10px;
+    background: var(--color-bg-surface);
+    border: var(--stroke-width-thin) solid var(--color-border-strong);
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
+    line-height: 1.5;
     overflow-y: auto;
     outline: none;
     word-break: break-word;
 }
 
 .rte-surface:focus {
-    border-color: var(--color-border-focus, var(--accent-stroke-control-rest));
-    box-shadow: 0 0 0 1px var(--color-border-focus, var(--accent-stroke-control-rest));
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 1px var(--color-border-focus);
 }
 
 @media (pointer: coarse) {
     .rte-btn {
-        min-width: 44px;
-        height: 44px;
+        min-width: var(--control-height-touch);
+        height: var(--control-height-touch);
     }
 }
 
@@ -100,6 +100,6 @@
 
 .rte-disabled .rte-surface {
     opacity: 0.6;
-    background: var(--color-bg-subtle, var(--neutral-layer-2));
+    background: var(--color-bg-subtle);
     cursor: not-allowed;
 }

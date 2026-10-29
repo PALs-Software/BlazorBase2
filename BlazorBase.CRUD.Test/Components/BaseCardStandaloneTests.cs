@@ -136,7 +136,7 @@ public class BaseCardStandaloneTests : BunitTestContextBase
     }
 
     private static void ClickCancel(IRenderedComponent<BaseCard<TestStringKeyedNote>> cut) =>
-        cut.FindAll(".base-card-actions fluent-button")[^1].Click();
+        cut.FindAll(".base-card-actions .base-card-cancel")[^1].Click();
 
     private IBaseDataProvider<TestStringKeyedNote> RegisterProvider()
     {

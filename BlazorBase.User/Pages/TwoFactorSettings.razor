@@ -11,20 +11,20 @@
 
         @if (IsLoading)
         {
-            <FluentProgressRing />
+            <FluentSpinner Size="SpinnerSize.Medium" />
         }
         else if (Status is not null)
         {
             @if (!string.IsNullOrEmpty(ErrorMessage))
             {
-                <FluentMessageBar Intent="MessageIntent.Error" Title="@Localizer["Error"]">
+                <FluentMessageBar Intent="MessageBarIntent.Error" Title="@Localizer["Error"]" AllowDismiss="false" role="alert">
                     @ErrorMessage
                 </FluentMessageBar>
             }
 
             @if (RecoveryCodes is not null)
             {
-                <FluentMessageBar Intent="MessageIntent.Warning" Title="@Localizer["RecoveryCodesTitle"]">
+                <FluentMessageBar Intent="MessageBarIntent.Warning" Title="@Localizer["RecoveryCodesTitle"]" AllowDismiss="false" role="status">
                     @Localizer["RecoveryCodesDescription"]
                 </FluentMessageBar>
 
@@ -41,24 +41,24 @@
                 <p>@Localizer["Enabled"]</p>
                 <p>@string.Format(Localizer["RecoveryCodesRemaining"], Status.RecoveryCodesRemaining)</p>
 
-                <FluentStack Orientation="Orientation.Vertical" Class="form-stack">
-                    <FluentTextField @bind-Value="VerificationCode"
-                                    Immediate="true"
-                                    Label="@Localizer["VerificationCode"]"
-                                    Required="true"
-                                    AutoComplete="one-time-code"
-                                    Class="full-width" />
+                <FluentStack Orientation="Orientation.Vertical" VerticalGap="var(--space-3)" Class="form-stack">
+                    <FluentTextInput @bind-Value="VerificationCode"
+                                     Immediate="true"
+                                     Label="@Localizer["VerificationCode"]"
+                                     Required="true"
+                                     AutoComplete="one-time-code"
+                                     Class="full-width" />
                     <p>@Localizer["VerificationCodeHint"]</p>
 
-                    <FluentButton Appearance="Appearance.Accent"
+                    <FluentButton Appearance="ButtonAppearance.Primary"
                                   Loading="IsSubmitting"
-                                  @onclick="HandleRegenerateRecoveryCodes">
+                                  OnClick="HandleRegenerateRecoveryCodes">
                         @Localizer["RegenerateRecoveryCodes"]
                     </FluentButton>
 
-                    <FluentButton Appearance="Appearance.Outline"
+                    <FluentButton Appearance="ButtonAppearance.Outline"
                                   Loading="IsSubmitting"
-                                  @onclick="HandleDisable">
+                                  OnClick="HandleDisable">
                         @Localizer["Disable"]
                     </FluentButton>
                 </FluentStack>
@@ -73,18 +73,18 @@
                     <p><code>@Status.AuthenticatorUri</code></p>
                 }
 
-                <FluentStack Orientation="Orientation.Vertical" Class="form-stack">
-                    <FluentTextField @bind-Value="EnableCode"
-                                    Immediate="true"
-                                    Label="@Localizer["Code"]"
-                                    Required="true"
-                                    AutoComplete="one-time-code"
-                                    Class="full-width" />
+                <FluentStack Orientation="Orientation.Vertical" VerticalGap="var(--space-3)" Class="form-stack">
+                    <FluentTextInput @bind-Value="EnableCode"
+                                     Immediate="true"
+                                     Label="@Localizer["Code"]"
+                                     Required="true"
+                                     AutoComplete="one-time-code"
+                                     Class="full-width" />
 
-                    <FluentButton Appearance="Appearance.Accent"
+                    <FluentButton Appearance="ButtonAppearance.Primary"
                                   Loading="IsSubmitting"
                                   Class="full-width"
-                                  @onclick="HandleEnable">
+                                  OnClick="HandleEnable">
                         @Localizer["Enable"]
                     </FluentButton>
                 </FluentStack>

@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\BlazorBase.Components.Test\Infrastructure\FluentStyleGuard.cs" Link="Infrastructure\FluentStyleGuard.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 

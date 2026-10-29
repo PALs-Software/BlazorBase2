@@ -35,21 +35,19 @@
                 }
             </span>
             <h2 id="@TitleId" class="assistant-title">@ResolvedDisplayName</h2>
-            <FluentButton Appearance="Appearance.Stealth"
+            <FluentButton Appearance="ButtonAppearance.Transparent"
                           Class="assistant-new"
+                          IconOnly="true"
+                          IconStart="@(new Size20.ChatAdd())"
                           Title="@Localizer["NewConversation"]"
-                          aria-label="@Localizer["NewConversation"]"
                           Disabled="@(Conversation.Messages.Count == 0)"
-                          OnClick="NewConversationAsync">
-                <FluentIcon Value="@(new Size20.ChatAdd())" Color="Color.Neutral" />
-            </FluentButton>
-            <FluentButton Appearance="Appearance.Stealth"
+                          OnClick="NewConversationAsync" />
+            <FluentButton Appearance="ButtonAppearance.Transparent"
                           Class="assistant-close"
+                          IconOnly="true"
+                          IconStart="@(new Size20.Dismiss())"
                           Title="@Localizer["Close"]"
-                          aria-label="@Localizer["Close"]"
-                          OnClick="State.Close">
-                <FluentIcon Value="@(new Size20.Dismiss())" Color="Color.Neutral" />
-            </FluentButton>
+                          OnClick="State.Close" />
         </div>
         <div class="assistant-transcript"
              role="log"
@@ -123,30 +121,28 @@
                 @if (Settings.UploadEnabled)
                 {
                     <label class="assistant-attach" title="@Localizer["Attach"]">
-                        <FluentIcon Value="@(new Size20.Attach())" Color="Color.Neutral" />
+                        <FluentIcon Value="@(new Size20.Attach())" Color="Color.Default" />
                         <InputFile class="assistant-file-input" multiple aria-label="@Localizer["Attach"]" OnChange="OnFilesSelectedAsync" />
                     </label>
                 }
                 @if (IsStreaming)
                 {
-                    <FluentButton Appearance="Appearance.Outline"
+                    <FluentButton Appearance="ButtonAppearance.Outline"
                                   Class="assistant-stop"
+                                  IconOnly="true"
+                                  IconStart="@(new Size20.Stop())"
                                   Title="@Localizer["Stop"]"
-                                  aria-label="@Localizer["Stop"]"
-                                  OnClick="StopAsync">
-                        <FluentIcon Value="@(new Size20.Stop())" Color="Color.Neutral" />
-                    </FluentButton>
+                                  OnClick="StopAsync" />
                 }
                 else
                 {
-                    <FluentButton Appearance="Appearance.Accent"
+                    <FluentButton Appearance="ButtonAppearance.Primary"
                                   Class="assistant-send"
+                                  IconOnly="true"
+                                  IconStart="@(new Size20.Send())"
                                   Title="@Localizer["Send"]"
-                                  aria-label="@Localizer["Send"]"
                                   Disabled="@(string.IsNullOrWhiteSpace(State.Draft))"
-                                  OnClick="SendAsync">
-                        <FluentIcon Value="@(new Size20.Send())" Color="Color.Custom" CustomColor="currentColor" />
-                    </FluentButton>
+                                  OnClick="SendAsync" />
                 }
             </div>
             <div class="assistant-hint">@Localizer["KeyboardHint"]</div>

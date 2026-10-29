@@ -118,8 +118,8 @@ public class BaseListContextMenuTests : BunitTestContextBase
             .Add(p => p.ChildContent, BuildColumn(p => p.Name)));
 
         cut.WaitForState(() => cut.FindAll(".base-list-grid").Count > 0);
-        cut.WaitForState(() => cut.FindAll("tr.fluent-data-grid-row:not([row-type]) td").Count > 0);
-        cut.Find("tr.fluent-data-grid-row:not([row-type]) td").Focus();
+        cut.WaitForState(() => cut.FindAll("tr.base-list-row:not([row-type]) td").Count > 0);
+        cut.Find("tr.base-list-row:not([row-type]) td").Focus();
         cut.Find(".base-list-grid").ContextMenu(new MouseEventArgs { ClientX = 40, ClientY = 40 });
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".context-menu")));
 

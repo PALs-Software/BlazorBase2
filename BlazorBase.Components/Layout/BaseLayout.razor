@@ -4,8 +4,6 @@
 @using BlazorBase.Components.Layout.Navigation
 @using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
 
-<FluentDesignTheme Mode="@CurrentMode" CustomColor="@ThemeService.AccentColor" NeutralBaseColor="@ThemeService.NeutralBaseColor" />
-
 @{
     RenderFragment brand = @<text>
         @if (Brand is not null)
@@ -26,16 +24,15 @@
         <div class="base-header-start">
             @if (Navigation is not null)
             {
-                <FluentButton Appearance="Appearance.Stealth"
-                              Class="base-nav-toggle"
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-nav-toggle base-header-control"
+                              IconOnly="true"
+                              IconStart="@(new Size20.Navigation())"
                               Title="@NavigationToggleLabel"
-                              aria-label="@NavigationToggleLabel"
                               aria-controls="base-navigation"
                               aria-expanded="@NavigationExpandedValue"
                               @ref="NavigationToggle"
-                              OnClick="ToggleNavigationAsync">
-                    <FluentIcon Value="@(new Size20.Navigation())" Color="Color.Neutral" />
-                </FluentButton>
+                              OnClick="ToggleNavigationAsync" />
             }
             @if (HasAppSwitcher)
             {
@@ -72,15 +69,14 @@
         <div class="base-header-end">
             @if (ShowCommandPalette)
             {
-                <FluentButton Appearance="Appearance.Stealth"
-                              Class="base-command-search-icon"
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-command-search-icon base-header-control"
+                              IconOnly="true"
+                              IconStart="@(new Size20.Search())"
                               Title="@Localizer["Search"]"
-                              aria-label="@Localizer["Search"]"
                               aria-haspopup="dialog"
                               aria-keyshortcuts="Control+K"
-                              OnClick="OpenCommandPaletteAsync">
-                    <FluentIcon Value="@(new Size20.Search())" Color="Color.Neutral" />
-                </FluentButton>
+                              OnClick="OpenCommandPaletteAsync" />
             }
             @if (HeaderContent is not null)
             {
@@ -92,17 +88,16 @@
             }
             @if (ShowHelp)
             {
-                <FluentButton Appearance="Appearance.Stealth"
-                              Class="base-help-toggle"
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-help-toggle base-header-control"
+                              IconOnly="true"
+                              IconStart="@(new Size20.QuestionCircle())"
                               Title="@Localizer["Help"]"
-                              aria-label="@Localizer["Help"]"
                               aria-haspopup="@(IsWide ? null : "dialog")"
                               aria-controls="@HelpPanelId"
                               aria-expanded="@(IsHelpOpen ? "true" : "false")"
                               @ref="HelpToggle"
-                              OnClick="ToggleHelpAsync">
-                    <FluentIcon Value="@(new Size20.QuestionCircle())" Color="Color.Neutral" />
-                </FluentButton>
+                              OnClick="ToggleHelpAsync" />
             }
             @if (ShowThemeToggle)
             {
@@ -112,17 +107,16 @@
             }
             @if (ShowSettings)
             {
-                <FluentButton Appearance="Appearance.Stealth"
-                              Class="base-settings-toggle"
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-settings-toggle base-header-control"
+                              IconOnly="true"
+                              IconStart="@(new Size20.Settings())"
                               Title="@Localizer["Settings"]"
-                              aria-label="@Localizer["Settings"]"
                               aria-haspopup="dialog"
                               aria-controls="@SettingsPanelId"
                               aria-expanded="@(IsSettingsOpen ? "true" : "false")"
                               @ref="SettingsToggle"
-                              OnClick="OpenSettingsAsync">
-                    <FluentIcon Value="@(new Size20.Settings())" Color="Color.Neutral" />
-                </FluentButton>
+                              OnClick="OpenSettingsAsync" />
             }
             @if (HeaderEndContent is not null)
             {
@@ -204,8 +198,4 @@
     <BaseCommandPalette Providers="PaletteProviders" />
 }
 
-<FluentToastProvider MaxToastCount="3" />
-<FluentDialogProvider />
-<FluentTooltipProvider />
-<FluentMessageBarProvider />
-<FluentMenuProvider />
+<FluentProviders />

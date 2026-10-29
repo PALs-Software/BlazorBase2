@@ -91,9 +91,9 @@ public sealed class BaseHelpPanelTests : ComponentsBunitTestContextBase
         AssertTitle(cut, "Budgets concept");
         Assert.Contains("Budget text.", cut.Find(".base-help-content").InnerHtml);
         Assert.Equal("https://docs.example.com/concepts/budgets.html", cut.Find("a.base-help-docs-link").GetAttribute("href"));
-        Assert.Equal("Back to the previous help topic", cut.Find("fluent-button.base-help-back").GetAttribute("title"));
+        Assert.Equal("Back to the previous help topic", cut.Find(".base-help-back").GetAttribute("title"));
 
-        await cut.InvokeAsync(() => cut.Find("fluent-button.base-help-back").Click());
+        await cut.InvokeAsync(() => cut.Find(".base-help-back").Click());
 
         AssertTitle(cut, "Links");
         Assert.Empty(cut.FindAll(".base-help-back"));
@@ -112,11 +112,11 @@ public sealed class BaseHelpPanelTests : ComponentsBunitTestContextBase
         await OpenTopicAsync(cut, "concepts/roles");
         AssertTitle(cut, "Roles concept");
 
-        await cut.InvokeAsync(() => cut.Find("fluent-button.base-help-back").Click());
+        await cut.InvokeAsync(() => cut.Find(".base-help-back").Click());
         AssertTitle(cut, "Budgets concept");
         Assert.Single(cut.FindAll(".base-help-back"));
 
-        await cut.InvokeAsync(() => cut.Find("fluent-button.base-help-back").Click());
+        await cut.InvokeAsync(() => cut.Find(".base-help-back").Click());
         AssertTitle(cut, "Links");
         Assert.Empty(cut.FindAll(".base-help-back"));
     }
@@ -131,7 +131,7 @@ public sealed class BaseHelpPanelTests : ComponentsBunitTestContextBase
         AssertTitle(cut, "Budgets concept");
 
         await OpenTopicAsync(cut, "concepts/budgets");
-        await cut.InvokeAsync(() => cut.Find("fluent-button.base-help-back").Click());
+        await cut.InvokeAsync(() => cut.Find(".base-help-back").Click());
 
         AssertTitle(cut, "Links");
         Assert.Empty(cut.FindAll(".base-help-back"));
@@ -164,7 +164,7 @@ public sealed class BaseHelpPanelTests : ComponentsBunitTestContextBase
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-help-empty")));
         Assert.Single(cut.FindAll(".base-help-back"));
 
-        await cut.InvokeAsync(() => cut.Find("fluent-button.base-help-back").Click());
+        await cut.InvokeAsync(() => cut.Find(".base-help-back").Click());
 
         AssertTitle(cut, "Links");
     }
@@ -254,7 +254,7 @@ public sealed class BaseHelpPanelTests : ComponentsBunitTestContextBase
             cut.WaitForAssertion(() => Assert.Contains("Budgets", cut.Markup));
             await OpenTopicAsync(cut, "concepts/budgets");
 
-            cut.WaitForAssertion(() => Assert.Equal("Zurück zum vorherigen Hilfethema", cut.Find("fluent-button.base-help-back").GetAttribute("title")));
+            cut.WaitForAssertion(() => Assert.Equal("Zurück zum vorherigen Hilfethema", cut.Find(".base-help-back").GetAttribute("title")));
         }
         finally
         {
@@ -403,7 +403,7 @@ public sealed class BaseHelpPanelTests : ComponentsBunitTestContextBase
         var closed = 0;
         var overlay = RenderPanel(isDocked: false, onClose: () => closed++);
 
-        await overlay.InvokeAsync(() => overlay.Find("fluent-button.base-help-close").Click());
+        await overlay.InvokeAsync(() => overlay.Find(".base-help-close").Click());
         await overlay.InvokeAsync(() => overlay.Find("aside").KeyDown(new KeyboardEventArgs { Key = "Escape" }));
         await overlay.InvokeAsync(() => overlay.Find(".base-help-overlay").Click());
 

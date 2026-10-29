@@ -18,7 +18,8 @@ public class ConfirmationServiceRegistrationTests
     public void AddBlazorBaseCrudComponents_ResolvesTheFluentUiImplementation()
     {
         var services = new ServiceCollection();
-        services.AddScoped(_ => Substitute.For<IDialogService>());
+        services.AddSingleton(Substitute.For<Microsoft.JSInterop.IJSRuntime>());
+        services.AddScoped<IDialogService>(provider => new DialogService(provider, null));
 
         services.AddBlazorBaseCrudComponents();
 

@@ -4,6 +4,7 @@ using Bunit;
 using Bunit.TestDoubles;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.FluentUI.AspNetCore.Components;
 using Xunit;
 
 namespace BlazorBase.Components.Test.Layout;
@@ -48,7 +49,7 @@ public sealed class BaseSideNavigationTests : ComponentsBunitTestContextBase
         var cut = Render(SampleItems());
 
         Assert.DoesNotContain("href=\"/admin/users\"", cut.Markup);
-        Assert.DoesNotContain("base-side-nav-group-toggle", cut.Markup);
+        Assert.Empty(cut.FindComponents<FluentNavCategory>());
     }
 
     [Fact]
@@ -60,7 +61,7 @@ public sealed class BaseSideNavigationTests : ComponentsBunitTestContextBase
 
         var cut = Render(SampleItems());
 
-        Assert.Contains("base-side-nav-group-toggle", cut.Markup);
+        Assert.Equal("Admin", Assert.Single(cut.FindComponents<FluentNavCategory>()).Instance.Title);
         Assert.Contains("href=\"/admin/users\"", cut.Markup);
     }
 
@@ -76,12 +77,13 @@ public sealed class BaseSideNavigationTests : ComponentsBunitTestContextBase
             .Add(p => p.Items, SampleItems())
             .AddCascadingValue(new NavigationLayoutContext(true, () => Task.CompletedTask)));
 
-        Assert.Contains("collapsed", cut.Find("nav.base-side-nav").ClassList);
+        Assert.Contains("collapsed", cut.Find(".base-side-nav").ClassList);
+        Assert.Empty(cut.FindComponents<FluentNavCategory>());
         Assert.DoesNotContain("base-side-nav-group-label", cut.Markup);
     }
 
     [Fact]
-    public void ClickingTheNavigation_AsksTheLayoutToCloseTheDrawer()
+    public void ClickingAnEntry_AsksTheLayoutToCloseTheDrawer()
     {
         var closed = 0;
         Services.AddLocalization();
@@ -94,7 +96,7 @@ public sealed class BaseSideNavigationTests : ComponentsBunitTestContextBase
                 return Task.CompletedTask;
             })));
 
-        cut.Find("nav.base-side-nav").Click();
+        cut.Find("a[href='/projects']").Click();
 
         Assert.Equal(1, closed);
     }
@@ -125,36 +127,34 @@ public sealed class BaseSideNavigationTests : ComponentsBunitTestContextBase
             .AddCascadingValue(new NavigationLayoutContext(collapsed, () => Task.CompletedTask)));
 
     [Fact]
-    public void Groups_StartCollapsed_WithTheirChildrenHiddenAndAnExpandedStateOnTheToggle()
+    public void Groups_StartCollapsed_WithTheirLabelAndAnExpandedStateOnTheCategory()
     {
         var cut = RenderGroups();
 
-        var toggle = cut.Find("button.base-side-nav-group-toggle");
-        var items = cut.Find("#base-nav-group-administration");
+        var category = cut.FindComponents<FluentNavCategory>()[0];
 
-        Assert.Equal("false", toggle.GetAttribute("aria-expanded"));
-        Assert.Equal("base-nav-group-administration", toggle.GetAttribute("aria-controls"));
-        Assert.True(items.HasAttribute("hidden"));
+        Assert.Equal("Administration", category.Instance.Title);
+        Assert.False(category.Instance.Expanded);
+        Assert.Equal("false", category.Find("button").GetAttribute("aria-expanded"));
     }
 
     [Fact]
-    public void ClickingAGroupToggle_ExpandsItAndRemembersTheChoiceInTheBrowser()
+    public void ClickingAGroup_ExpandsItAndRemembersTheChoiceInTheBrowser()
     {
         var module = JSInterop.SetupModule("./_content/BlazorBase.Components/js/layout.js");
         module.SetupVoid("writeGroupState", _ => true).SetVoidResult();
         var cut = RenderGroups();
 
-        cut.Find("button.base-side-nav-group-toggle").Click();
+        cut.FindComponents<FluentNavCategory>()[0].Find("button").Click();
 
-        Assert.Equal("true", cut.Find("button.base-side-nav-group-toggle").GetAttribute("aria-expanded"));
-        Assert.False(cut.Find("#base-nav-group-administration").HasAttribute("hidden"));
+        Assert.True(cut.FindComponents<FluentNavCategory>()[0].Instance.Expanded);
         var written = module.Invocations["writeGroupState"].Single();
         Assert.Equal("administration", written.Arguments[0]);
         Assert.Equal(true, written.Arguments[1]);
     }
 
     [Fact]
-    public void ClickingAGroupToggle_DoesNotAskTheLayoutToCloseTheDrawer()
+    public void ClickingAGroup_DoesNotAskTheLayoutToCloseTheDrawer()
     {
         var closed = 0;
         var cut = Render<BaseSideNavigation>(parameters => parameters
@@ -165,7 +165,7 @@ public sealed class BaseSideNavigationTests : ComponentsBunitTestContextBase
                 return Task.CompletedTask;
             })));
 
-        cut.Find("button.base-side-nav-group-toggle").Click();
+        cut.FindComponents<FluentNavCategory>()[0].Find("button").Click();
 
         Assert.Equal(0, closed);
     }
@@ -179,9 +179,9 @@ public sealed class BaseSideNavigationTests : ComponentsBunitTestContextBase
 
         var cut = RenderGroups();
 
-        var toggles = cut.FindAll("button.base-side-nav-group-toggle");
-        Assert.Equal("false", toggles[0].GetAttribute("aria-expanded"));
-        Assert.Equal("true", toggles[1].GetAttribute("aria-expanded"));
+        var categories = cut.FindComponents<FluentNavCategory>();
+        Assert.False(categories[0].Instance.Expanded);
+        Assert.True(categories[1].Instance.Expanded);
     }
 
     [Fact]
@@ -194,22 +194,21 @@ public sealed class BaseSideNavigationTests : ComponentsBunitTestContextBase
 
         var cut = RenderGroups();
 
-        var toggles = cut.FindAll("button.base-side-nav-group-toggle");
-        Assert.Equal("true", toggles[0].GetAttribute("aria-expanded"));
-        Assert.Contains("contains-active", toggles[0].ClassList);
-        Assert.Equal("false", toggles[1].GetAttribute("aria-expanded"));
+        var categories = cut.FindComponents<FluentNavCategory>();
+        Assert.True(categories[0].Instance.Expanded);
+        Assert.Contains("contains-active", categories[0].Instance.Class);
+        Assert.False(categories[1].Instance.Expanded);
     }
 
     [Fact]
     public void NavigatingIntoACollapsedGroup_ExpandsIt()
     {
         var cut = RenderGroups();
-        Assert.Equal("false", cut.FindAll("button.base-side-nav-group-toggle")[1].GetAttribute("aria-expanded"));
+        Assert.False(cut.FindComponents<FluentNavCategory>()[1].Instance.Expanded);
 
         Services.GetRequiredService<NavigationManager>().NavigateTo("/telemetry/overview");
 
-        cut.WaitForAssertion(() =>
-            Assert.Equal("true", cut.FindAll("button.base-side-nav-group-toggle")[1].GetAttribute("aria-expanded")));
+        cut.WaitForAssertion(() => Assert.True(cut.FindComponents<FluentNavCategory>()[1].Instance.Expanded));
     }
 
     [Fact]

@@ -4,16 +4,10 @@ using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace BlazorBase.Components.Dialogs;
 
-public partial class BaseFileInputDialog : ComponentBase, IDialogContentComponent<FileInputDialogContent>
+public partial class BaseFileInputDialog : BaseDialogInstance<FileInputDialogContent>
 {
     [Inject]
-    private IStringLocalizer<BaseFileInputDialog> Localizer { get; set; } = default!;
-
-    [Parameter]
-    public FileInputDialogContent Content { get; set; } = default!;
-
-    [CascadingParameter]
-    private FluentDialog? Dialog { get; set; }
+    private IStringLocalizer<BaseFileInputDialog> DialogLocalizer { get; set; } = default!;
 
     private string? SelectedFileName;
     private byte[]? SelectedFileContent;
@@ -22,9 +16,16 @@ public partial class BaseFileInputDialog : ComponentBase, IDialogContentComponen
     private long ResolvedMaxFileSize =>
         Content.MaxFileSize > 0 ? Content.MaxFileSize : long.MaxValue;
 
-    private string ConfirmText => Content.ConfirmButtonText ?? Localizer["Import"];
+    private string ConfirmText => Content.ConfirmButtonText ?? DialogLocalizer["Import"];
 
-    private string CancelText => Content.CancelButtonText ?? Localizer["Cancel"];
+    private string CancelText => Content.CancelButtonText ?? DialogLocalizer["Cancel"];
+
+    private void OnFileError(FluentInputFileErrorEventArgs errorArgs)
+    {
+        SelectedFileName = null;
+        SelectedFileContent = null;
+        ErrorMessage = errorArgs.ErrorMessage;
+    }
 
     private async Task OnFileUploadedAsync(FluentInputFileEventArgs fileArgs)
     {
@@ -37,11 +38,11 @@ public partial class BaseFileInputDialog : ComponentBase, IDialogContentComponen
 
         if (fileArgs.Stream is null)
         {
-            ErrorMessage = Localizer["FileUnreadable"];
+            ErrorMessage = DialogLocalizer["FileUnreadable"];
             return;
         }
 
-        var validationError = FileInputValidator.Validate(fileArgs.Name, fileArgs.Size, Content.FileFilter, Content.MaxFileSize, Localizer);
+        var validationError = FileInputValidator.Validate(fileArgs.Name, fileArgs.Size, Content.FileFilter, Content.MaxFileSize, DialogLocalizer);
         if (validationError is not null)
         {
             ErrorMessage = validationError;
@@ -55,17 +56,11 @@ public partial class BaseFileInputDialog : ComponentBase, IDialogContentComponen
         SelectedFileContent = memoryStream.ToArray();
     }
 
-    private async Task ConfirmAsync()
+    private async Task ConfirmFileAsync()
     {
-        if (Dialog is null || SelectedFileContent is null || SelectedFileName is null)
+        if (SelectedFileContent is null || SelectedFileName is null)
             return;
 
-        await Dialog.CloseAsync(new FileInputDialogResult { FileName = SelectedFileName, Content = SelectedFileContent });
-    }
-
-    private async Task CancelAsync()
-    {
-        if (Dialog is not null)
-            await Dialog.CancelAsync();
+        await ConfirmWithResultAsync(new FileInputDialogResult { FileName = SelectedFileName, Content = SelectedFileContent });
     }
 }

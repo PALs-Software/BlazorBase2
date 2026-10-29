@@ -9,5 +9,5 @@ namespace AppTemplate.Server.Modules.Authentication;
 /// Concrete user endpoint so ASP.NET Core discovers the abstract base implementation.
 /// </summary>
 [ApiController]
-public class UserController(UserManager<AppUser> users)
-    : UserControllerBase<AppUser>(users);
+public class UserController(UserManager<AppUser> users, SignInManager<AppUser> signIn)
+    : UserControllerBase<AppUser>(users, signIn);

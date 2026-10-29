@@ -73,7 +73,7 @@ services.AddBlazorBaseDashboard(options =>
 
 `AddBlazorBaseDashboard` can be called by several modules; parts and providers add up, an id can only be registered once.
 It also registers `TimeProvider.System` (when none is registered), `DashboardInterop`, `DashboardClock` and
-`DashboardSettings`. FluentUI (`AddFluentUIComponents`), localization (`AddLocalization`) and the authorization services
+`DashboardSettings`. FluentUI (`AddBlazorBaseFluentUI` from BlazorBase.Components, or `AddFluentUIComponents` where BlazorBase.Components is not used), localization (`AddLocalization`) and the authorization services
 (`AuthenticationStateProvider`) are expected from the host as for every other BlazorBase component.
 
 4. Place the role center on the start page:
@@ -263,10 +263,8 @@ cues: `ForCount(boosts, CueStyle.Unfavorable)`.
 - an `Actions` slot for quick actions: plain `<a>` / `<button>` elements, styled as buttons; on phones a horizontally
   scrollable row below the text. The **first** action is the primary button (filled, bold); the others are outline
   buttons. A single action is the primary one. The primary fill comes from `--hl-primary-fill` (hover
-  `--hl-primary-fill-hover`, text `--hl-primary-text`), defined on `.hl`: in the light theme the accent with
-  `--color-text-on-accent`; in the dark theme (both `data-theme="dark"` and the `prefers-color-scheme: dark` default) a
-  darker mix of the accent with white text, so the text keeps a contrast of at least 4.5:1 at rest and on hover. A theme
-  can override the three variables.
+  `--hl-primary-fill-hover`, text `--hl-primary-text`), defined on `.hl` from `--color-accent`, `--color-accent-hover` and
+  `--color-text-on-accent`, which switch with the theme. A theme can override the three variables.
 
 ```csharp
 public sealed class BoostInsightProvider(IBoostService boosts) : IHeadlineInsightProvider

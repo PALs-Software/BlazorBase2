@@ -128,7 +128,7 @@ Notes:
 builder.Services.AddBlazorBaseCrud();
 
 // Interactive UI services the CRUD components depend on (IConfirmationService) —
-// call after AddFluentUIComponents()
+// call after AddBlazorBaseFluentUI()
 builder.Services.AddBlazorBaseCrudComponents();
 
 builder.Services.AddBlazorBaseCrudClient(client =>
@@ -158,24 +158,16 @@ The route from `[BaseCrud("products")]` is appended to this base address by `Htt
 `BaseList<TModel>` and `BaseCard<TModel>` open their dialogs through Fluent UI's `IDialogService`
 and the toolbar and property inputs place `FluentTooltip` and `FluentMenu` in markup.
 
-Without the dialog provider, opening an item or pressing *add* throws and the component tree fails
-to render:
+Without the providers, opening an item or pressing *add* throws and the component tree fails
+to render.
 
-```
-ArgumentNullException: <FluentDialogProvider /> needs to be added to the main layout of your
-application/site. (Parameter 'OnShowAsync')
-```
-
-`BlazorBase.User`'s `BaseLayout` already carries the full set, so a host that uses it needs nothing
-further. **A host with its own layout has to add them itself:**
+`BlazorBase.User`'s `BaseLayout` already carries the full set (`FluentProviders`), so a host that uses it needs nothing
+further. **A host with its own layout has to add them itself**, together with `AddBlazorBaseFluentUI()` in the
+service registration:
 
 ```razor
 @* At the end of MainLayout.razor, outside the layout markup *@
-<FluentToastProvider />
-<FluentDialogProvider />
-<FluentTooltipProvider />
-<FluentMessageBarProvider />
-<FluentMenuProvider />
+<FluentProviders />
 ```
 
 The failure is easy to miss during development because it only appears on the screens that open a
@@ -415,9 +407,8 @@ have both. While Shift is held the rows cannot be selected as text, so a range d
 
 **The open column.** The first visible column that is not the tile's action row (`MobileRole.Actions`) is the open link:
 its cell has the class `base-list-open-cell`, takes the accent color and an underline while the pointer is on the row (touch
-screens have no hover) and on the selected row, and a click on it opens the card. The link color is `--accent-foreground-rest`
-(the design system's accent text color, at least 4.5:1 on the light surface) in the light theme and the brand accent
-`--color-accent` in the dark theme; it is set in the list's own `--base-list-open-link` variable (the part: `--base-listpart-open-link`).
+screens have no hover) and on the selected row, and a click on it opens the card. The link color is `--color-accent-text`
+(the accent text color, at least 4.5:1 on the surface, light and dark); it is set in the list's own `--base-list-open-link` variable (the part: `--base-listpart-open-link`).
 Mark another column with
 `<BaseColumn OpensItem="true" />` (fluent: `.OpensItem()`), or switch the link off with `OpenColumn="false"`.
 A template column with its own buttons keeps working: a button that stops the click's propagation neither selects nor opens.
@@ -895,32 +886,37 @@ Behavior:
 - The header shows the display key, falling back to an "add"/"edit" caption. Mark a human-readable
   property with `[DisplayKey]` on any entity whose key reads poorly — without it a GUID-keyed entity
   titles its card with the GUID.
-- Catches **409 Conflict** and shows a friendly `FluentMessageBar`.
-- Renders inputs via `BasePropertyInput` (typed automatically: string → `FluentTextField`, bool → `FluentSwitch`, enum → `FluentSelect`, DateTime → `FluentDatePicker`, navigation → select or browse). A nullable enum property (`MyEnum?`) gets an extra blank "— Select —" option mapping to `null`; an existing `null` value shows that blank option instead of visually defaulting to the first enum member. Non-nullable enums are unaffected.
+- Catches **409 Conflict** and shows a friendly `FluentMessageBar` (dismissed with its own close button).
+- Renders inputs via `BasePropertyInput` (typed automatically: string → `FluentTextInput`, bool → `FluentSwitch`, enum → `FluentSelect<EnumOption,string>`, DateTime → `FluentDatePicker`, navigation → select or browse; numbers stay text inputs with the card's own parser and localized messages). Validation messages are the card's own (`base-field-errors` under the field); the inputs' built-in messages are off (`MessageCondition = FluentFieldCondition.Never`). A nullable enum property (`MyEnum?`) gets an extra blank "— Select —" option mapping to `null`; an existing `null` value shows that blank option instead of visually defaulting to the first enum member. Non-nullable enums are unaffected.
 - In the read-only ("View") card the fields show values only, so a read-only field carries no required marker (the asterisk appears only while a field is editable).
 - **A field that cannot be changed inside an editable card looks read-only at first sight.** When the card itself is
   editable (`ReadOnly` false) and a field is not editable for the user (`.Editable(false)`, no modify right on the
   property, a calculated value), its wrapper carries the class `base-property-input-readonly` and the attribute
-  `data-readonly="true"`. The stylesheet then draws the control with a muted text colour, a subdued fill
-  (`--neutral-layer-2`), a dashed border and the `not-allowed` cursor, for text, number, date, text area, select and
-  switch alike, in the light and the dark theme (FluentUI tokens only; the muted text keeps WCAG AA contrast on the
-  subdued fill). A card that is read-only as a whole (the "View" card) keeps its calm look: no marker, no subdued
+  `data-readonly="true"`. The stylesheet then draws the text of the control muted (semantic tokens only; the muted text
+  keeps WCAG AA contrast), for text, number, date, text area, select and switch alike, in the light and the dark theme.
+  A card that is read-only as a whole (the "View" card) keeps its calm look: no marker, no muted
   controls. `BasePropertyInput` takes this from its `HighlightReadOnly` parameter, which `BaseCard` sets to
-  `!ReadOnly`; custom property displays inherit the muted text colour from the wrapper.
+  `!ReadOnly`; custom property displays inherit the muted text colour from the wrapper. A field template gets the full
+  width of its column with the class `base-field-control`.
 
 ### `CardDialogDefaults`
 
 `BlazorBase.CRUD.Components.CardDialogDefaults` is the single source of truth for the shape of a dialog that hosts a
 card. `BaseList` (card dialog) and `BaseListPart` (item dialog) open their dialogs with it; open your own card dialog
-with the same shape through `CardDialogDefaults.Create()`:
+with the same shape through `ShowCardDialogAsync` (extension of `IDialogService`, namespace `BlazorBase.CRUD.Components`)
+or `CardDialogDefaults.Create()`:
 
 ```csharp
-var dialog = await DialogService.ShowDialogAsync<MyCardDialog>(data, CardDialogDefaults.Create());
+var result = await DialogService.ShowCardDialogAsync(data);
+var saved = result.Cancelled ? null : (TModel?)result.Value;
 ```
 
-`Create()` returns a new `DialogParameters` the caller may adjust: no title bar (the card renders its header), no
-primary or secondary action (the card renders its buttons), no dismiss by overlay click, no dismiss button and
-FluentUI's focus trap off (the card's `DialogBehavior` makes everything outside it inert instead).
+`Create()` returns a new `BaseDialogOptions` the caller may adjust: no title bar (the card renders its header), no
+dismiss button, and Escape is handled by the card (`PreventDismissOnEscape`), which asks before it discards changes.
+The dialog content is a `BaseDialogInstance` (see [BlazorBase.Components](BlazorBase.Components.md)); the dialog carries
+the class `base-dialog`, and the card's `DialogBehavior` makes everything outside it inert. `BaseDialogData<TModel>.CloseAsync()`
+closes the dialog from outside (for example when the list is disposed); the awaited result is then cancelled.
+`ShowListPartItemDialogAsync` does the same for the item dialog of a list part.
 
 The width is fluid, `CardDialogDefaults.Width` = `min(calc(100vw - 2rem), clamp(600px, 62vw, 1100px))`: 600 px on a
 tablet, growing with the window to at most 1100 px on a wide desktop (a card then reaches its three-column layout and
@@ -993,7 +989,16 @@ choosing Select more / Select all / Deselect all puts the keyboard back on the i
 
 ### `BaseLookupDialog<TModel>`
 
-Modal lookup dialog with search/pagination, used by the navigation "Browse…" button or invoked manually.
+Modal lookup dialog with search and paging, used by the navigation "Browse…" button or opened manually. It is the content
+of a dialog (a `BaseDialogInstance`) and returns the picked item as the dialog result:
+
+```csharp
+var result = await DialogService.ShowLookupDialogAsync(title, dataProvider, displayPropertyName: "Name");
+var picked = result.Cancelled ? null : (Category?)result.Value;
+```
+
+`ShowLookupDialogAsync<TModel>` is an extension of `IDialogService` in `BlazorBase.CRUD.Components`; the dialog needs the
+`FluentProviders` of the layout like every other dialog.
 
 ### `BaseActionGroup<TModel>` / `BaseAction<TModel>` / `BaseActionToolbar<TModel>`
 
@@ -1044,7 +1049,7 @@ supported for other sites (legacy) and renders after the declared actions, separ
 
 #### Header layout and the more-actions menu
 
-The list header is one row, in this order from left to right: **Add** (accent), the declared `ListToolbar` actions ordered by
+The list header is one row, in this order from left to right: **Add** (primary), the declared `ListToolbar` actions ordered by
 group `Order`, the entry count, the selection info (only in multi-select mode: "N selected" and "Deselect all"), and at the far
 right the **Filter** button with its quick filter (a list without filtering has no such group). The actions sit on the left,
 where they have room to grow; the filter group is pushed to the right edge, also when the header wraps onto a second row, and
@@ -1063,11 +1068,11 @@ item-bound action is greyed out but still shows its reason on hover and keyboard
   instead of wrapping the header onto a second row; Filter, quick filter, count and Add always stay visible. Without the
   script the actions simply stay inline.
 - The more menu is the toolbar's own markup (position fixed, placed inside the viewport, Esc / arrow keys / overlay click),
-  not a `FluentMenuProvider` menu. Entries keep the enabled state, the reason tooltip and the blocked-row marking of the
+  not a `FluentMenu`, because it must keep its hover and focus handling for disabled entries. Entries keep the enabled state, the reason tooltip and the blocked-row marking of the
   toolbar buttons (hovering or focusing a disabled entry marks the blocking rows); item-independent actions stay clickable.
   A multi-action group appears as a heading with its actions below it.
 - With `AllowOverflow` a multi-action group is also rendered as this own menu (button with the group caption, icon and a
-  chevron) instead of a `FluentMenuButton`. Without it (card and list-part headers) the toolbar is unchanged.
+  chevron) instead of a `FluentMenu` opened from a button. Without it (card and list-part headers) the group is that `FluentMenu` (button with `Id`, menu with `Trigger`, items with `OnClick`).
 - At 640 px and below the header never wraps: Add shows only its icon (the text stays as the accessible name `aria-label`),
   the filter group gives way (quick filter shrinks, text ellipsis) and the count stays on one line.
 
@@ -1246,7 +1251,7 @@ The full path: interceptor `throw` → `BaseEndpointMapper` catches → `400 Bad
 |---|---|
 | `AddBlazorBaseCrud()` | Core (host-agnostic) services |
 | `AddBlazorBaseCrud<TAuditUserProvider>()` | Core + audit-user provider |
-| `AddBlazorBaseCrudComponents()` | Interactive UI services the CRUD components depend on (`IConfirmationService`, default `FluentUiConfirmationService`, needs the FluentUI `IDialogService`) — Wasm ✓ / Maui ✓ / interactive, Server —; call after `AddFluentUIComponents()` |
+| `AddBlazorBaseCrudComponents()` | Interactive UI services the CRUD components depend on (`IConfirmationService`, default `FluentUiConfirmationService`, needs the FluentUI `IDialogService`) — Wasm ✓ / Maui ✓ / interactive, Server —; call after `AddBlazorBaseFluentUI()` |
 | `AddBaseDbContext<TContext>(…)` | DbContext factory with interceptors |
 | `AddBlazorBaseCrudServer<TContext>(Assembly?)` | Assembly scan → `DbContextBaseDataProvider<T>` |
 | `AddBlazorBaseCrudClient(Action<HttpClient>, Assembly?)` | Assembly scan → `HttpBaseDataProvider<T>` |
@@ -1643,7 +1648,7 @@ The simplest possible setup: a single `BaseList` with declarative `BaseColumn` c
 @using MyApp.Shared.Modules.Catalog.Models
 
 <div>
-    <FluentLabel Typo="Typography.PageTitle">@Localizer["Title"]</FluentLabel>
+    <FluentText As="TextTag.H1" Size="TextSize.Size600" Weight="TextWeight.Semibold">@Localizer["Title"]</FluentText>
 
     <BaseList TModel="Product" AllowAdd="true" AllowEdit="true" AllowDelete="true">
         <BaseColumn TModel="Product" Property="@(p => p.Name)"  Title="@Localizer["Name"]" />
@@ -1684,7 +1689,7 @@ The list and the edit form share one model. The fluent builder lives in the code
 @using MyApp.Shared.Modules.Sales.Models
 
 <div>
-    <FluentLabel Typo="Typography.PageTitle">@Localizer["Title"]</FluentLabel>
+    <FluentText As="TextTag.H1" Size="TextSize.Size600" Weight="TextWeight.Semibold">@Localizer["Title"]</FluentText>
 
     <BaseList TModel="Order"
               Configuration="@ListConfig"
@@ -1745,7 +1750,7 @@ A common pattern: the upper list shows parents (`ActivityType`), and selecting a
 @using MyApp.Shared.Modules.ActivityTracker.Models
 
 <div>
-    <FluentLabel Typo="Typography.PageTitle">@Localizer["Title"]</FluentLabel>
+    <FluentText As="TextTag.H1" Size="TextSize.Size600" Weight="TextWeight.Semibold">@Localizer["Title"]</FluentText>
 
     <BaseList @ref="TypeList" TModel="ActivityType"
               AllowDelete="false"
@@ -1775,9 +1780,9 @@ A common pattern: the upper list shows parents (`ActivityType`), and selecting a
     {
         <FluentDivider Class="section-divider" />
 
-        <FluentLabel Typo="Typography.Header">
+        <FluentText As="TextTag.H2" Size="TextSize.Size500" Weight="TextWeight.Semibold">
             @string.Format(Localizer["SubtypesOf"], SelectedType.Name)
-        </FluentLabel>
+        </FluentText>
 
         <BaseList @ref="SubtypeList" TModel="ActivitySubtype"
                   AdditionalFilters="SubtypeFilters"
@@ -1867,7 +1872,7 @@ Key points:
 @using MyApp.Shared.Modules.ActivityTracker.Models
 
 <div>
-    <FluentLabel Typo="Typography.PageTitle">@Localizer["Title"]</FluentLabel>
+    <FluentText As="TextTag.H1" Size="TextSize.Size600" Weight="TextWeight.Semibold">@Localizer["Title"]</FluentText>
 
     <BaseList @ref="ActivityList" TModel="Activity"
               AdditionalFilters="DateFilters"
@@ -1896,7 +1901,7 @@ Key points:
                     }
                     else
                     {
-                        <FluentBadge Appearance="Appearance.Accent">@Localizer["Running"]</FluentBadge>
+                        <FluentBadge Appearance="BadgeAppearance.Filled" Color="BadgeColor.Brand">@Localizer["Running"]</FluentBadge>
                     }
                 </Template>
             </BaseColumn>
@@ -1952,11 +1957,11 @@ If you don't want the auto-edit dialog (e.g. for a wizard or full-page edit), em
 @using MyApp.Shared.Modules.Catalog.Models
 
 <div>
-    <FluentLabel Typo="Typography.PageTitle">@Localizer["Title"]</FluentLabel>
+    <FluentText As="TextTag.H1" Size="TextSize.Size600" Weight="TextWeight.Semibold">@Localizer["Title"]</FluentText>
 
     @if (Model is null)
     {
-        <FluentProgressRing />
+        <FluentSpinner />
     }
     else
     {
@@ -2029,7 +2034,7 @@ public partial class ProductEdit(
 <div>
     @if (Model is null)
     {
-        <FluentProgressRing />
+        <FluentSpinner />
     }
     else
     {
@@ -2091,7 +2096,7 @@ Combines a single-item action ("Duplicate") and a bulk action ("Archive selected
 @using MyApp.Shared.Modules.Catalog.Models
 
 <div>
-    <FluentLabel Typo="Typography.PageTitle">@Localizer["Title"]</FluentLabel>
+    <FluentText As="TextTag.H1" Size="TextSize.Size600" Weight="TextWeight.Semibold">@Localizer["Title"]</FluentText>
 
     <BaseList TModel="Product"
               Configuration="@ListConfig"
@@ -2184,7 +2189,7 @@ Sometimes a parent page needs to react to selection changes or refresh the list 
 
     <FluentDivider />
 
-    <FluentLabel>@Summary</FluentLabel>
+    <FluentText>@Summary</FluentText>
 </div>
 ```
 
@@ -2276,7 +2281,7 @@ Bold · Italic · Underline · Bulleted list · Numbered list · Insert link · 
 
 ### Theming
 
-The component uses CSS isolation (`RichTextEditor.razor.css`). Colors and radii come from FluentUI CSS custom properties (`--neutral-layer-1`, `--neutral-foreground-rest`, `--accent-stroke-control-rest`, `--control-corner-radius`, …) so the editor automatically follows the host app's theme.
+The component uses CSS isolation (`RichTextEditor.razor.css`). Colors and radii come from the BlazorBase semantic CSS custom properties (`--color-bg-surface`, `--color-text-primary`, `--color-accent`, `--radius-sm`, …) so the editor automatically follows the host app's theme.
 
 ### Read-only / disabled state
 

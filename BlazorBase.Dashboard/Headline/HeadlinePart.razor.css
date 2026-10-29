@@ -13,22 +13,8 @@
     border-radius: var(--radius-md);
     font-family: var(--font-base);
     --hl-primary-fill: var(--color-accent);
-    --hl-primary-fill-hover: color-mix(in srgb, var(--hl-primary-fill) 88%, black);
+    --hl-primary-fill-hover: var(--color-accent-hover);
     --hl-primary-text: var(--color-text-on-accent);
-}
-
-:root[data-theme="dark"] .hl {
-    --hl-primary-fill: color-mix(in srgb, var(--color-accent) 60%, black);
-    --hl-primary-fill-hover: color-mix(in srgb, var(--color-accent) 50%, black);
-    --hl-primary-text: #FFFFFF;
-}
-
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .hl {
-        --hl-primary-fill: color-mix(in srgb, var(--color-accent) 60%, black);
-        --hl-primary-fill-hover: color-mix(in srgb, var(--color-accent) 50%, black);
-        --hl-primary-text: #FFFFFF;
-    }
 }
 
 .hl-text {

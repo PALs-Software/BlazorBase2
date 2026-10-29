@@ -1,11 +1,13 @@
 using System.Linq.Expressions;
 using BlazorBase.CRUD.Components;
+using BlazorBase.CRUD.Components.Filtering;
 using BlazorBase.CRUD.Configuration;
 using BlazorBase.CRUD.Core;
 using BlazorBase.CRUD.Filtering;
 using BlazorBase.CRUD.Models;
 using BlazorBase.CRUD.SavedFilters;
 using BlazorBase.CRUD.Test.Infrastructure;
+using BlazorBase.Components.Test.Infrastructure;
 using BlazorBase.CRUD.Test.Infrastructure.TestEntities;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -264,8 +266,8 @@ public class SavedFilterTests : BunitTestContextBase
         OpenDrawer(cut);
         ExpandSavedFilters(cut);
 
-        cut.Find(".saved-filters-save fluent-text-field").Input("My view");
-        cut.FindAll(".saved-filters-save fluent-button").Last(button => button.TextContent.Contains("Save") || button.TextContent.Contains("Speichern") || button.TextContent.Contains("SavedFiltersSave")).Click();
+        cut.FindComponents<FluentTextInput>().Single(input => input.Instance.Class == "saved-filters-input").SetValue<string?>("My view");
+        cut.FindAll(".saved-filters-save .saved-filters-save-button").Last(button => button.TextContent.Contains("Save") || button.TextContent.Contains("Speichern") || button.TextContent.Contains("SavedFiltersSave")).Click();
 
         cut.WaitForAssertion(() => Assert.Single(store.GetAsync(ListKey).GetAwaiter().GetResult()));
         var saved = store.GetAsync(ListKey).GetAwaiter().GetResult().Single();
@@ -289,13 +291,13 @@ public class SavedFilterTests : BunitTestContextBase
         cut.WaitForAssertion(() => Assert.True(store.GetAsync(ListKey).GetAwaiter().GetResult().Single().IsDefault));
 
         cut.FindAll(".saved-filters-icon")[1].Click();
-        cut.Find(".saved-filters-edit fluent-text-field").Input("Renamed");
-        cut.FindAll(".saved-filters-edit fluent-button").First().Click();
+        cut.FindComponents<FluentTextInput>().First(input => input.Instance.Class == "saved-filters-input").SetValue<string?>("Renamed");
+        cut.FindAll(".saved-filters-edit .saved-filters-action").First().Click();
         cut.WaitForAssertion(() => Assert.Equal("Renamed", store.GetAsync(ListKey).GetAwaiter().GetResult().Single().Name));
 
         cut.FindAll(".saved-filters-icon")[2].Click();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".saved-filters-confirm")));
-        cut.FindAll(".saved-filters-edit fluent-button").First().Click();
+        cut.FindAll(".saved-filters-edit .saved-filters-action").First().Click();
         cut.WaitForAssertion(() => Assert.Empty(store.GetAsync(ListKey).GetAwaiter().GetResult()));
     }
 
@@ -324,8 +326,8 @@ public class SavedFilterTests : BunitTestContextBase
         Assert.Empty(cut.FindAll(".quick-filter"));
     }
 
-    private static IRenderedComponent<FluentSelect<string>> QuickSelect(IRenderedComponent<BaseList<TestProduct>> cut) =>
-        cut.FindComponents<FluentSelect<string>>().Single(select => select.Instance.Class == "quick-filter");
+    private static IRenderedComponent<FluentSelect<QuickFilterMenu.QuickFilterChoice, string>> QuickSelect(IRenderedComponent<BaseList<TestProduct>> cut) =>
+        cut.FindComponents<FluentSelect<QuickFilterMenu.QuickFilterChoice, string>>().Single(select => select.Instance.Class == "quick-filter");
 
     private static void Choose(IRenderedComponent<BaseList<TestProduct>> cut, string key) =>
         cut.InvokeAsync(() => QuickSelect(cut).Instance.ValueChanged.InvokeAsync(key)).GetAwaiter().GetResult();
@@ -338,7 +340,7 @@ public class SavedFilterTests : BunitTestContextBase
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".quick-filter")));
         Assert.Equal("preset:pending", QuickSelect(cut).Instance.Value);
-        Assert.Equal(3, cut.FindAll(".quick-filter fluent-option").Count);
+        Assert.Equal(3, QuickSelect(cut).Instance.Items!.Count());
 
         Choose(cut, "preset:active");
 
@@ -384,7 +386,7 @@ public class SavedFilterTests : BunitTestContextBase
         var provider = Provider();
         var cut = RenderList(provider, CodeDefaults());
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".quick-filter")));
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row:not([row-type]) td")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row:not([row-type]) td")));
         await cut.InvokeAsync(() => cut.Instance.OnGridKeyAsync("ArrowDown", false, false));
         Assert.Single(cut.FindAll("tr.base-list-row-selected"));
         var requests = provider.ReceivedQueries().Count();
@@ -401,7 +403,7 @@ public class SavedFilterTests : BunitTestContextBase
         var provider = Provider();
         var cut = RenderList(provider, CodeDefaults());
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".quick-filter")));
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row:not([row-type]) td")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row:not([row-type]) td")));
         await cut.InvokeAsync(() => cut.Instance.OnGridKeyAsync("ArrowDown", false, false));
         Assert.Single(cut.FindAll("tr.base-list-row-selected"));
 

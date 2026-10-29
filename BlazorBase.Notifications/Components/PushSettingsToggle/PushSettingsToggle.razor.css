@@ -8,5 +8,5 @@
 .push-settings-toggle-caption {
     margin: 0;
     font-size: 0.8125rem;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
 }

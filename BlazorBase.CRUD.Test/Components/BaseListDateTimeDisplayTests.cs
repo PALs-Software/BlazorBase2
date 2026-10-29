@@ -93,11 +93,11 @@ public class BaseListDateTimeDisplayTests : BunitTestContextBase
         var order = new TestOrder { Id = Guid.NewGuid(), CustomerName = "Alpha", CreatedOn = Stamp };
         var cut = RenderList(order);
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row:not([row-type]) td")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row:not([row-type]) td")));
 
         var local = DateTime.SpecifyKind(Stamp, DateTimeKind.Utc).ToLocalTime();
         var expected = BaseListDateTimeDisplay.Format(local, null, CultureInfo.CurrentCulture);
-        var cell = cut.FindAll("tr.fluent-data-grid-row:not([row-type]) td")[0];
+        var cell = cut.FindAll("tr.base-list-row:not([row-type]) td")[0];
         Assert.Equal(expected, cell.TextContent.Trim());
         Assert.Equal(expected, cell.GetAttribute("title"));
     }

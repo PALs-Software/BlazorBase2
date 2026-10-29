@@ -4,7 +4,8 @@ using Microsoft.JSInterop;
 namespace BlazorBase.Components.Services;
 
 /// <summary>
-/// Keeps the light/dark preference and puts it on the document, where the token stylesheet picks it up.
+/// Keeps the light/dark preference and puts it on the document, where the token stylesheet picks it up; the
+/// Fluent components follow through the bridge stylesheet and through the theme mode the script hands to Fluent.
 /// </summary>
 /// <remarks>
 /// A signed-in user carries the preference in their profile, which seeds a browser that has no choice
@@ -128,8 +129,7 @@ public class ThemeService(
     }
 
     /// <summary>
-    /// Reads the two values FluentUI's own design system needs, so its controls end up in the same
-    /// palette as everything styled from the tokens directly.
+    /// Reads the accent and the neutral base, so code on this side can use the colours the stylesheet resolved.
     /// </summary>
     private async Task ReadSeedColorsAsync(IJSObjectReference module)
     {

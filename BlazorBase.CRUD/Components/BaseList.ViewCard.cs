@@ -134,10 +134,11 @@ public partial class BaseList<TModel> where TModel : class, new()
     {
         return context => builder =>
         {
-            builder.OpenComponent<FluentTextField>(0);
-            builder.AddComponentParameter(1, nameof(FluentTextField.Label), context.Label);
-            builder.AddComponentParameter(2, nameof(FluentTextField.Value), ReadCellTextOrEmpty(column, context.Model));
-            builder.AddComponentParameter(3, nameof(FluentTextField.ReadOnly), true);
+            builder.OpenComponent<FluentTextInput>(0);
+            builder.AddComponentParameter(1, nameof(FluentTextInput.Label), context.Label);
+            builder.AddComponentParameter(2, nameof(FluentTextInput.Value), ReadCellTextOrEmpty(column, context.Model));
+            builder.AddComponentParameter(3, nameof(FluentTextInput.ReadOnly), true);
+            builder.AddComponentParameter(4, nameof(FluentTextInput.MessageCondition), FluentFieldCondition.Never);
             builder.CloseComponent();
         };
     }

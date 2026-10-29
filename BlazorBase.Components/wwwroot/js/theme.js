@@ -1,5 +1,15 @@
 const storageKey = 'blazorbase-theme';
 
+// Fluent keeps its own light/dark state for the tokens the bridge stylesheet does not cover (shadows, palettes,
+// the dialog backdrop). Handing it the same preference keeps both in step, including the system setting.
+function syncFluent(preference) {
+    const theme = window.Blazor && window.Blazor.theme;
+
+    if (theme && typeof theme.setThemeMode === 'function') {
+        theme.setThemeMode(preference.toLowerCase());
+    }
+}
+
 export function apply(preference, persist) {
     const root = document.documentElement;
 
@@ -8,6 +18,8 @@ export function apply(preference, persist) {
     } else {
         root.dataset.theme = preference.toLowerCase();
     }
+
+    syncFluent(preference);
 
     // Only an explicit choice is remembered. Persisting on every load would store whatever the
     // profile seeded, and that stored value then outranks the profile forever - so changing the

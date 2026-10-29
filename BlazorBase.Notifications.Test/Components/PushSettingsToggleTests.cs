@@ -1,3 +1,4 @@
+using BlazorBase.Components.Services;
 using BlazorBase.Notifications.Components.PushSettingsToggle;
 using BlazorBase.Notifications.Interop;
 using BlazorBase.Notifications.Models;
@@ -21,7 +22,7 @@ public sealed class PushSettingsToggleTests : BunitContext
     public PushSettingsToggleTests()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        Services.AddFluentUIComponents();
+        Services.AddBlazorBaseFluentUI();
         Services.AddLocalization();
         Services.AddSingleton(WebPushClient);
         Services.AddSingleton(SubscriptionClient);
@@ -37,6 +38,8 @@ public sealed class PushSettingsToggleTests : BunitContext
         base.Dispose(disposing);
     }
 
+    private static FluentSwitch SwitchOf(IRenderedComponent<PushSettingsToggle> cut) => cut.FindComponent<FluentSwitch>().Instance;
+
     private static async Task ToggleAsync(IRenderedComponent<PushSettingsToggle> cut, bool turnOn)
     {
         var fluentSwitch = cut.FindComponent<FluentSwitch>();
@@ -51,7 +54,7 @@ public sealed class PushSettingsToggleTests : BunitContext
         var cut = Render<PushSettingsToggle>();
 
         Assert.Equal("This browser does not support native notifications.", cut.Find(".push-settings-toggle-caption").TextContent);
-        Assert.True(cut.Find("fluent-switch").HasAttribute("disabled"));
+        Assert.True(SwitchOf(cut).Disabled);
     }
 
     [Fact]
@@ -62,7 +65,7 @@ public sealed class PushSettingsToggleTests : BunitContext
         var cut = Render<PushSettingsToggle>();
 
         Assert.Contains("blocked", cut.Find(".push-settings-toggle-caption").TextContent);
-        Assert.True(cut.Find("fluent-switch").HasAttribute("disabled"));
+        Assert.True(SwitchOf(cut).Disabled);
     }
 
     [Fact]
@@ -71,8 +74,8 @@ public sealed class PushSettingsToggleTests : BunitContext
         var cut = Render<PushSettingsToggle>();
 
         Assert.Contains("Turn this on", cut.Find(".push-settings-toggle-caption").TextContent);
-        Assert.False(cut.Find("fluent-switch").HasAttribute("current-checked"));
-        Assert.False(cut.Find("fluent-switch").HasAttribute("disabled"));
+        Assert.False(SwitchOf(cut).Value);
+        Assert.False(SwitchOf(cut).Disabled);
     }
 
     [Fact]
@@ -83,7 +86,7 @@ public sealed class PushSettingsToggleTests : BunitContext
         var cut = Render<PushSettingsToggle>();
 
         Assert.Contains("You will receive", cut.Find(".push-settings-toggle-caption").TextContent);
-        Assert.True(cut.Find("fluent-switch").HasAttribute("current-checked"));
+        Assert.True(SwitchOf(cut).Value);
     }
 
     [Fact]
@@ -99,7 +102,7 @@ public sealed class PushSettingsToggleTests : BunitContext
         await WebPushClient.Received(1).SubscribeAsync("vapid-key");
         await SubscriptionClient.Received(1).SubscribeAsync(subscription, Arg.Any<CancellationToken>());
         Assert.Contains("You will receive", cut.Find(".push-settings-toggle-caption").TextContent);
-        Assert.True(cut.Find("fluent-switch").HasAttribute("current-checked"));
+        Assert.True(SwitchOf(cut).Value);
     }
 
     [Fact]
@@ -112,7 +115,7 @@ public sealed class PushSettingsToggleTests : BunitContext
         await ToggleAsync(cut, true);
 
         Assert.Contains("blocked", cut.Find(".push-settings-toggle-caption").TextContent);
-        Assert.True(cut.Find("fluent-switch").HasAttribute("disabled"));
+        Assert.True(SwitchOf(cut).Disabled);
     }
 
     [Fact]
@@ -126,7 +129,7 @@ public sealed class PushSettingsToggleTests : BunitContext
         await WebPushClient.Received(1).UnsubscribeAsync();
         await SubscriptionClient.Received(1).UnsubscribeAsync("https://push.test/abc", Arg.Any<CancellationToken>());
         Assert.Contains("Turn this on", cut.Find(".push-settings-toggle-caption").TextContent);
-        Assert.False(cut.Find("fluent-switch").HasAttribute("current-checked"));
+        Assert.False(SwitchOf(cut).Value);
     }
 
     [Fact]

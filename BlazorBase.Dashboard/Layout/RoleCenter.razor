@@ -22,7 +22,7 @@
                         @Localizer["Personalize"]
                     </button>
                 }
-                <FluentButton Class="rc-refresh" Appearance="Appearance.Stealth" Disabled="@IsRefreshing"
+                <FluentButton Class="rc-refresh" Appearance="ButtonAppearance.Transparent" Disabled="@IsRefreshing"
                               aria-busy="@(IsRefreshing ? "true" : null)" OnClick="@RefreshAsync"
                               IconStart="@(new Size16.ArrowClockwise())">
                     @(IsRefreshing ? Localizer["Refreshing"].Value : Localizer["Refresh"].Value)

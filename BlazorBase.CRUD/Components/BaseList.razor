@@ -14,8 +14,8 @@
         {
             var addText = AddButtonText ?? FrameworkLocalizer["Add"].Value;
 
-            <FluentButton Appearance="Appearance.Accent"
-                          Class="base-list-add"
+            <FluentButton Appearance="ButtonAppearance.Primary"
+                          Class="base-list-add base-list-header-button"
                           aria-label="@addText"
                           OnClick="@OnAddClickedAsync"
                           IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Add())">
@@ -40,8 +40,9 @@
         }
         @if (ShowsSelectionColumn && !IsMobileLayout)
         {
-            <FluentLabel Class="selection-count">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</FluentLabel>
-            <FluentButton Appearance="Appearance.Stealth"
+            <FluentText Class="selection-count">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</FluentText>
+            <FluentButton Appearance="ButtonAppearance.Transparent"
+                          Class="base-list-deselect base-list-header-button"
                           OnClick="@DeselectAll"
                           IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.DismissCircle())">
                 @FrameworkLocalizer["DeselectAll"]
@@ -50,8 +51,8 @@
         @if (IsFilteringEnabled)
         {
             <div class="base-list-filter-group">
-                <FluentButton Appearance="Appearance.Stealth"
-                              Class="base-list-filter-toggle"
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-list-filter-toggle base-list-header-button"
                               aria-label="@FilterButtonLabel"
                               OnClick="@OpenFilterPanelAsync"
                               IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Filter())">
@@ -85,11 +86,33 @@
 
     @if (DeleteErrorMessage is not null)
     {
-        <FluentMessageBar Intent="MessageIntent.Error" Class="base-list-delete-error" role="alert" OnDismiss="@(() => DeleteErrorMessage = null)">@DeleteErrorMessage</FluentMessageBar>
+        <FluentMessageBar Intent="MessageBarIntent.Error" Class="base-list-delete-error" role="alert" AllowDismiss="false">
+            <ChildContent>@DeleteErrorMessage</ChildContent>
+            <ActionsTemplate>
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              IconOnly="true"
+                              Size="ButtonSize.Small"
+                              Class="base-list-message-dismiss"
+                              Title="@FrameworkLocalizer["Close"].Value"
+                              OnClick="@(() => DeleteErrorMessage = null)"
+                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())" />
+            </ActionsTemplate>
+        </FluentMessageBar>
     }
     @if (SelectionMessage is not null)
     {
-        <FluentMessageBar Intent="MessageIntent.Warning" Class="base-list-delete-error" role="status" OnDismiss="@(() => SelectionMessage = null)">@SelectionMessage</FluentMessageBar>
+        <FluentMessageBar Intent="MessageBarIntent.Warning" Class="base-list-delete-error" role="status" AllowDismiss="false">
+            <ChildContent>@SelectionMessage</ChildContent>
+            <ActionsTemplate>
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              IconOnly="true"
+                              Size="ButtonSize.Small"
+                              Class="base-list-message-dismiss"
+                              Title="@FrameworkLocalizer["Close"].Value"
+                              OnClick="@(() => SelectionMessage = null)"
+                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())" />
+            </ActionsTemplate>
+        </FluentMessageBar>
     }
     <div class="base-list-grid" @ref="GridContainerRef"
          @onmousedown="OnMouseDown"
@@ -104,10 +127,13 @@
             <FluentDataGrid @ref="DataGrid"
                             ItemsProvider="@CaptureRenderedProvider()"
                             TGridItem="TModel"
+                            Class="base-list-table"
                             Virtualize="true"
                             ItemSize="48"
                             OverscanCount="10"
-                            GenerateHeader="GenerateHeaderOption.Sticky"
+                            MaxItemCount="500"
+                            GenerateHeader="DataGridGeneratedHeaderType.Sticky"
+                            ColumnOrder="@GridColumnOrder"
                             OnRowClick="@OnRowClickedAsync"
                             OnRowDoubleClick="@OnRowDoubleClickedAsync"
                             OnCellClick="@OnCellClicked"
@@ -116,7 +142,7 @@
 
                 @if (ShowsSelectionColumn)
                 {
-                    <TemplateColumn Title="" Class="base-list-select-column" Width="@SelectionColumnWidth" MinWidth="@SelectionColumnWidth">
+                    <TemplateColumn Title="" ColumnId="@SelectColumnId" Class="base-list-select-column" Width="@SelectionColumnWidth" MinWidth="@SelectionColumnWidth">
                         <div class="select-circle @(IsSelected(context) ? "selected" : "")"
                              role="checkbox"
                              aria-checked="@(IsSelected(context) ? "true" : "false")"
@@ -131,7 +157,8 @@
                     if (column.Template is not null)
                     {
                         <TemplateColumn Title="@ResolveColumnHeaderName(column)"
-                                        HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
+                                        ColumnId="@column.PropertyName"
+                                        HeaderCellItemTemplate="@HeaderTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
@@ -141,8 +168,9 @@
                     }
                     else if (ResolveCustomDisplay(column) is { } customDisplayType)
                     {
-                                            <TemplateColumn Title="@ResolveColumnHeaderName(column)"
-                                        HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
+                        <TemplateColumn Title="@ResolveColumnHeaderName(column)"
+                                        ColumnId="@column.PropertyName"
+                                        HeaderCellItemTemplate="@HeaderTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
@@ -152,8 +180,9 @@
                     }
                     else if (column.Format is not null || IsDateTimeColumn(column))
                     {
-                                            <TemplateColumn Title="@ResolveColumnHeaderName(column)"
-                                        HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
+                        <TemplateColumn Title="@ResolveColumnHeaderName(column)"
+                                        ColumnId="@column.PropertyName"
+                                        HeaderCellItemTemplate="@HeaderTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
@@ -165,8 +194,9 @@
                     }
                     else if (IsBooleanColumn(column))
                     {
-                                            <TemplateColumn Title="@ResolveColumnHeaderName(column)"
-                                        HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
+                        <TemplateColumn Title="@ResolveColumnHeaderName(column)"
+                                        ColumnId="@column.PropertyName"
+                                        HeaderCellItemTemplate="@HeaderTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
@@ -179,7 +209,8 @@
                     else
                     {
                         <TemplateColumn Title="@ResolveColumnHeaderName(column)"
-                                        HeaderCellTitleTemplate="@HeaderTitleTemplate(column)"
+                                        ColumnId="@column.PropertyName"
+                                        HeaderCellItemTemplate="@HeaderTemplate(column)"
                                         Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
@@ -192,8 +223,8 @@
 
                     if (HasContextMenuEntries && ReferenceEquals(column, RowMenuAnchorColumn))
                     {
-                        <TemplateColumn Title="" Class="base-list-row-menu-column" Width="@RowMenuColumnWidth" MinWidth="@RowMenuColumnWidth">
-                            <FluentButton Appearance="Appearance.Stealth"
+                        <TemplateColumn Title="" ColumnId="@RowMenuColumnId" Class="base-list-row-menu-column" Width="@RowMenuColumnWidth" MinWidth="@RowMenuColumnWidth">
+                            <FluentButton Appearance="ButtonAppearance.Transparent"
                                           Class="base-list-row-menu"
                                           Title="@FrameworkLocalizer["MoreActions"].Value"
                                           aria-label="@FrameworkLocalizer["MoreActions"].Value"
@@ -219,7 +250,7 @@
                 <div class="base-list-selection-hint" role="status">@SelectionBarHint</div>
             }
             <div class="base-list-selection-row">
-                <FluentButton Appearance="Appearance.Stealth"
+                <FluentButton Appearance="ButtonAppearance.Transparent"
                               Class="base-list-selection-close"
                               Title="@FrameworkLocalizer["DeselectAll"].Value"
                               aria-label="@FrameworkLocalizer["DeselectAll"].Value"
@@ -241,7 +272,7 @@
                 }
                 @if (CanDelete)
                 {
-                    <FluentButton Appearance="Appearance.Stealth"
+                    <FluentButton Appearance="ButtonAppearance.Transparent"
                                   Class="base-list-selection-delete"
                                   Title="@SelectionBarDeleteLabel"
                                   aria-label="@SelectionBarDeleteLabel"
@@ -363,14 +394,14 @@
     @if (IsLoading)
     {
         <div class="base-list-loading">
-            <FluentProgressRing />
+            <FluentSpinner Size="SpinnerSize.Medium" />
         </div>
     }
 
     @if (!IsLoading && !HasRows)
     {
         <div class="base-list-empty">
-            <FluentLabel Typo="Typography.Body">@(EmptyText ?? FrameworkLocalizer["NoItemsFound"].Value)</FluentLabel>
+            <FluentText>@(EmptyText ?? FrameworkLocalizer["NoItemsFound"].Value)</FluentText>
         </div>
     }
 </div>

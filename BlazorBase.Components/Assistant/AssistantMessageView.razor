@@ -32,7 +32,7 @@
             @if (Message.ToolStatus is not null)
             {
                 <div class="assistant-tool" role="status">
-                    <FluentProgressRing Width="14px" />
+                    <FluentSpinner Size="SpinnerSize.Tiny" />
                     <span>@Message.ToolStatus</span>
                 </div>
             }
@@ -114,11 +114,11 @@
                     @if (action.State is AssistantActionState.Pending or AssistantActionState.Working)
                     {
                         <div class="assistant-action-buttons">
-                            <FluentButton Appearance="Appearance.Accent"
+                            <FluentButton Appearance="ButtonAppearance.Primary"
                                           Class="assistant-action-confirm"
                                           Disabled="@(action.State == AssistantActionState.Working)"
                                           OnClick="OnConfirm">@Localizer["Confirm"]</FluentButton>
-                            <FluentButton Appearance="Appearance.Outline"
+                            <FluentButton Appearance="ButtonAppearance.Outline"
                                           Class="assistant-action-decline"
                                           Disabled="@(action.State == AssistantActionState.Working)"
                                           OnClick="OnDecline">@Localizer["Decline"]</FluentButton>
@@ -139,22 +139,20 @@
             @if (CanRate)
             {
                 <div class="assistant-feedback" role="group" aria-label="@Localizer["Feedback"]">
-                    <FluentButton Appearance="Appearance.Stealth"
-                                  Class="assistant-thumb-up"
+                    <FluentButton Appearance="ButtonAppearance.Transparent"
+                                  Class="assistant-thumb-up assistant-feedback-button"
+                                  IconOnly="true"
+                                  IconStart="@(new Size16.ThumbLike())"
                                   Title="@Localizer["Helpful"]"
-                                  aria-label="@Localizer["Helpful"]"
                                   aria-pressed="@(Message.Rating == AssistantRating.Up ? "true" : "false")"
-                                  OnClick="() => OnRate.InvokeAsync(AssistantRating.Up)">
-                        <FluentIcon Value="@(new Size16.ThumbLike())" Color="Color.Neutral" />
-                    </FluentButton>
-                    <FluentButton Appearance="Appearance.Stealth"
-                                  Class="assistant-thumb-down"
+                                  OnClick="() => OnRate.InvokeAsync(AssistantRating.Up)" />
+                    <FluentButton Appearance="ButtonAppearance.Transparent"
+                                  Class="assistant-thumb-down assistant-feedback-button"
+                                  IconOnly="true"
+                                  IconStart="@(new Size16.ThumbDislike())"
                                   Title="@Localizer["NotHelpful"]"
-                                  aria-label="@Localizer["NotHelpful"]"
                                   aria-pressed="@(Message.Rating == AssistantRating.Down ? "true" : "false")"
-                                  OnClick="() => OnRate.InvokeAsync(AssistantRating.Down)">
-                        <FluentIcon Value="@(new Size16.ThumbDislike())" Color="Color.Neutral" />
-                    </FluentButton>
+                                  OnClick="() => OnRate.InvokeAsync(AssistantRating.Down)" />
                 </div>
             }
         </div>

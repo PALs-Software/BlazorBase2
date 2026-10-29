@@ -53,6 +53,7 @@
     <Project Path="BlazorBase.User.Test/BlazorBase.User.Test.csproj" />
     <Project Path="BlazorBase.User.Server.Test/BlazorBase.User.Server.Test.csproj" />
     <Project Path="BlazorBase.Files.Server.Test/BlazorBase.Files.Server.Test.csproj" />
+    <Project Path="BlazorBase.Files.Test/BlazorBase.Files.Test.csproj" />
     <Project Path="BlazorBase.Files.Server.AzureBlob.Test/BlazorBase.Files.Server.AzureBlob.Test.csproj" />
     <Project Path="BlazorBase.Components.Server.Test/BlazorBase.Components.Server.Test.csproj" />
     <Project Path="BlazorBase.Notifications.Server.Test/BlazorBase.Notifications.Server.Test.csproj" />

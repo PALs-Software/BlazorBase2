@@ -32,34 +32,35 @@ public class BaseListDialogBehaviorTests : BunitTestContextBase
     public async Task OverlappingNavigationsToTheSameItem_OpenExactlyOneDialog()
     {
         var product = new TestProduct { Id = Guid.NewGuid(), Name = "Widget" };
-        var dialogService = SubstituteDialogService();
-        var cut = await RenderListAsync(product, dialogService);
+        var dialogService = TestDialogService.Register(this);
+        var cut = await RenderListAsync(product);
         var navigation = Services.GetRequiredService<NavigationManager>();
 
         navigation.NavigateTo($"/?item={product.Id}");
         navigation.NavigateTo($"/?item={product.Id}&noise=1");
         navigation.NavigateTo($"/?item={product.Id}&noise=2");
 
-        await WaitUntilAsync(() => dialogService.ReceivedCalls().Any(IsCardDialogRequest));
+        await WaitUntilAsync(() => dialogService.Shown.Count > 0);
         await Task.Delay(400);
-        Assert.Single(dialogService.ReceivedCalls(), IsCardDialogRequest);
+        Assert.Single(dialogService.Shown);
     }
 
     [Fact]
     public async Task TheCardDialog_IsOpenedWithTheSharedCardDialogDefaults()
     {
         var product = new TestProduct { Id = Guid.NewGuid(), Name = "Widget" };
-        var dialogService = SubstituteDialogService();
-        await RenderListAsync(product, dialogService);
+        var dialogService = TestDialogService.Register(this);
+        await RenderListAsync(product);
 
         Services.GetRequiredService<NavigationManager>().NavigateTo($"/?item={product.Id}");
 
-        await WaitUntilAsync(() => dialogService.ReceivedCalls().Any(IsCardDialogRequest));
-        var request = dialogService.ReceivedCalls().First(IsCardDialogRequest);
-        var parameters = Assert.IsType<DialogParameters>(request.GetArguments()[1]);
-        Assert.Equal(CardDialogDefaults.Width, parameters.Width);
-        Assert.False(parameters.TrapFocus);
-        Assert.False(parameters.ShowTitle);
+        await WaitUntilAsync(() => dialogService.Shown.Count > 0);
+        var dialog = dialogService.Shown[0];
+        Assert.Equal(typeof(BaseDialog<TestProduct>), dialog.Component);
+        Assert.Equal(CardDialogDefaults.Width, dialog.Options.Width);
+        Assert.Equal(true, dialog.Options.PreventDismissOnEscape);
+        Assert.Null(dialog.Options.Header.Title);
+        Assert.False(dialog.Options.Header.CloseAction.Visible);
     }
 
     [Fact]
@@ -67,17 +68,17 @@ public class BaseListDialogBehaviorTests : BunitTestContextBase
     {
         var first = new TestProduct { Id = Guid.NewGuid(), Name = "First" };
         var second = new TestProduct { Id = Guid.NewGuid(), Name = "Second" };
-        var dialogService = SubstituteDialogService();
-        var firstReference = ReferenceFor(dialogService);
-        var cut = await RenderListAsync(first, dialogService, extraItem: second);
+        var dialogService = TestDialogService.Register(this);
+        var cut = await RenderListAsync(first, extraItem: second);
         var navigation = Services.GetRequiredService<NavigationManager>();
 
         navigation.NavigateTo($"/?item={first.Id}");
-        await WaitUntilAsync(() => dialogService.ReceivedCalls().Any(IsCardDialogRequest));
+        await WaitUntilAsync(() => dialogService.Shown.Count == 1);
         navigation.NavigateTo($"/?item={second.Id}");
 
-        await WaitUntilAsync(() => dialogService.ReceivedCalls().Count(IsCardDialogRequest) == 2);
-        await firstReference.Received(1).CloseAsync();
+        await WaitUntilAsync(() => dialogService.Shown.Count == 2);
+        Assert.True(dialogService.CardData<TestProduct>()[0].IsCloseRequested);
+        Assert.False(dialogService.CardData<TestProduct>()[1].IsCloseRequested);
     }
 
     [Fact]
@@ -130,42 +131,13 @@ public class BaseListDialogBehaviorTests : BunitTestContextBase
         Assert.True(condition());
     }
 
-    private static bool IsCardDialogRequest(NSubstitute.Core.ICall call)
-        => call.GetMethodInfo().Name == nameof(IDialogService.ShowDialogAsync)
-           && call.GetMethodInfo().GetGenericArguments().FirstOrDefault() == typeof(BaseDialog<TestProduct>);
-
-    private IDialogService SubstituteDialogService()
-    {
-        var dialogService = Substitute.For<IDialogService>();
-        dialogService.ShowDialogAsync<BaseDialog<TestProduct>>(Arg.Any<object>(), Arg.Any<DialogParameters>())
-            .Returns(_ => Task.FromResult(NewReference()));
-        return dialogService;
-    }
-
-    private static IDialogReference ReferenceFor(IDialogService dialogService)
-    {
-        var reference = NewReference();
-        var next = Task.FromResult(NewReference());
-        dialogService.ShowDialogAsync<BaseDialog<TestProduct>>(Arg.Any<object>(), Arg.Any<DialogParameters>())
-            .Returns(Task.FromResult(reference), next);
-        return reference;
-    }
-
-    private static IDialogReference NewReference()
-    {
-        var reference = Substitute.For<IDialogReference>();
-        reference.Result.Returns(new TaskCompletionSource<DialogResult>().Task);
-        return reference;
-    }
-
-    private async Task<IRenderedComponent<BaseList<TestProduct>>> RenderListAsync(TestProduct product, IDialogService dialogService, TestProduct? extraItem = null)
+    private async Task<IRenderedComponent<BaseList<TestProduct>>> RenderListAsync(TestProduct product, TestProduct? extraItem = null)
     {
         var authorization = this.AddAuthorization();
         authorization.SetAuthorized("admin");
         authorization.SetRoles("Admin");
 
         Services.AddLocalization();
-        Services.AddSingleton(dialogService);
 
         var items = new[] { product, extraItem }.OfType<TestProduct>().ToList();
         var provider = Substitute.For<IBaseDataProvider<TestProduct>>();
@@ -183,7 +155,7 @@ public class BaseListDialogBehaviorTests : BunitTestContextBase
             .Add(p => p.DataProvider, provider)
             .Add(p => p.AllowAdd, false)
             .Add(p => p.ChildContent, BuildColumn(item => item.Name)));
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
         await Task.Delay(200);
 
         return cut;

@@ -9,36 +9,40 @@ a layout, and a rich-text editor is not a CRUD concept.
 
 ## Themes
 
-Two default themes ship as one stylesheet of CSS custom properties. Link it once:
+Two default themes ship as one stylesheet of CSS custom properties. Link it once, together with the Fluent UI stylesheet
+and tell Fluent not to apply its own page styles (the shell owns the page layout):
 
 ```html
+<link rel="stylesheet" href="_content/Microsoft.FluentUI.AspNetCore.Components/Microsoft.FluentUI.AspNetCore.Components.bundle.scp.css" />
 <link rel="stylesheet" href="_content/BlazorBase.Components/css/blazorbase.css" />
+...
+<body no-fuib-style>
 ```
 
-Every BlazorBase component stylesheet that paints a colour reads them — the shell, both navigation
-components, the whole CRUD layer, the editors, the file components. Each declaration keeps the FluentUI
-value it replaced as its fallback (`var(--color-bg-surface, var(--neutral-layer-1))`), so an application
-that never links this file looks exactly as it did. Application code that uses the same names stays in
-step automatically.
+`blazorbase.css` imports `blazorbase-fluent-bridge.css` itself, so one link covers the tokens and the bridge.
 
-FluentUI's own controls — a `FluentButton`, a `FluentTextField`, dialog chrome — do not read CSS
-custom properties at all. They paint from FluentUI's design system, which derives its ~170 tokens
-algorithmically from two seed colours. `BaseLayout` feeds it both: it reads the resolved
-`--color-accent` and `--color-neutral-base` after the first render and hands them to
-`FluentDesignTheme` as `CustomColor` and `NeutralBaseColor`, so FluentUI regenerates its accent **and**
-neutral ramps in the palette rather than in its default blue-grey.
+Every BlazorBase component stylesheet that paints a colour, a size or a font reads the tokens below — the shell, both
+navigation components, the whole CRUD layer, the editors, the file components. Application code uses the same
+names, and nothing else: never a Fluent token (`--colorNeutral…`, `--fontSize…`) and never a selector on a Fluent
+element or its parts. The Fluent components themselves are painted from the same tokens.
 
-Only hue and saturation carry over from the neutral seed — FluentUI interpolates white to black
-through it and picks each layer by luminance, `Mode` deciding the direction. Keep the seed about as
-saturated as the palette's own greys: the light end amplifies chroma, and a seed with ten points of
-RGB spread turns the dialog background visibly mint.
+### The Fluent bridge
 
-That covers the ramp, not individual values. An application that has to pin one exact FluentUI token
-can inject it — every one of them is a `DesignToken<T>` in
-`Microsoft.FluentUI.AspNetCore.Components.DesignTokens` with `WithDefault(value)` for the global
-default and `SetValueFor(element, value)` for a subtree. Reach for that sparingly: the hover and
-active values are derived from the rest ones by deltas, so pinning a single swatch and leaving its
-neighbours to the recipe is how a control ends up with a hover state that no longer matches it.
+Fluent UI v5 paints from Fluent 2 tokens (`--colorBrandBackground`, `--colorNeutralForeground1`, `--borderRadiusMedium`,
+`--fontSizeBase300`, …). `blazorbase-fluent-bridge.css` maps every BlazorBase token onto them, so one palette drives the
+whole page: `--color-accent` becomes the brand tokens, the text, surface and border tokens become the neutral
+tokens, `--color-success` / `--color-warning` / `--color-danger` become the status tokens, and the radius, spacing and
+font tokens become Fluent's. Hover, pressed and selected shades are mixed from the semantic tokens with `color-mix()`,
+for example the pressed brand fill from `--color-accent` and `--color-text-primary`. The bridge declares its values on
+`body`, which wins over the values Fluent writes on `:root`, whatever the order of the stylesheets. It is the only file
+that names Fluent tokens.
+
+The bridge also offers one class for a destructive primary action: `FluentButton Class="base-danger-action"` turns the
+brand colours of that button into the danger colours.
+
+There is no theme component. Light and dark come from the tokens (`data-theme` on `<html>`, see below), and
+`ThemeService` hands the same preference to Fluent so that the tokens the bridge does not cover (shadows, palettes) follow.
+An application that wants another brand colour overrides `--color-accent` and the tokens next to it — nothing else.
 
 ### Applying and switching
 
@@ -51,11 +55,17 @@ before the first render:
 | `ApplyAsync()` | Writes it onto `<html>`. Uses JS interop — call it after the first render. |
 | `SetThemeAsync(preference)` | Sets, applies, persists, and raises `ThemeChanged`. |
 | `CurrentTheme` | `System`, `Light` or `Dark`. |
+| `AccentColor` / `NeutralBaseColor` | The resolved `--color-accent` and `--color-neutral-base`, for code that needs the colour on the managed side. Null until `ApplyAsync` has run. |
 
 `BaseLayout` already does both calls. Hosting it is all an application needs; `BaseThemeToggle` gives
-the user a control that cycles system → light → dark. Register the services with
-`services.AddBlazorBaseComponents()` — `AddBlazorBaseUserClient()` already calls it, so an application
-on the user stack needs nothing extra.
+the user a control that cycles system → light → dark. Register the Fluent services with
+`services.AddBlazorBaseFluentUI()` instead of `AddFluentUIComponents()` — it sets the defaults the layout is built for
+(at most three toasts, at the top end of the window below the header, fields without Fluent's default 12px vertical margin) and takes an optional callback for further
+`LibraryConfiguration` changes. Register the BlazorBase services with `services.AddBlazorBaseComponents()` —
+`AddBlazorBaseUserClient()` already calls it, so an application on the user stack needs nothing extra.
+
+`IThemeService` (BlazorBase) shares its name with Fluent's own `IThemeService`. A file that imports both namespaces names the
+one it means: `using IThemeService = BlazorBase.Components.Services.IThemeService;`.
 
 Where the preference comes from: the signed-in user's profile claim seeds a browser that has no choice
 of its own, so the setting follows the user to a new device. An explicit choice made here wins from
@@ -72,7 +82,7 @@ without the user package registers nothing and stays local-only.
 
 While the preference is `System`, a `matchMedia` listener watches the operating system and re-reads the
 tokens when it flips. The stylesheet repaints on its own — what needs the listener is everything derived
-from the tokens on the managed side: the accent handed to FluentUI and the `theme-color` meta tag, which
+from the tokens on the managed side: `AccentColor` / `NeutralBaseColor` and the `theme-color` meta tag, which
 would otherwise keep the values of the theme that just went away. An explicit choice stamps the root
 element and is unaffected.
 
@@ -99,20 +109,31 @@ behind the stamp.
 | `--color-text-primary` | Body text, headings, cell values |
 | `--color-text-secondary` | Secondary labels, column headers, icons |
 | `--color-text-muted` | Placeholders, disabled state, empty state |
-| `--color-accent` | Primary button, active tab, links, selection |
+| `--color-accent` | Primary button, active tab, selection, the fill of an accent surface |
+| `--color-accent-text` | The accent as text or an icon on a surface: links, the active label (darkened in light, lightened in dark until it reads) |
+| `--color-accent-hover` / `--color-accent-pressed` / `--color-accent-subtle` | Shades mixed from the accent: hovered and pressed fill, a light tint |
 | `--color-text-on-accent` | Text on a filled accent surface |
-| `--color-neutral-base` | Seed FluentUI derives its own neutral ramp from — see above |
+| `--color-neutral-base` | A grey in the hue of the palette; disabled and skeleton colours are tinted from it |
 | `--color-success` / `--color-warning` | Confirmations and warnings |
 | `--color-danger` / `--color-danger-bg` / `--color-text-on-danger` | Delete and validation errors |
-| `--space-1` … `--space-6` | Spacing scale, 4px to 32px |
-| `--radius-sm` / `-md` / `-lg` / `-pill` | Corner radii |
+| `--space-0` … `--space-6` | Spacing scale: 2, 4, 8, 12, 16, 24, 32 px |
+| `--radius-xs` / `-sm` / `-md` / `-lg` / `-pill` | Corner radii: 4, 6, 10, 16 px, fully round |
 | `--font-base` / `--font-display` / `--font-monospace` | Type stacks |
+| `--font-size-xxs` … `--font-size-hero` | 10, 12, 14, 16, 20, 24, 28, 32 px (`xxs`, `xs`, `base`, `md`, `lg`, `xl`, `xxl`, `hero`) |
+| `--line-height-xxs` … `--line-height-hero` | 14, 16, 20, 22, 28, 32, 36, 40 px, same steps |
+| `--font-weight-regular` / `-medium` / `-semibold` / `-bold` | 400, 500, 600, 700 |
+| `--control-height-sm` / `-md` / `-lg` / `-touch` | 24, 32, 40, 44 px: control heights and touch targets |
+| `--stroke-width-thin` / `-thick` | 1 px borders, 2 px focus rings |
+| `--shadow-sm` / `-md` / `-lg` / `-xl` | Elevation: cards, menus, panels, dialogs |
+| `--duration-fast` / `-normal` / `-slow`, `--easing-standard` | Transitions |
+
+Two utility classes sit next to the tokens: `base-touch-target` gives a checkbox, switch or radio the control height
+(the touch height on coarse pointers), and `base-danger-action` (in the bridge) makes a button's accent colours danger colours.
 
 ### Customising
 
 Override the tokens in a stylesheet linked **after** the default one. Swapping the brand colour takes
-three of them — the accent, its selection tint, and the neutral seed that takes FluentUI's own
-controls along:
+two or three of them — the accent, its selection tint and, when the greys of the palette change hue, the neutral base:
 
 ```css
 :root {
@@ -121,16 +142,22 @@ controls along:
     --color-neutral-base: #878289;
 }
 
-:root[data-theme="dark"], :root:not([data-theme="light"]) {
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --color-accent: #A78BFA;
+        --color-bg-selected: #A78BFA22;
+        --color-neutral-base: #878289;
+    }
+}
+
+:root[data-theme="dark"] {
     --color-accent: #A78BFA;
     --color-bg-selected: #A78BFA22;
     --color-neutral-base: #878289;
 }
 ```
 
-Everything else is neutral scaffolding. A palette whose light and dark sides sit in different hue
-families — a warm surface in light, a cool one in dark — needs a seed per theme; one value covers both
-when they share a family.
+The hover, pressed and text shades of the accent follow on their own. Everything else is neutral scaffolding.
 
 ---
 
@@ -140,7 +167,9 @@ when they share a family.
 services. One `NavigationItem` tree drives both presentations, so desktop and mobile cannot drift
 apart:
 
-- `BaseSideNavigation` — the desktop rail.
+- `BaseSideNavigation` — the desktop rail, built on `FluentNav`: entries are `FluentNavItem`s, groups are collapsible
+  `FluentNavCategory`s that remember in the browser whether they are expanded (the group holding the current page opens
+  itself). Reduced to icons, a group is one icon button that shows or hides the icons of its entries.
 - `BaseBottomNavigation` — the mobile tab bar. Entries flagged `IsMobilePrimary` become tabs; the rest
   land behind a "More" bottom sheet that also handles groups (with a back step) and actions such as
   logging out.
@@ -208,13 +237,13 @@ guess, otherwise the page scrolls although its content fits.
 (`ShowHelp`), the theme toggle (`ShowThemeToggle`), the settings button (`ShowSettings`) and finally
 `HeaderEndContent`.
 
-**Plain header icons.** The icon buttons in the header — the navigation button, the notification bell, help,
-theme toggle, settings and whatever a host puts into `HeaderContent` / `HeaderEndContent` as a Fluent stealth
-button — are drawn plain: transparent and borderless at rest, in the muted secondary text color, 40 px (44 px on
-touch screens) with a rounded hit area. They show `--color-bg-hover` on hover, `--color-bg-subtle` while pressed,
-`--color-bg-selected` while their popup is open (`aria-expanded="true"`) and a 2 px focus ring. The layout does
-this centrally (even for icons that use an accent color), so hosts and other packages need no styling of their
-own. The unread badge of the notification bell is not affected.
+**Plain header icons.** The icon buttons in the header — the navigation button, help, theme toggle, settings,
+the header actions and whatever a host puts into `HeaderContent` / `HeaderEndContent` — are `FluentButton`s with
+`Appearance="ButtonAppearance.Transparent"`, `IconOnly="true"` and an `IconStart` icon, and carry the class
+`base-header-control`. That class gives them the header control size (40 px, 44 px on touch screens) and a rounded
+hit area, and `--color-bg-selected` while their popup is open (`aria-expanded="true"`); the transparent appearance
+draws the muted text color, `--color-bg-hover` on hover and the focus ring. A host button in the header sets
+`Class="base-header-control"` to match; the unread badge of the notification bell is not affected.
 
 ### App switcher
 
@@ -434,7 +463,7 @@ drawer without writing its own media queries:
         <BaseThemeToggle />
     </HeaderContent>
     <HeaderEndContent>
-        <FluentAnchor Href="/account" Class="base-header-wide-only">Account</FluentAnchor>
+        <FluentAnchorButton Href="/account" Appearance="ButtonAppearance.Transparent" Class="base-header-wide-only base-header-control">Account</FluentAnchorButton>
     </HeaderEndContent>
     <Navigation>
         <BaseSideNavigation Items="Items" />
@@ -568,7 +597,7 @@ code are kept, links become plain text, everything is HTML-encoded.
 registered — `AddBlazorBaseHelp` does that) renders the component `HelpFieldTooltips`, which loads `helpTooltips.js`:
 
 - The script listens (delegated, capturing, passive) on the document, but only reacts inside the main content
-  (`#base-main`) and inside dialogs (`fluent-dialog`) — never inside the help panel, the header or the navigation.
+  (`#base-main`) and inside dialogs (`.base-dialog`) — never inside the help panel, the header or the navigation.
   It registers nothing when the option is off, and `HelpFieldTooltips` removes every listener and the popover when it is
   disposed (and hides the popover on navigation).
 - **How a label is found.** The element under the pointer (or the keyboard focus) is a candidate, and so are its ancestors up
@@ -782,44 +811,81 @@ from `AddBlazorBaseComponents()`: a pure hosting backend that never renders inte
 made to supply an `IDialogService`. Register it yourself with `TryAddScoped` if you want it without the
 CRUD layer.
 
-### File and date input dialogs
+### Dialogs
 
-Two more FluentUI dialogs live next to `IConfirmationService`, for the two inputs a destructive or
-import-style page action tends to need and that FluentUI has no ready-made dialog for: picking one file
-and picking one date.
+Every dialog of the framework and of an application is a component on Fluent's dialog API, opened through
+`ShowBaseDialogAsync` (namespace `BlazorBase.Components.Dialogs`), which sets the dialog class `base-dialog`, the default
+width and the result model:
 
+```csharp
+var result = await DialogService.ShowBaseDialogAsync<MyDialog, MyContent>("Title", new MyContent { ... }, width: "min(440px, calc(100vw - 2rem))");
+if (!result.Cancelled)
+    var value = result.GetValue<MyResult>();
+```
+
+The returned task completes when the dialog is closed — by a button, Escape or a click on the backdrop — and
+`DialogResult.Cancelled` tells which. The content component is a `BaseDialogInstance` (or `BaseDialogInstance<TContent>`,
+which adds the `Content` parameter) and renders a `BaseDialogBody`:
+
+```razor
+@inherits BaseDialogInstance<MyContent>
+
+<BaseDialogBody>
+    <ChildContent>
+        <FluentText As="TextTag.Paragraph">@Content.Message</FluentText>
+    </ChildContent>
+    <ActionTemplate>
+        <FluentButton Appearance="ButtonAppearance.Primary" OnClick="@ConfirmAsync">OK</FluentButton>
+        <FluentButton Appearance="ButtonAppearance.Outline" OnClick="@CancelAsync">Cancel</FluentButton>
+    </ActionTemplate>
+</BaseDialogBody>
+```
+
+| Type | Purpose |
+|---|---|
+| `BaseDialogOptions` | `Title`, `Width` (any CSS width; default 500 px, never wider than the window), `Size` (a Fluent size, replaces `Width`), `Modal`, `PreventDismissOnEscape`, `ShowCloseButton` with `CloseButtonLabel`, `Class`, `Parameters` (content parameters by property name) and `OnStateChange`. |
+| `ShowBaseDialogAsync<TDialog>(options)` / `(configure)` / `<TDialog, TContent>(title, content, width)` | Extensions of `IDialogService`. |
+| `BaseDialogInstance` | Base class of the content; gives `DialogInstance` and `ConfirmAsync()`, `ConfirmWithResultAsync(value)` and `CancelAsync()`. Fluent's own footer buttons are off; `UseDefaultFooter` turns them on. |
+| `BaseDialogBody` | The frame: the title from the options, the content, an optional footer (`ActionTemplate`, primary button first) and the keyboard behavior below. `FixedHeaderFooter` keeps title and footer in place while the content scrolls (default). `Flush` renders no frame at all: the content fills the dialog and brings its own header and action bar, as a card does. |
+| `DialogBehavior` | Used by `BaseDialogBody`: moves focus into the dialog when it opens (to the element marked `data-autofocus`, otherwise the first field) and, with `CommitPendingEditOnEscape`, commits a half-typed field before Escape is handled so an unsaved-changes check sees it. The dialog is a native modal: the page behind is inert, Escape closes it and focus returns to the opener. |
+
+A test cannot replace `IDialogService` or `IDialogInstance` with a mock — their contract has internal members.
+It opens the dialog through the real service and a rendered `FluentDialogProvider`, or derives from `DialogService`
+to record what was opened.
+
+The dialogs of this package:
+
+- `dialogService.ShowConfirmationDialogAsync(title, new ConfirmationDialogContent { Message = ..., ConfirmButtonText = ..., CancelButtonText = ..., IsDestructive = true })`
+  opens `BaseConfirmationDialog`; `IConfirmationService` uses it. A destructive confirmation shows a warning
+  icon and a danger-styled confirm button (`base-danger-action`), and starts on **Cancel** so a stray Enter cannot confirm it.
 - `dialogService.ShowFileInputDialogAsync(title, new FileInputDialogContent { Message = ..., FileInputCaption = ..., FileFilter = ".xlsx", MaxFileSize = 20 * 1024 * 1024 })`
-  opens `BaseFileInputDialog`, a FluentUI `FluentInputFile` (stream mode) wrapped in Confirm/Cancel
-  buttons. The confirm button stays disabled until a file both matches `FileFilter` (comma separated
-  extensions, e.g. `.csv,.txt`) and is at or under `MaxFileSize` (0 or negative disables the size
-  check); the validation itself lives in the dependency-free `FileInputValidator.Validate(...)`, reused
-  here and safe to call again server-side so the two checks can never drift apart. The dialog result
-  (`dialog.Result` on the returned `IDialogReference`) carries a `FileInputDialogResult` with the file
-  name and its content already buffered into a `byte[]`, or `Cancelled: true` if the user backed out.
+  opens `BaseFileInputDialog`, a `FluentInputFile` (stream mode) with Confirm/Cancel buttons. The confirm button
+  stays disabled until a file both matches `FileFilter` (comma separated extensions, e.g. `.csv,.txt`) and is at
+  or under `MaxFileSize` (0 or negative disables the size check); the validation itself lives in the
+  dependency-free `FileInputValidator.Validate(...)`, reused here and safe to call again server-side so the two
+  checks can never drift apart. A confirmed result carries a `FileInputDialogResult` with the file name and its
+  content already buffered into a `byte[]`; `Cancelled` is true if the user backed out.
 - `dialogService.ShowDateInputDialogAsync(title, new DateInputDialogContent { Message = ..., InitialDate = ... })`
-  opens `BaseDateInputDialog`, a single `FluentDatePicker` with the same Confirm/Cancel shape; the
+  opens `BaseDateInputDialog`, a single `FluentDatePicker<DateTime?>` with the same Confirm/Cancel shape; the
   result is a `DateInputDialogResult` with the picked `DateTime`. Typical use: "pick any day in the
   month whose imported data should be deleted" before a purge action, where the month is derived from
   the picked date by the caller.
 
-Both dialogs need FluentUI's `IDialogService`, exactly like `IConfirmationService` above, and are plain
-Razor components with no CRUD dependency — usable from any page, not only `BaseList`/`BaseCard` actions.
-Escape closes either of them.
+All of them need Fluent's `IDialogService` and the `FluentProviders` that `BaseLayout` renders, exactly like
+`IConfirmationService` above, and are plain Razor components with no CRUD dependency — usable from any page,
+not only `BaseList`/`BaseCard` actions.
 
-### Confirmation dialog and dialog behavior
+### Toasts
 
-`dialogService.ShowConfirmationDialogAsync(title, new ConfirmationDialogContent { Message = ..., ConfirmButtonText = ..., CancelButtonText = ..., IsDestructive = true })`
-opens `BaseConfirmationDialog`; `IConfirmationService` uses it. A destructive confirmation shows a warning
-icon and a danger-styled confirm button, and starts on **Cancel** so a stray Enter cannot confirm it. Escape
-closes it, also when it is open on top of another dialog (the discard prompt over a card).
+Toasts come from Fluent's `INotificationService`; the `FluentToastProvider` is part of the `FluentProviders` of `BaseLayout`.
+`AddBlazorBaseFluentUI()` shows at most three at once at the top end of the window below the header:
 
-`DialogBehavior` is the wrapper that gives a dialog the keyboard behavior a modal owes: focus moves into it
-when it opens (to the element marked `data-autofocus`, otherwise the first field), everything outside it is
-made `inert` so Tab cannot leave it and the page behind cannot be clicked, `CommitPendingEditOnEscape`
-commits a half-typed field before Escape is handled (so an unsaved-changes check sees it), and focus is handed
-back to the opener when the dialog closes and left on nothing. `DismissOnEscape` closes the dialog on
-Escape. FluentUI's own focus trap is not used for dialogs that can host another dialog: two traps fight over
-focus.
+```csharp
+await Notifications.ShowSuccessToastAsync("Saved");
+await Notifications.ShowErrorToastAsync("Saving failed", message: "The server did not answer.");
+```
+
+The calls return when the toast is queued, not when it closes.
 
 ---
 

@@ -12,6 +12,7 @@ using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.JSInterop;
+using IThemeService = BlazorBase.Components.Services.IThemeService;
 
 namespace BlazorBase.Components.Layout;
 
@@ -244,13 +245,6 @@ public partial class BaseLayout(
     private EventCallback MoreCallback => Navigation is null
         ? default
         : EventCallback.Factory.Create(this, ToggleNavigationAsync);
-
-    private DesignThemeModes CurrentMode => ThemeService.CurrentTheme switch
-    {
-        ThemePreference.Light => DesignThemeModes.Light,
-        ThemePreference.Dark => DesignThemeModes.Dark,
-        _ => DesignThemeModes.System,
-    };
 
     private NavigationLayoutContext NavigationContext => new(IsCollapsed && !IsCompact, CloseDrawerAsync, HasBottomBar ? MaxBottomBarItems : null);
 

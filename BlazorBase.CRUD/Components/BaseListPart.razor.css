@@ -1,29 +1,18 @@
 /*
    A list part follows the interaction model of the main list: a click selects an item, the item label opens it, the
-   three-dot button beside it opens the row menu, and the toolbar actions work on the selection. The variables below are
-   the ones the list defines on .base-list, so the header controls and the row button take the same fills; a list part
-   is also used on its own, which is why it defines them itself. A touch screen has no pointer to hover with, so there
-   the hover fill is the resting one.
+   three-dot button beside it opens the row menu, and the toolbar actions work on the selection. A list part is also
+   used on its own, which is why it defines its variables itself.
 */
 .base-listpart {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-1);
     position: relative;
-    border: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
-    border-radius: var(--radius-sm, 4px);
-    padding: 8px;
-    --base-list-control-fill: var(--neutral-fill-stealth-rest);
-    --base-list-control-fill-hover: var(--neutral-fill-stealth-hover);
-    --base-list-control-fill-active: var(--neutral-fill-stealth-active);
-    --base-listpart-row-selected-fill: var(--color-bg-selected, color-mix(in srgb, var(--accent-fill-rest) 14%, transparent));
+    border: var(--stroke-width-thin) solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    --base-listpart-row-selected-fill: var(--color-bg-selected);
     --base-listpart-warning-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M8.68 2.79a1.5 1.5 0 0 1 2.64 0l6.5 12A1.5 1.5 0 0 1 16.5 17h-13a1.5 1.5 0 0 1-1.32-2.21l6.5-12ZM10 7a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 10 7Zm0 7.5a.9.9 0 1 0 0-1.8.9.9 0 0 0 0 1.8Z'/%3E%3C/svg%3E");
-}
-
-@media (hover: none) {
-    .base-listpart {
-        --base-list-control-fill-hover: var(--base-list-control-fill);
-    }
 }
 
 .base-listpart-header {
@@ -31,11 +20,7 @@
     flex-wrap: wrap;
     justify-content: flex-end;
     align-items: center;
-    gap: 4px;
-}
-
-.base-listpart-header ::deep fluent-button {
-    --neutral-fill-stealth-hover: var(--base-list-control-fill-hover);
+    gap: var(--space-1);
 }
 
 .base-listpart-selection-info {
@@ -63,8 +48,8 @@
     min-height: 44px;
     box-sizing: border-box;
     padding: 2px 8px;
-    border-bottom: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text-primary);
     transition: background-color 0.1s ease-in-out;
 }
 
@@ -73,7 +58,7 @@
 }
 
 .base-listpart-item:hover {
-    background-color: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
+    background-color: var(--color-bg-hover);
 }
 
 /*
@@ -82,12 +67,12 @@
    from a hovered one.
 */
 .base-listpart-item-selected {
-    background-color: var(--color-bg-surface, var(--neutral-layer-1));
+    background-color: var(--color-bg-surface);
     background-image: linear-gradient(var(--base-listpart-row-selected-fill), var(--base-listpart-row-selected-fill));
 }
 
 .base-listpart-item-selected:hover {
-    background-color: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
+    background-color: var(--color-bg-hover);
 }
 
 .base-listpart-item:has(> .base-listpart-item-content) {
@@ -108,7 +93,7 @@
 .base-listpart-item-content:focus-visible,
 .base-listpart-items ::deep .select-circle:focus-visible,
 .base-listpart-items ::deep .base-listpart-row-menu:focus-visible {
-    outline: 2px solid var(--color-border-focus, var(--focus-stroke-outer));
+    outline: 2px solid var(--color-border-focus);
     outline-offset: -2px;
 }
 
@@ -120,21 +105,9 @@
 /*
    The label of an item that can be opened is its open link: it takes the accent color and an underline while the
    pointer is on the row (a touch screen has no hover, so there only the selected row shows it), and on the selected row.
-   The brand accent (#00A7E7) is only 2.6:1 on a light surface, so the light theme takes the design system's accent text
-   colour, which is tuned for contrast; the dark theme keeps the brand accent.
 */
 .base-listpart {
-    --base-listpart-open-link: var(--accent-foreground-rest, var(--color-accent));
-}
-
-:root[data-theme="dark"] .base-listpart {
-    --base-listpart-open-link: var(--color-accent);
-}
-
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .base-listpart {
-        --base-listpart-open-link: var(--color-accent);
-    }
+    --base-listpart-open-link: var(--color-accent-text);
 }
 
 .base-listpart-item-button {
@@ -165,18 +138,15 @@
 /*
    The three-dot button sits right of the label. It is invisible by default but keeps its box, so showing it moves
    nothing: it appears on the hovered item, on the selected item, while the item holds the keyboard focus, while its menu
-   is open, and always on a screen without hover. The hovered button takes the fill the list header's controls take.
+   is open, and always on a screen without hover.
 */
 .base-listpart-item ::deep .base-listpart-row-menu {
     flex: none;
-    min-width: 32px;
-    min-height: 32px;
-    width: 32px;
-    height: 32px;
+    min-width: var(--control-height-md);
+    min-height: var(--control-height-md);
+    width: var(--control-height-md);
+    height: var(--control-height-md);
     opacity: 0;
-    --neutral-fill-stealth-hover: var(--base-list-control-fill-hover);
-    --neutral-fill-stealth-active: var(--base-list-control-fill-active);
-    --neutral-fill-stealth-rest: transparent;
 }
 
 .base-listpart-item:hover ::deep .base-listpart-row-menu,
@@ -189,16 +159,15 @@
 @media (hover: none) {
     .base-listpart-item ::deep .base-listpart-row-menu {
         opacity: 1;
-        --neutral-fill-stealth-hover: transparent;
     }
 }
 
 @media (pointer: coarse) {
     .base-listpart-item ::deep .base-listpart-row-menu {
-        min-width: 44px;
-        min-height: 44px;
-        width: 44px;
-        height: 44px;
+        min-width: var(--control-height-touch);
+        min-height: var(--control-height-touch);
+        width: var(--control-height-touch);
+        height: var(--control-height-touch);
     }
 }
 
@@ -210,7 +179,7 @@
     height: 20px;
     margin-inline: 4px;
     border-radius: 50%;
-    border: 2px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border: 2px solid var(--color-border-strong);
     cursor: pointer;
     transition: all 0.15s ease;
 }
@@ -222,12 +191,12 @@
 }
 
 .select-circle.selected {
-    background-color: var(--color-accent, var(--accent-fill-rest));
-    border-color: var(--color-accent, var(--accent-fill-rest));
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
 }
 
 .select-circle:hover {
-    border-color: var(--color-accent, var(--accent-fill-hover));
+    border-color: var(--color-accent);
 }
 
 /*
@@ -235,7 +204,7 @@
    front of its text.
 */
 .base-listpart-item-blocked {
-    box-shadow: inset 4px 0 0 var(--color-warning, var(--warning));
+    box-shadow: inset 4px 0 0 var(--color-warning);
 }
 
 .base-listpart-item-blocked .base-listpart-item-content::before,
@@ -247,7 +216,7 @@
     height: 16px;
     margin-inline-end: 6px;
     vertical-align: text-bottom;
-    background-color: var(--color-warning, var(--warning));
+    background-color: var(--color-warning);
     -webkit-mask: var(--base-listpart-warning-icon) center / contain no-repeat;
     mask: var(--base-listpart-warning-icon) center / contain no-repeat;
 }
@@ -256,7 +225,7 @@
     display: flex;
     justify-content: center;
     padding: 12px;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
 }
 
 .context-menu-overlay {
@@ -268,10 +237,10 @@
 .context-menu {
     position: fixed;
     z-index: 10000;
-    background: var(--color-bg-elevated, var(--neutral-layer-floating));
-    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
-    border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px));
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.14);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
     padding: 4px 0;
     min-width: 180px;
     max-width: calc(100vw - 16px);
@@ -292,7 +261,7 @@
     box-sizing: border-box;
     padding: 8px 12px;
     cursor: pointer;
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
+    color: var(--color-text-primary);
     font-size: 14px;
     border: none;
     background: none;
@@ -302,12 +271,12 @@
 }
 
 .context-menu ::deep [role="menuitem"]:hover {
-    background: var(--color-bg-hover, var(--neutral-fill-stealth-hover));
+    background: var(--color-bg-hover);
 }
 
 .context-menu ::deep [role="menuitem"].context-menu-item-disabled {
     cursor: not-allowed;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
     opacity: 0.6;
 }
 
@@ -317,7 +286,7 @@
 
 .context-menu-divider {
     height: 1px;
-    background: var(--color-border, var(--neutral-stroke-divider-rest));
+    background: var(--color-border);
     margin: 4px 0;
 }
 

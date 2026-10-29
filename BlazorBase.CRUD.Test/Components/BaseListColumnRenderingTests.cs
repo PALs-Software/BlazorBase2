@@ -49,7 +49,7 @@ public class BaseListColumnRenderingTests : BunitTestContextBase
     {
         var cut = RenderList(product => product.Name, width: "180px", isActive: true);
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
         Assert.Contains("180px", cut.Markup);
     }
 
@@ -66,7 +66,7 @@ public class BaseListColumnRenderingTests : BunitTestContextBase
     {
         var cut = RenderList(product => product.Name, width: "180px", isActive: true);
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
         Assert.Empty(cut.FindAll(".base-list-column-flexible"));
     }
 

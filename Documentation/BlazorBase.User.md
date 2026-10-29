@@ -182,9 +182,8 @@ them.
 >   the framework model (`[CrudAccess]` rules union per level, so an added rule grants the extra role).
 > - **USER-02:** the login and first-run setup fields in `Login.razor` carry `autocomplete` hints
 >   (`username`, `current-password`, `new-password`, `name`; HouseholdName uses `off`) so browser password
->   managers store and fill credentials correctly. Note: FluentUI applies the `autocomplete` attribute
->   imperatively via JS interop after render, so it is present once the field has hydrated, not in the
->   very first server-rendered HTML.
+>   managers store and fill credentials correctly. The hint is set through the `AutoComplete` parameter of
+>   `FluentTextInput`.
 
 Use `<AuthorizeRouteView>` so unauthenticated users land on `/login`:
 
@@ -212,10 +211,9 @@ protected override async Task OnInitializedAsync()
 
 ### 7. Carry the Fluent UI providers in your own layout
 
-`BaseLayout` ends with `FluentToastProvider`, `FluentDialogProvider`, `FluentTooltipProvider`,
-`FluentMessageBarProvider` and `FluentMenuProvider`. A host that writes its own `MainLayout` instead
-**has to repeat them** — `UserManagementView` and every other screen built on `BaseList`/`BaseCard`
-throws without the dialog provider. See
+`BaseLayout` ends with `<FluentProviders />`, which carries the dialog, toast, tooltip and keyboard providers. A host
+that writes its own `MainLayout` instead **has to add it** and register the services with `AddBlazorBaseFluentUI()` —
+`UserManagementView` and every other screen built on `BaseList`/`BaseCard` throws without the dialog provider. See
 [BlazorBase.CRUD](BlazorBase.CRUD.md#6-layout--the-fluent-ui-providers).
 
 ---
@@ -418,7 +416,7 @@ For this to work the host must register the user-management custom inputs and an
 ### Components
 
 - `RedirectToLogin` — placed inside `<NotAuthorized>` in `<AuthorizeRouteView>`. Captures the current URI as an app-relative path and navigates to `/login?returnUrl=<encoded>`. If the current path is already `/login` (or starts with `login`), navigates to `/login` without a `returnUrl` to avoid loops.
-- `ResetPasswordDialog` — modal that prompts for a new password and PATCHes `UserModel.Password` through `BaseCard`.
+- `ResetPasswordDialog` — dialog content (`BaseDialogInstance<ResetPasswordModel>`) that prompts for a new password and writes it to `ResetPasswordModel.NewPassword`. Open it with `IDialogService.ShowBaseDialogAsync<ResetPasswordDialog, ResetPasswordModel>(title, model)`; it shows Fluent's OK and Cancel buttons and the result's `Cancelled` tells which one closed it.
 
 ---
 
@@ -532,11 +530,12 @@ special user fields cleanly:
 | Component | Opts in for | Renders |
 |---|---|---|
 | `UserPasswordInput` | a `string` property marked `[UserPasswordInput]` or named `Password` | a `type=password` box that starts blank in edit mode; only a non-blank entry is pushed back to the model, so leaving it blank keeps the current password |
-| `UserRoleInput` | a `string` property marked `[UserRoleInput]` or named `Role` | a `FluentSelect` over the role names from the app-registered `IUserRoleProvider` |
+| `UserRoleInput` | a `string` property marked `[UserRoleInput]` or named `Role` | a `FluentSelect` over the role names from the app-registered `IUserRoleProvider`, with an empty entry first while no offered role is selected |
 
-Both bind a **local string** with plain `@bind-Value`, so the value expression handed to the Fluent UI
-input is a clean member access. This is what lets the generic card/list render the user model without the
-Fluent UI `FieldIdentifier` "index expression" error that a non-member-access value expression triggers.
+Neither binds the model property directly: the password input binds a local string, the role select reads the `Value`
+parameter and reports changes through `ValueChanged`. So the Fluent UI input never gets a non-member-access value
+expression, which is what lets the generic card/list render the user model without the `FieldIdentifier` "index
+expression" error that such an expression triggers.
 
 ### `IUserRoleProvider`
 
@@ -764,7 +763,7 @@ public class UserController(UserManager<AppUser> userManager, SignInManager<AppU
 ```razor
 <AuthorizeView Roles="Admin">
     <Authorized>
-        <FluentNavLink Href="/admin/users">User Management</FluentNavLink>
+        <FluentNavItem Href="/admin/users">User Management</FluentNavItem>
     </Authorized>
 </AuthorizeView>
 ```
@@ -805,7 +804,7 @@ new() { Href = "/admin", Label = L["Admin"], RequiredRole = "Admin,Supervisor" }
 
 ### `BaseSideNavigation`
 
-Desktop renderer (Fluent UI nav menu). Groups render as a labelled section with their children beneath.
+Desktop renderer (Fluent UI `FluentNav`). Groups render as collapsible categories with their children beneath.
 Parameters: `Items`, `IsCollapsed`, `Title`, `AriaLabel`.
 
 ### `BaseBottomNavigation`

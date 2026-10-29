@@ -1,29 +1,28 @@
 @using BlazorBase.Components.Dialogs
 @typeparam TModel
+@inherits BaseDialogInstance<BaseDialogData<TModel>>
 
-<FluentDialogBody>
-    <div class="base-dialog">
-        <DialogBehavior>
-            <CascadingValue Value="@((bool?)DialogData.IsNew)" Name="@CardCascadeNames.IsNew">
-                <CascadingValue Value="@DialogData.CloseGuard" IsFixed="true">
-                    @if (DialogData.CardType is not null)
-                    {
-                        <DynamicComponent Type="@DialogData.CardType" Parameters="@GetCustomCardParameters()" />
-                    }
-                    else
-                    {
-                        <BaseCard TModel="TModel"
-                                  Model="@DialogData.Model"
-                                  IsNew="@DialogData.IsNew"
-                                  ReadOnly="@DialogData.ReadOnly"
-                                  DataProvider="@DialogData.DataProvider"
-                                  Localizer="@DialogData.Localizer"
-                                  Configuration="@CardConfiguration"
-                                  OnAfterSave="@OnSavedAsync"
-                                  OnCancelled="@OnCancelledAsync" />
-                    }
-                </CascadingValue>
+<BaseDialogBody Flush="true">
+    <ChildContent>
+        <CascadingValue Value="@((bool?)DialogData.IsNew)" Name="@CardCascadeNames.IsNew">
+            <CascadingValue Value="@DialogData.CloseGuard" IsFixed="true">
+                @if (DialogData.CardType is not null)
+                {
+                    <DynamicComponent Type="@DialogData.CardType" Parameters="@GetCustomCardParameters()" />
+                }
+                else
+                {
+                    <BaseCard TModel="TModel"
+                              Model="@DialogData.Model"
+                              IsNew="@DialogData.IsNew"
+                              ReadOnly="@DialogData.ReadOnly"
+                              DataProvider="@DialogData.DataProvider"
+                              Localizer="@DialogData.Localizer"
+                              Configuration="@CardConfiguration"
+                              OnAfterSave="@OnSavedAsync"
+                              OnCancelled="@OnCancelledAsync" />
+                }
             </CascadingValue>
-        </DialogBehavior>
-    </div>
-</FluentDialogBody>
+        </CascadingValue>
+    </ChildContent>
+</BaseDialogBody>

@@ -1,11 +1,10 @@
 @namespace BlazorBase.Components.Layout
 
 <span class="base-theme-toggle-root">
-    <FluentButton Appearance="Appearance.Stealth"
-                  Class="base-theme-toggle"
+    <FluentButton Appearance="ButtonAppearance.Transparent"
+                  Class="base-theme-toggle base-header-control"
+                  IconOnly="true"
+                  IconStart="@Icon"
                   Title="@Title"
-                  aria-label="@Title"
-                  OnClick="@CycleAsync">
-        <FluentIcon Value="@Icon" Color="Color.Neutral" />
-    </FluentButton>
+                  OnClick="@CycleAsync" />
 </span>

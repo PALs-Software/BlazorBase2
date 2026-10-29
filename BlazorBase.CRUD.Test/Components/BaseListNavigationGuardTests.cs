@@ -114,7 +114,7 @@ public class BaseListNavigationGuardTests : BunitTestContextBase
 
         Assert.Equal(1, asked);
         Assert.Contains($"item={First.Id}", session.Navigation.Uri);
-        await session.Reference.DidNotReceive().CloseAsync();
+        Assert.False(session.Data.IsCloseRequested);
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public class BaseListNavigationGuardTests : BunitTestContextBase
 
         Assert.Equal(0, asked);
         Assert.DoesNotContain("item=", session.Navigation.Uri);
-        await session.Reference.Received(1).CloseAsync();
+        Assert.True(session.Data.IsCloseRequested);
     }
 
     [Fact]
@@ -193,25 +193,7 @@ public class BaseListNavigationGuardTests : BunitTestContextBase
 
         Services.AddLocalization();
 
-        var session = new Session();
-        var dialogService = Substitute.For<IDialogService>();
-        dialogService.ShowDialogAsync<BaseDialog<TestProduct>>(Arg.Any<object>(), Arg.Any<DialogParameters>())
-            .Returns(call =>
-            {
-                session.DialogRequests++;
-                session.Opened = new TaskCompletionSource<DialogResult>();
-                var reference = Substitute.For<IDialogReference>();
-                reference.Result.Returns(session.Opened.Task);
-                reference.CloseAsync().Returns(_ =>
-                {
-                    session.CloseTheDialog();
-                    return Task.CompletedTask;
-                });
-                session.Reference = reference;
-                session.Guard = ((BaseDialogData<TestProduct>)call.ArgAt<object>(0)).CloseGuard;
-                return Task.FromResult(reference);
-            });
-        Services.AddSingleton(dialogService);
+        var session = new Session { Dialogs = TestDialogService.Register(this) };
 
         var items = withSecond ? new List<TestProduct> { First, Second } : [First];
         var provider = Substitute.For<IBaseDataProvider<TestProduct>>();
@@ -225,12 +207,12 @@ public class BaseListNavigationGuardTests : BunitTestContextBase
             .Add(p => p.DataProvider, provider)
             .Add(p => p.AllowAdd, false)
             .Add(p => p.ChildContent, BuildColumn(item => item.Name)));
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
         await Task.Delay(200);
 
         session.Navigation = Services.GetRequiredService<NavigationManager>();
         session.Navigation.NavigateTo($"/?item={First.Id}");
-        await WaitUntilAsync(() => session.DialogRequests == 1 && session.Guard is not null);
+        await WaitUntilAsync(() => session.DialogRequests == 1);
         await Task.Delay(100);
 
         return session;
@@ -277,16 +259,16 @@ public class BaseListNavigationGuardTests : BunitTestContextBase
 
     private sealed class Session
     {
-        public int DialogRequests { get; set; }
+        public TestDialogService Dialogs { get; init; } = default!;
 
-        public TaskCompletionSource<DialogResult> Opened { get; set; } = new();
+        public int DialogRequests => Dialogs.Shown.Count;
 
-        public IDialogReference Reference { get; set; } = default!;
+        public BaseDialogData<TestProduct> Data => Dialogs.CardData<TestProduct>()[^1];
 
-        public CardCloseGuard Guard { get; set; } = default!;
+        public CardCloseGuard Guard => Data.CloseGuard;
 
         public NavigationManager Navigation { get; set; } = default!;
 
-        public void CloseTheDialog() => Opened.TrySetResult(DialogResult.Cancel());
+        public void CloseTheDialog() => Dialogs.Shown[^1].Completion.TrySetResult(DialogResult.Cancel());
     }
 }

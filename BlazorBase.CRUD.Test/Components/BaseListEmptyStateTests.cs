@@ -34,7 +34,7 @@ public class BaseListEmptyStateTests : BunitTestContextBase
         var cut = RenderList(EmptyProvider(), emptyText: "Nothing here yet.");
 
         cut.WaitForAssertion(() => Assert.NotNull(cut.Find(".base-list-empty")));
-        Assert.Empty(cut.FindAll("tr.fluent-data-grid-row"));
+        Assert.Empty(cut.FindAll("tr.base-list-row"));
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public class BaseListEmptyStateTests : BunitTestContextBase
 
         var cut = RenderList(ProviderReturning(order), emptyText: "Nothing here yet.");
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
         Assert.Empty(cut.FindAll(".base-list-empty"));
     }
 

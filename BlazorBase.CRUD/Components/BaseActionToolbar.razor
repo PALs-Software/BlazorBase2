@@ -25,6 +25,7 @@
                       @onfocusin="@(() => OnBlockingPointerEnterAsync(action))"
                       @onfocusout="@(() => OnBlockingPointerLeaveAsync(action))">
                     <FluentButton Appearance="@action.Appearance"
+                                  Class="base-action-toolbar-button"
                                   Title="@(disabled ? null : ResolveText(action.ToolTip ?? action.Caption))"
                                   IconStart="@action.Icon"
                                   OnClick="@(() => InvokeActionAsync(action))"
@@ -47,7 +48,8 @@
             var key = GroupKeyOf(group);
 
             <span class="base-action-toolbar-trigger" data-menu-trigger="@key">
-                <FluentButton Appearance="Appearance.Stealth"
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-action-toolbar-button"
                               IconStart="@group.Icon"
                               IconEnd="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ChevronDown())"
                               aria-haspopup="menu"
@@ -59,27 +61,30 @@
         }
         else
         {
-            <FluentMenuButton Text="@ResolveText(group.Caption ?? group.Name)"
-                              IconStart="@group.Icon"
-                              ButtonAppearance="Appearance.Stealth">
+            var menuTriggerId = GroupMenuTriggerId(group);
+
+            <FluentButton Id="@menuTriggerId"
+                          Appearance="ButtonAppearance.Transparent"
+                          Class="base-action-toolbar-button"
+                          IconStart="@group.Icon"
+                          IconEnd="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ChevronDown())">
+                @ResolveText(group.Caption ?? group.Name)
+            </FluentButton>
+            <FluentMenu Trigger="@menuTriggerId">
                 @foreach (var action in group.Actions.OrderBy(a => a.Order))
                 {
                     @if (IsActionShown(action))
                     {
                         var view = ViewOf(action);
 
-                        <FluentMenuItem OnClick="@(() => InvokeActionAsync(action))"
+                        <FluentMenuItem Label="@ResolveText(action.Caption)"
+                                        IconStart="@action.Icon"
+                                        OnClick="@(() => InvokeActionAsync(action))"
                                         title="@(view.State.IsEnabled ? null : view.Reason)"
-                                        Disabled="@(!view.State.IsEnabled)">
-                            @if (action.Icon is not null)
-                            {
-                                <FluentIcon Value="@action.Icon" Slot="start" />
-                            }
-                            @ResolveText(action.Caption)
-                        </FluentMenuItem>
+                                        Disabled="@(!view.State.IsEnabled)" />
                     }
                 }
-            </FluentMenuButton>
+            </FluentMenu>
         }
     }
     </div>
@@ -87,12 +92,14 @@
     @if (AllowOverflow && VisibleGroups.Count > 0)
     {
         <span class="base-action-toolbar-more" data-menu-trigger="@MoreKey">
-            <FluentButton Appearance="Appearance.Stealth"
+            <FluentButton Appearance="ButtonAppearance.Transparent"
+                          Class="base-action-toolbar-button"
                           Title="@FrameworkLocalizer["MoreActions"].Value"
                           aria-label="@FrameworkLocalizer["MoreActions"].Value"
                           aria-haspopup="menu"
                           aria-expanded="@(openMenuKey == MoreKey ? "true" : "false")"
                           OnClick="@(() => OpenMenuAsync(MoreKey))"
+                          IconOnly="true"
                           IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.MoreHorizontal())" />
         </span>
     }

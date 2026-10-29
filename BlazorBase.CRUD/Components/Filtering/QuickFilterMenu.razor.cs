@@ -66,6 +66,25 @@ public partial class QuickFilterMenu
 
     private bool HasChoices => Saved.Presets.Count > 0 || Items.Count > 0;
 
+    internal sealed record QuickFilterChoice(string Key, string Name, bool Disabled = false);
+
+    private IReadOnlyList<QuickFilterChoice> Choices
+    {
+        get
+        {
+            var selectedKey = SelectedKey;
+            var choices = new List<QuickFilterChoice> { new(NoneKey, T("QuickFilterNone")) };
+
+            if (selectedKey == CustomKey)
+                choices.Add(new QuickFilterChoice(CustomKey, T("QuickFilterCustom"), Disabled: true));
+
+            choices.AddRange(Saved.Presets.Select(preset => new QuickFilterChoice(PresetPrefix + preset.Id, preset.Name)));
+            choices.AddRange(Items.Select(item => new QuickFilterChoice(SavedPrefix + item.Id, item.Name)));
+
+            return choices;
+        }
+    }
+
     private bool IsUnfiltered => FilterModelConverter.CountConditions(FilterModelPruner.Prune(Current, Saved.Fields)) == 0;
 
     private string SelectedKey

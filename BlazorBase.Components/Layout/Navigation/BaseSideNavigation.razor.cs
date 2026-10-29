@@ -7,10 +7,10 @@ using Microsoft.JSInterop;
 namespace BlazorBase.Components.Layout.Navigation;
 
 /// <summary>
-/// Renders a <see cref="NavigationItem"/> list as a side navigation (Fluent UI nav menu). Inside a
+/// Renders a <see cref="NavigationItem"/> list as a side navigation (Fluent UI nav). Inside a
 /// <see cref="BaseLayout"/> it is the persistent rail on wide screens — reducible to icons — and the
 /// content of the off-canvas drawer on narrow ones.
-/// Groups render as a collapsible section: a toggle button with the group label and a chevron, with the
+/// Groups render as a collapsible nav category with the group label and a chevron, with the
 /// children listed beneath. Each group remembers in the browser whether it is expanded; the group that holds
 /// the page being shown is always expanded when the page is reached. In the icon-only rail a group is a
 /// single icon button that shows or hides the icons of its children. Role-gated entries are
@@ -47,8 +47,6 @@ public partial class BaseSideNavigation(
     private NavigationLayoutContext? LayoutContext { get; set; }
 
     private const int ExpandedWidth = 260;
-
-    private static readonly Icon ChevronIcon = new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.ChevronDown();
 
     private readonly Dictionary<string, bool> GroupStates = [];
 
@@ -136,9 +134,10 @@ public partial class BaseSideNavigation(
             GroupStates[group.StateKey] = true;
     }
 
-    private async Task ToggleGroupAsync(NavigationItem group)
+    private Task ToggleGroupAsync(NavigationItem group) => SetGroupExpandedAsync(group, !IsExpanded(group));
+
+    private async Task SetGroupExpandedAsync(NavigationItem group, bool expanded)
     {
-        var expanded = !IsExpanded(group);
         GroupStates[group.StateKey] = expanded;
 
         if (Module is null)

@@ -10,6 +10,7 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.FluentUI.AspNetCore.Components;
+using Microsoft.JSInterop;
 using NSubstitute;
 using Xunit;
 
@@ -45,14 +46,17 @@ public sealed class BaseIssueReportDialogTests : ComponentsBunitTestContextBase
     }
 
     private IRenderedComponent<BaseIssueReportDialog> RenderDialog(IssueReportDialogContent? content = null) =>
-        Render<BaseIssueReportDialog>(parameters => parameters.Add(p => p.Content, content ?? new IssueReportDialogContent()));
+        DialogHarness<BaseIssueReportDialog>.Open(this, "Report an issue", content ?? new IssueReportDialogContent()).Content;
 
     private static void Fill(IRenderedComponent<BaseIssueReportDialog> cut, string summary, string? description = null)
     {
-        cut.Find("fluent-text-field").Change(summary);
+        cut.FindComponent<FluentTextInput>().SetValue<string?>(summary);
         if (description is not null)
-            cut.Find("fluent-text-area").Change(description);
+            cut.FindComponent<FluentTextArea>().SetValue<string?>(description);
     }
+
+    private static FluentButton SubmitButton(IRenderedComponent<BaseIssueReportDialog> cut) =>
+        cut.FindComponents<FluentButton>().Single(button => button.Instance.Type == ButtonType.Submit).Instance;
 
     [Fact]
     public void TheDialogShowsTheFieldsAndTheDiagnosticsPreview()
@@ -62,9 +66,9 @@ public sealed class BaseIssueReportDialogTests : ComponentsBunitTestContextBase
 
         var cut = RenderDialog();
 
-        Assert.NotNull(cut.Find("fluent-text-field"));
-        Assert.NotNull(cut.Find("fluent-text-area"));
-        Assert.NotNull(cut.Find("fluent-select"));
+        Assert.NotNull(cut.FindComponent<FluentTextInput>());
+        Assert.NotNull(cut.FindComponent<FluentTextArea>());
+        Assert.NotNull(cut.FindComponent<FluentSelect<string, string>>());
         var preview = cut.Find("pre.base-issue-diagnostics").TextContent;
         Assert.Contains("App=demo 1.2.3", preview);
         Assert.Contains("Correlation=corr-7", preview);
@@ -77,11 +81,11 @@ public sealed class BaseIssueReportDialogTests : ComponentsBunitTestContextBase
     {
         var cut = RenderDialog();
 
-        Assert.True(cut.Find("fluent-button[type=submit]").HasAttribute("disabled"));
+        Assert.True(SubmitButton(cut).Disabled);
 
         Fill(cut, "Something broke");
 
-        Assert.False(cut.Find("fluent-button[type=submit]").HasAttribute("disabled"));
+        Assert.False(SubmitButton(cut).Disabled);
     }
 
     [Fact]
@@ -91,7 +95,7 @@ public sealed class BaseIssueReportDialogTests : ComponentsBunitTestContextBase
 
         var cut = RenderDialog();
 
-        Assert.Empty(cut.FindAll("fluent-select"));
+        Assert.Empty(cut.FindComponents<FluentSelect<string, string>>());
     }
 
     [Fact]
@@ -109,7 +113,7 @@ public sealed class BaseIssueReportDialogTests : ComponentsBunitTestContextBase
             && Uri.UnescapeDataString(uri).Contains("Browser=TestBrowser/1.0")));
         Assert.Contains("mail program should open", cut.Find(".base-issue-result").TextContent);
         Assert.Empty(cut.FindAll("form"));
-        Assert.Contains("Close", cut.Find(".base-issue-actions fluent-button").TextContent);
+        Assert.Contains("Close", cut.Find(".base-issue-actions").TextContent);
     }
 
     [Fact]
@@ -160,7 +164,7 @@ public sealed class BaseIssueReportDialogTests : ComponentsBunitTestContextBase
         var cut = RenderDialog();
         Fill(cut, "Something broke", "Text");
 
-        cut.FindAll("fluent-button").Single(button => button.TextContent.Contains("Copy details")).Click();
+        cut.FindComponents<FluentButton>().Single(button => button.Markup.Contains("Copy details")).Click();
 
         Browser.Received(1).CopyTextAsync(Arg.Is<string>(text => text.Contains("Subject: [demo] Something broke")));
         Assert.Contains("copied to the clipboard", cut.Markup);
@@ -183,18 +187,27 @@ public sealed class BaseIssueReportDialogTests : ComponentsBunitTestContextBase
     {
         var cut = RenderDialog(new IssueReportDialogContent { Summary = "Prefilled", Description = "Body" });
 
-        Assert.Equal("Prefilled", cut.Find("fluent-text-field").GetAttribute("value"));
+        Assert.Equal("Prefilled", cut.FindComponent<FluentTextInput>().Instance.Value);
+        Assert.Equal("Body", cut.FindComponent<FluentTextArea>().Instance.Value);
     }
 }
 
 public sealed class IssueReportRegistrationTests
 {
-    private static ServiceProvider Build(Action<IssueReportOptions>? configure = null)
+    private static ServiceCollection Services()
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddLocalization();
-        services.AddSingleton(Substitute.For<IDialogService>());
+        services.AddSingleton(Substitute.For<IJSRuntime>());
+        services.AddSingleton<RecordingDialogService>();
+        services.AddSingleton<IDialogService>(provider => provider.GetRequiredService<RecordingDialogService>());
+        return services;
+    }
+
+    private static ServiceProvider Build(Action<IssueReportOptions>? configure = null)
+    {
+        var services = Services();
         services.AddBlazorBaseIssueReporting(options =>
         {
             options.Recipient = "support@example.com";
@@ -217,7 +230,10 @@ public sealed class IssueReportRegistrationTests
         Assert.Equal("Report an issue", item.Title);
         Assert.True(item.IsVisible!(scope.ServiceProvider));
         await item.OnInvoke(scope.ServiceProvider);
-        await scope.ServiceProvider.GetRequiredService<IDialogService>().Received(1).ShowDialogAsync<BaseIssueReportDialog>(Arg.Any<IssueReportDialogContent>(), Arg.Any<DialogParameters>());
+        var (component, options) = Assert.Single(provider.GetRequiredService<RecordingDialogService>().Shown);
+        Assert.Equal(typeof(BaseIssueReportDialog), component);
+        Assert.Equal("Report an issue", options.Header.Title);
+        Assert.IsType<IssueReportDialogContent>(options.Parameters["Content"]);
     }
 
     [Fact]
@@ -235,10 +251,7 @@ public sealed class IssueReportRegistrationTests
     [Fact]
     public void RegisteringTwiceKeepsASingleHeaderActionAndMergesTheConfiguration()
     {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddLocalization();
-        services.AddSingleton(Substitute.For<IDialogService>());
+        var services = Services();
         services.AddBlazorBaseIssueReporting(options => options.Recipient = "a@example.com");
         services.AddBlazorBaseIssueReporting(options => options.SiteName = "demo");
         using var provider = services.BuildServiceProvider();

@@ -1,38 +1,38 @@
 <div>
-<FluentLabel Typo="Typography.PageTitle">@Localizer["Title"]</FluentLabel>
+<FluentText As="TextTag.H1" Size="TextSize.Size800">@Localizer["Title"]</FluentText>
 
-<FluentStack Orientation="Orientation.Vertical" Class="settings-form">
+<FluentStack Orientation="Orientation.Vertical" VerticalGap="var(--space-5)" Class="settings-form">
 
-    <FluentSelect TOption="KeyValuePair<string, string>" Label="@Localizer["Theme"]" Value="@SelectedTheme" SelectedOptionChanged="@(o => SelectedTheme = o.Key)"
+    <FluentSelect TOption="KeyValuePair<string, string>" TValue="string" Label="@Localizer["Theme"]" Value="@SelectedTheme" ValueChanged="@(v => SelectedTheme = v ?? SelectedTheme)"
                   Items="@ThemeDisplayOptions" OptionValue="@(o => o.Key)" OptionText="@(o => o.Value)"
                   Class="settings-select" />
 
-    <FluentSelect TOption="KeyValuePair<string, string>" Label="@Localizer["Language"]" Value="@SelectedLanguage" SelectedOptionChanged="@(o => SelectedLanguage = o.Key)"
+    <FluentSelect TOption="KeyValuePair<string, string>" TValue="string" Label="@Localizer["Language"]" Value="@SelectedLanguage" ValueChanged="@(v => SelectedLanguage = v ?? SelectedLanguage)"
                   Items="@LanguageDisplayOptions" OptionValue="@(o => o.Key)" OptionText="@(o => o.Value)"
                   Class="settings-select" />
 
     @if (ShowServerUrl)
     {
-        <FluentTextField Label="@Localizer["ServerUrl"]" @bind-Value="ServerUrl" Class="full-width" />
-        <FluentButton Appearance="Appearance.Outline" OnClick="TestConnection"
+        <FluentTextInput Label="@Localizer["ServerUrl"]" @bind-Value="ServerUrl" Class="full-width" />
+        <FluentButton Appearance="ButtonAppearance.Outline" OnClick="TestConnection"
                       Loading="@TestingConnection">
             @Localizer["TestConnection"]
         </FluentButton>
         @if (ConnectionTestResult is not null)
         {
-            <FluentMessageBar Intent="@(ConnectionTestOk ? MessageIntent.Success : MessageIntent.Error)">
+            <FluentMessageBar Intent="@(ConnectionTestOk ? MessageBarIntent.Success : MessageBarIntent.Error)" AllowDismiss="false" role="@(ConnectionTestOk ? "status" : "alert")">
                 @ConnectionTestResult
             </FluentMessageBar>
         }
     }
 
-    <FluentButton Appearance="Appearance.Accent" OnClick="SaveSettings" Loading="@Saving">
+    <FluentButton Appearance="ButtonAppearance.Primary" OnClick="SaveSettings" Loading="@Saving">
         @Localizer["Save"]
     </FluentButton>
 
     @if (SaveMessage is not null)
     {
-        <FluentMessageBar Intent="@MessageIntent.Success">@SaveMessage</FluentMessageBar>
+        <FluentMessageBar Intent="MessageBarIntent.Success" AllowDismiss="false" role="status">@SaveMessage</FluentMessageBar>
     }
 
 </FluentStack>

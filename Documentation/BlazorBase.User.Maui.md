@@ -101,7 +101,7 @@ builder.Services.AddHttpClient<IUserService, UserService>((sp, client) =>
 builder.Services.AddBlazorBaseCrud();
 
 // Interactive UI services the CRUD components depend on (IConfirmationService) —
-// call after AddFluentUIComponents()
+// call after AddBlazorBaseFluentUI()
 builder.Services.AddBlazorBaseCrudComponents();
 
 builder.Services.AddBlazorBaseCrudClient((sp, c) =>
@@ -209,11 +209,11 @@ appConfig.IsConfiguredAsync()
 ### `MauiProgram.cs`
 
 ```csharp
+using BlazorBase.Components.Services;
 using BlazorBase.CRUD.Extensions;
 using BlazorBase.User.Maui;
 using BlazorBase.User.Services;
 using Microsoft.Extensions.Logging;
-using Microsoft.FluentUI.AspNetCore.Components;
 
 public static class MauiProgram
 {
@@ -227,7 +227,7 @@ public static class MauiProgram
         builder.Logging.AddDebug();
 #endif
 
-        builder.Services.AddFluentUIComponents();
+        builder.Services.AddBlazorBaseFluentUI();
         builder.Services.AddLocalization();
 
         builder.Services.AddBlazorBaseUserClient();

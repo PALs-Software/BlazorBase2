@@ -118,7 +118,7 @@ public class BaseCardSaveTests : BunitTestContextBase
     private static void AddListPartItem<TModel>(IRenderedComponent<BaseCard<TModel>> cut)
         where TModel : class, new()
     {
-        cut.Find(".base-listpart-header fluent-button").Click();
+        cut.Find(".base-listpart-header .base-listpart-add").Click();
         cut.WaitForAssertion(() => Assert.Single(cut.FindAll(".base-listpart-item")));
     }
 
@@ -145,12 +145,7 @@ public class BaseCardSaveTests : BunitTestContextBase
             .Returns(call => Task.FromResult(call.Arg<TModel>()));
         Services.AddSingleton(provider);
 
-        var dialogService = Substitute.For<IDialogService>();
-        var reference = Substitute.For<IDialogReference>();
-        reference.Result.Returns(Task.FromResult(DialogResult.Ok(new Dictionary<string, object?>())));
-        dialogService.ShowDialogAsync<BaseListPartItemDialog<SerializedChild>>(Arg.Any<object>(), Arg.Any<DialogParameters>()).Returns(Task.FromResult(reference));
-        dialogService.ShowDialogAsync<BaseListPartItemDialog<IgnoringChild>>(Arg.Any<object>(), Arg.Any<DialogParameters>()).Returns(Task.FromResult(reference));
-        Services.AddSingleton(dialogService);
+        TestDialogService.Register(this, DialogResult.Ok(new Dictionary<string, object?>()));
 
         return provider;
     }

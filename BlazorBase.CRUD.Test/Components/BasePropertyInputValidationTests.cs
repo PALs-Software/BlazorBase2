@@ -32,7 +32,7 @@ public class BasePropertyInputValidationTests : BunitTestContextBase
 
         Assert.Equal(5, model.Stock);
         Assert.Equal("The Stock field must be a number.", fieldErrors.Get(nameof(TestProduct.Stock)));
-        Assert.Equal("abc", cut.FindComponent<FluentTextField>().Instance.Value);
+        Assert.Equal("abc", cut.FindComponent<FluentTextInput>().Instance.Value);
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class BasePropertyInputValidationTests : BunitTestContextBase
     {
         var cut = RenderInput(new TestProduct(), Field(p => p.Price), new CardFieldErrors());
 
-        Assert.Equal(InputMode.Decimal, cut.FindComponent<FluentTextField>().Instance.InputMode);
+        Assert.Equal(TextInputMode.Decimal, cut.FindComponent<FluentTextInput>().Instance.InputMode);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public class BasePropertyInputValidationTests : BunitTestContextBase
 
         var cut = RenderInput(new TestProduct { Kind = ProductKind.Digital }, Field(p => p.Kind), new CardFieldErrors());
 
-        var optionTexts = cut.FindComponents<FluentOption<string>>().Select(option => option.Markup).ToList();
+        var optionTexts = cut.FindComponent<FluentSelect<BasePropertyInput<TestProduct>.EnumOption, string>>().Instance.Items!.Select(option => option.Text).ToList();
         Assert.Contains(optionTexts, text => text.Contains("Digitalprodukt"));
         Assert.Contains(optionTexts, text => text.Contains("Physical"));
     }
@@ -174,7 +174,7 @@ public class BasePropertyInputValidationTests : BunitTestContextBase
 
     private static async Task EnterTextAsync(IRenderedComponent<BasePropertyInput<TestProduct>> cut, string text)
     {
-        var textField = cut.FindComponent<FluentTextField>();
+        var textField = cut.FindComponent<FluentTextInput>();
         await cut.InvokeAsync(() => textField.Instance.ValueChanged.InvokeAsync(text));
     }
 

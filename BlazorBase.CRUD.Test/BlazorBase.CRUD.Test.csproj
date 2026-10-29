@@ -17,6 +17,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\BlazorBase.Components.Test\Infrastructure\FluentStyleGuard.cs" Link="Infrastructure\Shared\FluentStyleGuard.cs" />
+    <Compile Include="..\BlazorBase.Components.Test\Infrastructure\FluentTestExtensions.cs" Link="Infrastructure\Shared\FluentTestExtensions.cs" />
+    <Compile Include="..\BlazorBase.Components.Test\Infrastructure\DialogHarness.cs" Link="Infrastructure\Shared\DialogHarness.cs" />
+    <Compile Include="..\BlazorBase.Components.Test\Infrastructure\RecordingDialogService.cs" Link="Infrastructure\Shared\RecordingDialogService.cs" />
+    <Compile Include="..\BlazorBase.Components.Test\Infrastructure\EnglishCulture.cs" Link="Infrastructure\Shared\EnglishCulture.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="bunit" />
     <PackageReference Include="Microsoft.AspNetCore.TestHost" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />

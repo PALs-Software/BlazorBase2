@@ -77,7 +77,7 @@
 
 ::deep .base-bottom-tab {
     position: relative;
-    min-height: var(--tap-target, 44px);
+    min-height: var(--control-height-touch);
 }
 
 ::deep .base-bottom-tab.active .base-bottom-tab-icon {

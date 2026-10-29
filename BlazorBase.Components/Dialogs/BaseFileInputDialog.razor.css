@@ -3,36 +3,19 @@
     width: 100%;
 }
 
-.base-file-input-dialog-picker ::deep .fluent-inputfile-container {
-    position: relative;
+.base-file-input-dialog-picker ::deep .base-file-input-zone {
     box-sizing: border-box;
     width: 100%;
     min-height: 100px;
-}
-
-.base-file-input-dialog-picker ::deep .inputfile-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    justify-self: stretch;
-    width: 100%;
-}
-
-.base-file-input-dialog-picker ::deep .inputfile-progress {
-    position: absolute;
-    inset-inline: 12px;
-    bottom: 8px;
-    margin: 0;
-    padding: 0;
+    border-radius: var(--radius-sm);
 }
 
 .base-file-input-dialog-drop-area {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 8px;
+    gap: var(--space-1);
+    padding: var(--space-2);
     text-align: center;
     overflow-wrap: anywhere;
 }

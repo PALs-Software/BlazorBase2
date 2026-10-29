@@ -18,7 +18,7 @@ storage, thumbnail generation, and controller live in the companion library **Bl
 | Client upload service | `BlazorBase.Files.Services.IFileUploadClient` / `HttpFileUploadClient` |
 | Single-photo card input | `BlazorBase.Files.Components.BaseFilePhotoInput.BaseFilePhotoInputComponent` |
 | Multi-photo card input | `BlazorBase.Files.Components.BaseFileGalleryInput.BaseFileGalleryInputComponent` |
-| Full-screen image viewer | `BlazorBase.Files.Components.BaseFileModal.BaseFileModalComponent` |
+| Full-screen image viewer | `BlazorBase.Files.Components.BaseFileModal.BaseFileModalComponent` (dialog content: `BaseFileViewDialog`) |
 | List-cell thumbnail display | `BlazorBase.Files.Components.BaseFileCell.BaseFileCellComponent` |
 | DI registration | `AddBlazorBaseFiles(IServiceCollection, Action<IBlazorBaseFileOptions>?)` |
 
@@ -208,21 +208,23 @@ the token is cached in a `Dictionary<Guid, string>`. Thumbnail URLs are built wi
 
 ### `BaseFileModalComponent`
 
-Full-screen image viewer in a `FluentDialog`. Not a `IBaseCustomPropertyInput`; rendered by a host
-page or component via a `@ref`. Requires `IFileUploadClient` to be injectable (registered by the host
+Viewer that shows a file full size in a dialog: the image, or a file-info panel for a non-image file, with a download
+button. The component renders no markup of its own; a host page or component places it and calls it through a `@ref`.
+It opens the dialog with Fluent's `IDialogService` (the `FluentProviders` of `BaseLayout` render it), through the
+content component `BaseFileViewDialog`. Requires `IFileUploadClient` to be injectable (registered by the host
 alongside the `HttpClient` for the file controller).
 
 ```csharp
 // In markup
 <BaseFileModalComponent @ref="Modal" />
 
-// In code-behind — use await so the token is fetched before the dialog renders
+// In code-behind — OpenAsync fetches the token first and completes when the dialog is closed
 private BaseFileModalComponent? Modal;
 await Modal.OpenAsync(fileUploadResult);
 ```
 
-`OpenAsync` fetches a signed access token from `GET {id}/token` before setting `IsVisible = true`,
-ensuring the download `<img>` and `<a>` URLs are token-bearing on first render.
+`OpenAsync` fetches a signed access token from `GET {id}/token` before the dialog opens, ensuring the download
+`<img>` and download link URLs are token-bearing on first render. `CloseAsync()` closes the dialog from the outside.
 
 For files already on the server, construct a `FileUploadResult` from stored `BaseFile` metadata.
 
@@ -361,8 +363,8 @@ the Azure SDK is referenced only by this package.
 ```
 BlazorBase.Files
   └─ BlazorBase.CRUD
-  └─ Microsoft.FluentUI.AspNetCore.Components 4.14.0
-  └─ Microsoft.FluentUI.AspNetCore.Components.Icons 4.14.0
+  └─ Microsoft.FluentUI.AspNetCore.Components 5.0.1
+  └─ Microsoft.FluentUI.AspNetCore.Components.Icons 5.0.1
   └─ Microsoft.Extensions.Http
   └─ Microsoft.Extensions.Localization
 ```

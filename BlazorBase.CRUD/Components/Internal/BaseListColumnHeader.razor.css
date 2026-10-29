@@ -1,0 +1,51 @@
+/*
+   A header title wraps to a second line before it is cut with an ellipsis, so a long title (and every German
+   one) stays readable in a narrow column; the full wording is the button's title either way.
+*/
+.base-list-header-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    text-align: left;
+    line-height: 1.25;
+}
+
+.col-title {
+    padding-inline-start: var(--space-2);
+}
+
+.col-sort-button {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--space-1);
+    box-sizing: border-box;
+    width: 100%;
+    min-height: var(--control-height-md);
+    margin: 0;
+    padding: var(--space-0) var(--space-2);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.col-sort-button ::deep svg {
+    flex: none;
+}
+
+.col-sort-button:hover {
+    background: var(--color-bg-hover);
+}
+
+.col-sort-button:focus-visible {
+    outline: var(--stroke-width-thick) solid var(--color-border-focus);
+    outline-offset: -2px;
+}

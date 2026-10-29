@@ -4,6 +4,7 @@ using BlazorBase.CRUD.Events;
 using BlazorBase.CRUD.Localization;
 using BlazorBase.CRUD.Models;
 using BlazorBase.CRUD.Test.Infrastructure;
+using BlazorBase.Components.Test.Infrastructure;
 using BlazorBase.CRUD.Test.Infrastructure.TestEntities;
 using Bunit;
 using Microsoft.AspNetCore.Components;
@@ -29,9 +30,11 @@ public class BaseListPartInteractionTests : BunitTestContextBase
     private const string MenuButtonSelector = ".base-listpart-row-menu";
     private const string Divider = "-";
 
-    private readonly List<BaseDialogData<TestProduct>> openedItems = [];
-    private readonly List<DialogParameters> openedParameters = [];
-    private readonly List<BaseDialogData<TestReview>> openedReviews = [];
+    private TestDialogService? dialogs;
+
+    private List<BaseDialogData<TestProduct>> openedItems => dialogs?.CardData<TestProduct>() ?? [];
+    private List<DialogOptions> openedParameters => [.. dialogs?.Shown.Select(dialog => dialog.Options) ?? []];
+    private List<BaseDialogData<TestReview>> openedReviews => dialogs?.CardData<TestReview>() ?? [];
     private readonly TestProduct alpha = new() { Id = Guid.NewGuid(), Name = "Alpha" };
     private readonly TestProduct beta = new() { Id = Guid.NewGuid(), Name = "Beta" };
     private readonly TestProduct gamma = new() { Id = Guid.NewGuid(), Name = "Gamma" };
@@ -161,7 +164,7 @@ public class BaseListPartInteractionTests : BunitTestContextBase
 
         var parameters = Assert.Single(openedParameters);
         Assert.Equal(CardDialogDefaults.Width, parameters.Width);
-        Assert.False(parameters.TrapFocus);
+        Assert.True(parameters.PreventDismissOnEscape);
     }
 
     [Fact]
@@ -170,7 +173,7 @@ public class BaseListPartInteractionTests : BunitTestContextBase
         var cut = RenderPart();
 
         cut.FindAll(LabelSelector)[0].Click();
-        openedItems.Clear();
+        dialogs!.Shown.Clear();
         cut.FindAll(LabelSelector)[1].Click(new MouseEventArgs { CtrlKey = true });
 
         Assert.Empty(openedItems);
@@ -204,7 +207,7 @@ public class BaseListPartInteractionTests : BunitTestContextBase
     {
         var cut = RenderPart(configure: parameters => parameters.Add(p => p.ReadOnly, true));
 
-        Assert.Empty(cut.FindAll(".base-listpart-header fluent-button"));
+        Assert.Empty(cut.FindAll(".base-listpart-header .base-listpart-add"));
 
         cut.FindAll(LabelSelector)[0].Click();
         Assert.True(Assert.Single(openedItems).ReadOnly);
@@ -218,7 +221,7 @@ public class BaseListPartInteractionTests : BunitTestContextBase
     {
         var cut = RenderPart(role: "Manager");
 
-        Assert.Empty(cut.FindAll(".base-listpart-header fluent-button"));
+        Assert.Empty(cut.FindAll(".base-listpart-header .base-listpart-add"));
 
         cut.FindAll(LabelSelector)[0].Click();
         Assert.True(Assert.Single(openedItems).ReadOnly);
@@ -231,16 +234,7 @@ public class BaseListPartInteractionTests : BunitTestContextBase
     public void AReadOnlyCard_ReachesItsListPart_NoAddNoDeleteAndAReadOnlyItemDialog()
     {
         this.AddAuthorization().SetAuthorized("admin");
-        var dialogService = Substitute.For<IDialogService>();
-        var reference = Substitute.For<IDialogReference>();
-        reference.Result.Returns(Task.FromResult(DialogResult.Cancel()));
-        dialogService.ShowDialogAsync<BaseListPartItemDialog<TestReview>>(Arg.Any<object>(), Arg.Any<DialogParameters>())
-            .Returns(call =>
-            {
-                openedReviews.Add((BaseDialogData<TestReview>)call[0]);
-                return Task.FromResult(reference);
-            });
-        Services.AddSingleton(dialogService);
+        dialogs = TestDialogService.Register(this, DialogResult.Cancel());
 
         var product = new TestProduct { Id = Guid.NewGuid(), Name = "Product", Reviews = [new TestReview { Id = Guid.NewGuid() }] };
         var cut = Render<BaseCard<TestProduct>>(parameters => parameters
@@ -254,7 +248,7 @@ public class BaseListPartInteractionTests : BunitTestContextBase
                 builder.CloseComponent();
             })));
 
-        Assert.Empty(cut.FindAll(".base-listpart-header fluent-button"));
+        Assert.Empty(cut.FindAll(".base-listpart-header .base-listpart-add"));
 
         cut.Find(LabelSelector).Click();
 
@@ -680,9 +674,9 @@ public class BaseListPartInteractionTests : BunitTestContextBase
         Assert.Equal(3, cut.FindAll(".base-listpart-item-fields").Count);
         Assert.Empty(cut.FindAll(LabelSelector));
 
-        Assert.Throws<MissingEventHandlerException>(() => cut.FindAll(".base-listpart-item-fields fluent-text-field")[0].Click());
+        Assert.Throws<MissingEventHandlerException>(() => cut.FindAll(".base-listpart-item-fields .base-field-control")[0].Click());
         Assert.Throws<MissingEventHandlerException>(() => cut.FindAll(RowSelector)[1].Click());
-        cut.FindAll(".base-listpart-item-fields fluent-text-field")[0].Change("Changed");
+        cut.FindComponents<FluentTextInput>()[0].SetValue<string?>("Changed");
 
         Assert.Empty(SelectedNames(cut));
         Assert.Empty(cut.FindAll(".select-circle"));
@@ -732,7 +726,7 @@ public class BaseListPartInteractionTests : BunitTestContextBase
         var cut = RenderPart(mode: ListPartEditMode.Inline, card: InlineCard(), configure: parameters => parameters.Add(p => p.ReadOnly, true));
 
         Assert.Empty(cut.FindAll(MenuButtonSelector));
-        Assert.Empty(cut.FindAll(".base-listpart-header fluent-button"));
+        Assert.Empty(cut.FindAll(".base-listpart-header .base-listpart-add"));
     }
 
     #endregion
@@ -760,7 +754,7 @@ public class BaseListPartInteractionTests : BunitTestContextBase
     }
 
     private static bool IsToolbarDisabled(IRenderedComponent<BaseListPart<TestProduct>> cut) =>
-        cut.Find(".base-action-toolbar fluent-button").HasAttribute("disabled");
+        cut.Find(".base-action-toolbar .base-action-toolbar-button").HasAttribute("disabled");
 
     private static string? ToolbarReason(IRenderedComponent<BaseListPart<TestProduct>> cut) =>
         cut.FindAll(".base-action-toolbar-reason").FirstOrDefault()?.TextContent.Trim();
@@ -800,17 +794,7 @@ public class BaseListPartInteractionTests : BunitTestContextBase
         authorization.SetAuthorized("user");
         authorization.SetRoles(role);
 
-        var dialogService = Substitute.For<IDialogService>();
-        var reference = Substitute.For<IDialogReference>();
-        reference.Result.Returns(Task.FromResult(DialogResult.Cancel()));
-        dialogService.ShowDialogAsync<BaseListPartItemDialog<TestProduct>>(Arg.Any<object>(), Arg.Any<DialogParameters>())
-            .Returns(call =>
-            {
-                openedItems.Add((BaseDialogData<TestProduct>)call[0]);
-                openedParameters.Add((DialogParameters)call[1]);
-                return Task.FromResult(reference);
-            });
-        Services.AddSingleton(dialogService);
+        dialogs = TestDialogService.Register(this, DialogResult.Cancel());
 
         return Render<BaseListPart<TestProduct>>(parameters =>
         {

@@ -6,6 +6,7 @@ using Bunit.TestDoubles;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.FluentUI.AspNetCore.Components;
 using Xunit;
 
 namespace BlazorBase.Components.Test.CommandPalette;
@@ -231,15 +232,18 @@ public sealed class BaseCommandPaletteTests : ComponentsBunitTestContextBase
     }
 
     [Fact]
-    public async Task AnActionThatThrows_IsCaughtAndThePaletteStillCloses()
+    public async Task AnActionThatThrows_IsCaughtShownAsAnErrorToastAndThePaletteStillCloses()
     {
+        using var english = new EnglishCulture();
         var cut = await OpenAsync(null, Provider(Action("bad", "Bad action", () => throw new InvalidOperationException("boom"))));
+        var toasts = Render<FluentToastProvider>();
         cut.WaitForAssertion(() => Assert.Single(cut.FindAll("[role=option]")));
 
         PressKey(cut, "Enter");
 
         cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".base-command-palette")));
         Assert.False(PaletteService.IsOpen);
+        toasts.WaitForAssertion(() => Assert.Contains("The action could not be completed.", toasts.Markup));
     }
 
     [Fact]

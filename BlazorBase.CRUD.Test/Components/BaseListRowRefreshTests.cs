@@ -103,7 +103,7 @@ public class BaseListRowRefreshTests : BunitTestContextBase
     }
 
     private static List<string> RowNames(IRenderedComponent<BaseList<TestProduct>> cut)
-        => [.. cut.FindAll("tr.fluent-data-grid-row:not([row-type]) td").Select(cell => cell.TextContent.Trim()).Where(text => text.Length > 0)];
+        => [.. cut.FindAll("tr.base-list-row:not([row-type]) td").Select(cell => cell.TextContent.Trim()).Where(text => text.Length > 0)];
 
     private static int GetListCalls(IBaseDataProvider<TestProduct> provider)
         => provider.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(IBaseDataProvider<TestProduct>.GetListAsync));

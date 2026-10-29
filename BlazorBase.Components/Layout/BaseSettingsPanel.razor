@@ -14,39 +14,40 @@
            @onkeydown="OnKeyDownAsync">
         <div class="base-settings-header">
             <h2 id="@TitleId" class="base-settings-title">@Localizer["Title"]</h2>
-            <FluentButton Appearance="Appearance.Stealth"
+            <FluentButton Appearance="ButtonAppearance.Transparent"
                           Class="base-settings-close"
+                          IconOnly="true"
+                          IconStart="@(new Size20.Dismiss())"
                           Title="@Localizer["Close"]"
-                          aria-label="@Localizer["Close"]"
-                          OnClick="CloseAsync">
-                <FluentIcon Value="@(new Size20.Dismiss())" Color="Color.Neutral" />
-            </FluentButton>
+                          OnClick="CloseAsync" />
         </div>
         <div class="base-settings-body">
             @if (LanguageChoices.Count > 0)
             {
                 <section class="base-settings-section">
                     <FluentRadioGroup TValue="string"
+                                      Class="base-settings-radio-group"
                                       Label="@Localizer["Language"]"
                                       Orientation="Orientation.Vertical"
                                       Value="@LanguageService.CurrentLanguage"
                                       ValueChanged="SelectLanguageAsync">
                         @foreach (var option in LanguageChoices)
                         {
-                            <FluentRadio Value="@option.Key">@option.Value</FluentRadio>
+                            <FluentRadio TValue="string" Value="@option.Key" Label="@option.Value" Class="base-touch-target" />
                         }
                     </FluentRadioGroup>
                 </section>
             }
             <section class="base-settings-section">
                 <FluentRadioGroup TValue="string"
+                                  Class="base-settings-radio-group"
                                   Label="@Localizer["Theme"]"
                                   Orientation="Orientation.Vertical"
                                   Value="@ThemeService.CurrentTheme.ToString()"
                                   ValueChanged="SelectThemeAsync">
-                    <FluentRadio Value="@nameof(ThemePreference.System)">@Localizer["System"]</FluentRadio>
-                    <FluentRadio Value="@nameof(ThemePreference.Light)">@Localizer["Light"]</FluentRadio>
-                    <FluentRadio Value="@nameof(ThemePreference.Dark)">@Localizer["Dark"]</FluentRadio>
+                    <FluentRadio TValue="string" Value="@nameof(ThemePreference.System)" Label="@Localizer["System"]" Class="base-touch-target" />
+                    <FluentRadio TValue="string" Value="@nameof(ThemePreference.Light)" Label="@Localizer["Light"]" Class="base-touch-target" />
+                    <FluentRadio TValue="string" Value="@nameof(ThemePreference.Dark)" Label="@Localizer["Dark"]" Class="base-touch-target" />
                 </FluentRadioGroup>
             </section>
             @ChildContent?.Invoke(Context)

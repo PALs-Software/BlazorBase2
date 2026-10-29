@@ -34,17 +34,17 @@
 
             @if (IsEditing && !ReadOnly)
             {
-                <FluentButton Appearance="Appearance.Stealth"
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              IconOnly="true"
+                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Delete())"
                               OnClick="@ClearFileAsync"
-                              Title="@ComponentLocalizer["RemoveFile"]">
-                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Delete())" />
-                </FluentButton>
+                              Title="@ComponentLocalizer["RemoveFile"]" />
             }
         </div>
     }
 
     @if (!string.IsNullOrEmpty(ValidationMessage))
     {
-        <FluentMessageBar Intent="MessageIntent.Error">@ValidationMessage</FluentMessageBar>
+        <FluentMessageBar Intent="MessageBarIntent.Error" AllowDismiss="false" role="alert">@ValidationMessage</FluentMessageBar>
     }
 </div>

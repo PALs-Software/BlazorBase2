@@ -1,3 +1,4 @@
+using BlazorBase.Components.Dialogs;
 using BlazorBase.Components.Services;
 using Microsoft.FluentUI.AspNetCore.Components;
 
@@ -10,7 +11,7 @@ public interface IIssueReportService
     Task OpenAsync(IssueReportDialogContent? content = null);
 }
 
-/// <summary>Default <see cref="IIssueReportService"/>; it needs the <c>FluentDialogProvider</c> that <c>BaseLayout</c> renders.</summary>
+/// <summary>Default <see cref="IIssueReportService"/>; it needs the dialog provider that <c>BaseLayout</c> renders.</summary>
 public sealed class IssueReportService(IDialogService dialogService, Microsoft.Extensions.Localization.IStringLocalizer<BaseIssueReportDialog> localizer) : IIssueReportService
 {
     #region Injects
@@ -23,17 +24,13 @@ public sealed class IssueReportService(IDialogService dialogService, Microsoft.E
     /// <inheritdoc />
     public async Task OpenAsync(IssueReportDialogContent? content = null)
     {
-        var parameters = new DialogParameters
+        await DialogService.ShowBaseDialogAsync<BaseIssueReportDialog>(options =>
         {
-            Title = Localizer["ReportIssue"],
-            PrimaryAction = string.Empty,
-            SecondaryAction = string.Empty,
-            ShowDismiss = true,
-            PreventDismissOnOverlayClick = true,
-            Width = "min(560px, calc(100vw - 1rem))",
-        };
-
-        var reference = await DialogService.ShowDialogAsync<BaseIssueReportDialog>(content ?? new IssueReportDialogContent(), parameters);
-        await reference.Result;
+            options.Title = Localizer["ReportIssue"];
+            options.Width = "min(560px, calc(100vw - 1rem))";
+            options.ShowCloseButton = true;
+            options.CloseButtonLabel = Localizer["Close"];
+            options.Parameters[nameof(BaseIssueReportDialog.Content)] = content ?? new IssueReportDialogContent();
+        });
     }
 }

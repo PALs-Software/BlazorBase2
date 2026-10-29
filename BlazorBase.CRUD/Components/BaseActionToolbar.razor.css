@@ -16,15 +16,15 @@
 
 .base-action-toolbar-item-disabled {
     cursor: not-allowed;
-    border-radius: var(--radius-md, calc(var(--control-corner-radius) * 1px));
+    border-radius: var(--radius-md);
 }
 
-.base-action-toolbar-item-disabled ::deep fluent-button {
+.base-action-toolbar-item-disabled ::deep .base-action-toolbar-button {
     pointer-events: none;
 }
 
 .base-action-toolbar-item-disabled:focus-visible {
-    outline: 2px solid var(--color-border-focus, var(--focus-stroke-outer));
+    outline: 2px solid var(--color-border-focus);
     outline-offset: 2px;
 }
 
@@ -99,10 +99,10 @@
 .base-action-toolbar-menu {
     position: fixed;
     z-index: 10000;
-    background: var(--color-bg-elevated, var(--neutral-layer-floating));
-    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
-    border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px));
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.14);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
     padding: 4px 0;
     min-width: 180px;
     max-width: calc(100vw - 16px);
@@ -128,7 +128,7 @@
     box-sizing: border-box;
     padding: 8px 12px;
     cursor: pointer;
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
+    color: var(--color-text-primary);
     font-size: 14px;
     width: 100%;
     text-align: left;
@@ -137,17 +137,17 @@
 
 .base-action-toolbar-menu [role="menuitem"]:hover,
 .base-action-toolbar-menu [role="menuitem"]:focus-visible {
-    background: var(--color-bg-hover, var(--neutral-fill-stealth-hover));
+    background: var(--color-bg-hover);
 }
 
 .base-action-toolbar-menu [role="menuitem"]:focus-visible {
-    outline: 2px solid var(--color-border-focus, var(--focus-stroke-outer));
+    outline: 2px solid var(--color-border-focus);
     outline-offset: -2px;
 }
 
 .base-action-toolbar-menu [role="menuitem"].base-action-toolbar-menu-item-disabled {
     cursor: not-allowed;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
     opacity: 0.6;
 }
 
@@ -157,14 +157,14 @@
 
 .base-action-toolbar-menu-heading {
     padding: 6px 12px 2px;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
     font-size: 12px;
     font-weight: 600;
 }
 
 .base-action-toolbar-menu-divider {
     height: 1px;
-    background: var(--color-border, var(--neutral-stroke-divider-rest));
+    background: var(--color-border);
     margin: 4px 0;
 }
 

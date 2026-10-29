@@ -159,11 +159,11 @@ public class BaseListActionModelTests : BunitTestContextBase
     {
         var cut = RenderList(Group(Action("Run", CrudActionScope.Multiple)));
 
-        Assert.True(cut.Find(".base-action-toolbar fluent-button").HasAttribute("disabled"));
+        Assert.True(cut.Find(".base-action-toolbar .base-action-toolbar-button").HasAttribute("disabled"));
 
         SelectViaRowMenu(cut, 0);
 
-        cut.WaitForAssertion(() => Assert.False(cut.Find(".base-action-toolbar fluent-button").HasAttribute("disabled")));
+        cut.WaitForAssertion(() => Assert.False(cut.Find(".base-action-toolbar .base-action-toolbar-button").HasAttribute("disabled")));
     }
 
     [Fact]
@@ -174,7 +174,7 @@ public class BaseListActionModelTests : BunitTestContextBase
         var cut = RenderList(Group(action));
 
         SelectAllViaRowMenu(cut);
-        cut.WaitForAssertion(() => Assert.True(cut.Find(".base-action-toolbar fluent-button").HasAttribute("disabled")));
+        cut.WaitForAssertion(() => Assert.True(cut.Find(".base-action-toolbar .base-action-toolbar-button").HasAttribute("disabled")));
         Assert.Empty(cut.FindAll("tr.base-list-row-blocked"));
 
         cut.Find(".base-action-toolbar-item").MouseEnter();
@@ -204,7 +204,7 @@ public class BaseListActionModelTests : BunitTestContextBase
         var cut = RenderList(Group(Action("Run", CrudActionScope.Multiple, args => received = args)));
 
         SelectAllViaRowMenu(cut);
-        cut.WaitForAssertion(() => Assert.False(cut.Find(".base-action-toolbar fluent-button").HasAttribute("disabled")));
+        cut.WaitForAssertion(() => Assert.False(cut.Find(".base-action-toolbar .base-action-toolbar-button").HasAttribute("disabled")));
         OpenRowMenu(cut, 0);
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".context-menu")));
         MenuItem(cut, "Run").Click();

@@ -154,7 +154,7 @@
     white-space: nowrap;
 }
 
-.base-header ::deep fluent-button.base-command-search-icon {
+.base-header ::deep .base-command-search-icon {
     display: none;
 }
 
@@ -171,47 +171,19 @@
     color: var(--color-text-primary);
 }
 
-.base-header ::deep fluent-button,
-.base-header ::deep fluent-anchor,
 .base-header ::deep .base-header-control {
     min-width: var(--base-header-control-size);
     min-height: var(--base-header-control-size);
+    border-radius: var(--radius-md);
 }
 
-.base-header ::deep fluent-button:focus-visible,
-.base-header ::deep fluent-anchor:focus-visible {
-    outline: 2px solid var(--color-border-focus);
+.base-header ::deep .base-header-control:focus-visible {
+    outline: var(--stroke-width-thick) solid var(--color-border-focus);
     outline-offset: -2px;
 }
 
-.base-header ::deep fluent-button.stealth {
-    --neutral-fill-stealth-rest: transparent;
-    --neutral-fill-stealth-hover: var(--color-bg-hover);
-    --neutral-fill-stealth-active: var(--color-bg-subtle);
-    --neutral-fill-stealth-focus: transparent;
-    border-radius: var(--radius-md, 10px);
-}
-
-.base-header ::deep fluent-button.stealth::part(control) {
-    border-color: transparent;
-    border-radius: var(--radius-md, 10px);
-    color: var(--color-text-secondary);
-}
-
-.base-header ::deep fluent-button.stealth::part(control):hover {
-    color: var(--color-text-primary);
-}
-
-.base-header ::deep fluent-button.stealth svg {
-    fill: currentColor !important;
-}
-
-.base-header ::deep fluent-button.stealth[aria-expanded="true"]:not(.base-nav-toggle) {
-    --neutral-fill-stealth-rest: var(--color-bg-selected);
-}
-
-.base-header ::deep fluent-button.stealth[aria-expanded="true"]:not(.base-nav-toggle)::part(control) {
-    color: var(--color-text-primary);
+.base-header ::deep .base-header-control[aria-expanded="true"]:not(.base-nav-toggle) {
+    background-color: var(--color-bg-selected);
 }
 
 .main-content {
@@ -289,8 +261,8 @@
         transition: transform 0.2s ease;
     }
 
-    .base-nav-host ::deep .fluent-nav-menu {
-        width: 100% !important;
+    .base-nav-host ::deep .base-side-nav {
+        width: 100%;
     }
 
     .base-nav-overlay {
@@ -347,7 +319,7 @@
         object-position: left center;
     }
 
-    .base-header ::deep fluent-button.base-command-search-icon {
+    .base-header ::deep .base-command-search-icon {
         display: inline-flex;
     }
 
@@ -402,10 +374,6 @@
 
 .layout-root[data-base-keyboard-open] .base-bottom-host {
     display: none;
-}
-
-.layout-root.has-bottom-bar:not([data-base-keyboard-open]) ~ ::deep .fluent-toast-provider[class*="position-bottom"] {
-    bottom: calc(var(--base-bottom-bar-height, 56px) + env(safe-area-inset-bottom, 0px) + 16px);
 }
 
 @media (pointer: coarse) {

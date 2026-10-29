@@ -4,16 +4,17 @@
     font-weight: 400;
 }
 
-.notification-bell-button {
+.notification-bell-anchor {
     position: relative;
+    display: inline-flex;
 }
 
-.notification-bell-button ::deep .notification-bell-icon {
+.notification-bell-anchor ::deep .notification-bell-icon {
     width: 22px;
     height: 22px;
 }
 
-.notification-bell-badge {
+.notification-bell-anchor ::deep .notification-bell-badge {
     position: absolute;
     top: 2px;
     right: 2px;
@@ -38,12 +39,12 @@
     max-height: min(420px, calc(100dvh - 80px));
     overflow-x: hidden;
     overflow-y: auto;
-    border-radius: 8px;
-    background: var(--color-bg-elevated, var(--neutral-layer-1));
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
-    border: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
-    box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
-    padding: 8px 0;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    border: var(--stroke-width-thin) solid var(--color-border);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-2) 0;
 }
 
 .notification-bell-panel:focus {
@@ -51,9 +52,9 @@
 }
 
 .notification-bell-empty {
-    padding: 16px;
+    padding: var(--space-4);
     margin: 0;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
 }
 
 .notification-bell-list {
@@ -64,7 +65,7 @@
 
 .notification-bell-item {
     padding: 10px 16px;
-    border-bottom: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+    border-bottom: var(--stroke-width-thin) solid var(--color-border);
 }
 
 .notification-bell-item:last-child {
@@ -90,7 +91,7 @@
     padding-top: 8px;
     font-weight: 400;
     font-size: 0.75rem;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
     white-space: nowrap;
 }
 
@@ -112,7 +113,7 @@
     justify-content: space-between;
     gap: 8px;
     padding: 0 8px 4px 16px;
-    border-bottom: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+    border-bottom: var(--stroke-width-thin) solid var(--color-border);
 }
 
 .notification-bell-toolbar-title {

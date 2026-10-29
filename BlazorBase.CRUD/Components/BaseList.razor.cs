@@ -226,19 +226,24 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         BlockedVersion++;
     }
 
-    private string? ResolveRowClass(TModel item)
+    private string ResolveRowClass(TModel item)
     {
         var blocked = BlockedItems.Contains(item);
         var selected = SelectedItems.Contains(item);
         var menuOpen = ContextMenuOpen && ContextMenuItem is not null && ItemIdentityComparer<TModel>.Instance.Equals(ContextMenuItem, item);
 
-        var css = blocked && selected
-            ? "base-list-row-blocked base-list-row-selected"
-            : selected ? "base-list-row-selected" : blocked ? "base-list-row-blocked" : null;
+        var css = BaseRowClass;
 
-        return menuOpen ? (css is null ? RowMenuOpenClass : $"{css} {RowMenuOpenClass}") : css;
+        if (selected)
+            css += " base-list-row-selected";
+
+        if (blocked)
+            css += " base-list-row-blocked";
+
+        return menuOpen ? $"{css} {RowMenuOpenClass}" : css;
     }
 
+    private const string BaseRowClass = "base-list-row";
     private const string RowMenuOpenClass = "base-list-row-menu-open";
 
     /// <summary>
@@ -307,6 +312,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     private GridItemsProvider<TModel>? GridProvider { get; set; }
     private Dictionary<PropertyColumnConfig<TModel>, GridSort<TModel>> SortByColumns { get; } = [];
     private int DataVersion { get; set; }
+    private int GridRefreshVersion { get; set; }
     private int ParametersVersion { get; set; }
     private int SelectionVersion { get; set; }
 
@@ -317,6 +323,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     /// </summary>
     private object GridRenderKey => (
         DataVersion,
+        GridRefreshVersion,
         ParametersVersion,
         SelectionVersion,
         BlockedVersion,
@@ -343,7 +350,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private string? CurrentOpenKey { get; set; }
     private int DeepLinkTicket { get; set; }
-    private IDialogReference? OpenItemDialog { get; set; }
+    private BaseDialogData<TModel>? OpenItemDialog { get; set; }
     private bool DeepLinkSubscribed { get; set; }
     private string CardDialogFocusKey => $"card-dialog-{DeepLinkParameterName}";
 
@@ -875,7 +882,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     /// the range cache, which fetches the chunks the virtualized grid asks for, see <see cref="ReadRangeAsync"/>. The
     /// grid also asks for a window without a count after every refresh, which only feeds its own bookkeeping: that
     /// request is answered from the first chunk of the window, is not cancellable and does not count as the position
-    /// of the user.
+    /// of the user. While the total is not known yet only one chunk is read: the virtualizer asks for as many rows as it
+    /// may ever render until it has measured the page, and the first load already fetches the first chunk.
     /// </remarks>
     private async ValueTask<GridItemsProviderResult<TModel>> ProvideGridItemsAsync(GridItemsProviderRequest<TModel> request)
     {
@@ -890,14 +898,15 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         }
 
         var token = request.Count is null ? CancellationToken.None : request.CancellationToken;
-        var items = await ReadRangeAsync(request.StartIndex, request.Count ?? ChunkSize, token, debounce: false, remember: request.Count is not null);
+        var requestedCount = request.Count is { } count && RangeCache.HasTotal ? count : Math.Min(request.Count ?? ChunkSize, ChunkSize);
+        var items = await ReadRangeAsync(request.StartIndex, requestedCount, token, debounce: false, remember: request.Count is not null);
 
         return GridItemsProviderResult.From(items, Math.Max(0, RangeCache.TotalCount));
     }
 
     private List<SortDescriptor> ResolveRequestedSorts(GridItemsProviderRequest<TModel> request)
     {
-        if (request.SortByColumn?.SortBy is not { } sortBy)
+        if (request.SortColumns.FirstOrDefault() is not { } sortColumn || sortColumn.Column.SortBy is not { } sortBy)
             return [];
 
         var column = SortByColumns.FirstOrDefault(pair => ReferenceEquals(pair.Value, sortBy)).Key;
@@ -909,7 +918,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             new SortDescriptor
             {
                 PropertyName = column.PropertyName,
-                Direction = request.SortByAscending ? Models.SortDirection.Ascending : Models.SortDirection.Descending
+                Direction = sortColumn.Ascending ? Models.SortDirection.Ascending : Models.SortDirection.Descending
             }
         ];
     }
@@ -947,7 +956,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     /// rows were loaded. The comparison is against what the completed render actually passed, not
     /// against the current field: a render triggered elsewhere can finish between the reload and the
     /// render carrying its result, and a plain "refresh pending" flag was consumed by that one instead —
-    /// which is why this was intermittent rather than broken outright.
+    /// which is why this was intermittent rather than broken outright. A virtualized grid does not paint the rows it
+    /// read again by itself, so the list renders the rows once more after the refresh.
     /// </remarks>
     private async Task RefreshGridForRenderedItemsAsync()
     {
@@ -956,6 +966,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         RefreshedVersion = RenderedVersion;
         await DataGrid.RefreshDataAsync();
+        GridRefreshVersion++;
+        StateHasChanged();
     }
 
     /// <summary>
@@ -1074,7 +1086,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         var dialogResult = await ShowCardDialogAsync(dialogData);
 
-        if (dialogResult is { Cancelled: false, Data: TModel savedItem })
+        if (dialogResult is { Cancelled: false, Value: TModel savedItem })
         {
             if (OnAfterItemCreated.HasDelegate)
                 await OnAfterItemCreated.InvokeAsync(savedItem);
@@ -1121,7 +1133,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         var dialogResult = await ShowCardDialogAsync(dialogData);
 
-        if (dialogResult is { Cancelled: false, Data: TModel updatedItem })
+        if (dialogResult is { Cancelled: false, Value: TModel updatedItem })
         {
             if (OnAfterItemUpdated.HasDelegate)
                 await OnAfterItemUpdated.InvokeAsync(updatedItem);
@@ -1146,8 +1158,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         {
             await RememberFocusAsync(CardDialogFocusKey);
 
-            var dialog = await DialogService.ShowDialogAsync<BaseDialog<TModel>>(dialogData, CardDialogDefaults.Create());
-            return await dialog.Result;
+            return await DialogService.ShowCardDialogAsync(dialogData);
         }
         finally
         {
@@ -1212,8 +1223,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             IsDestructive = true
         };
 
-        var dialog = await DialogService.ShowConfirmationDialogAsync(fw["ConfirmDeletionTitle"].Value, content);
-        var result = await dialog.Result;
+        var result = await DialogService.ShowConfirmationDialogAsync(fw["ConfirmDeletionTitle"].Value, content);
 
         ShouldRestoreFocusKey = ContextMenuFocusKey;
         StateHasChanged();
@@ -1401,19 +1411,11 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             CardType = CardType
         };
 
-        var dialog = await DialogService.ShowDialogAsync<BaseDialog<TModel>>(dialogData, CardDialogDefaults.Create());
-
-        if (!IsCurrentDeepLink(ticket))
-        {
-            await dialog.CloseAsync();
-            return;
-        }
-
-        OpenItemDialog = dialog;
+        OpenItemDialog = dialogData;
         ArmNavigationGuard(dialogData.CloseGuard);
-        var dialogResult = await dialog.Result;
+        var dialogResult = await DialogService.ShowCardDialogAsync(dialogData);
 
-        if (ReferenceEquals(OpenItemDialog, dialog))
+        if (ReferenceEquals(OpenItemDialog, dialogData))
         {
             OpenItemDialog = null;
             DisarmNavigationGuard();
@@ -1430,7 +1432,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             PendingNavigationTarget = null;
         }
 
-        if (dialogResult is { Cancelled: false, Data: TModel updatedItem })
+        if (dialogResult is { Cancelled: false, Value: TModel updatedItem })
         {
             if (OnAfterItemUpdated.HasDelegate)
                 await OnAfterItemUpdated.InvokeAsync(updatedItem);
@@ -1679,20 +1681,30 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     /// reachable as a tooltip. The text wraps to two lines before it is cut, and the cut text still has its
     /// full wording in the tooltip.
     /// </remarks>
-    private RenderFragment<ColumnBase<TModel>> HeaderTitleTemplate(PropertyColumnConfig<TModel> column)
+    private RenderFragment<ColumnBase<TModel>> HeaderTemplate(PropertyColumnConfig<TModel> column)
     {
         var title = ResolveColumnTitle(column);
         var tooltip = ResolveColumnTooltip(column);
+        var accessibleName = ResolveColumnHeaderName(column);
+        var direction = column.Sortable ? CurrentSorts.FirstOrDefault(current => current.PropertyName == column.PropertyName)?.Direction : null;
 
-        return _ => builder =>
+        return gridColumn => builder =>
         {
-            builder.OpenElement(0, "span");
-            builder.AddAttribute(1, "class", "base-list-header-title");
-            builder.AddAttribute(2, "title", tooltip);
-            builder.AddContent(3, title);
-            builder.CloseElement();
+            builder.OpenComponent<BaseListColumnHeader>(0);
+            builder.AddComponentParameter(1, nameof(BaseListColumnHeader.Title), title);
+            builder.AddComponentParameter(2, nameof(BaseListColumnHeader.Tooltip), tooltip);
+            builder.AddComponentParameter(3, nameof(BaseListColumnHeader.AccessibleName), accessibleName);
+            builder.AddComponentParameter(4, nameof(BaseListColumnHeader.Direction), direction);
+
+            if (column.Sortable)
+                builder.AddComponentParameter(5, nameof(BaseListColumnHeader.OnSort), EventCallback.Factory.Create(this, () => SortByHeaderAsync(gridColumn)));
+
+            builder.CloseComponent();
         };
     }
+
+    private Task SortByHeaderAsync(ColumnBase<TModel> gridColumn) =>
+        DataGrid is null ? Task.CompletedTask : DataGrid.SortByColumnAsync(gridColumn);
 
     private GridSort<TModel>? CreateSortBy(PropertyColumnConfig<TModel> column)
     {
@@ -1750,6 +1762,34 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private const string SelectionColumnWidth = "40px";
     private const string RowMenuColumnWidth = "32px";
+    private const string SelectColumnId = "base-list-select";
+    private const string RowMenuColumnId = "base-list-row-menu";
+
+    /// <summary>
+    /// The columns of the grid in the order the markup declares them. The grid remembers the order of the columns it has
+    /// seen and appends a column that appears later (the selection column) at the end, so the order is handed over
+    /// explicitly on every render.
+    /// </summary>
+    private IReadOnlyList<string> GridColumnOrder
+    {
+        get
+        {
+            var order = new List<string>();
+
+            if (ShowsSelectionColumn)
+                order.Add(SelectColumnId);
+
+            foreach (var column in VisibleColumnsForUser)
+            {
+                order.Add(column.PropertyName);
+
+                if (HasContextMenuEntries && ReferenceEquals(column, RowMenuAnchorColumn))
+                    order.Add(RowMenuColumnId);
+            }
+
+            return order;
+        }
+    }
 
     /// <summary>
     /// The grid track of a column without an explicit width: a share of the free space with a floor that

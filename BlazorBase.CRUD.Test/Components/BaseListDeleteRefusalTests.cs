@@ -28,14 +28,14 @@ public class BaseListDeleteRefusalTests : BunitTestContextBase
         var order = new TestOrder { Id = Guid.NewGuid(), CustomerName = "A", Total = 1m };
         var provider = ProviderRefusingDelete(order);
         var cut = RenderList(provider);
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
 
         await cut.InvokeAsync(() => DeleteAsync(cut.Instance, order));
         cut.Render();
 
         cut.WaitForAssertion(() => Assert.Contains(RefusalMessage, cut.Find(".base-list-delete-error").TextContent));
         await provider.Received(1).DeleteAsync(order.Id, Arg.Any<CancellationToken>());
-        Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row"));
+        Assert.NotEmpty(cut.FindAll("tr.base-list-row"));
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public class BaseListDeleteRefusalTests : BunitTestContextBase
         var order = new TestOrder { Id = Guid.NewGuid(), CustomerName = "A", Total = 1m };
         var provider = ProviderReturning(order);
         var cut = RenderList(provider);
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
 
         await cut.InvokeAsync(() => DeleteAsync(cut.Instance, order));
         cut.Render();

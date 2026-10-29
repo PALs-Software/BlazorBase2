@@ -1,23 +1,11 @@
-/*
-   One state model for every control of the list header and of the tile view's sort bar (Filter button, quick
-   filter, sort select, sort direction): the fill at rest, while the mouse is over it, and while it is pressed or
-   its option list is open. A touch screen has no pointer to hover with, and a tapped control would keep its hover
-   fill until the next tap elsewhere, so there the hover fill is simply the resting one.
-*/
 .base-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-2);
     position: relative;
-    --base-list-control-fill: var(--neutral-fill-stealth-rest);
-    --base-list-control-fill-hover: var(--neutral-fill-stealth-hover);
-    --base-list-control-fill-active: var(--neutral-fill-stealth-active);
-}
-
-@media (hover: none) {
-    .base-list {
-        --base-list-control-fill-hover: var(--base-list-control-fill);
-    }
+    --base-list-row-selected-fill: var(--color-bg-selected);
+    --base-list-open-link: var(--color-accent-text);
+    --base-list-warning-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M8.68 2.79a1.5 1.5 0 0 1 2.64 0l6.5 12A1.5 1.5 0 0 1 16.5 17h-13a1.5 1.5 0 0 1-1.32-2.21l6.5-12ZM10 7a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 10 7Zm0 7.5a.9.9 0 1 0 0-1.8.9.9 0 0 0 0 1.8Z'/%3E%3C/svg%3E");
 }
 
 .base-list-header {
@@ -25,20 +13,20 @@
     flex-wrap: wrap;
     justify-content: flex-start;
     align-items: center;
-    gap: 8px;
-    padding: 8px 0;
+    gap: var(--space-2);
+    padding: var(--space-2) 0;
 }
 
-.base-list-header ::deep fluent-button {
+.base-list-header ::deep .base-list-add,
+.base-list-header ::deep .base-list-filter-toggle,
+.base-list-header ::deep .base-list-deselect {
     flex: 0 0 auto;
-    min-height: 36px;
-    --neutral-fill-stealth-hover: var(--base-list-control-fill-hover);
 }
 
 .base-list-filter-group {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--space-1);
     min-width: 0;
     margin-left: auto;
 }
@@ -47,60 +35,22 @@
     min-width: 0;
     width: auto;
     max-width: min(240px, 55vw);
-    height: 36px;
-    min-height: 36px;
 }
 
-.base-list-filter-group ::deep .quick-filter::part(control) {
-    height: 36px;
-    min-height: 36px;
-    background: var(--base-list-control-fill, var(--neutral-fill-stealth-rest));
-    border-color: transparent;
-}
-
-.base-list-filter-group ::deep .quick-filter:hover::part(control) {
-    background: var(--base-list-control-fill-hover, var(--neutral-fill-stealth-hover));
-}
-
-.base-list-filter-group ::deep .quick-filter:active::part(control),
-.base-list-filter-group ::deep .quick-filter[open]::part(control) {
-    background: var(--base-list-control-fill-active, var(--neutral-fill-stealth-active));
-}
-
-.base-list-filter-group ::deep .quick-filter::part(listbox) {
-    min-width: 220px;
-    width: max-content;
-    max-width: min(360px, 90vw);
-    left: auto;
-    right: 0;
-}
-
-.base-list-filter-group ::deep .quick-filter fluent-option {
-    background: transparent;
-}
-
-.base-list-filter-group ::deep .quick-filter fluent-option:hover,
-.base-list-filter-group ::deep .quick-filter fluent-option[aria-selected="true"] {
-    background: var(--neutral-fill-stealth-hover);
-}
-
-/*
-   The count is plain inline text, not a FluentUI badge: a badge positions itself relative to its own
-   box and sat on top of the button caption it was supposed to follow.
-*/
+/* The count is plain inline text next to the button caption. */
 .base-list-filter-count {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     min-width: 20px;
     height: 20px;
-    margin-inline-start: 8px;
+    margin-inline-start: var(--space-2);
     padding: 0 6px;
-    border-radius: var(--radius-pill, 999px);
-    background: var(--color-accent, var(--accent-fill-rest));
-    color: var(--color-text-on-accent, var(--foreground-on-accent-rest));
-    font-size: 12px;
-    font-weight: 600;
+    border-radius: var(--radius-pill);
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
     line-height: 1;
 }
 
@@ -117,21 +67,13 @@
    fine pointer the grid's own scrollbar sits at the end of a possibly very long list, so it is hidden there and
    replaced by the pinned .base-list-hscroll below, which stays at the bottom of the visible area; touch devices
    scroll by swiping and keep the native (overlay) scrollbar.
-
-   A sortable column header is a Fluent UI stealth button, and "stealth" resolves to
-   --neutral-fill-stealth-rest, which Fluent UI derives to match its own default layer - not the
-   surface underneath it here. The button therefore paints a filled box inset in every header cell,
-   which only stayed invisible while the cell behind it happened to carry the same colour. Custom
-   properties inherit into a web component's shadow DOM, so redefining the token for this subtree is
-   enough; hover and active are left alone so the control still reacts.
 */
 .base-list-grid {
-    --neutral-fill-stealth-rest: transparent;
     flex: 0 0 auto;
     min-width: 0;
     overflow: visible;
-    background: var(--color-bg-surface, var(--neutral-layer-1));
-    border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px));
+    background: var(--color-bg-surface);
+    border-radius: var(--radius-md);
 }
 
 .base-list-grid[data-mode="scroll"] {
@@ -146,8 +88,8 @@
     z-index: 4;
     overflow-x: auto;
     overflow-y: hidden;
-    background: var(--color-bg-surface, var(--neutral-layer-1));
-    border-top: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+    background: var(--color-bg-surface);
+    border-top: var(--stroke-width-thin) solid var(--color-border);
 }
 
 .base-list-hscroll > div {
@@ -169,13 +111,10 @@
 }
 
 /*
-   The .fluent-data-grid class is here to win a specificity tie, not to narrow the match. FluentUI's
-   own FluentDataGrid.razor.css carries [scope] tr[row-type='sticky-header'] > th with exactly this
-   specificity, and its bundle is @imported after every other RCL's, so at equal weight it took the
-   header - the background below was written and then silently overruled in every application.
+   The header sticks to the top of the page's scroll area. The grid's own stylesheet styles its header cells with a
+   selector of its own; the .base-list-table class makes this rule the more specific one.
 */
-::deep .fluent-data-grid tr[row-type='sticky-header'] > th,
-::deep .fluent-data-grid tr[row-type='header'] > th {
+.base-list-grid ::deep .base-list-table thead th {
     position: sticky;
     top: var(--base-list-sticky-top, 0px);
     z-index: 2;
@@ -187,67 +126,28 @@
     padding: 0 14px 0 6px;
     transform: translateY(var(--base-list-sticky-offset, 0px));
     text-align: left;
-    font-size: 0.875rem;
-    font-weight: 600;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
     text-transform: none;
     letter-spacing: normal;
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
-    background: var(--color-bg-elevated, var(--neutral-fill-secondary-rest));
-    border-bottom: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+    color: var(--color-text-primary);
+    background: var(--color-bg-elevated);
+    border-bottom: var(--stroke-width-thin) solid var(--color-border);
 }
 
 /*
    The select and row menu cells hold a fixed track of 40 and 32 px. The header rule above carries a
-   horizontal padding of its own that is more specific than the one these cells reset, so their header cell
-   was 28 px wider than the cells below it and overhung the grid edge by that much and the header and body
-   disagreed about where the next column starts.
+   horizontal padding of its own that is more specific than the one these cells reset, so without this their header
+   cell was wider than the cells below it and the header and body disagreed about where the next column starts.
 */
-::deep .fluent-data-grid tr[row-type='sticky-header'] > th.base-list-row-menu-column,
-::deep .fluent-data-grid tr[row-type='header'] > th.base-list-row-menu-column,
-::deep .fluent-data-grid tr[row-type='sticky-header'] > th.base-list-select-column,
-::deep .fluent-data-grid tr[row-type='header'] > th.base-list-select-column {
+.base-list-grid ::deep .base-list-table thead th.base-list-row-menu-column,
+.base-list-grid ::deep .base-list-table thead th.base-list-select-column {
     padding-inline: 0;
 }
 
-/*
-   A header title wraps to a second line before it is cut with an ellipsis, so a long title (and every German
-   one) stays readable in a narrow column; the full wording is the button's title either way. The sort button
-   is allowed to grow with it.
-*/
-::deep .base-list-header-title {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    overflow: hidden;
-    overflow-wrap: anywhere;
-    white-space: normal;
-    text-align: left;
-    line-height: 1.25;
-}
-
-::deep fluent-button.col-sort-button {
-    height: auto;
-    min-height: 32px;
-}
-
-::deep tr[row-type] > th .col-title {
-    padding-inline-start: 8px;
-}
-
-::deep fluent-button.col-sort-button::part(control) {
-    height: auto;
-    min-height: 32px;
-    padding-block: 2px;
-}
-
-::deep .column-header {
-    text-align: left;
-}
-
-::deep .fluent-data-grid th,
-::deep .fluent-data-grid td {
-    border-bottom-color: var(--color-border, var(--neutral-stroke-divider-rest));
+.base-list-grid ::deep .base-list-table th,
+.base-list-grid ::deep .base-list-table td {
+    border-bottom-color: var(--color-border);
 }
 
 /*
@@ -258,12 +158,12 @@
    rule; give it an explicit Width, or set --base-list-column-min-width to a fixed length per host or
    page. Columns sized by the caller are not affected either way.
 */
-::deep th.base-list-column-flexible,
-::deep td.base-list-column-flexible {
+.base-list-grid ::deep .base-list-table th.base-list-column-flexible,
+.base-list-grid ::deep .base-list-table td.base-list-column-flexible {
     min-width: 0;
 }
 
-::deep td.base-list-cell {
+.base-list-grid ::deep .base-list-table td.base-list-cell {
     display: block;
     box-sizing: border-box;
     overflow: hidden;
@@ -273,25 +173,25 @@
     line-height: calc(var(--base-list-row-height, 48px) - 1px);
 }
 
-::deep tr.fluent-data-grid-row:not([row-type]) > td {
+.base-list-grid ::deep .base-list-table tr.base-list-row > td {
     box-sizing: border-box;
     min-height: var(--base-list-row-height, 48px);
 }
 
 /*
-   The virtualizer works out the height of a row from the box of the row element, and a FluentUI row is
+   The virtualizer works out the height of a row from the box of the row element, and a grid row is
    "display: contents", which has no box: the browser then reports only the text lines of its cells, a few pixels
    short per block of rows, and the spacers drift by that much every time the rendered window moves, which showed as
    the rows jumping while the page scrolled. A subgrid row spans the same tracks, so it looks the same and has a
    box of its own.
 */
-::deep tr.fluent-data-grid-row:not([row-type]) {
+.base-list-grid ::deep .base-list-table tr.base-list-row {
     display: grid;
     grid-template-columns: subgrid;
     grid-column: 1 / -1;
 }
 
-::deep th.base-list-cell {
+.base-list-grid ::deep .base-list-table th.base-list-cell {
     overflow: hidden;
 }
 
@@ -299,103 +199,81 @@
    The per-row more button sits in a narrow column right of the open column and is the touch and narrow-window
    route to the row menu. It is invisible by default, but it keeps its box, so showing it moves nothing: it appears
    on the hovered row, on the selected row, while the row holds the keyboard focus, while its menu is open, and
-   always on a screen without hover. The hovered button takes the fill the list header's controls take.
+   always on a screen without hover.
 */
-::deep td.base-list-row-menu-column .base-list-row-menu {
+.base-list-grid ::deep td.base-list-row-menu-column .base-list-row-menu {
     flex: none;
-    min-width: 32px;
-    min-height: 32px;
-    width: 32px;
-    height: 32px;
+    min-width: var(--control-height-md);
+    min-height: var(--control-height-md);
+    width: var(--control-height-md);
+    height: var(--control-height-md);
     opacity: 0;
-    --neutral-fill-stealth-hover: var(--base-list-control-fill-hover);
-    --neutral-fill-stealth-active: var(--base-list-control-fill-active);
 }
 
-::deep tr.fluent-data-grid-row:not([row-type]):hover td.base-list-row-menu-column .base-list-row-menu,
-::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]) td.base-list-row-menu-column .base-list-row-menu,
-::deep tr.fluent-data-grid-row.base-list-row-menu-open:not([row-type]) td.base-list-row-menu-column .base-list-row-menu,
-::deep tr.fluent-data-grid-row:not([row-type]):focus-within td.base-list-row-menu-column .base-list-row-menu {
+.base-list-grid ::deep tr.base-list-row:hover td.base-list-row-menu-column .base-list-row-menu,
+.base-list-grid ::deep tr.base-list-row.base-list-row-selected td.base-list-row-menu-column .base-list-row-menu,
+.base-list-grid ::deep tr.base-list-row.base-list-row-menu-open td.base-list-row-menu-column .base-list-row-menu,
+.base-list-grid ::deep tr.base-list-row:focus-within td.base-list-row-menu-column .base-list-row-menu {
     opacity: 1;
 }
 
 @media (hover: none) {
-    ::deep td.base-list-row-menu-column .base-list-row-menu {
+    .base-list-grid ::deep td.base-list-row-menu-column .base-list-row-menu {
         opacity: 1;
     }
 }
 
 .base-list-count {
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
-    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-base);
 }
 
-.base-list-header:has(.base-list-count) .base-list-filter-toggle,
-.base-list-header:has(.base-list-count) .selection-count {
+.base-list-header:has(.base-list-count) ::deep .base-list-filter-toggle,
+.base-list-header:has(.base-list-count) ::deep .selection-count {
     margin-right: 0;
 }
 
-::deep tr.fluent-data-grid-row:not([row-type]) td {
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
+.base-list-grid ::deep tr.base-list-row td {
+    color: var(--color-text-primary);
     cursor: pointer;
-    transition: background-color 0.1s ease-in-out;
+    transition: background-color var(--duration-fast) ease-in-out;
 }
 
-::deep tr.fluent-data-grid-row:not([row-type]):hover td {
-    background-color: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
+.base-list-grid ::deep tr.base-list-row:hover td {
+    background-color: var(--color-bg-hover);
 }
 
 /*
    A selected row is tinted with the accent (--color-bg-selected is an accent at low opacity, so it is laid over the
-   opaque surface colour). Under the pointer the
-   same tint lies over the hover fill instead of the surface, which keeps a selected row distinct from a hovered one
-   and shows that the pointer is on it.
+   opaque surface colour). Under the pointer the same tint lies over the hover fill instead of the surface, which
+   keeps a selected row distinct from a hovered one and shows that the pointer is on it.
 */
-.base-list {
-    --base-list-row-selected-fill: var(--color-bg-selected, color-mix(in srgb, var(--accent-fill-rest) 14%, transparent));
-}
-
-::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]) td {
-    background-color: var(--color-bg-surface, var(--neutral-layer-1));
+.base-list-grid ::deep tr.base-list-row.base-list-row-selected td {
+    background-color: var(--color-bg-surface);
     background-image: linear-gradient(var(--base-list-row-selected-fill), var(--base-list-row-selected-fill));
 }
 
-::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]):hover td {
-    background-color: var(--color-bg-hover, var(--neutral-fill-secondary-hover));
+.base-list-grid ::deep tr.base-list-row.base-list-row-selected:hover td {
+    background-color: var(--color-bg-hover);
 }
 
 /*
-   The first data column is the open link of the row: a click on it opens the card. It takes the accent colour and an
-   underline while the pointer is on the row (a touch screen has no hover, so there only the selected row shows it),
-   and on the selected row. The brand accent (#00A7E7) is only 2.6:1 on the light surface, so the light theme takes the
-   design system's accent text colour, which is tuned for contrast; the dark theme keeps the brand accent.
+   The first data column is the open link of the row: a click on it opens the card. It takes the accent text colour and
+   an underline while the pointer is on the row (a touch screen has no hover, so there only the selected row shows it),
+   and on the selected row.
 */
-.base-list {
-    --base-list-open-link: var(--accent-foreground-rest, var(--color-accent));
-}
-
-:root[data-theme="dark"] .base-list {
-    --base-list-open-link: var(--color-accent);
-}
-
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) .base-list {
-        --base-list-open-link: var(--color-accent);
-    }
-}
-
-::deep td.base-list-open-cell {
+.base-list-grid ::deep td.base-list-open-cell {
     cursor: pointer;
     text-underline-offset: 3px;
 }
 
-::deep tr.fluent-data-grid-row.base-list-row-selected:not([row-type]) td.base-list-open-cell {
+.base-list-grid ::deep tr.base-list-row.base-list-row-selected td.base-list-open-cell {
     color: var(--base-list-open-link);
     text-decoration: underline;
 }
 
 @media (hover: hover) {
-    ::deep tr.fluent-data-grid-row:not([row-type]):hover td.base-list-open-cell {
+    .base-list-grid ::deep tr.base-list-row:hover td.base-list-open-cell {
         color: var(--base-list-open-link);
         text-decoration: underline;
     }
@@ -405,12 +283,12 @@
    While Shift is held (set by baseListInterop.js) the rows cannot be selected as text, so a Shift+click that selects a
    range does not also highlight the text between the two rows.
 */
-.base-list-grid[data-shift] ::deep tr.fluent-data-grid-row:not([row-type]) td {
+.base-list-grid[data-shift] ::deep tr.base-list-row td {
     -webkit-user-select: none;
     user-select: none;
 }
 
-::deep .base-list-select-column {
+.base-list-grid ::deep .base-list-select-column {
     width: 40px;
     text-align: center;
 }
@@ -421,8 +299,8 @@
    background after it, covered part of the circle or button. The cell fills exactly its track now and centres its
    control.
 */
-::deep td.base-list-select-column,
-::deep td.base-list-row-menu-column {
+.base-list-grid ::deep .base-list-table td.base-list-select-column,
+.base-list-grid ::deep .base-list-table td.base-list-row-menu-column {
     box-sizing: border-box;
     display: flex;
     align-items: center;
@@ -431,9 +309,9 @@
     overflow: visible;
 }
 
-::deep td.base-list-cell,
-::deep td.base-list-select-column,
-::deep td.base-list-row-menu-column {
+.base-list-grid ::deep td.base-list-cell,
+.base-list-grid ::deep td.base-list-select-column,
+.base-list-grid ::deep td.base-list-row-menu-column {
     scroll-margin-block: 48px 16px;
 }
 
@@ -444,9 +322,9 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    border: 2px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border: var(--stroke-width-thick) solid var(--color-border-strong);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all var(--duration-fast) ease;
 }
 
 .select-circle::after {
@@ -456,39 +334,39 @@
 }
 
 .select-circle:focus-visible {
-    outline: 2px solid var(--color-border-focus, var(--focus-stroke-outer));
+    outline: var(--stroke-width-thick) solid var(--color-border-focus);
     outline-offset: 2px;
 }
 
 .select-circle.selected {
-    background-color: var(--color-accent, var(--accent-fill-rest));
-    border-color: var(--color-accent, var(--accent-fill-rest));
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
 }
 
 .select-circle:hover {
-    border-color: var(--color-accent, var(--accent-fill-hover));
+    border-color: var(--color-accent);
 }
 
-.selection-count {
+.base-list-header ::deep .selection-count {
     margin-right: auto;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
 }
 
 .base-list-loading {
     display: flex;
     justify-content: center;
-    padding: 16px;
+    padding: var(--space-4);
 }
 
 .base-list-delete-error {
-    margin-bottom: 8px;
+    margin-bottom: var(--space-2);
 }
 
 .base-list-empty {
     display: flex;
     justify-content: center;
-    padding: 24px;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    padding: var(--space-5);
+    color: var(--color-text-muted);
 }
 
 .context-menu-overlay {
@@ -500,11 +378,11 @@
 .context-menu {
     position: fixed;
     z-index: 10000;
-    background: var(--color-bg-elevated, var(--neutral-layer-floating));
-    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
-    border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px));
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.14);
-    padding: 4px 0;
+    background: var(--color-bg-elevated);
+    border: var(--stroke-width-thin) solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-1) 0;
     min-width: 180px;
     max-width: calc(100vw - 16px);
     max-height: calc(100dvh - 16px);
@@ -524,12 +402,12 @@
 .context-menu ::deep [role="menuitem"] {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     box-sizing: border-box;
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
     cursor: pointer;
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
-    font-size: 14px;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-base);
     border: none;
     background: none;
     width: 100%;
@@ -538,12 +416,12 @@
 }
 
 .context-menu ::deep [role="menuitem"]:hover {
-    background: var(--color-bg-hover, var(--neutral-fill-stealth-hover));
+    background: var(--color-bg-hover);
 }
 
 .context-menu ::deep [role="menuitem"].context-menu-item-disabled {
     cursor: not-allowed;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
     opacity: 0.6;
 }
 
@@ -556,12 +434,12 @@
    warning icon in front of the first column's text. The first cell is the select circle while rows are selected,
    which is exactly when a row can block anything, so the bar sits there and the icon in the cell next to it.
 */
-::deep tr.base-list-row-blocked td:first-of-type {
-    box-shadow: inset 4px 0 0 var(--color-warning, var(--warning));
+.base-list-grid ::deep tr.base-list-row-blocked td:first-of-type {
+    box-shadow: inset 4px 0 0 var(--color-warning);
 }
 
-::deep tr.base-list-row-blocked td.base-list-cell:first-of-type::before,
-::deep tr.base-list-row-blocked td.base-list-select-column + td.base-list-cell::before {
+.base-list-grid ::deep tr.base-list-row-blocked td.base-list-cell:first-of-type::before,
+.base-list-grid ::deep tr.base-list-row-blocked td.base-list-select-column + td.base-list-cell::before {
     content: "";
     display: inline-block;
     flex: none;
@@ -569,32 +447,28 @@
     height: 16px;
     margin-inline-end: 6px;
     vertical-align: text-bottom;
-    background-color: var(--color-warning, var(--warning));
+    background-color: var(--color-warning);
     -webkit-mask: var(--base-list-warning-icon) center / contain no-repeat;
     mask: var(--base-list-warning-icon) center / contain no-repeat;
 }
 
-.base-list {
-    --base-list-warning-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M8.68 2.79a1.5 1.5 0 0 1 2.64 0l6.5 12A1.5 1.5 0 0 1 16.5 17h-13a1.5 1.5 0 0 1-1.32-2.21l6.5-12ZM10 7a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 10 7Zm0 7.5a.9.9 0 1 0 0-1.8.9.9 0 0 0 0 1.8Z'/%3E%3C/svg%3E");
-}
-
 .context-menu-divider {
-    height: 1px;
-    background: var(--color-border, var(--neutral-stroke-divider-rest));
-    margin: 4px 0;
+    height: var(--stroke-width-thin);
+    background: var(--color-border);
+    margin: var(--space-1) 0;
 }
 
 @media (pointer: coarse), (max-width: 640px) {
     .context-menu ::deep [role="menuitem"] {
-        min-height: 44px;
+        min-height: var(--control-height-touch);
     }
 }
 
 .context-menu-reason {
     flex: 1 0 100%;
-    margin-inline-start: 24px;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
-    font-size: 12px;
+    margin-inline-start: var(--space-5);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
     line-height: 1.3;
     white-space: normal;
 }
@@ -610,7 +484,7 @@
    dimmed and a tap on it dismisses the sheet.
 */
 .base-list-mobile .context-menu-overlay {
-    background: var(--color-scrim, rgba(0, 0, 0, 0.4));
+    background: rgb(0 0 0 / 0.4);
 }
 
 .base-list-mobile .context-menu {
@@ -622,14 +496,14 @@
     width: 100%;
     max-width: none;
     max-height: min(70dvh, calc(100dvh - 64px)) !important;
-    padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px));
-    border-width: 1px 0 0;
-    border-radius: var(--radius-lg, 16px) var(--radius-lg, 16px) 0 0;
-    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.28);
+    padding: var(--space-2) 0 calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+    border-width: var(--stroke-width-thin) 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: var(--shadow-xl);
 }
 
 .base-list-mobile .context-menu ::deep [role="menuitem"] {
-    padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+    padding-inline: max(var(--space-4), env(safe-area-inset-left, 0px)) max(var(--space-4), env(safe-area-inset-right, 0px));
 }
 
 /*
@@ -645,19 +519,19 @@
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 4px 8px calc(4px + max(env(safe-area-inset-bottom, 0px) - var(--base-bottom-bar-offset, 0px), 0px));
-    background: var(--color-bg-elevated, var(--neutral-layer-floating));
-    border-top: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
-    border-radius: var(--radius-md, calc(var(--layer-corner-radius) * 1px)) var(--radius-md, calc(var(--layer-corner-radius) * 1px)) 0 0;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.14);
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2) calc(var(--space-1) + max(env(safe-area-inset-bottom, 0px) - var(--base-bottom-bar-offset, 0px), 0px));
+    background: var(--color-bg-elevated);
+    border-top: var(--stroke-width-thin) solid var(--color-border-strong);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    box-shadow: var(--shadow-lg);
 }
 
 .base-list-selection-row {
     display: flex;
     align-items: center;
     flex-wrap: nowrap;
-    gap: 4px;
+    gap: var(--space-1);
     min-width: 0;
 }
 
@@ -667,20 +541,20 @@
 
 .base-list-selection-count {
     margin-inline-end: auto;
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
     white-space: nowrap;
 }
 
-.base-list-selection-row ::deep fluent-button {
-    min-width: 44px;
-    min-height: 44px;
-    --neutral-fill-stealth-hover: var(--base-list-control-fill-hover);
+.base-list-selection-row ::deep .base-list-selection-close,
+.base-list-selection-row ::deep .base-list-selection-delete {
+    min-width: var(--control-height-touch);
+    min-height: var(--control-height-touch);
 }
 
 .base-list-selection-hint {
-    padding: 4px 8px;
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
-    font-size: 13px;
+    padding: var(--space-1) var(--space-2);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
     line-height: 1.3;
 }
 
@@ -712,6 +586,6 @@
     }
 
     .base-list-header ::deep .base-list-add {
-        min-width: 44px;
+        min-width: var(--control-height-touch);
     }
 }

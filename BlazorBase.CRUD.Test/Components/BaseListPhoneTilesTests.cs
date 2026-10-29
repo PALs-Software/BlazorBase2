@@ -28,7 +28,9 @@ public class BaseListPhoneTilesTests : BunitTestContextBase
 {
     private const string MobileModulePath = "./_content/BlazorBase.CRUD/js/baseListMobile.js";
 
-    private readonly List<BaseDialogData<TestProduct>> openedCards = [];
+    private TestDialogService? dialogs;
+
+    private List<BaseDialogData<TestProduct>> openedCards => dialogs?.CardData<TestProduct>() ?? [];
     private readonly List<TestProduct> openedEvents = [];
     private readonly List<TestProduct> selectedEvents = [];
 
@@ -227,7 +229,7 @@ public class BaseListPhoneTilesTests : BunitTestContextBase
         cut.FindAll(".base-list-card-body")[2].Click();
         cut.WaitForAssertion(() => Assert.Equal(2, cut.FindAll(".base-list-card.is-selected").Count));
 
-        cut.Find(".base-list-selection-bar .base-action-toolbar-inline fluent-button").Click();
+        cut.Find(".base-list-selection-bar .base-action-toolbar-inline .base-action-toolbar-button").Click();
 
         Assert.NotNull(received);
         Assert.Equal(["Item 0", "Item 2"], received.SelectedItems.Select(item => item.Name).Order());
@@ -412,16 +414,7 @@ public class BaseListPhoneTilesTests : BunitTestContextBase
         authorization.SetAuthorized("admin");
         authorization.SetRoles("Admin");
 
-        var dialogService = Substitute.For<IDialogService>();
-        var reference = Substitute.For<IDialogReference>();
-        reference.Result.Returns(Task.FromResult(DialogResult.Cancel()));
-        dialogService.ShowDialogAsync<BaseDialog<TestProduct>>(Arg.Any<object>(), Arg.Any<DialogParameters>())
-            .Returns(call =>
-            {
-                openedCards.Add((BaseDialogData<TestProduct>)call[0]);
-                return Task.FromResult(reference);
-            });
-        Services.AddSingleton(dialogService);
+        dialogs = TestDialogService.Register(this, DialogResult.Cancel());
 
         var provider = Substitute.For<IBaseDataProvider<TestProduct>>();
         provider.GetListAsync(Arg.Any<BaseQuery>(), Arg.Any<Expression<Func<TestProduct, bool>>>(), Arg.Any<CancellationToken>())

@@ -30,8 +30,7 @@ public sealed class FluentUiConfirmationService(IDialogService dialogService) : 
             IsDestructive = isDestructive
         };
 
-        var dialog = await DialogService.ShowConfirmationDialogAsync(title, content);
-        var result = await dialog.Result;
+        var result = await DialogService.ShowConfirmationDialogAsync(title, content);
         return !result.Cancelled;
     }
 }

@@ -5,8 +5,10 @@ using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.FluentUI.AspNetCore.Components;
 using NSubstitute;
 using Xunit;
+using IThemeService = BlazorBase.Components.Services.IThemeService;
 
 namespace BlazorBase.Components.Test.Layout;
 
@@ -50,12 +52,18 @@ public sealed class BaseSettingsPanelTests : ComponentsBunitTestContextBase
         Assert.NotNull(cut.Find("#base-settings-title"));
     }
 
+    private static Task ChooseAsync(IRenderedComponent<BaseSettingsPanel> cut, int group, string value)
+    {
+        var radioGroup = cut.FindComponents<FluentRadioGroup<string>>()[group];
+        return cut.InvokeAsync(() => radioGroup.Instance.ValueChanged.InvokeAsync(value));
+    }
+
     [Fact]
     public void Open_OffersTheDefaultLanguagesAndAllThreeThemes()
     {
         var cut = RenderPanel();
 
-        var radios = cut.FindAll("fluent-radio").Select(radio => radio.TextContent.Trim()).ToList();
+        var radios = cut.FindComponents<FluentRadio<string>>().Select(radio => radio.Instance.Label).ToList();
 
         Assert.Equal(5, radios.Count);
         Assert.Equal(["English", "Deutsch"], radios.Take(2));
@@ -66,7 +74,7 @@ public sealed class BaseSettingsPanelTests : ComponentsBunitTestContextBase
     {
         var cut = RenderPanel(parameters => parameters.Add(p => p.LanguageOptions, []));
 
-        Assert.Equal(3, cut.FindAll("fluent-radio").Count);
+        Assert.Equal(3, cut.FindComponents<FluentRadio<string>>().Count);
     }
 
     [Fact]
@@ -74,7 +82,7 @@ public sealed class BaseSettingsPanelTests : ComponentsBunitTestContextBase
     {
         var cut = RenderPanel();
 
-        await cut.InvokeAsync(() => cut.FindAll("fluent-radio-group")[0].TriggerEventAsync("onradiogroupchange", new ChangeEventArgs { Value = "de" }));
+        await ChooseAsync(cut, 0, "de");
 
         await LanguageService.Received(1).SetLanguageAsync("de");
     }
@@ -86,7 +94,7 @@ public sealed class BaseSettingsPanelTests : ComponentsBunitTestContextBase
         var cut = RenderPanel(parameters => parameters
             .Add(p => p.OnLanguageSelected, EventCallback.Factory.Create<string>(this, code => chosen.Add(code))));
 
-        await cut.InvokeAsync(() => cut.FindAll("fluent-radio-group")[0].TriggerEventAsync("onradiogroupchange", new ChangeEventArgs { Value = "de" }));
+        await ChooseAsync(cut, 0, "de");
 
         Assert.Equal(["de"], chosen);
         await LanguageService.DidNotReceive().SetLanguageAsync(Arg.Any<string>());
@@ -99,7 +107,7 @@ public sealed class BaseSettingsPanelTests : ComponentsBunitTestContextBase
         var cut = RenderPanel(parameters => parameters
             .Add(p => p.OnLanguageSelected, EventCallback.Factory.Create<string>(this, _ => chosen++)));
 
-        await cut.InvokeAsync(() => cut.FindAll("fluent-radio-group")[0].TriggerEventAsync("onradiogroupchange", new ChangeEventArgs { Value = "en" }));
+        await ChooseAsync(cut, 0, "en");
 
         Assert.Equal(0, chosen);
     }
@@ -109,7 +117,7 @@ public sealed class BaseSettingsPanelTests : ComponentsBunitTestContextBase
     {
         var cut = RenderPanel();
 
-        await cut.InvokeAsync(() => cut.FindAll("fluent-radio-group")[1].TriggerEventAsync("onradiogroupchange", new ChangeEventArgs { Value = "Dark" }));
+        await ChooseAsync(cut, 1, "Dark");
 
         await ThemeService.Received(1).SetThemeAsync(ThemePreference.Dark);
     }
@@ -120,7 +128,7 @@ public sealed class BaseSettingsPanelTests : ComponentsBunitTestContextBase
         var closed = 0;
         var cut = RenderPanel(parameters => parameters.Add(p => p.OnClose, EventCallback.Factory.Create(this, () => closed++)));
 
-        await cut.InvokeAsync(() => cut.Find("fluent-button.base-settings-close").Click());
+        cut.FindComponents<FluentButton>().Single(button => button.Instance.Class!.Contains("base-settings-close")).Click();
         await cut.InvokeAsync(() => cut.Find("aside").KeyDown(new KeyboardEventArgs { Key = "Escape" }));
         await cut.InvokeAsync(() => cut.Find(".base-settings-overlay").Click());
 

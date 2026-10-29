@@ -1,0 +1,283 @@
+/*
+   The bridge between the BlazorBase semantic tokens (--color-*, --space-*, --radius-*, --font-*) and the Fluent 2
+   tokens the Fluent UI components read. It is the only stylesheet that names Fluent tokens: everything else in a
+   BlazorBase application uses the semantic tokens, and a host that swaps --color-accent or the neutral palette
+   re-colours the Fluent components with it.
+
+   The tokens are declared on body. Fluent writes its own values on :root, so a declaration here wins for every
+   element in the page - including the popups and dialogs that Fluent renders in the top layer - whatever the
+   order of the stylesheets. Light and dark follow the semantic tokens, which change with data-theme and
+   prefers-color-scheme; no rule below branches on the theme.
+
+   Hover, pressed and selected shades are mixed from the semantic tokens with color-mix().
+*/
+
+body {
+    --fontFamilyBase: var(--font-base);
+    --fontFamilyNumeric: var(--font-base);
+    --fontFamilyMonospace: var(--font-monospace);
+
+    --fontSizeBase100: var(--font-size-xxs);
+    --fontSizeBase200: var(--font-size-xs);
+    --fontSizeBase300: var(--font-size-base);
+    --fontSizeBase400: var(--font-size-md);
+    --fontSizeBase500: var(--font-size-lg);
+    --fontSizeBase600: var(--font-size-xl);
+    --fontSizeHero700: var(--font-size-xxl);
+    --fontSizeHero800: var(--font-size-hero);
+    --lineHeightBase100: var(--line-height-xxs);
+    --lineHeightBase200: var(--line-height-xs);
+    --lineHeightBase300: var(--line-height-base);
+    --lineHeightBase400: var(--line-height-md);
+    --lineHeightBase500: var(--line-height-lg);
+    --lineHeightBase600: var(--line-height-xl);
+    --lineHeightHero700: var(--line-height-xxl);
+    --lineHeightHero800: var(--line-height-hero);
+    --fontWeightRegular: var(--font-weight-regular);
+    --fontWeightMedium: var(--font-weight-medium);
+    --fontWeightSemibold: var(--font-weight-semibold);
+    --fontWeightBold: var(--font-weight-bold);
+
+    --borderRadiusSmall: var(--radius-xs);
+    --borderRadiusMedium: var(--radius-sm);
+    --borderRadiusLarge: var(--radius-sm);
+    --borderRadiusXLarge: var(--radius-md);
+    --borderRadius2XLarge: var(--radius-lg);
+    --borderRadius3XLarge: var(--radius-lg);
+    --borderRadius4XLarge: var(--radius-lg);
+    --borderRadius5XLarge: var(--radius-lg);
+    --borderRadius6XLarge: var(--radius-lg);
+    --borderRadiusCircular: var(--radius-pill);
+
+    --spacingHorizontalXXS: var(--space-0);
+    --spacingHorizontalXS: var(--space-1);
+    --spacingHorizontalS: var(--space-2);
+    --spacingHorizontalM: var(--space-3);
+    --spacingHorizontalL: var(--space-4);
+    --spacingHorizontalXXL: var(--space-5);
+    --spacingHorizontalXXXL: var(--space-6);
+    --spacingVerticalXXS: var(--space-0);
+    --spacingVerticalXS: var(--space-1);
+    --spacingVerticalS: var(--space-2);
+    --spacingVerticalM: var(--space-3);
+    --spacingVerticalL: var(--space-4);
+    --spacingVerticalXXL: var(--space-5);
+    --spacingVerticalXXXL: var(--space-6);
+
+    --strokeWidthThin: var(--stroke-width-thin);
+    --strokeWidthThick: var(--stroke-width-thick);
+
+    --durationFaster: var(--duration-fast);
+    --durationNormal: var(--duration-normal);
+    --durationSlow: var(--duration-slow);
+    --curveEasyEase: var(--easing-standard);
+
+    --colorNeutralForeground1: var(--color-text-primary);
+    --colorNeutralForeground1Hover: var(--color-text-primary);
+    --colorNeutralForeground1Pressed: var(--color-text-primary);
+    --colorNeutralForeground1Selected: var(--color-text-primary);
+    --colorNeutralForeground2: var(--color-text-secondary);
+    --colorNeutralForeground2Hover: var(--color-text-primary);
+    --colorNeutralForeground2Pressed: var(--color-text-primary);
+    --colorNeutralForeground2Selected: var(--color-text-primary);
+    --colorNeutralForeground2BrandHover: var(--color-accent-text);
+    --colorNeutralForeground2BrandPressed: var(--color-accent-text);
+    --colorNeutralForeground2BrandSelected: var(--color-accent-text);
+    --colorNeutralForeground2Link: var(--color-text-secondary);
+    --colorNeutralForeground2LinkHover: var(--color-text-primary);
+    --colorNeutralForeground2LinkPressed: var(--color-text-primary);
+    --colorNeutralForeground2LinkSelected: var(--color-text-primary);
+    --colorNeutralForeground3: var(--color-text-muted);
+    --colorNeutralForeground3Hover: var(--color-text-secondary);
+    --colorNeutralForeground3Pressed: var(--color-text-secondary);
+    --colorNeutralForeground3Selected: var(--color-text-secondary);
+    --colorNeutralForeground3BrandHover: var(--color-accent-text);
+    --colorNeutralForeground3BrandPressed: var(--color-accent-text);
+    --colorNeutralForeground3BrandSelected: var(--color-accent-text);
+    --colorNeutralForeground4: color-mix(in srgb, var(--color-text-muted) 80%, var(--color-bg-elevated));
+    --colorNeutralForeground5: var(--color-text-primary);
+    --colorNeutralForeground5Hover: var(--color-text-primary);
+    --colorNeutralForeground5Pressed: var(--color-text-primary);
+    --colorNeutralForeground5Selected: var(--color-text-primary);
+    --colorNeutralForegroundDisabled: color-mix(in srgb, var(--color-neutral-base) 55%, var(--color-bg-elevated));
+    --colorNeutralForegroundOnBrand: var(--color-text-on-accent);
+    --colorNeutralForegroundInverted: var(--color-bg-elevated);
+    --colorNeutralForegroundInverted2: var(--color-bg-elevated);
+    --colorNeutralForegroundInvertedHover: var(--color-bg-elevated);
+    --colorNeutralForegroundInvertedPressed: var(--color-bg-elevated);
+    --colorNeutralForegroundInvertedSelected: var(--color-bg-elevated);
+    --colorNeutralForegroundInvertedLink: var(--color-bg-elevated);
+    --colorNeutralForegroundInvertedLinkHover: var(--color-bg-elevated);
+    --colorNeutralForegroundInvertedLinkPressed: var(--color-bg-elevated);
+    --colorNeutralForegroundInvertedLinkSelected: var(--color-bg-elevated);
+
+    --colorNeutralBackground1: var(--color-bg-elevated);
+    --colorNeutralBackground1Hover: var(--color-bg-hover);
+    --colorNeutralBackground1Pressed: color-mix(in srgb, var(--color-bg-hover) 70%, var(--color-border));
+    --colorNeutralBackground1Selected: var(--color-bg-subtle);
+    --colorNeutralBackground2: var(--color-bg-surface);
+    --colorNeutralBackground2Hover: var(--color-bg-hover);
+    --colorNeutralBackground2Pressed: color-mix(in srgb, var(--color-bg-hover) 70%, var(--color-border));
+    --colorNeutralBackground2Selected: var(--color-bg-subtle);
+    --colorNeutralBackground3: var(--color-bg-subtle);
+    --colorNeutralBackground3Hover: var(--color-bg-hover);
+    --colorNeutralBackground3Pressed: color-mix(in srgb, var(--color-bg-hover) 70%, var(--color-border));
+    --colorNeutralBackground3Selected: var(--color-bg-subtle);
+    --colorNeutralBackground4: var(--color-bg-surface);
+    --colorNeutralBackground4Hover: var(--color-bg-hover);
+    --colorNeutralBackground4Pressed: color-mix(in srgb, var(--color-bg-hover) 70%, var(--color-border));
+    --colorNeutralBackground4Selected: var(--color-bg-subtle);
+    --colorNeutralBackground5: var(--color-bg-subtle);
+    --colorNeutralBackground5Hover: var(--color-bg-hover);
+    --colorNeutralBackground5Pressed: color-mix(in srgb, var(--color-bg-hover) 70%, var(--color-border));
+    --colorNeutralBackground5Selected: var(--color-bg-subtle);
+    --colorNeutralBackground6: var(--color-border);
+    --colorNeutralBackgroundDisabled: var(--color-bg-subtle);
+    --colorNeutralBackgroundDisabled2: var(--color-bg-subtle);
+    --colorNeutralBackgroundInverted: var(--color-text-primary);
+    --colorNeutralBackgroundInvertedHover: var(--color-text-secondary);
+    --colorNeutralBackgroundInvertedPressed: var(--color-text-secondary);
+    --colorNeutralBackgroundInvertedSelected: var(--color-text-secondary);
+    --colorNeutralBackgroundAlpha: color-mix(in srgb, var(--color-bg-elevated) 50%, transparent);
+    --colorNeutralBackgroundAlpha2: color-mix(in srgb, var(--color-bg-elevated) 80%, transparent);
+    --colorNeutralCardBackground: var(--color-bg-elevated);
+    --colorNeutralCardBackgroundHover: var(--color-bg-hover);
+    --colorNeutralCardBackgroundPressed: color-mix(in srgb, var(--color-bg-hover) 70%, var(--color-border));
+    --colorNeutralCardBackgroundSelected: var(--color-bg-subtle);
+    --colorNeutralCardBackgroundDisabled: var(--color-bg-subtle);
+    --colorNeutralStencil1: color-mix(in srgb, var(--color-neutral-base) 18%, var(--color-bg-elevated));
+    --colorNeutralStencil2: color-mix(in srgb, var(--color-neutral-base) 10%, var(--color-bg-elevated));
+    --colorNeutralStencil1Alpha: color-mix(in srgb, var(--color-neutral-base) 18%, transparent);
+    --colorNeutralStencil2Alpha: color-mix(in srgb, var(--color-neutral-base) 10%, transparent);
+
+    --colorSubtleBackgroundHover: var(--color-bg-hover);
+    --colorSubtleBackgroundPressed: color-mix(in srgb, var(--color-bg-hover) 70%, var(--color-border));
+    --colorSubtleBackgroundSelected: var(--color-bg-subtle);
+    --colorTransparentBackgroundHover: var(--color-bg-hover);
+    --colorTransparentBackgroundPressed: color-mix(in srgb, var(--color-bg-hover) 70%, var(--color-border));
+    --colorTransparentBackgroundSelected: var(--color-bg-subtle);
+
+    --colorNeutralStroke1: var(--color-border-strong);
+    --colorNeutralStroke1Hover: color-mix(in srgb, var(--color-border-strong) 80%, var(--color-text-primary));
+    --colorNeutralStroke1Pressed: color-mix(in srgb, var(--color-border-strong) 65%, var(--color-text-primary));
+    --colorNeutralStroke1Selected: color-mix(in srgb, var(--color-border-strong) 65%, var(--color-text-primary));
+    --colorNeutralStroke2: var(--color-border);
+    --colorNeutralStroke3: var(--color-border);
+    --colorNeutralStroke4: var(--color-border);
+    --colorNeutralStroke4Hover: var(--color-border-strong);
+    --colorNeutralStroke4Pressed: var(--color-border-strong);
+    --colorNeutralStroke4Selected: var(--color-border-strong);
+    --colorNeutralStrokeSubtle: var(--color-border);
+    --colorNeutralStrokeAccessible: var(--color-text-muted);
+    --colorNeutralStrokeAccessibleHover: var(--color-text-secondary);
+    --colorNeutralStrokeAccessiblePressed: var(--color-text-primary);
+    --colorNeutralStrokeAccessibleSelected: var(--color-text-primary);
+    --colorNeutralStrokeAlpha: color-mix(in srgb, var(--color-border-strong) 60%, transparent);
+    --colorNeutralStrokeAlpha2: color-mix(in srgb, var(--color-border-strong) 40%, transparent);
+    --colorNeutralStrokeDisabled: var(--color-border);
+    --colorNeutralStrokeDisabled2: var(--color-border);
+    --colorNeutralStrokeOnBrand: var(--color-bg-elevated);
+    --colorNeutralStrokeOnBrand2: var(--color-text-on-accent);
+    --colorNeutralStrokeOnBrand2Hover: var(--color-text-on-accent);
+    --colorNeutralStrokeOnBrand2Pressed: var(--color-text-on-accent);
+    --colorNeutralStrokeOnBrand2Selected: var(--color-text-on-accent);
+    --colorStrokeFocus1: var(--color-bg-elevated);
+    --colorStrokeFocus2: var(--color-border-focus);
+
+    --colorBrandBackground: var(--color-accent);
+    --colorBrandBackgroundHover: var(--color-accent-hover);
+    --colorBrandBackgroundPressed: var(--color-accent-pressed);
+    --colorBrandBackgroundSelected: var(--color-accent-pressed);
+    --colorBrandBackgroundStatic: var(--color-accent);
+    --colorBrandBackground2: var(--color-accent-subtle);
+    --colorBrandBackground2Hover: color-mix(in srgb, var(--color-accent) 20%, var(--color-bg-elevated));
+    --colorBrandBackground2Pressed: color-mix(in srgb, var(--color-accent) 26%, var(--color-bg-elevated));
+    --colorBrandBackground3Static: var(--color-accent);
+    --colorBrandBackground4Static: var(--color-accent-pressed);
+    --colorBrandForeground1: var(--color-accent-text);
+    --colorBrandForeground2: var(--color-accent-text);
+    --colorBrandForeground2Hover: var(--color-accent-text);
+    --colorBrandForeground2Pressed: var(--color-accent-text);
+    --colorBrandForegroundLink: var(--color-accent-text);
+    --colorBrandForegroundLinkHover: color-mix(in srgb, var(--color-accent-text) 80%, var(--color-text-primary));
+    --colorBrandForegroundLinkPressed: color-mix(in srgb, var(--color-accent-text) 65%, var(--color-text-primary));
+    --colorBrandForegroundLinkSelected: color-mix(in srgb, var(--color-accent-text) 80%, var(--color-text-primary));
+    --colorBrandStroke1: var(--color-accent-text);
+    --colorBrandStroke2: color-mix(in srgb, var(--color-accent) 40%, var(--color-bg-elevated));
+    --colorBrandStroke2Hover: color-mix(in srgb, var(--color-accent) 55%, var(--color-bg-elevated));
+    --colorBrandStroke2Pressed: color-mix(in srgb, var(--color-accent) 70%, var(--color-bg-elevated));
+    --colorCompoundBrandBackground: var(--color-accent);
+    --colorCompoundBrandBackgroundHover: var(--color-accent-hover);
+    --colorCompoundBrandBackgroundPressed: var(--color-accent-pressed);
+    --colorCompoundBrandForeground1: var(--color-accent-text);
+    --colorCompoundBrandForeground1Hover: color-mix(in srgb, var(--color-accent-text) 85%, var(--color-text-primary));
+    --colorCompoundBrandForeground1Pressed: color-mix(in srgb, var(--color-accent-text) 70%, var(--color-text-primary));
+    --colorCompoundBrandStroke: var(--color-accent-text);
+    --colorCompoundBrandStrokeHover: color-mix(in srgb, var(--color-accent-text) 85%, var(--color-text-primary));
+    --colorCompoundBrandStrokePressed: color-mix(in srgb, var(--color-accent-text) 70%, var(--color-text-primary));
+
+    --colorStatusSuccessBackground1: color-mix(in srgb, var(--color-success) 12%, var(--color-bg-elevated));
+    --colorStatusSuccessBackground2: color-mix(in srgb, var(--color-success) 22%, var(--color-bg-elevated));
+    --colorStatusSuccessBackground3: var(--color-success);
+    --colorStatusSuccessForeground1: var(--color-success);
+    --colorStatusSuccessForeground2: color-mix(in srgb, var(--color-success) 85%, var(--color-text-primary));
+    --colorStatusSuccessForeground3: var(--color-success);
+    --colorStatusSuccessBorder1: color-mix(in srgb, var(--color-success) 45%, var(--color-bg-elevated));
+    --colorStatusSuccessBorder2: var(--color-success);
+    --colorStatusSuccessBorderActive: var(--color-success);
+    --colorStatusWarningBackground1: color-mix(in srgb, var(--color-warning) 14%, var(--color-bg-elevated));
+    --colorStatusWarningBackground2: color-mix(in srgb, var(--color-warning) 24%, var(--color-bg-elevated));
+    --colorStatusWarningBackground3: var(--color-warning);
+    --colorStatusWarningForeground1: var(--color-warning);
+    --colorStatusWarningForeground2: color-mix(in srgb, var(--color-warning) 85%, var(--color-text-primary));
+    --colorStatusWarningForeground3: var(--color-warning);
+    --colorStatusWarningBorder1: color-mix(in srgb, var(--color-warning) 45%, var(--color-bg-elevated));
+    --colorStatusWarningBorder2: var(--color-warning);
+    --colorStatusWarningBorderActive: var(--color-warning);
+    --colorStatusDangerBackground1: color-mix(in srgb, var(--color-danger) 12%, var(--color-bg-elevated));
+    --colorStatusDangerBackground2: color-mix(in srgb, var(--color-danger) 22%, var(--color-bg-elevated));
+    --colorStatusDangerBackground3: var(--color-danger);
+    --colorStatusDangerBackground3Hover: var(--color-danger);
+    --colorStatusDangerBackground3Pressed: var(--color-danger);
+    --colorStatusDangerForeground1: var(--color-danger);
+    --colorStatusDangerForeground2: color-mix(in srgb, var(--color-danger) 85%, var(--color-text-primary));
+    --colorStatusDangerForeground3: var(--color-danger);
+    --colorStatusDangerBorder1: color-mix(in srgb, var(--color-danger) 45%, var(--color-bg-elevated));
+    --colorStatusDangerBorder2: var(--color-danger);
+    --colorStatusDangerBorderActive: var(--color-danger);
+
+    --colorPaletteRedBackground1: color-mix(in srgb, var(--color-danger) 12%, var(--color-bg-elevated));
+    --colorPaletteRedBackground2: color-mix(in srgb, var(--color-danger) 22%, var(--color-bg-elevated));
+    --colorPaletteRedBackground3: var(--color-danger);
+    --colorPaletteRedForeground1: var(--color-danger);
+    --colorPaletteRedForeground2: color-mix(in srgb, var(--color-danger) 85%, var(--color-text-primary));
+    --colorPaletteRedForeground3: var(--color-danger);
+    --colorPaletteRedBorder1: color-mix(in srgb, var(--color-danger) 45%, var(--color-bg-elevated));
+    --colorPaletteRedBorder2: var(--color-danger);
+    --colorPaletteRedBorderActive: var(--color-danger);
+    --colorPaletteGreenBackground1: color-mix(in srgb, var(--color-success) 12%, var(--color-bg-elevated));
+    --colorPaletteGreenBackground2: color-mix(in srgb, var(--color-success) 22%, var(--color-bg-elevated));
+    --colorPaletteGreenBackground3: var(--color-success);
+    --colorPaletteGreenForeground1: var(--color-success);
+    --colorPaletteGreenForeground2: color-mix(in srgb, var(--color-success) 85%, var(--color-text-primary));
+    --colorPaletteGreenForeground3: var(--color-success);
+    --colorPaletteGreenBorder1: color-mix(in srgb, var(--color-success) 45%, var(--color-bg-elevated));
+    --colorPaletteGreenBorder2: var(--color-success);
+    --colorPaletteGreenBorderActive: var(--color-success);
+}
+
+/*
+   Danger context: the brand roles of a control and everything inside it turn into the danger colour, so a primary
+   button reads as a destructive action. Put the class on the button (FluentButton Class="base-danger-action").
+*/
+.base-danger-action {
+    --colorBrandBackground: var(--color-danger);
+    --colorBrandBackgroundHover: color-mix(in srgb, var(--color-danger) 88%, var(--color-text-primary));
+    --colorBrandBackgroundPressed: color-mix(in srgb, var(--color-danger) 76%, var(--color-text-primary));
+    --colorBrandBackgroundSelected: color-mix(in srgb, var(--color-danger) 76%, var(--color-text-primary));
+    --colorCompoundBrandBackground: var(--color-danger);
+    --colorCompoundBrandBackgroundHover: color-mix(in srgb, var(--color-danger) 88%, var(--color-text-primary));
+    --colorCompoundBrandBackgroundPressed: color-mix(in srgb, var(--color-danger) 76%, var(--color-text-primary));
+    --colorNeutralForegroundOnBrand: var(--color-text-on-danger);
+    --colorStrokeFocus2: var(--color-danger);
+}

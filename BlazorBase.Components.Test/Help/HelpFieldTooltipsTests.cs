@@ -115,7 +115,7 @@ public sealed class HelpFieldTooltipsTests : ComponentsBunitTestContextBase
 
         Assert.Empty(cut.FindComponents<HelpFieldTooltips>());
         Assert.Empty(TooltipsModule.Invocations);
-        await cut.InvokeAsync(() => cut.Find("fluent-button.base-help-toggle").Click());
+        await cut.InvokeAsync(() => cut.Find(".base-help-toggle").Click());
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("aside.base-help-panel")));
     }
 
@@ -128,7 +128,7 @@ public sealed class HelpFieldTooltipsTests : ComponentsBunitTestContextBase
         await cut.InvokeAsync(() => cut.FindComponent<HelpFieldTooltips>().Instance.OpenHelpAsync("pages/blog", "field-title"));
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("aside.base-help-panel")));
-        Assert.Equal("true", cut.Find("fluent-button.base-help-toggle").GetAttribute("aria-expanded"));
+        Assert.Equal("true", cut.Find(".base-help-toggle").GetAttribute("aria-expanded"));
         cut.WaitForAssertion(() => Assert.Contains(PanelModule.Invocations["scrollToHelpAnchor"], invocation => (string?)invocation.Arguments[1] == "field-title"));
     }
 

@@ -16,7 +16,7 @@ public class CrudActionBuilder<TModel> where TModel : class
     public CrudActionBuilder<TModel> Caption(string caption) { config.Caption = caption; return this; }
     public CrudActionBuilder<TModel> ToolTip(string toolTip) { config.ToolTip = toolTip; return this; }
     public CrudActionBuilder<TModel> Icon(Icon icon) { config.Icon = icon; return this; }
-    public CrudActionBuilder<TModel> Appearance(Appearance appearance) { config.Appearance = appearance; return this; }
+    public CrudActionBuilder<TModel> Appearance(ButtonAppearance appearance) { config.Appearance = appearance; return this; }
     public CrudActionBuilder<TModel> ShowIn(CrudActionContext contexts) { config.Contexts = contexts; return this; }
     public CrudActionBuilder<TModel> Order(int order) { config.Order = order; return this; }
     public CrudActionBuilder<TModel> Visible(Func<CrudActionVisibilityArgs<TModel>, Task<bool>> predicate) { config.Visible = predicate; return this; }

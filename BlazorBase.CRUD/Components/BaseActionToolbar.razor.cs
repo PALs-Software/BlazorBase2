@@ -26,7 +26,7 @@ public partial class BaseActionToolbar<TModel> : ComponentBase where TModel : cl
 
     /// <summary>
     /// Lets the declared actions collapse into a "more actions" menu when the row they share with other controls
-    /// runs out of width, and renders multi-action groups as the toolbar's own menu instead of a Fluent menu button.
+    /// runs out of width, and renders multi-action groups as the toolbar's own menu instead of a Fluent menu.
     /// The list header sets it; a card header keeps the plain wrapping toolbar.
     /// </summary>
     [Parameter]
@@ -130,6 +130,10 @@ public partial class BaseActionToolbar<TModel> : ComponentBase where TModel : cl
     }
 
     private string GroupKeyOf(CrudActionGroup<TModel> group) => $"group-{VisibleGroups.IndexOf(group)}";
+
+    private readonly string toolbarId = $"base-action-toolbar-{Guid.NewGuid():N}";
+
+    private string GroupMenuTriggerId(CrudActionGroup<TModel> group) => $"{toolbarId}-{GroupKeyOf(group)}";
 
     private IStringLocalizer FrameworkLocalizer => LocalizerResolver.ResolveFramework(ServiceProvider);
 

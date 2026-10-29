@@ -94,7 +94,7 @@ public sealed class BaseLayoutCommandPaletteTests : ComponentsBunitTestContextBa
         Assert.Equal("Search pages, actions and apps…", field.QuerySelector(".base-command-search-text")!.TextContent);
         Assert.Equal("Ctrl K", field.QuerySelector("kbd")!.TextContent);
 
-        var phoneButton = cut.Find(".base-header-end fluent-button.base-command-search-icon");
+        var phoneButton = cut.Find(".base-header-end .base-command-search-icon");
         Assert.Equal("Search", phoneButton.GetAttribute("aria-label"));
         Assert.Equal("dialog", phoneButton.GetAttribute("aria-haspopup"));
     }
@@ -139,7 +139,7 @@ public sealed class BaseLayoutCommandPaletteTests : ComponentsBunitTestContextBa
     {
         var cut = RenderLayout(parameters => parameters.Add(p => p.ShowCommandPalette, true));
 
-        cut.Find("fluent-button.base-command-search-icon").Click();
+        cut.Find(".base-command-search-icon").Click();
 
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-command-palette")));
     }

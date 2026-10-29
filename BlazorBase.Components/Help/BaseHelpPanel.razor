@@ -19,13 +19,12 @@
         <div class="base-help-header @(CanGoBack ? "has-back" : null)">
             @if (CanGoBack)
             {
-                <FluentButton Appearance="Appearance.Stealth"
+                <FluentButton Appearance="ButtonAppearance.Transparent"
                               Class="base-help-back"
+                              IconOnly="true"
+                              IconStart="@(new Size20.ArrowLeft())"
                               Title="@Localizer["Back"]"
-                              aria-label="@Localizer["Back"]"
-                              OnClick="BackAsync">
-                    <FluentIcon Value="@(new Size20.ArrowLeft())" Color="Color.Neutral" />
-                </FluentButton>
+                              OnClick="BackAsync" />
             }
             <div class="base-help-heading">
                 <h2 id="@TitleId" class="base-help-title">@(Document?.Title ?? Localizer["Title"].Value)</h2>
@@ -33,17 +32,16 @@
                 {
                     <a class="base-help-docs-link" href="@DocumentationUrl" target="_blank" rel="noopener noreferrer">
                         @Localizer["OpenDocumentation"]
-                        <FluentIcon Value="@(new Size16.Open())" Color="Color.Accent" />
+                        <FluentIcon Value="@(new Size16.Open())" Color="Color.Primary" />
                     </a>
                 }
             </div>
-            <FluentButton Appearance="Appearance.Stealth"
+            <FluentButton Appearance="ButtonAppearance.Transparent"
                           Class="base-help-close"
+                          IconOnly="true"
+                          IconStart="@(new Size20.Dismiss())"
                           Title="@Localizer["Close"]"
-                          aria-label="@Localizer["Close"]"
-                          OnClick="CloseAsync">
-                <FluentIcon Value="@(new Size20.Dismiss())" Color="Color.Neutral" />
-            </FluentButton>
+                          OnClick="CloseAsync" />
         </div>
         @if (ShowToc)
         {
@@ -53,10 +51,10 @@
                         aria-expanded="@(IsTocOpen ? "true" : "false")"
                         aria-controls="@TocListId"
                         @onclick="ToggleToc">
-                    <FluentIcon Value="@(new Size16.TextBulletListLtr())" Color="Color.Neutral" />
+                    <FluentIcon Value="@(new Size16.TextBulletListLtr())" Color="Color.Default" />
                     <span class="base-help-toc-label">@Localizer["Contents"]</span>
                     <span class="base-help-toc-current"></span>
-                    <FluentIcon Value="@TocChevron" Color="Color.Neutral" />
+                    <FluentIcon Value="@TocChevron" Color="Color.Default" />
                 </button>
                 <ul id="@TocListId" class="base-help-toc-list" hidden="@(!IsTocOpen)">
                     @foreach (var entry in TocEntries)
@@ -85,7 +83,7 @@
             @if (IsLoading)
             {
                 <div class="base-help-status" role="status">
-                    <FluentProgressRing Width="20px" />
+                    <FluentSpinner Size="SpinnerSize.Tiny" />
                     <span>@Localizer["Loading"]</span>
                 </div>
             }

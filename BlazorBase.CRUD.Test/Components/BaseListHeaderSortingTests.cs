@@ -62,7 +62,7 @@ public class BaseListHeaderSortingTests : BunitTestContextBase
     {
         var provider = SortingProvider(Orders());
         var cut = RenderList(provider, pageSize: 2);
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-list-grid tr.fluent-data-grid-row:not([row-type])")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-list-grid tr.base-list-row:not([row-type])")));
 
         cut.Find("th .col-sort-button").Click();
 
@@ -140,7 +140,7 @@ public class BaseListHeaderSortingTests : BunitTestContextBase
         [.. Names.Select((name, index) => new TestOrder { Id = Guid.NewGuid(), CustomerName = name, Total = 100 - index * 10 + (name == "Alpha" ? -50 : 0) })];
 
     private static List<string> FirstColumn(IRenderedComponent<BaseList<TestOrder>> cut) =>
-        [.. cut.FindAll("tr.fluent-data-grid-row:not([row-type]) td:first-child").Select(cell => cell.TextContent.Trim())];
+        [.. cut.FindAll("tr.base-list-row:not([row-type]) td:first-child").Select(cell => cell.TextContent.Trim())];
 
     private static IBaseDataProvider<TestOrder> SortingProvider(List<TestOrder> all)
     {

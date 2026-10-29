@@ -4,39 +4,16 @@ using Microsoft.FluentUI.AspNetCore.Components;
 namespace BlazorBase.Components.Services;
 
 /// <summary>
-/// Opens the generic <see cref="BaseFileInputDialog"/> and <see cref="BaseDateInputDialog"/> the same
-/// way FluentUI's own <c>ShowConfirmationAsync</c> opens its built-in confirmation dialog, so a page
-/// action can offer a file upload or a single-date pick without hand-rolling a dialog component.
+/// Opens the generic <see cref="BaseFileInputDialog"/> and <see cref="BaseDateInputDialog"/>, so a page action can
+/// offer a file upload or a single-date pick without hand-rolling a dialog component.
 /// </summary>
 public static class FluentUiFileInputDialogExtensions
 {
-    public static Task<IDialogReference> ShowFileInputDialogAsync(this IDialogService dialogService, string title, FileInputDialogContent content)
-    {
-        var dialogParameters = new DialogParameters
-        {
-            Title = title,
-            PrimaryAction = string.Empty,
-            SecondaryAction = string.Empty,
-            ShowDismiss = false,
-            PreventDismissOnOverlayClick = false,
-            Width = "min(500px, calc(100vw - 2rem))"
-        };
+    /// <summary>Shows the file picker and returns when it is closed; a confirmed result carries a <see cref="FileInputDialogResult"/>.</summary>
+    public static Task<DialogResult> ShowFileInputDialogAsync(this IDialogService dialogService, string title, FileInputDialogContent content) =>
+        dialogService.ShowBaseDialogAsync<BaseFileInputDialog, FileInputDialogContent>(title, content, "min(500px, calc(100vw - 2rem))");
 
-        return dialogService.ShowDialogAsync<BaseFileInputDialog>(content, dialogParameters);
-    }
-
-    public static Task<IDialogReference> ShowDateInputDialogAsync(this IDialogService dialogService, string title, DateInputDialogContent content)
-    {
-        var dialogParameters = new DialogParameters
-        {
-            Title = title,
-            PrimaryAction = string.Empty,
-            SecondaryAction = string.Empty,
-            ShowDismiss = false,
-            PreventDismissOnOverlayClick = false,
-            Width = "min(400px, calc(100vw - 2rem))"
-        };
-
-        return dialogService.ShowDialogAsync<BaseDateInputDialog>(content, dialogParameters);
-    }
+    /// <summary>Shows the date picker and returns when it is closed; a confirmed result carries a <see cref="DateInputDialogResult"/>.</summary>
+    public static Task<DialogResult> ShowDateInputDialogAsync(this IDialogService dialogService, string title, DateInputDialogContent content) =>
+        dialogService.ShowBaseDialogAsync<BaseDateInputDialog, DateInputDialogContent>(title, content, "min(400px, calc(100vw - 2rem))");
 }

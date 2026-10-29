@@ -13,7 +13,7 @@
     padding: 4px 0;
     border: 0;
     background: transparent;
-    color: var(--neutral-foreground-rest);
+    color: var(--color-text-primary);
     font: inherit;
     font-weight: 600;
     text-align: start;
@@ -22,7 +22,7 @@
 
 .saved-filters-toggle:focus-visible,
 .saved-filters-load:focus-visible {
-    outline: 2px solid var(--focus-stroke-outer, var(--accent-fill-rest));
+    outline: var(--stroke-width-thick) solid var(--color-border-focus);
     outline-offset: 1px;
 }
 
@@ -43,13 +43,13 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
 }
 
 .saved-filters-hint {
     padding: 2px 0 6px;
     font-size: 13px;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
 }
 
 .saved-filters-list {
@@ -77,21 +77,21 @@
     min-height: 36px;
     padding: 4px 10px;
     border: 1px solid transparent;
-    border-radius: var(--control-corner-radius, 4px);
+    border-radius: var(--radius-xs);
     background: transparent;
-    color: var(--neutral-foreground-rest);
+    color: var(--color-text-primary);
     font: inherit;
     text-align: start;
     cursor: pointer;
 }
 
 .saved-filters-load:hover:not(:disabled) {
-    background: var(--neutral-fill-stealth-hover);
+    background: var(--color-bg-hover);
 }
 
 .saved-filters-load.is-active {
-    border-color: var(--accent-fill-rest);
-    background: var(--neutral-fill-stealth-hover);
+    border-color: var(--color-accent);
+    background: var(--color-bg-hover);
 }
 
 .saved-filters-load:disabled {
@@ -111,8 +111,8 @@
     flex: 0 0 auto;
     padding: 0 8px;
     border-radius: 999px;
-    background: var(--accent-fill-rest);
-    color: var(--foreground-on-accent-rest);
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
     font-size: 11px;
     line-height: 18px;
 }
@@ -167,7 +167,7 @@
     }
 
     .saved-filters-save ::deep .saved-filters-save-button,
-    .saved-filters-edit ::deep fluent-button {
-        min-height: 44px;
+    .saved-filters-edit ::deep .saved-filters-action {
+        min-height: var(--control-height-touch);
     }
 }

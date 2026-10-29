@@ -4,15 +4,13 @@ using Microsoft.JSInterop;
 namespace BlazorBase.Components.Dialogs;
 
 /// <summary>
-/// Gives the dialog it is rendered in the behavior a modal dialog owes the keyboard: focus moves into it
-/// when it opens, nothing behind it can be reached or tabbed to while it is open, and Escape commits a
-/// half-typed field first so an unsaved-changes check sees what the user typed.
+/// Gives the dialog it is rendered in the keyboard behavior a modal dialog owes the user: focus moves into it when
+/// it opens, and Escape commits a half-typed field first so an unsaved-changes check sees what the user typed.
 /// </summary>
 /// <remarks>
-/// FluentUI's own focus trap is switched off for the dialogs hosting a card, because two modal dialogs
-/// stacked on each other (a card and its discard prompt) each pull focus back into themselves and fight
-/// over it. Making everything outside the dialog <c>inert</c> needs no cooperation between the dialogs
-/// and reaches into shadow roots, which a script walking the tab order cannot.
+/// The page behind the dialog is made inert, Escape closes it and focus returns to the opener by the dialog itself,
+/// which is a native modal. The dialog has to carry the <see cref="BaseDialogOptions.DialogClass"/> class, which
+/// <c>ShowBaseDialogAsync</c> sets.
 /// </remarks>
 public partial class DialogBehavior : ComponentBase, IAsyncDisposable
 {
@@ -37,13 +35,6 @@ public partial class DialogBehavior : ComponentBase, IAsyncDisposable
     [Parameter]
     public bool CommitPendingEditOnEscape { get; set; } = true;
 
-    /// <summary>
-    /// Closes the dialog when Escape is pressed. FluentUI does this itself, but a dialog opened on top of another one
-    /// never sees the key: the dialog beneath already handled it and marked it as handled.
-    /// </summary>
-    [Parameter]
-    public bool DismissOnEscape { get; set; }
-
     private ElementReference RootElement { get; set; }
     private IJSObjectReference? Module { get; set; }
     private string? Token { get; set; }
@@ -55,7 +46,7 @@ public partial class DialogBehavior : ComponentBase, IAsyncDisposable
             return;
 
         Module = await JsRuntime.InvokeAsync<IJSObjectReference>("import", ModulePath);
-        Token = await Module.InvokeAsync<string?>("register", RootElement, new { initialFocus = InitialFocus, commitOnEscape = CommitPendingEditOnEscape, dismissOnEscape = DismissOnEscape });
+        Token = await Module.InvokeAsync<string?>("register", RootElement, new { initialFocus = InitialFocus, commitOnEscape = CommitPendingEditOnEscape });
 
         if (IsDisposed)
             await ReleaseAsync();

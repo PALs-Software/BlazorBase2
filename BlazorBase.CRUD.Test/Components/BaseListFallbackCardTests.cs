@@ -23,9 +23,11 @@ namespace BlazorBase.CRUD.Test.Components;
 public class BaseListFallbackCardTests : BunitTestContextBase
 {
     private const string InteropModulePath = "./_content/BlazorBase.CRUD/js/baseListInterop.js";
-    private const string RowSelector = "tr.fluent-data-grid-row:not([row-type])";
+    private const string RowSelector = "tr.base-list-row:not([row-type])";
 
-    private readonly List<BaseDialogData<TestProduct>> openedCards = [];
+    private TestDialogService? dialogs;
+
+    private List<BaseDialogData<TestProduct>> openedCards => dialogs?.CardData<TestProduct>() ?? [];
     private readonly IBaseDataProvider<TestProduct> provider = Substitute.For<IBaseDataProvider<TestProduct>>();
 
     public BaseListFallbackCardTests() => Services.AddLocalization();
@@ -195,16 +197,7 @@ public class BaseListFallbackCardTests : BunitTestContextBase
         provider.GetByIdAsync(Arg.Any<object>(), Arg.Any<IEnumerable<string>?>(), Arg.Any<Expression<Func<TestProduct, bool>>?>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<TestProduct?>(product));
 
-        var dialogService = Substitute.For<IDialogService>();
-        var reference = Substitute.For<IDialogReference>();
-        reference.Result.Returns(Task.FromResult(DialogResult.Cancel()));
-        dialogService.ShowDialogAsync<BaseDialog<TestProduct>>(Arg.Any<object>(), Arg.Any<DialogParameters>())
-            .Returns(call =>
-            {
-                openedCards.Add((BaseDialogData<TestProduct>)call[0]);
-                return Task.FromResult(reference);
-            });
-        Services.AddSingleton(dialogService);
+        dialogs = TestDialogService.Register(this, DialogResult.Cancel());
         Services.AddSingleton(provider);
 
         var cut = Render<BaseList<TestProduct>>(parameters => parameters

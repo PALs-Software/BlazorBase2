@@ -31,7 +31,7 @@
     color: var(--color-text-secondary);
 }
 
-.rc-refresh {
+.rc-meta-end ::deep .rc-refresh {
     min-height: 32px;
 }
 

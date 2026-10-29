@@ -112,6 +112,6 @@ public class BaseListBuilderTests
         var action = Assert.Single(group.Actions);
         Assert.Equal("Activate", action.Caption);
         Assert.True(action.IsBulkAction);
-        Assert.Equal(Microsoft.FluentUI.AspNetCore.Components.Appearance.Stealth, action.Appearance);
+        Assert.Equal(Microsoft.FluentUI.AspNetCore.Components.ButtonAppearance.Transparent, action.Appearance);
     }
 }

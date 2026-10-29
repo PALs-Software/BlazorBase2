@@ -231,7 +231,7 @@ self.importScripts('./_content/BlazorBase.Notifications/blazorbase-push-sw.js');
 ```
 
 Both render through FluentUI and theme CSS custom properties only — no Bootstrap, FontAwesome, or
-Blazorise.
+Blazorise. The host registers the Fluent services with `AddBlazorBaseFluentUI()` (BlazorBase.Components).
 
 ---
 
@@ -239,7 +239,8 @@ Blazorise.
 
 ### `NotificationBell`
 
-An icon button (FluentUI `Alert` icon) with an unread-count badge (`FluentBadge`) and a popover
+An icon-only transparent `FluentButton` (FluentUI `Alert` icon) with an unread-count badge (`FluentBadge`, brand colour,
+shown only for a non-zero count) and a popover
 list. Loads the unread list and count on first render, then keeps itself current three ways:
 
 1. Polling every `NotificationClientOptions.PollInterval` (default 60 s), via `TimeProvider.CreateTimer`

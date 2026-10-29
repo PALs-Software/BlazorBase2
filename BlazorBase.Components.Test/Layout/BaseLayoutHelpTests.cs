@@ -49,8 +49,8 @@ public sealed class BaseLayoutHelpTests : ComponentsBunitTestContextBase
         using var english = new EnglishCulture();
         var cut = RenderLayout();
 
-        var buttons = cut.FindAll(".base-header-end fluent-button").Select(button => button.ClassList.Contains("base-help-toggle") ? "help" : button.ClassList.Contains("base-settings-toggle") ? "settings" : "other").ToList();
-        var help = cut.Find("fluent-button.base-help-toggle");
+        var buttons = cut.FindAll(".base-header-end .base-header-control").Select(button => button.ClassList.Contains("base-help-toggle") ? "help" : button.ClassList.Contains("base-settings-toggle") ? "settings" : "other").ToList();
+        var help = cut.Find(".base-help-toggle");
 
         Assert.True(buttons.IndexOf("help") >= 0 && buttons.IndexOf("help") < buttons.IndexOf("settings"));
         Assert.Equal("Help", help.GetAttribute("aria-label"));
@@ -102,28 +102,28 @@ public sealed class BaseLayoutHelpTests : ComponentsBunitTestContextBase
     {
         var cut = RenderLayout();
 
-        cut.Find("fluent-button.base-help-toggle").Click();
+        cut.Find(".base-help-toggle").Click();
 
-        Assert.Equal("true", cut.Find("fluent-button.base-help-toggle").GetAttribute("aria-expanded"));
+        Assert.Equal("true", cut.Find(".base-help-toggle").GetAttribute("aria-expanded"));
         cut.WaitForAssertion(() => Assert.Contains("Welcome.", cut.Find("aside.base-help-panel").InnerHtml));
 
-        cut.Find("fluent-button.base-help-toggle").Click();
+        cut.Find(".base-help-toggle").Click();
 
         Assert.Empty(cut.FindAll("aside.base-help-panel"));
-        Assert.Equal("false", cut.Find("fluent-button.base-help-toggle").GetAttribute("aria-expanded"));
+        Assert.Equal("false", cut.Find(".base-help-toggle").GetAttribute("aria-expanded"));
     }
 
     [Fact]
     public async Task EscapeAndTheCloseButton_CloseThePanel()
     {
         var cut = RenderLayout();
-        cut.Find("fluent-button.base-help-toggle").Click();
+        cut.Find(".base-help-toggle").Click();
 
         await cut.InvokeAsync(() => cut.Find("aside.base-help-panel").KeyDown(new KeyboardEventArgs { Key = "Escape" }));
         Assert.Empty(cut.FindAll("aside.base-help-panel"));
 
-        cut.Find("fluent-button.base-help-toggle").Click();
-        await cut.InvokeAsync(() => cut.Find("fluent-button.base-help-close").Click());
+        cut.Find(".base-help-toggle").Click();
+        await cut.InvokeAsync(() => cut.Find(".base-help-close").Click());
         Assert.Empty(cut.FindAll("aside.base-help-panel"));
     }
 
@@ -131,9 +131,9 @@ public sealed class BaseLayoutHelpTests : ComponentsBunitTestContextBase
     public void OpeningTheSettings_ClosesTheHelp()
     {
         var cut = RenderLayout();
-        cut.Find("fluent-button.base-help-toggle").Click();
+        cut.Find(".base-help-toggle").Click();
 
-        cut.Find("fluent-button.base-settings-toggle").Click();
+        cut.Find(".base-settings-toggle").Click();
 
         Assert.Empty(cut.FindAll("aside.base-help-panel"));
         Assert.Single(cut.FindAll("aside.base-settings-panel"));
@@ -143,9 +143,9 @@ public sealed class BaseLayoutHelpTests : ComponentsBunitTestContextBase
     public void OpeningTheHelp_ClosesTheSettings()
     {
         var cut = RenderLayout();
-        cut.Find("fluent-button.base-settings-toggle").Click();
+        cut.Find(".base-settings-toggle").Click();
 
-        cut.Find("fluent-button.base-help-toggle").Click();
+        cut.Find(".base-help-toggle").Click();
 
         Assert.Empty(cut.FindAll("aside.base-settings-panel"));
         Assert.Single(cut.FindAll("aside.base-help-panel"));
@@ -156,7 +156,7 @@ public sealed class BaseLayoutHelpTests : ComponentsBunitTestContextBase
     {
         var cut = RenderLayout();
 
-        cut.Find("fluent-button.base-help-toggle").Click();
+        cut.Find(".base-help-toggle").Click();
 
         Assert.True(cut.Find("main#base-main").HasAttribute("inert"));
         Assert.Contains("overlay", cut.Find("aside.base-help-panel").ClassList);
@@ -168,10 +168,10 @@ public sealed class BaseLayoutHelpTests : ComponentsBunitTestContextBase
         JSInterop.SetupModule("./_content/BlazorBase.Components/js/layout.js").Setup<bool>("watchWide", _ => true).SetResult(true);
 
         var cut = RenderLayout();
-        cut.Find("fluent-button.base-help-toggle").Click();
+        cut.Find(".base-help-toggle").Click();
 
         Assert.False(cut.Find("main#base-main").HasAttribute("inert"));
         Assert.Contains("docked", cut.Find("aside.base-help-panel").ClassList);
-        Assert.Null(cut.Find("fluent-button.base-help-toggle").GetAttribute("aria-haspopup"));
+        Assert.Null(cut.Find(".base-help-toggle").GetAttribute("aria-haspopup"));
     }
 }

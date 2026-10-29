@@ -50,7 +50,7 @@ public class BaseListToolbarLayoutTests : BunitTestContextBase
     {
         var cut = RenderList(Group(Action("Run", CrudActionScope.Single)));
 
-        var captions = cut.FindAll(".base-list-header fluent-button").Select(button => button.TextContent.Trim()).ToList();
+        var captions = cut.FindAll(".base-list-header .base-list-header-button, .base-list-header .base-action-toolbar-button").Select(button => button.TextContent.Trim()).ToList();
 
         Assert.DoesNotContain(Framework["Edit"].Value, captions);
         Assert.DoesNotContain(Framework["View"].Value, captions);
@@ -64,7 +64,7 @@ public class BaseListToolbarLayoutTests : BunitTestContextBase
     {
         var cut = RenderList(Group(Action("Run", CrudActionScope.None)));
 
-        var buttons = cut.FindAll(".base-list-header fluent-button").Select(button => button.TextContent.Trim()).ToList();
+        var buttons = cut.FindAll(".base-list-header .base-list-header-button, .base-list-header .base-action-toolbar-button").Select(button => button.TextContent.Trim()).ToList();
 
         Assert.True(buttons.IndexOf(Framework["Add"].Value) < buttons.IndexOf("Run"));
         Assert.Equal("true", cut.Find(".base-list-header .base-action-toolbar").GetAttribute("data-overflow"));
@@ -91,9 +91,9 @@ public class BaseListToolbarLayoutTests : BunitTestContextBase
     {
         var cut = RenderList(Group(Action("Run", CrudActionScope.None)));
 
-        var add = cut.FindAll(".base-list-header fluent-button").First(button => button.TextContent.Trim() == Framework["Add"].Value);
+        var add = cut.FindAll(".base-list-header .base-list-header-button, .base-list-header .base-action-toolbar-button").First(button => button.TextContent.Trim() == Framework["Add"].Value);
 
-        Assert.Equal("accent", add.GetAttribute("appearance"));
+        Assert.Equal("primary", add.GetAttribute("appearance"));
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public class BaseListToolbarLayoutTests : BunitTestContextBase
     {
         var cut = RenderList(Group(Action("Run", CrudActionScope.Multiple)));
 
-        cut.FindAll("tr.fluent-data-grid-row:not([row-type]) td[role=gridcell]:not(.base-list-row-menu-column)")[1].Click();
+        cut.FindAll("tr.base-list-row:not([row-type]) td[role=gridcell]:not(.base-list-row-menu-column)")[1].Click();
         cut.WaitForAssertion(() => Assert.Single(cut.FindAll("tr.base-list-row-selected")));
 
         Assert.Empty(cut.FindAll(".selection-count"));
@@ -114,7 +114,7 @@ public class BaseListToolbarLayoutTests : BunitTestContextBase
         cut.WaitForAssertion(() => Assert.Equal(string.Format(Framework["SelectedCount"].Value, 2), cut.Find(".selection-count").TextContent.Trim()));
         Assert.Contains(Framework["DeselectAll"].Value, cut.Find(".base-list-header").TextContent);
 
-        cut.FindAll(".base-list-header fluent-button").First(button => button.TextContent.Trim() == Framework["DeselectAll"].Value).Click();
+        cut.FindAll(".base-list-header .base-list-header-button, .base-list-header .base-action-toolbar-button").First(button => button.TextContent.Trim() == Framework["DeselectAll"].Value).Click();
 
         cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".selection-count")));
     }
@@ -124,7 +124,7 @@ public class BaseListToolbarLayoutTests : BunitTestContextBase
     {
         var cut = RenderList(Group(Action("Run", CrudActionScope.None)));
 
-        var more = cut.Find(".base-action-toolbar-more fluent-button");
+        var more = cut.Find(".base-action-toolbar-more .base-action-toolbar-button");
 
         Assert.Equal(Framework["MoreActions"].Value, more.GetAttribute("aria-label"));
         Assert.Equal("menu", more.GetAttribute("aria-haspopup"));
@@ -145,7 +145,7 @@ public class BaseListToolbarLayoutTests : BunitTestContextBase
         Assert.Equal(Framework["ActionSelectRowFirst"].Value, run.GetAttribute("title"));
         Assert.Null(import.GetAttribute("aria-disabled"));
 
-        cut.FindAll("tr.fluent-data-grid-row:not([row-type]) td[role=gridcell]:not(.base-list-row-menu-column)")[0].Click();
+        cut.FindAll("tr.base-list-row:not([row-type]) td[role=gridcell]:not(.base-list-row-menu-column)")[0].Click();
 
         cut.WaitForAssertion(() => Assert.Null(OverflowItem(cut, "Run").GetAttribute("aria-disabled")));
     }
@@ -160,7 +160,7 @@ public class BaseListToolbarLayoutTests : BunitTestContextBase
         OpenRowMenu(cut, 0);
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".context-menu")));
         MenuItem(cut, Framework["SelectAll"].Value).Click();
-        cut.WaitForAssertion(() => Assert.True(cut.Find(".base-action-toolbar fluent-button").HasAttribute("disabled")));
+        cut.WaitForAssertion(() => Assert.True(cut.Find(".base-action-toolbar .base-action-toolbar-button").HasAttribute("disabled")));
 
         OpenMore(cut);
         OverflowItem(cut, "Run").MouseEnter();
@@ -174,7 +174,7 @@ public class BaseListToolbarLayoutTests : BunitTestContextBase
 
     private static void OpenMore(IRenderedComponent<BaseList<TestProduct>> cut)
     {
-        cut.Find(".base-action-toolbar-more fluent-button").Click();
+        cut.Find(".base-action-toolbar-more .base-action-toolbar-button").Click();
         cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll(".base-action-toolbar-menu")));
     }
 

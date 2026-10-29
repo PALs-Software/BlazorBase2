@@ -74,22 +74,23 @@
     border-bottom: none;
 }
 
+.base-settings-body ::deep .base-settings-radio-group [slot="input"] {
+    gap: var(--space-0);
+    margin: 0;
+}
+
+@media (pointer: fine) {
+    .base-settings-body ::deep .base-settings-radio-group .base-touch-target {
+        min-height: var(--control-height-sm);
+    }
+}
+
 .base-settings-body ::deep .base-settings-heading {
     margin: 0;
-    font-family: var(--font-body, inherit);
-    font-size: 0.875rem;
-    font-weight: 400;
+    font-family: var(--font-base);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-regular);
     color: var(--color-text-primary);
-}
-
-.base-settings-section ::deep fluent-radio {
-    min-height: 32px;
-}
-
-@media (pointer: coarse) {
-    .base-settings-section ::deep fluent-radio {
-        min-height: 44px;
-    }
 }
 
 @media (max-width: 480px) {

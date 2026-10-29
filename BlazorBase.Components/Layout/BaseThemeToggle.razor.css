@@ -1,14 +1,14 @@
 /*
   The toggle takes its size from the header the layout draws (--base-header-control-size: 40px, 44px
-  on touch screens) so it matches the neighbouring header buttons; outside a header it falls back to
-  the host's --tap-target or FluentUI's own 32px.
+  on touch screens) so it matches the neighbouring header buttons; outside a header it is as high
+  as any control.
 */
 ::deep .base-theme-toggle {
-    min-width: var(--base-header-control-size, var(--tap-target, 32px));
-    min-height: var(--base-header-control-size, var(--tap-target, 32px));
+    min-width: var(--base-header-control-size, var(--control-height-md));
+    min-height: var(--base-header-control-size, var(--control-height-md));
 }
 
 ::deep .base-theme-toggle:focus-visible {
-    outline: 2px solid var(--color-border-focus);
+    outline: var(--stroke-width-thick) solid var(--color-border-focus);
     outline-offset: 2px;
 }

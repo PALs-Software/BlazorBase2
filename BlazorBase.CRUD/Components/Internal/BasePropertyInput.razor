@@ -50,69 +50,74 @@
             <FluentSwitch @bind-Value="BoolValue"
                           ReadOnly="@(!IsEditing)"
                           Id="@FieldElementId"
-                          Label="@ResolvedLabel" />
+                          Label="@ResolvedLabel"
+                          MessageCondition="@NoFluentMessage" />
         </div>
     }
     else if (PropertyType == typeof(DateTime) || PropertyType == typeof(DateTime?) ||
              PropertyType == typeof(DateTimeOffset) || PropertyType == typeof(DateTimeOffset?))
     {
-        <FluentDatePicker @bind-Value="DateValue"
+        <FluentDatePicker TValue="DateTime?"
+                          @bind-Value="DateValue"
+                          Class="base-field-control"
                           ReadOnly="@(!IsEditing)"
                           Required="@IsRequired"
-                          Label="@ResolvedLabel" />
+                          Label="@ResolvedLabel"
+                          MessageCondition="@NoFluentMessage" />
     }
     else if (IsNumericType)
     {
-        <FluentTextField @bind-Value="NumericStringValue"
+        <FluentTextInput @bind-Value="NumericStringValue"
+                         Class="base-field-control"
                          ReadOnly="@(!IsEditing)"
                          Label="@ResolvedLabel"
                          Placeholder="@ResolvedPlaceholder"
                          Required="@IsRequired"
-                         InputMode="@NumericInputMode" />
+                         InputMode="@NumericInputMode"
+                         MessageCondition="@NoFluentMessage" />
     }
     else if (PropertyType.IsEnum)
     {
-        <FluentSelect TOption="string"
+        <FluentSelect TOption="EnumOption"
+                      TValue="string"
+                      Items="@EnumOptions"
+                      OptionValue="@(option => option?.Value)"
+                      OptionText="@(option => option?.Text ?? string.Empty)"
                       @bind-Value="EnumStringValue"
+                      Class="base-field-control"
                       Disabled="@(!IsEditing)"
                       Required="@IsRequired"
-                      Label="@ResolvedLabel">
-            @if (IsNullableEnum)
-            {
-                <FluentOption Value="">@FrameworkLocalizer["SelectEmpty"]</FluentOption>
-            }
-            @foreach (var enumValue in Enum.GetValues(PropertyType))
-            {
-                <FluentOption Value="@enumValue.ToString()">@ResolveEnumLabel(enumValue)</FluentOption>
-            }
-        </FluentSelect>
+                      Label="@ResolvedLabel"
+                      MessageCondition="@NoFluentMessage" />
     }
     else if (IsNavigationProperty && !UseBrowseMode)
     {
-        <FluentSelect TOption="string"
+        <FluentSelect TOption="LookupItem"
+                      TValue="string"
                       @key="@NavigationSelectGeneration"
-                      Value="@CurrentFkStringValue"
+                      Items="@NavigationOptions"
+                      OptionValue="@(item => item?.Id)"
+                      OptionText="@(item => item?.DisplayText ?? string.Empty)"
+                      Value="@(CurrentFkStringValue ?? string.Empty)"
                       ValueChanged="@OnNavigationSelectChangedAsync"
+                      Class="base-field-control"
                       Disabled="@(!IsEditing)"
                       Required="@IsRequired"
-                      Label="@ResolvedLabel">
-            <FluentOption Value="">@FrameworkLocalizer["SelectEmpty"]</FluentOption>
-            @foreach (var item in LookupItems)
-            {
-                <FluentOption Value="@item.Id">@item.DisplayText</FluentOption>
-            }
-        </FluentSelect>
+                      Label="@ResolvedLabel"
+                      MessageCondition="@NoFluentMessage" />
     }
     else if (IsNavigationProperty && UseBrowseMode)
     {
         <div class="base-navigation-browse">
-            <FluentTextField Value="@SelectedDisplayText"
+            <FluentTextInput Value="@SelectedDisplayText"
+                             Class="base-field-control"
                              ReadOnly="true"
                              Required="@IsRequired"
-                             Label="@ResolvedLabel" />
+                             Label="@ResolvedLabel"
+                             MessageCondition="@NoFluentMessage" />
             @if (IsEditing)
             {
-                <FluentButton Appearance="Appearance.Outline"
+                <FluentButton Appearance="ButtonAppearance.Outline"
                               OnClick="@ToggleBrowsePanel">
                     @FrameworkLocalizer["BrowsePlaceholder"]
                 </FluentButton>
@@ -121,9 +126,12 @@
         @if (ShowBrowsePanel)
         {
             <div class="base-browse-panel">
-                <FluentTextField @bind-Value="BrowseSearchText"
+                <FluentTextInput @bind-Value="BrowseSearchText"
                                  @bind-Value:after="OnBrowseSearchAsync"
-                                 Placeholder="@FrameworkLocalizer["BrowseSearchPlaceholder"].Value" />
+                                 Class="base-field-control"
+                                 Placeholder="@FrameworkLocalizer["BrowseSearchPlaceholder"].Value"
+                                 AriaLabel="@FrameworkLocalizer["BrowseSearchPlaceholder"].Value"
+                                 MessageCondition="@NoFluentMessage" />
                 <div class="base-browse-panel-items">
                     @foreach (var item in BrowseItems)
                     {
@@ -134,7 +142,7 @@
                     }
                     @if (HasMoreBrowseItems)
                     {
-                        <FluentButton Appearance="Appearance.Stealth"
+                        <FluentButton Appearance="ButtonAppearance.Transparent"
                                       OnClick="@LoadMoreBrowseItemsAsync">
                             @FrameworkLocalizer["BrowseLoadMore"]
                         </FluentButton>
@@ -145,26 +153,33 @@
     }
     else if (NavigationReadDenied)
     {
-        <FluentTextField Value="@SelectedDisplayText"
+        <FluentTextInput Value="@SelectedDisplayText"
+                         Class="base-field-control"
                          ReadOnly="true"
-                         Label="@ResolvedLabel" />
+                         Label="@ResolvedLabel"
+                         MessageCondition="@NoFluentMessage" />
     }
     else if (FieldConfig.Lines > 1)
     {
         <FluentTextArea @bind-Value="StringValue"
+                        Class="base-field-control"
                         ReadOnly="@(!IsEditing)"
                         Label="@ResolvedLabel"
                         Placeholder="@ResolvedPlaceholder"
                         Required="@IsRequired"
-                        Rows="@FieldConfig.Lines" />
+                        Resize="TextAreaResize.Vertical"
+                        Height="@TextAreaHeight"
+                        MessageCondition="@NoFluentMessage" />
     }
     else
     {
-        <FluentTextField @bind-Value="StringValue"
+        <FluentTextInput @bind-Value="StringValue"
+                         Class="base-field-control"
                          ReadOnly="@(!IsEditing)"
                          Label="@ResolvedLabel"
                          Placeholder="@ResolvedPlaceholder"
-                         Required="@IsRequired" />
+                         Required="@IsRequired"
+                         MessageCondition="@NoFluentMessage" />
     }
 
     @if (ValidationMessages.Count > 0)

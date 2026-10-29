@@ -1,3 +1,4 @@
+using BlazorBase.Components.Dialogs;
 using BlazorBase.CRUD.Core;
 using BlazorBase.CRUD.Localization;
 using BlazorBase.CRUD.Models;
@@ -7,7 +8,11 @@ using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace BlazorBase.CRUD.Components;
 
-public partial class BaseLookupDialog<TModel> : ComponentBase where TModel : class, new()
+/// <summary>
+/// The content of the lookup dialog that lets the user search and pick one item of a data provider. Open it with
+/// <see cref="BaseLookupDialogServiceExtensions.ShowLookupDialogAsync{TModel}"/>.
+/// </summary>
+public partial class BaseLookupDialog<TModel> where TModel : class, new()
 {
     #region Injects
 
@@ -19,19 +24,14 @@ public partial class BaseLookupDialog<TModel> : ComponentBase where TModel : cla
     private IStringLocalizer FrameworkLocalizer =>
         LocalizerResolver.ResolveFramework(ServiceProvider);
 
+    /// <summary>The provider the items are searched in.</summary>
     [Parameter]
     public IBaseDataProvider<TModel>? DataProvider { get; set; }
 
-    [Parameter]
-    public string? Title { get; set; }
-
+    /// <summary>The property shown for each item and searched with the entered text.</summary>
     [Parameter]
     public string? DisplayPropertyName { get; set; }
 
-    [Parameter]
-    public EventCallback<TModel?> OnItemSelected { get; set; }
-
-    private FluentDialog? Dialog { get; set; }
     private List<TModel> LoadedItems { get; set; } = [];
     private TModel? SelectedItem { get; set; }
     private string? SearchText { get; set; }
@@ -100,17 +100,8 @@ public partial class BaseLookupDialog<TModel> : ComponentBase where TModel : cla
         StateHasChanged();
     }
 
-    private async Task ConfirmAsync()
-    {
-        if (OnItemSelected.HasDelegate)
-            await OnItemSelected.InvokeAsync(SelectedItem);
-    }
-
-    private async Task CancelAsync()
-    {
-        if (OnItemSelected.HasDelegate)
-            await OnItemSelected.InvokeAsync(null);
-    }
+    private Task ConfirmSelectionAsync() =>
+        SelectedItem is null ? Task.CompletedTask : ConfirmWithResultAsync(SelectedItem);
 
     private string GetDisplayText(TModel item)
     {
@@ -123,5 +114,37 @@ public partial class BaseLookupDialog<TModel> : ComponentBase where TModel : cla
         }
 
         return item.ToString() ?? string.Empty;
+    }
+}
+
+/// <summary>
+/// Opens the lookup dialog.
+/// </summary>
+public static class BaseLookupDialogServiceExtensions
+{
+    /// <summary>
+    /// Opens a <see cref="BaseLookupDialog{TModel}"/> and waits for it to close. A picked item is returned as
+    /// <see cref="DialogResult.Value"/>; closing without a pick is a cancelled result.
+    /// </summary>
+    /// <param name="dialogService">The dialog service.</param>
+    /// <param name="title">The title of the dialog.</param>
+    /// <param name="dataProvider">The provider the items are searched in.</param>
+    /// <param name="displayPropertyName">The property shown for each item and searched with the entered text.</param>
+    public static Task<DialogResult> ShowLookupDialogAsync<TModel>(
+        this IDialogService dialogService,
+        string title,
+        IBaseDataProvider<TModel> dataProvider,
+        string? displayPropertyName = null)
+        where TModel : class, new()
+    {
+        ArgumentNullException.ThrowIfNull(dialogService);
+        ArgumentNullException.ThrowIfNull(dataProvider);
+
+        return dialogService.ShowBaseDialogAsync<BaseLookupDialog<TModel>>(options =>
+        {
+            options.Title = title;
+            options.Parameters[nameof(BaseLookupDialog<TModel>.DataProvider)] = dataProvider;
+            options.Parameters[nameof(BaseLookupDialog<TModel>.DisplayPropertyName)] = displayPropertyName;
+        });
     }
 }

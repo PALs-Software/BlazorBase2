@@ -9,7 +9,7 @@ const tipOffset = 6;
 const edgeMargin = 8;
 const allowedTags = new Set(['STRONG', 'B', 'EM', 'I', 'CODE', 'DEL']);
 const excludedSelector = '.base-help-panel, .base-help-tip, .base-header, .base-nav-host';
-const controlSelector = 'input, textarea, select, option, fluent-text-field, fluent-text-area, fluent-number-field, fluent-search, fluent-select, fluent-combobox, fluent-date-picker';
+const controlSelector = 'input, textarea, select, option, [slot="input"], [slot="control"]';
 
 let state = null;
 

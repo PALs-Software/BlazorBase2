@@ -6,7 +6,11 @@ const groupKeyPrefix = 'blazorbase-nav-group:';
 const keyboardAttribute = 'data-base-keyboard-open';
 const keyboardThreshold = 120;
 const drawerId = 'base-navigation';
-const tabbableSelector = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), fluent-anchor[href], fluent-button:not([disabled]), fluent-select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+// Fluent's default page styles (full-height body that never scrolls, its own link and heading styles) would fight
+// the shell below, which owns the page layout. Hosts also set the attribute on <body> so it applies from the first paint.
+document.body.setAttribute('no-fuib-style', '');
+const tabbableSelector = 'a[href], button:not([disabled]), [role="button"]:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [slot="input"]:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 let query = null;
 let handler = null;
@@ -233,6 +237,14 @@ function updateKeyboardState() {
     }
 }
 
+function isFocusHost(element) {
+    return !!element.shadowRoot && element.shadowRoot.delegatesFocus === true && !element.hasAttribute('disabled');
+}
+
+function collectTabbable(container) {
+    return [...container.querySelectorAll('*')].filter(element => element.matches(tabbableSelector) || isFocusHost(element));
+}
+
 export function focusFirst(container) {
     if (!container) {
         return;
@@ -256,7 +268,7 @@ export function trapFocus(container) {
             return;
         }
 
-        const inside = [...container.querySelectorAll(tabbableSelector)].filter(isVisible);
+        const inside = collectTabbable(container).filter(isVisible);
 
         if (inside.length === 0) {
             event.preventDefault();
@@ -278,7 +290,7 @@ export function trapFocus(container) {
     });
 
     const target = container.querySelector('[data-autofocus]');
-    (target ?? container.querySelector(tabbableSelector) ?? container).focus();
+    (target ?? collectTabbable(container)[0] ?? container).focus();
 }
 
 /**
@@ -350,7 +362,7 @@ function onDrawerKeyDown(event) {
         return;
     }
 
-    const inside = [...drawer.querySelectorAll(tabbableSelector)].filter(isVisible);
+    const inside = collectTabbable(drawer).filter(isVisible);
     const cycle = toggle ? [toggle, ...inside] : inside;
 
     if (cycle.length === 0) {

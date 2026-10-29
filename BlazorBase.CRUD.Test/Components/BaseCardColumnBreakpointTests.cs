@@ -30,9 +30,12 @@ public partial class BaseCardColumnBreakpointTests
     [Fact]
     public void ADialogCard_DoesNotOverrideTheColumnsFromTheViewport()
     {
-        var dialogStyles = ReadStyles("BaseDialog.razor.css");
+        var cardStyles = ReadStyles("BaseCard.razor.css");
 
-        Assert.DoesNotContain("grid-template-columns", dialogStyles);
+        var dialogRules = DialogRule().Matches(cardStyles).Select(rule => rule.Value).ToList();
+
+        Assert.NotEmpty(dialogRules);
+        Assert.DoesNotContain(dialogRules, rule => rule.Contains("grid-template-columns", StringComparison.Ordinal));
     }
 
     private static List<(double MinimumWidth, int Columns)> ContainerBreakpoints(string styles)
@@ -65,6 +68,9 @@ public partial class BaseCardColumnBreakpointTests
 
         throw new FileNotFoundException($"{fileName} was not found above {AppContext.BaseDirectory}.");
     }
+
+    [GeneratedRegex(@"\.base-dialog[^{}]*\{[^}]*\}")]
+    private static partial Regex DialogRule();
 
     [GeneratedRegex(@"@container base-card \(min-width: (?<width>\d+)px\)\s*\{(?<body>.*?grid-template-columns:.*?)\}\s*\}", RegexOptions.Singleline)]
     private static partial Regex ContainerBlock();

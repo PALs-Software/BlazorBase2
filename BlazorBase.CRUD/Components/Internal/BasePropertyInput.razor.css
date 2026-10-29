@@ -3,12 +3,20 @@
     min-width: 0;
 }
 
-.base-property-input ::deep fluent-text-field,
-.base-property-input ::deep fluent-text-area,
-.base-property-input ::deep fluent-select,
-.base-property-input ::deep fluent-date-picker {
+/*
+   An input has an intrinsic minimum width of its own, so a field in the last column pushed out past the dialog edge.
+   Letting every input shrink to its column keeps each field inside the dialog.
+*/
+.base-property-input ::deep .base-field-control,
+.base-template-field ::deep .base-field-control {
     width: 100%;
     min-width: 0;
+}
+
+/* A resizable textarea has no width of its own in the field; it fills the column like the other inputs. */
+.base-property-input ::deep .base-field-control [slot="input"],
+.base-template-field ::deep .base-field-control [slot="input"] {
+    width: 100%;
 }
 
 .base-template-field {
@@ -17,157 +25,87 @@
     min-width: 0;
 }
 
-.base-template-field ::deep fluent-select,
-.base-template-field ::deep fluent-text-field,
-.base-template-field ::deep fluent-combobox {
-    width: 100%;
-    min-width: 0;
-}
-
 .base-field-label {
     display: block;
-    margin-bottom: 4px;
-    font-size: var(--type-ramp-base-font-size, 14px);
-    line-height: var(--type-ramp-base-line-height, 20px);
-    color: var(--color-text-primary, var(--neutral-foreground-rest));
+    margin-bottom: var(--space-1);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    color: var(--color-text-primary);
 }
 
 .base-required-mark {
-    color: var(--color-danger, var(--error));
+    color: var(--color-danger);
 }
 
 .base-field-errors {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    margin-top: 4px;
+    gap: var(--space-0);
+    margin-top: var(--space-1);
 }
 
 .base-field-error {
-    color: var(--color-danger, var(--error));
-    font-size: var(--type-ramp-minus-1-font-size, 12px);
-    line-height: var(--type-ramp-minus-1-line-height, 16px);
+    color: var(--color-danger);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-xs);
     overflow-wrap: anywhere;
-}
-
-.base-property-input-invalid ::deep fluent-text-field::part(root),
-.base-property-input-invalid ::deep fluent-text-area::part(control),
-.base-property-input-invalid ::deep fluent-select::part(control),
-.base-property-input-invalid ::deep fluent-date-picker::part(root) {
-    border-color: var(--color-danger, var(--error));
 }
 
 .base-bool-field {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-}
-
-.base-property-input-readonly {
-    --base-readonly-text: color-mix(in srgb, var(--neutral-foreground-rest) 40%, var(--neutral-foreground-hint));
-    --base-readonly-fill: var(--neutral-layer-2);
-    --base-readonly-border: color-mix(in srgb, var(--neutral-foreground-hint) 70%, transparent);
-    color: var(--base-readonly-text);
-}
-
-.base-property-input-readonly ::deep fluent-text-field,
-.base-property-input-readonly ::deep fluent-text-area,
-.base-property-input-readonly ::deep fluent-select,
-.base-property-input-readonly ::deep fluent-switch,
-.base-property-input-readonly ::deep fluent-combobox {
-    color: var(--base-readonly-text);
-    cursor: not-allowed;
-}
-
-.base-property-input-readonly ::deep fluent-select[disabled],
-.base-property-input-readonly ::deep fluent-combobox[disabled],
-.base-property-input-readonly ::deep fluent-text-field[disabled],
-.base-property-input-readonly ::deep fluent-text-area[disabled],
-.base-property-input-readonly ::deep fluent-select::part(control),
-.base-property-input-readonly ::deep fluent-combobox::part(control) {
-    opacity: 1;
-}
-
-.base-property-input-readonly ::deep fluent-text-field::part(root),
-.base-property-input-readonly ::deep fluent-text-area::part(control),
-.base-property-input-readonly ::deep fluent-select::part(control),
-.base-property-input-readonly ::deep fluent-combobox::part(control) {
-    background: var(--base-readonly-fill);
-    border: 1px dashed var(--base-readonly-border);
-    color: var(--base-readonly-text);
-    cursor: not-allowed;
-}
-
-.base-property-input-readonly ::deep fluent-text-field::part(control),
-.base-property-input-readonly ::deep fluent-select::part(selected-value),
-.base-property-input-readonly ::deep fluent-combobox::part(selected-value) {
-    color: var(--base-readonly-text);
-    -webkit-text-fill-color: var(--base-readonly-text);
-    cursor: not-allowed;
-}
-
-.base-property-input-readonly ::deep fluent-text-field::part(end),
-.base-property-input-readonly ::deep fluent-select::part(indicator) {
-    opacity: 0.6;
-}
-
-.base-property-input-readonly ::deep fluent-switch::part(label) {
-    color: var(--base-readonly-text);
-}
-
-.base-property-input-readonly ::deep fluent-switch::part(switch) {
-    opacity: 0.55;
-    border-style: dashed;
-}
-
-.base-bool-field ::deep fluent-switch {
-    min-height: 32px;
-    align-items: center;
+    min-height: var(--control-height-md);
 }
 
 @media (pointer: coarse) {
-    .base-bool-field ::deep fluent-switch {
-        min-height: 44px;
+    .base-bool-field {
+        min-height: var(--control-height-touch);
     }
+}
+
+/* A read-only field keeps the muted text colour so it reads as not editable next to the editable ones. */
+.base-property-input-readonly {
+    color: var(--color-text-secondary);
 }
 
 .base-navigation-browse {
     display: flex;
     align-items: flex-end;
-    gap: 8px;
+    gap: var(--space-2);
 }
 
-.base-navigation-browse ::deep fluent-text-field {
+.base-navigation-browse ::deep .base-field-control {
     flex: 1;
 }
 
 .base-browse-panel {
     position: relative;
-    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
-    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
-    background: var(--color-bg-elevated, var(--neutral-layer-floating));
-    padding: 8px;
-    margin-top: 4px;
+    border: var(--stroke-width-thin) solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-elevated);
+    padding: var(--space-2);
+    margin-top: var(--space-1);
     z-index: 10;
 }
 
 .base-browse-panel-items {
     max-height: 300px;
     overflow-y: auto;
-    margin-top: 8px;
+    margin-top: var(--space-2);
 }
 
 .base-browse-item {
-    padding: 8px 12px;
+    padding: var(--space-2) var(--space-3);
     cursor: pointer;
-    border-radius: var(--radius-sm, calc(var(--control-corner-radius) * 1px));
+    border-radius: var(--radius-sm);
 }
 
 .base-browse-item:hover {
-    background: var(--color-bg-hover, var(--neutral-fill-stealth-hover));
+    background: var(--color-bg-hover);
 }
 
 .base-browse-item.selected {
-    background: var(--color-accent, var(--accent-fill-rest));
-    color: var(--color-text-on-accent, var(--foreground-on-accent-rest));
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
 }

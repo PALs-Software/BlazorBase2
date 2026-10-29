@@ -1,22 +1,20 @@
-@implements IDialogContentComponent<DateInputDialogContent>
+@inherits BaseDialogInstance<DateInputDialogContent>
 
-<FluentDialogBody>
-    <DialogBehavior CommitPendingEditOnEscape="false" DismissOnEscape="true">
-        <FluentStack Orientation="Orientation.Vertical" VerticalGap="12">
-            <FluentLabel Typo="Typography.Body">@Content.Message</FluentLabel>
-
-            <FluentDatePicker Value="@SelectedDate" ValueChanged="@OnDateChanged" />
-
-            <FluentStack Orientation="Orientation.Horizontal" HorizontalGap="8">
-                <FluentButton Appearance="Appearance.Accent"
-                             Disabled="@(SelectedDate is null)"
-                             OnClick="@ConfirmAsync">
-                    @ConfirmText
-                </FluentButton>
-                <FluentButton Appearance="Appearance.Outline" OnClick="@CancelAsync">
-                    @CancelText
-                </FluentButton>
-            </FluentStack>
+<BaseDialogBody CommitPendingEditOnEscape="false">
+    <ChildContent>
+        <FluentStack Orientation="Orientation.Vertical" VerticalGap="12px">
+            <FluentText As="TextTag.Paragraph">@Content.Message</FluentText>
+            <FluentDatePicker TValue="DateTime?" Value="@SelectedDate" ValueChanged="@OnDateChanged" />
         </FluentStack>
-    </DialogBehavior>
-</FluentDialogBody>
+    </ChildContent>
+    <ActionTemplate>
+        <FluentButton Appearance="ButtonAppearance.Primary"
+                      Disabled="@(SelectedDate is null)"
+                      OnClick="@ConfirmDateAsync">
+            @ConfirmText
+        </FluentButton>
+        <FluentButton Appearance="ButtonAppearance.Outline" OnClick="@CancelAsync">
+            @CancelText
+        </FluentButton>
+    </ActionTemplate>
+</BaseDialogBody>

@@ -8,7 +8,8 @@
     <div class="base-listpart-header">
         @if (CanAdd)
         {
-            <FluentButton Appearance="Appearance.Stealth"
+            <FluentButton Appearance="ButtonAppearance.Transparent"
+                          Class="base-listpart-add"
                           OnClick="@OnAddItemAsync"
                           IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Add())">
                 @FrameworkLocalizer["Add"]
@@ -27,8 +28,9 @@
         @if (ShowsSelectionColumn)
         {
             <div class="base-listpart-selection-info">
-                <FluentLabel Class="selection-count">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</FluentLabel>
-                <FluentButton Appearance="Appearance.Stealth"
+                <FluentText Class="selection-count">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</FluentText>
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-listpart-deselect"
                               OnClick="@DeselectAll"
                               IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.DismissCircle())">
                     @FrameworkLocalizer["DeselectAll"]
@@ -103,7 +105,7 @@
 
                 @if (hasRowMenu)
                 {
-                    <FluentButton Appearance="Appearance.Stealth"
+                    <FluentButton Appearance="ButtonAppearance.Transparent"
                                   Class="base-listpart-row-menu"
                                   Title="@FrameworkLocalizer["MoreActions"].Value"
                                   aria-label="@FrameworkLocalizer["MoreActions"].Value"
@@ -218,7 +220,7 @@
     @if (Items is null || !Items.Any())
     {
         <div class="base-listpart-empty">
-            <FluentLabel Typo="Typography.Body">@FrameworkLocalizer["NoListItems"]</FluentLabel>
+            <FluentText>@FrameworkLocalizer["NoListItems"]</FluentText>
         </div>
     }
 </div>

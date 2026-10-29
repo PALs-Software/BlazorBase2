@@ -23,7 +23,7 @@ public class BaseAction<TModel> : ComponentBase where TModel : class
     public Icon? Icon { get; set; }
 
     [Parameter]
-    public Appearance Appearance { get; set; } = Appearance.Stealth;
+    public ButtonAppearance Appearance { get; set; } = ButtonAppearance.Transparent;
 
     [Parameter]
     public CrudActionContext? Contexts { get; set; }

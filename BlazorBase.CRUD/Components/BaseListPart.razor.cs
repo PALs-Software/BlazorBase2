@@ -303,10 +303,9 @@ public partial class BaseListPart<TModel> : ComponentBase, IListPartFlushable, I
             CardType = CardType
         };
 
-        var dialog = await DialogService.ShowDialogAsync<BaseListPartItemDialog<TModel>>(dialogData, CardDialogDefaults.Create());
-        var result = await dialog.Result;
+        var result = await DialogService.ShowListPartItemDialogAsync(dialogData);
 
-        if (result is { Cancelled: false, Data: Dictionary<string, object?> changedFields })
+        if (result is { Cancelled: false, Value: Dictionary<string, object?> changedFields })
         {
             if (!PendingAdds.Contains(item))
                 MergeChangedFields(item, changedFields);

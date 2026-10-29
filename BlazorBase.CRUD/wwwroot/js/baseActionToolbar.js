@@ -122,7 +122,7 @@ export function measure(root, key) {
 
 export function focusTrigger(root, key) {
     const wrapper = findTrigger(root, key);
-    const button = wrapper && wrapper.querySelector('fluent-button, button');
+    const button = wrapper && wrapper.querySelector('.base-action-toolbar-button, button');
 
     if (button)
         button.focus();

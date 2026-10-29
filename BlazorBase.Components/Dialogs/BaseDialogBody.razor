@@ -1,0 +1,23 @@
+@namespace BlazorBase.Components.Dialogs
+
+<DialogBehavior Class="base-dialog-behavior"
+                InitialFocus="@InitialFocus"
+                CommitPendingEditOnEscape="@CommitPendingEditOnEscape">
+    @if (Flush)
+    {
+        <div class="base-dialog-flush">@ChildContent</div>
+    }
+    else if (ActionTemplate is null)
+    {
+        <FluentDialogBody Class="base-dialog-body" FixedHeaderFooter="@FixedHeaderFooter">
+            <ChildContent>@ChildContent</ChildContent>
+        </FluentDialogBody>
+    }
+    else
+    {
+        <FluentDialogBody Class="base-dialog-body" FixedHeaderFooter="@FixedHeaderFooter">
+            <ChildContent>@ChildContent</ChildContent>
+            <ActionTemplate><div class="base-dialog-actions">@ActionTemplate</div></ActionTemplate>
+        </FluentDialogBody>
+    }
+</DialogBehavior>

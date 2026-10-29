@@ -49,7 +49,7 @@ public sealed class BaseLayoutHeaderActionsTests : ComponentsBunitTestContextBas
             .Add(p => p.AppTitle, "Shell")
             .Add(p => p.HeaderActions, new[] { Item("b", 20), Item("a", 10) }));
 
-        var ids = cut.FindAll("header .base-header-actions fluent-button[data-action-id]").Select(button => button.GetAttribute("data-action-id"));
+        var ids = cut.FindAll("header .base-header-actions .base-header-action[data-action-id]").Select(button => button.GetAttribute("data-action-id"));
 
         Assert.Equal(["a", "b"], ids);
     }
@@ -62,7 +62,7 @@ public sealed class BaseLayoutHeaderActionsTests : ComponentsBunitTestContextBas
         var cut = Render<BaseLayout>(parameters => parameters.Add(p => p.AppTitle, "Shell"));
 
         var end = cut.Find(".base-header-end");
-        Assert.NotNull(end.QuerySelector(".base-header-actions fluent-button[data-action-id=reg]"));
+        Assert.NotNull(end.QuerySelector(".base-header-actions .base-header-action[data-action-id=reg]"));
         var html = end.InnerHtml;
         Assert.True(html.IndexOf("data-action-id=\"reg\"", StringComparison.Ordinal) < html.IndexOf("base-settings-toggle", StringComparison.Ordinal));
     }
@@ -75,7 +75,7 @@ public sealed class BaseLayoutHeaderActionsTests : ComponentsBunitTestContextBas
         var cut = Render<BaseLayout>(parameters => parameters
             .Add(p => p.AppTitle, "Shell")
             .Add(p => p.HeaderActions, new[] { Item("a", 1, () => clicked = true) }));
-        cut.Find("fluent-button[data-action-id=a]").Click();
+        cut.Find(".base-header-action[data-action-id=a]").Click();
 
         Assert.True(clicked);
     }

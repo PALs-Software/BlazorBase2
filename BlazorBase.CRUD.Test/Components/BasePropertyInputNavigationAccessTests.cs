@@ -8,6 +8,7 @@ using BlazorBase.CRUD.Test.Infrastructure.TestEntities;
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using Microsoft.FluentUI.AspNetCore.Components;
 using Xunit;
 
 namespace BlazorBase.CRUD.Test.Components;
@@ -85,9 +86,9 @@ public class BasePropertyInputNavigationAccessTests : BunitTestContextBase
         targetProvider.DidNotReceive().GetListAsync(Arg.Any<BaseQuery>(), Arg.Any<Expression<Func<NavigationAccessTarget, bool>>>(), Arg.Any<CancellationToken>());
         Assert.DoesNotContain("Secret Target", cut.Markup);
 
-        var textField = cut.Find("fluent-text-field");
-        Assert.True(textField.HasAttribute("readonly"));
-        Assert.Equal("Bound Target", textField.GetAttribute("value"));
+        var textField = cut.FindComponent<FluentTextInput>().Instance;
+        Assert.True(textField.ReadOnly);
+        Assert.Equal("Bound Target", textField.Value);
     }
 
     [Fact]

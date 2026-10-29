@@ -56,7 +56,7 @@ A layout can add items as well: `<BaseLayout HeaderActions="@items">`. Items fro
 - The row is rendered after `HeaderContent` and in front of the help, theme and settings buttons.
 - Visibility is evaluated again when the service changes, the authentication state changes and the route changes.
 - At 768 px and below only `MaxPhoneHeaderActions` (default 2) buttons stay in the header; the rest move into a "more" menu (`role="menu"`, closes on Escape, outside click or selection).
-- Buttons are `fluent-button` elements: focusable, activated by Enter and Space, with an accessible name.
+- Buttons are transparent icon `FluentButton`s with the class `base-header-control`: focusable, activated by Enter and Space, with an accessible name.
 - A layout without registered services and without `HeaderActions` renders nothing.
 
 ### Layout overlays
@@ -80,7 +80,7 @@ services.AddBlazorBaseIssueReporting(options =>
 });
 ```
 
-It registers `IIssueReportService`, `IIssueReportDiagnosticsCollector`, `IIssueReportBrowser`, the client diagnostics (see below) and a bug icon header action (`report-issue`, order 100). The button is hidden while `Recipient` is empty. `BaseLayout` renders the `FluentDialogProvider` the dialog needs.
+It registers `IIssueReportService`, `IIssueReportDiagnosticsCollector`, `IIssueReportBrowser`, the client diagnostics (see below) and a bug icon header action (`report-issue`, order 100). The button is hidden while `Recipient` is empty. `BaseLayout` renders the dialog provider the dialog needs (`FluentProviders`).
 
 `IssueReportOptions`:
 

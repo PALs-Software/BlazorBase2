@@ -25,25 +25,25 @@
     min-width: 200px;
     max-width: calc(100vw - 16px);
     padding: 4px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md, 10px);
+    border: var(--stroke-width-thin) solid var(--color-border);
+    border-radius: var(--radius-md);
     background: var(--color-bg-elevated);
-    box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+    box-shadow: var(--shadow-lg);
 }
 
 .base-header-actions-menu-item {
     display: flex;
     align-items: center;
     gap: 10px;
-    min-height: var(--base-header-control-size, 40px);
+    min-height: var(--base-header-control-size, var(--control-height-lg));
     padding: 0 10px;
     border: 0;
-    border-radius: var(--radius-sm, 6px);
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--color-text-primary);
     font: inherit;
-    font-size: 14px;
-    font-weight: 400;
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-regular);
     text-align: start;
     white-space: nowrap;
     cursor: pointer;
@@ -58,10 +58,6 @@
     outline-offset: -2px;
 }
 
-.base-header-actions ::deep fluent-button[aria-pressed="true"] {
-    --neutral-fill-stealth-rest: var(--color-bg-selected);
-}
-
-.base-header-actions ::deep fluent-button[aria-pressed="true"]::part(control) {
-    color: var(--color-text-primary);
+.base-header-actions ::deep .base-header-action[aria-pressed="true"] {
+    background-color: var(--color-bg-selected);
 }

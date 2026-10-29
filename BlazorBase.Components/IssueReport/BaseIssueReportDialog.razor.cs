@@ -1,7 +1,7 @@
+using BlazorBase.Components.Dialogs;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
-using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace BlazorBase.Components.IssueReport;
 
@@ -11,12 +11,12 @@ namespace BlazorBase.Components.IssueReport;
 /// does not open, the full text is copied to the clipboard instead. The dialog closes only on the user's action after
 /// showing what happened. Open it with <see cref="IIssueReportService"/> or the registered header button.
 /// </summary>
-public partial class BaseIssueReportDialog : ComponentBase, IDialogContentComponent<IssueReportDialogContent>
+public partial class BaseIssueReportDialog : BaseDialogInstance<IssueReportDialogContent>
 {
     #region Injects
 
     [Inject]
-    private IStringLocalizer<BaseIssueReportDialog> Localizer { get; set; } = default!;
+    private IStringLocalizer<BaseIssueReportDialog> DialogLocalizer { get; set; } = default!;
 
     [Inject]
     private IOptions<IssueReportOptions> OptionsAccessor { get; set; } = default!;
@@ -28,13 +28,6 @@ public partial class BaseIssueReportDialog : ComponentBase, IDialogContentCompon
     private IIssueReportBrowser Browser { get; set; } = default!;
 
     #endregion
-
-    /// <summary>The pre-filled values.</summary>
-    [Parameter]
-    public IssueReportDialogContent Content { get; set; } = new();
-
-    [CascadingParameter]
-    private FluentDialog? Dialog { get; set; }
 
     #region Members
 
@@ -77,6 +70,9 @@ public partial class BaseIssueReportDialog : ComponentBase, IDialogContentCompon
     /// <inheritdoc />
     protected override async Task OnInitializedAsync()
     {
+        await base.OnInitializedAsync();
+
+        Content ??= new IssueReportDialogContent();
         Summary = Content.Summary ?? string.Empty;
         Description = Content.Description ?? string.Empty;
         Category = Content.Category ?? string.Empty;
@@ -102,16 +98,4 @@ public partial class BaseIssueReportDialog : ComponentBase, IDialogContentCompon
 
     private async Task CopyDetailsAsync() =>
         CopyState = await Browser.CopyTextAsync(Mail.FullText) ? CopyOutcome.Copied : CopyOutcome.Failed;
-
-    private async Task CancelAsync()
-    {
-        if (Dialog is not null)
-            await Dialog.CancelAsync();
-    }
-
-    private async Task CloseAsync()
-    {
-        if (Dialog is not null)
-            await Dialog.CloseAsync();
-    }
 }

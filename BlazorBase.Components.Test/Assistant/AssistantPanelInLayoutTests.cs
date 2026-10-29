@@ -60,11 +60,11 @@ public sealed class AssistantPanelInLayoutTests : ComponentsBunitTestContextBase
     {
         var cut = RenderLayout();
 
-        cut.Find("fluent-button[data-action-id=assistant]").Click();
+        cut.Find(".base-header-action[data-action-id=assistant]").Click();
         cut.WaitForAssertion(() => Assert.Single(cut.FindAll(".layout-root .main-content .assistant-panel")));
         Assert.NotEmpty(cut.FindAll("#page"));
 
-        cut.Find("fluent-button[data-action-id=assistant]").Click();
+        cut.Find(".base-header-action[data-action-id=assistant]").Click();
         cut.WaitForAssertion(() => Assert.Empty(cut.FindAll(".assistant-panel")));
     }
 

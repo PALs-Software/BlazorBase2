@@ -180,7 +180,7 @@ public class BaseListPagingAndSortingTests : BunitTestContextBase
 
         var cut = RenderList<TestOrder>(provider, pageSize: 2);
 
-        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.fluent-data-grid-row")));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("tr.base-list-row")));
         Assert.Empty(cut.FindAll(".base-list-load-more"));
     }
 

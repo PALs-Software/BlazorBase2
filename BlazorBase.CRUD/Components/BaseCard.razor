@@ -8,9 +8,10 @@
         <h2 class="base-card-title">@CardTitle</h2>
         @if (IsCloseButtonVisible)
         {
-            <FluentButton Appearance="Appearance.Stealth"
+            <FluentButton Appearance="ButtonAppearance.Transparent"
                           Class="base-card-close"
                           Title="@FrameworkLocalizer["Close"].Value"
+                          IconOnly="true"
                           IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())"
                           OnClick="@TryCloseAsync" />
         }
@@ -19,7 +20,7 @@
     @if (IsContentLoading)
     {
         <div class="base-card-loading">
-            <FluentProgressRing />
+            <FluentSpinner Size="SpinnerSize.Medium" />
         </div>
     }
 
@@ -30,10 +31,17 @@
                     <CascadingValue Value="@FieldErrors" IsFixed="true">
                         <CardErrorBoundary @ref="ErrorBoundary">
                         <ErrorContent Context="cardException">
-                            <FluentMessageBar Intent="@MessageIntent.Error"
-                                              AllowDismiss="true"
-                                              OnDismiss="@(() => ErrorBoundary?.Recover())">
-                                @FrameworkLocalizer["CardUnexpectedError", DescribeException(cardException)]
+                            <FluentMessageBar Intent="MessageBarIntent.Error"
+                                              AllowDismiss="false">
+                                <ChildContent>@FrameworkLocalizer["CardUnexpectedError", DescribeException(cardException)]</ChildContent>
+                                <ActionsTemplate>
+                                    <FluentButton Appearance="ButtonAppearance.Transparent"
+                                                  IconOnly="true"
+                                                  Size="ButtonSize.Small"
+                                                  Title="@FrameworkLocalizer["Close"].Value"
+                                                  OnClick="@(() => ErrorBoundary?.Recover())"
+                                                  IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Dismiss())" />
+                                </ActionsTemplate>
                             </FluentMessageBar>
                         </ErrorContent>
                         <ChildContent>
@@ -62,12 +70,13 @@
                                 <div class="base-card-body">
                                     @if (GroupedFields.Count > 0)
                                     {
-                                        <FluentAccordion>
+                                        <FluentAccordion Block="true" MarkerPosition="AccordionItemMarkerPosition.End">
                                             @{ var groupIndex = 0; }
                                             @foreach (var group in GroupedFields)
                                             {
                                                 <FluentAccordionItem Expanded="@(groupIndex == 0 || ExpandAllGroups)"
-                                                                     Heading="@group.Key">
+                                                                     Class="base-card-group"
+                                                                     Header="@group.Key">
                                                     @RenderFields(group.Value)
                                                 </FluentAccordionItem>
                                                 groupIndex++;
@@ -82,7 +91,7 @@
                                     @foreach (var listPart in ResolvedListParts)
                                     {
                                         <div class="base-card-listpart">
-                                            <FluentLabel Typo="Typography.Subject" id="@($"listpart-{listPart.PropertyName}")">@ResolveListPartTitle(listPart)</FluentLabel>
+                                            <FluentText As="TextTag.Paragraph" Size="TextSize.Size400" Weight="TextWeight.Semibold" Id="@($"listpart-{listPart.PropertyName}")">@ResolveListPartTitle(listPart)</FluentText>
                                             @if (ResolveListPartTooltip(listPart) is { } listPartTooltip)
                                             {
                                                 <FluentTooltip Anchor="@($"listpart-{listPart.PropertyName}")">@listPartTooltip</FluentTooltip>
@@ -97,7 +106,7 @@
 
                                     @if (!string.IsNullOrEmpty(ErrorMessage))
                                     {
-                                        <FluentMessageBar Intent="@MessageIntent.Error">
+                                        <FluentMessageBar Intent="MessageBarIntent.Error" AllowDismiss="false">
                                             @ErrorMessage
                                         </FluentMessageBar>
                                     }
@@ -109,11 +118,13 @@
                                         @if (CanSave)
                                         {
                                             <FluentButton Type="ButtonType.Submit"
-                                                          Appearance="Appearance.Accent">
+                                                          Class="base-card-save"
+                                                          Appearance="ButtonAppearance.Primary">
                                                 @(SaveButtonText ?? FrameworkLocalizer["Save"].Value)
                                             </FluentButton>
                                         }
-                                        <FluentButton Appearance="Appearance.Neutral"
+                                        <FluentButton Appearance="ButtonAppearance.Outline"
+                                                      Class="base-card-cancel"
                                                       OnClick="@TryCloseAsync">
                                             @(CancelButtonText ?? FrameworkLocalizer["Cancel"].Value)
                                         </FluentButton>

@@ -18,7 +18,7 @@ public class CrudAction<TModel> where TModel : class
 
     public Icon? Icon { get; set; }
 
-    public Appearance Appearance { get; set; } = Appearance.Stealth;
+    public ButtonAppearance Appearance { get; set; } = ButtonAppearance.Transparent;
 
     /// <summary>
     /// The places the action is offered. Without an explicit value the default depends on <see cref="Scope"/>: an

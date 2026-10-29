@@ -1,7 +1,6 @@
 ::deep .settings-form {
     max-width: 500px;
-    gap: 1.5rem;
-    margin-top: 1rem;
+    margin-top: var(--space-4);
 }
 
 ::deep .settings-select {

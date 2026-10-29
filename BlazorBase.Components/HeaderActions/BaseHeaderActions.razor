@@ -5,30 +5,28 @@
     <div class="base-header-actions" role="group" aria-label="@Localizer["Actions"]" @onkeydown="OnKeyDown">
         @foreach (var item in Inline)
         {
-            <FluentButton Appearance="Appearance.Stealth"
-                          Class="base-header-action"
+            <FluentButton Appearance="ButtonAppearance.Transparent"
+                          Class="base-header-action base-header-control"
+                          IconOnly="true"
+                          IconStart="@item.Icon"
                           Title="@item.Title"
-                          aria-label="@item.Title"
                           aria-haspopup="@item.PopupKind"
                           aria-pressed="@PressedValue(item)"
                           data-action-id="@item.Id"
-                          OnClick="() => ActivateAsync(item)">
-                <FluentIcon Value="@item.Icon" Color="Color.Neutral" />
-            </FluentButton>
+                          OnClick="() => ActivateAsync(item)" />
         }
         @if (Overflow.Count > 0)
         {
             <span class="base-header-actions-more">
-                <FluentButton Appearance="Appearance.Stealth"
-                              Class="base-header-action base-header-actions-toggle"
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-header-action base-header-actions-toggle base-header-control"
+                              IconOnly="true"
+                              IconStart="@(new Size20.MoreHorizontal())"
                               Title="@Localizer["More"]"
-                              aria-label="@Localizer["More"]"
                               aria-haspopup="menu"
                               aria-expanded="@(IsMenuOpen ? "true" : "false")"
                               aria-controls="@MenuId"
-                              OnClick="ToggleMenu">
-                    <FluentIcon Value="@(new Size20.MoreHorizontal())" Color="Color.Neutral" />
-                </FluentButton>
+                              OnClick="ToggleMenu" />
                 @if (IsMenuOpen)
                 {
                     <div class="base-header-actions-backdrop" @onclick="CloseMenu"></div>
