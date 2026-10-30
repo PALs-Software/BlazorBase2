@@ -120,7 +120,7 @@ public partial class BaseSideNavigation(
         }
     }
 
-    private bool IsExpanded(NavigationItem group) => GroupStates.GetValueOrDefault(group.StateKey);
+    private bool IsExpanded(NavigationItem group) => GroupStates.GetValueOrDefault(group.StateKey, group.ExpandedByDefault);
 
     private bool ContainsActiveChild(NavigationItem group) =>
         group.Children.Any(child => NavigationActivation.IsActive(NavigationManager, child));

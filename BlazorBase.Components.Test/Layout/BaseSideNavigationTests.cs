@@ -185,6 +185,27 @@ public sealed class BaseSideNavigationTests : ComponentsBunitTestContextBase
     }
 
     [Fact]
+    public void AGroupFlaggedExpandedByDefault_IsOpenUntilARememberedChoiceSaysOtherwise()
+    {
+        var module = JSInterop.SetupModule("./_content/BlazorBase.Components/js/layout.js");
+        module.Setup<Dictionary<string, bool>?>("readGroupStates", _ => true)
+            .SetResult(new Dictionary<string, bool> { ["open-by-default"] = false });
+        IReadOnlyList<NavigationItem> items =
+        [
+            new() { Label = "Open", Key = "open", ExpandedByDefault = true, Children = [new() { Href = "/a", Label = "A" }] },
+            new() { Label = "Closed", Key = "closed", Children = [new() { Href = "/b", Label = "B" }] },
+            new() { Label = "Chosen", Key = "open-by-default", ExpandedByDefault = true, Children = [new() { Href = "/c", Label = "C" }] },
+        ];
+
+        var cut = Render<BaseSideNavigation>(parameters => parameters.Add(p => p.Items, items));
+
+        var categories = cut.FindComponents<FluentNavCategory>();
+        Assert.True(categories[0].Instance.Expanded);
+        Assert.False(categories[1].Instance.Expanded);
+        Assert.False(categories[2].Instance.Expanded);
+    }
+
+    [Fact]
     public void TheGroupHoldingTheCurrentPage_IsExpandedAndMarked_EvenWhenRememberedAsCollapsed()
     {
         var module = JSInterop.SetupModule("./_content/BlazorBase.Components/js/layout.js");

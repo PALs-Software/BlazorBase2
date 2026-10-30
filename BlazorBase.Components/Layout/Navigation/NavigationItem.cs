@@ -55,6 +55,9 @@ public sealed record NavigationItem
     /// <summary>The key a group is remembered under.</summary>
     public string StateKey => Key ?? Label;
 
+    /// <summary>Whether a group is open until the user has opened or closed it once; the user's choice is remembered and wins afterwards.</summary>
+    public bool ExpandedByDefault { get; init; }
+
     /// <summary>Renders the entry with a destructive accent (e.g. logout).</summary>
     public bool IsDanger { get; init; }
 

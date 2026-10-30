@@ -792,6 +792,7 @@ An immutable `record` describing one entry:
 | `IsDanger` | Renders with a destructive accent (e.g. logout). |
 | `OnClick` | Action invoked instead of navigating (e.g. logout). |
 | `Children` | A non-empty list turns the entry into a group that reveals its children instead of navigating. |
+| `ExpandedByDefault` | A group is open until the user opens or closes it once; the remembered choice wins afterwards. Default `false`. |
 
 Role visibility is evaluated once against the cascading `AuthenticationState`. When `RequiredRole` contains
 multiple comma-separated names the entry is visible if the user is in **any** of them (OR semantics). Groups

@@ -169,7 +169,8 @@ apart:
 
 - `BaseSideNavigation` — the desktop rail, built on `FluentNav`: entries are `FluentNavItem`s, groups are collapsible
   `FluentNavCategory`s that remember in the browser whether they are expanded (the group holding the current page opens
-  itself). Reduced to icons, a group is one icon button that shows or hides the icons of its entries.
+  itself; `NavigationItem.ExpandedByDefault` opens a group until the user has chosen). The selected page is marked by a
+  background and a bar over the full height of its row; the group holding it only turns accent-coloured. Reduced to icons, a group is one icon button that shows or hides the icons of its entries.
 - `BaseBottomNavigation` — the mobile tab bar. Entries flagged `IsMobilePrimary` become tabs; the rest
   land behind a "More" bottom sheet that also handles groups (with a back step) and actions such as
   logging out.
