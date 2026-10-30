@@ -35,7 +35,7 @@
                             Class="base-issue-field" />
 
             <div class="base-issue-diagnostics-block">
-                <FluentCheckbox @bind-Value="IncludeDiagnostics" Label="@DialogLocalizer["IncludeDiagnostics"]" />
+                <FluentCheckbox Class="base-choice" @bind-Value="IncludeDiagnostics" Label="@DialogLocalizer["IncludeDiagnostics"]" />
                 @if (IncludeDiagnostics)
                 {
                     <div class="base-issue-diagnostics-title" id="base-issue-diagnostics-title">@DialogLocalizer["DiagnosticsPreview"]</div>

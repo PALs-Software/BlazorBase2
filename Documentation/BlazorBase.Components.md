@@ -127,8 +127,9 @@ behind the stamp.
 | `--shadow-sm` / `-md` / `-lg` / `-xl` | Elevation: cards, menus, panels, dialogs |
 | `--duration-fast` / `-normal` / `-slow`, `--easing-standard` | Transitions |
 
-Two utility classes sit next to the tokens: `base-touch-target` gives a checkbox, switch or radio the control height
-(the touch height on coarse pointers), and `base-danger-action` (in the bridge) makes a button's accent colours danger colours.
+Three utility classes sit next to the tokens: `base-touch-target` gives a checkbox, switch or radio the control height
+(the touch height on coarse pointers), `base-choice` puts a space between a checkbox or radio and its label (give it to
+every `FluentCheckbox` and `FluentRadio`), and `base-danger-action` (in the bridge) makes a button's accent colours danger colours.
 
 ### Customising
 

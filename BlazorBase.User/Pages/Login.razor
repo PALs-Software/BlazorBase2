@@ -24,7 +24,7 @@
                                  AutoComplete="one-time-code"
                                  Class="full-width" />
 
-                <FluentCheckbox @bind-Value="TwoFactorCodeIsRecoveryCode" Label="@Localizer["TwoFactorUseRecoveryCode"]" />
+                <FluentCheckbox Class="base-choice" @bind-Value="TwoFactorCodeIsRecoveryCode" Label="@Localizer["TwoFactorUseRecoveryCode"]" />
 
                 @if (!string.IsNullOrEmpty(ErrorMessage))
                 {

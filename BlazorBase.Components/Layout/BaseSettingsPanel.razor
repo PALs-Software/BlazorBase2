@@ -33,7 +33,7 @@
                                       ValueChanged="SelectLanguageAsync">
                         @foreach (var option in LanguageChoices)
                         {
-                            <FluentRadio TValue="string" Value="@option.Key" Label="@option.Value" Class="base-touch-target" />
+                            <FluentRadio TValue="string" Value="@option.Key" Label="@option.Value" Class="base-touch-target base-choice" />
                         }
                     </FluentRadioGroup>
                 </section>
@@ -45,9 +45,9 @@
                                   Orientation="Orientation.Vertical"
                                   Value="@ThemeService.CurrentTheme.ToString()"
                                   ValueChanged="SelectThemeAsync">
-                    <FluentRadio TValue="string" Value="@nameof(ThemePreference.System)" Label="@Localizer["System"]" Class="base-touch-target" />
-                    <FluentRadio TValue="string" Value="@nameof(ThemePreference.Light)" Label="@Localizer["Light"]" Class="base-touch-target" />
-                    <FluentRadio TValue="string" Value="@nameof(ThemePreference.Dark)" Label="@Localizer["Dark"]" Class="base-touch-target" />
+                    <FluentRadio TValue="string" Value="@nameof(ThemePreference.System)" Label="@Localizer["System"]" Class="base-touch-target base-choice" />
+                    <FluentRadio TValue="string" Value="@nameof(ThemePreference.Light)" Label="@Localizer["Light"]" Class="base-touch-target base-choice" />
+                    <FluentRadio TValue="string" Value="@nameof(ThemePreference.Dark)" Label="@Localizer["Dark"]" Class="base-touch-target base-choice" />
                 </FluentRadioGroup>
             </section>
             @ChildContent?.Invoke(Context)

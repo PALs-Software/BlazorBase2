@@ -242,6 +242,14 @@ h4 {
 }
 
 /*
+   A checkbox or radio sits flush against the label that follows it, because the field puts no space between the
+   two. The class gives them the gap a switch has built in.
+*/
+.base-choice {
+    column-gap: var(--space-2);
+}
+
+/*
    A card shown on a page without a list or dialog (a setup page) fills the page below its heading, so its header and
    action bar stay in view and only its field area scrolls. The page becomes a flex column for that; the card is the
    one item allowed to shrink, down to the minimum height it asks for, below which the page itself scrolls.
