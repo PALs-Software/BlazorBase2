@@ -249,6 +249,18 @@ h4 {
     column-gap: var(--space-2);
 }
 
+.base-choice label {
+    color: var(--color-text-primary);
+}
+
+/*
+   A subtle button is set in the secondary text colour, which reads as disabled on its own in a panel. The class
+   gives it the primary text colour.
+*/
+.base-prominent-button {
+    color: var(--color-text-primary);
+}
+
 /*
    A card shown on a page without a list or dialog (a setup page) fills the page below its heading, so its header and
    action bar stay in view and only its field area scrolls. The page becomes a flex column for that; the card is the
