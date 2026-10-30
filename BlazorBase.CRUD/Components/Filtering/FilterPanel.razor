@@ -8,16 +8,24 @@
      @onkeydown="OnKeyDownAsync">
     <div class="filter-panel-header">
         <span class="filter-panel-title">@Localizer["Filter"]</span>
-        <FluentButton Appearance="Appearance.Stealth"
+        <FluentButton Appearance="ButtonAppearance.Transparent"
                       OnClick="@OnClose"
                       Title="@Localizer["FilterClose"].Value"
+                      IconOnly="true"
                       IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())" />
     </div>
+
+    @if (SavedFilters is { IsAvailable: true })
+    {
+        <div class="filter-panel-saved">
+            <SavedFilterMenu Saved="SavedFilters" Current="Root" OnLoad="@OnSavedFilterLoadedAsync" />
+        </div>
+    }
 
     <div class="filter-panel-body">
         @if (Fields.Count == 0)
         {
-            <FluentLabel Typo="Typography.Body">@Localizer["FilterEmpty"]</FluentLabel>
+            <FluentText>@Localizer["FilterEmpty"]</FluentText>
         }
         else
         {
@@ -29,7 +37,7 @@
     </div>
 
     <div class="filter-panel-footer">
-        <FluentButton Appearance="Appearance.Accent" OnClick="@ApplyAsync">@Localizer["FilterApply"]</FluentButton>
-        <FluentButton Appearance="Appearance.Stealth" OnClick="@ResetAsync">@Localizer["FilterReset"]</FluentButton>
+        <FluentButton Appearance="ButtonAppearance.Primary" OnClick="@ApplyAsync">@Localizer["FilterApply"]</FluentButton>
+        <FluentButton Appearance="ButtonAppearance.Transparent" OnClick="@ResetAsync">@Localizer["FilterReset"]</FluentButton>
     </div>
 </div>

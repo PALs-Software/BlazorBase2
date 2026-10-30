@@ -1,0 +1,9 @@
+@namespace BlazorBase.Notifications.Components.PushSettingsToggle
+
+<div class="push-settings-toggle @Class">
+    <FluentSwitch Value="@IsOn"
+                  ValueChanged="@ToggleAsync"
+                  Disabled="@(!IsInteractive)"
+                  Label="@Localizer["Label"]" />
+    <p class="push-settings-toggle-caption">@Caption</p>
+</div>

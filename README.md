@@ -13,6 +13,7 @@ applications. Open [BlazorBase.slnx](BlazorBase.slnx) in Visual Studio to build 
 | `BlazorBase.CRUD.Generators` | Source generators for the CRUD layer |
 | `BlazorBase.CRUD.Benchmarks` | Benchmarks for the CRUD layer |
 | `BlazorBase.Chart` | Charting components |
+| `BlazorBase.Dashboard` | Role center dashboard: part registry, cues, headline, list and chart parts |
 | `BlazorBase.Mailing` | Mailing/notification infrastructure |
 | `BlazorBase.Speech` | Push-to-talk recording, reading text aloud, Markdown-to-speech preparation |
 | `BlazorBase.Speech.Server` | Authenticated proxy controller and client for an internal speech service |

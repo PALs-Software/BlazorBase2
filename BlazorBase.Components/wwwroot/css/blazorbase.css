@@ -12,7 +12,12 @@
 
    Customising: override the tokens in a stylesheet linked after this one. Swapping the brand colour
    takes two of them, --color-accent and --color-bg-selected; everything else is neutral scaffolding.
+
+   The Fluent UI components are painted from the same tokens: blazorbase-fluent-bridge.css, imported below,
+   maps them onto the Fluent 2 tokens, so nothing else in an application ever names a Fluent token.
 */
+
+@import url("blazorbase-fluent-bridge.css");
 
 :root {
     --color-bg-surface: #F7F8F8;
@@ -33,11 +38,20 @@
     --color-text-on-accent: #FFFFFF;
 
     /*
-       The seed FluentUI derives its own neutral ramp from. Its controls - buttons, inputs, dialog
-       chrome - paint from that ramp, not from the tokens here, so without a seed in the same hue they
-       render grey-blue on a palette that is not. One mid-tone swatch is enough: FluentUI interpolates
-       white to black through it and picks its layers by luminance, so only the hue and saturation of
-       this value carry over.
+       The accent in the roles an accent has besides a fill. They follow --color-accent and the text colour
+       of the active theme, so a host that swaps the accent gets all of them. The text variant is darkened
+       (lightened in the dark theme) until it reads on the surface, which a bright accent such as a cyan
+       does not do on its own.
+    */
+    --color-accent-text: color-mix(in srgb, var(--color-accent) 70%, var(--color-text-primary));
+    --color-accent-hover: color-mix(in srgb, var(--color-accent) 88%, var(--color-text-primary));
+    --color-accent-pressed: color-mix(in srgb, var(--color-accent) 76%, var(--color-text-primary));
+    --color-accent-subtle: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-elevated));
+
+    /*
+       A mid-tone grey in the hue of the palette. The neutral roles that have no token of their own - disabled
+       controls, skeletons, the darker layers - are tinted from it, so they sit in the palette instead of
+       drifting to a neutral grey.
     */
     --color-neutral-base: #848686;
 
@@ -47,6 +61,7 @@
     --color-danger-bg: #B91C1C0F;
     --color-text-on-danger: #FFFFFF;
 
+    --space-0: 2px;
     --space-1: 4px;
     --space-2: 8px;
     --space-3: 12px;
@@ -54,6 +69,7 @@
     --space-5: 24px;
     --space-6: 32px;
 
+    --radius-xs: 4px;
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 16px;
@@ -61,9 +77,57 @@
 
     --font-base: system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-display: system-ui, -apple-system, "Segoe UI", sans-serif;
-    --font-monospace: ui-monospace, "Cascadia Code", "SF Mono", monospace;
+
+    --font-size-xxs: 10px;
+    --font-size-xs: 12px;
+    --font-size-base: 14px;
+    --font-size-md: 16px;
+    --font-size-lg: 20px;
+    --font-size-xl: 24px;
+    --font-size-xxl: 28px;
+    --font-size-hero: 32px;
+
+    --line-height-xxs: 14px;
+    --line-height-xs: 16px;
+    --line-height-base: 20px;
+    --line-height-md: 22px;
+    --line-height-lg: 28px;
+    --line-height-xl: 32px;
+    --line-height-xxl: 36px;
+    --line-height-hero: 40px;
+
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+
+    --control-height-sm: 24px;
+    --control-height-md: 32px;
+    --control-height-lg: 40px;
+    --control-height-touch: 44px;
+
+    --stroke-width-thin: 1px;
+    --stroke-width-thick: 2px;
+
+    --shadow-sm: 0 0 2px rgb(0 0 0 / 0.12), 0 2px 4px rgb(0 0 0 / 0.14);
+    --shadow-md: 0 0 2px rgb(0 0 0 / 0.12), 0 4px 8px rgb(0 0 0 / 0.14);
+    --shadow-lg: 0 0 8px rgb(0 0 0 / 0.12), 0 8px 16px rgb(0 0 0 / 0.14);
+    --shadow-xl: 0 0 8px rgb(0 0 0 / 0.12), 0 14px 28px rgb(0 0 0 / 0.14);
+
+    --duration-fast: 100ms;
+    --duration-normal: 200ms;
+    --duration-slow: 300ms;
+    --easing-standard: cubic-bezier(0.33, 0, 0.67, 1);
 
     color-scheme: light;
+}
+
+/*
+   The Fluent UI stylesheet defines --font-monospace on :root itself, which would win over the line that sits
+   beside the other tokens. Doubling :root outranks it, so the monospace stack is the one set here.
+*/
+:root:root {
+    --font-monospace: ui-monospace, "Cascadia Code", "SF Mono", monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -130,4 +194,184 @@ body {
     background: var(--color-bg-surface);
     color: var(--color-text-primary);
     font-family: var(--font-base);
+}
+
+/* The Fluent components size their padded boxes as border-box; with the default content-box a 32px control grows by its padding. */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/*
+   FocusOnNavigate moves focus to the page heading so a screen reader announces the new page. The heading is
+   not interactive and cannot be reached with Tab, but Chromium matches :focus-visible for focus that a script
+   moves while nothing had focus yet, which drew a ring around the title after every navigation. Neither :focus nor
+   :focus-visible paints one here; every control the user can actually tab to keeps its own ring.
+*/
+h1[tabindex="-1"]:focus,
+h1[tabindex="-1"]:focus-visible {
+    outline: none;
+}
+
+/*
+   A heading is set in a large size, so one long compound word - common in German, "Benachrichtigungseinstellungen" -
+   is wider than a phone and was cut off at the edge with nothing to scroll to. Hyphenating where the language
+   allows it and breaking anywhere as the last resort keeps every character on screen.
+*/
+h1,
+h2,
+h3,
+h4 {
+    overflow-wrap: anywhere;
+    hyphens: auto;
+}
+
+/*
+   A switch, checkbox or radio is only as high as its label line (20px), which is too small a target for a finger.
+   The class gives the row the minimum target height and keeps the label centred in it.
+*/
+.base-touch-target {
+    min-height: var(--control-height-md);
+}
+
+@media (pointer: coarse) {
+    .base-touch-target {
+        min-height: var(--control-height-touch);
+    }
+}
+
+/*
+   A checkbox or radio sits flush against the label that follows it, because the field puts no space between the
+   two. The class gives them the gap a switch has built in.
+*/
+.base-choice {
+    column-gap: var(--space-2);
+}
+
+.base-choice label {
+    color: var(--color-text-primary);
+}
+
+/*
+   A subtle button is set in the secondary text colour, which reads as disabled on its own in a panel. The class
+   gives it the primary text colour.
+*/
+.base-prominent-button {
+    color: var(--color-text-primary);
+}
+
+/*
+   A card shown on a page without a list or dialog (a setup page) fills the page below its heading, so its header and
+   action bar stay in view and only its field area scrolls. The page becomes a flex column for that; the card is the
+   one item allowed to shrink, down to the minimum height it asks for, below which the page itself scrolls.
+*/
+.body-content:has(> .base-card-inline) {
+    display: flex;
+    flex-direction: column;
+}
+
+.body-content:has(> .base-card-inline) > :not(.base-card-inline) {
+    flex: none;
+}
+
+/*
+   The frame of a BlazorBase dialog adds one wrapper for its keyboard behavior; it takes part in the layout of the
+   dialog as if it were not there. A flush dialog hands the whole dialog to its content, which lays out its own header,
+   scrolling area and action bar inside the height the window leaves.
+*/
+.base-dialog-behavior {
+    display: contents;
+}
+
+.base-dialog-flush {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    min-height: 0;
+    max-height: calc(100dvh - var(--space-5) * 2);
+}
+
+/* Contextual help: the popover of a field tooltip (created by js/helpTooltips.js) and the brief highlight of an anchor in the help panel. */
+.base-help-tip {
+    position: fixed;
+    z-index: 2000;
+    box-sizing: border-box;
+    max-width: min(320px, calc(100vw - 16px));
+    padding: 8px 10px;
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+    font-family: var(--font-base);
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    animation: base-help-tip-in 0.12s ease-out;
+}
+
+.base-help-tip[hidden] {
+    display: none;
+}
+
+.base-help-tip-text code {
+    padding: 0 0.25em;
+    background: var(--color-bg-subtle);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-monospace);
+    font-size: 0.92em;
+}
+
+.base-help-tip-link {
+    display: inline-block;
+    margin-top: 6px;
+    color: var(--color-accent);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.base-help-tip-link:hover {
+    text-decoration: underline;
+}
+
+.base-help-tip-link:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.help-anchor-highlight {
+    border-radius: var(--radius-sm);
+    animation: base-help-highlight 2.2s ease-out;
+}
+
+@keyframes base-help-tip-in {
+    from {
+        opacity: 0;
+        transform: translateY(2px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes base-help-highlight {
+    from {
+        background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    }
+    to {
+        background: transparent;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .base-help-tip {
+        animation: none;
+    }
+
+    .help-anchor-highlight {
+        animation: none;
+        background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+    }
 }

@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Security.Claims;
+using System.Text.Json.Serialization;
 using BlazorBase.CRUD.Components.CustomProperties;
+using BlazorBase.CRUD.Components.Internal;
 using BlazorBase.CRUD.Configuration;
 using BlazorBase.CRUD.Core;
 using BlazorBase.CRUD.Display;
@@ -10,6 +12,7 @@ using BlazorBase.CRUD.Models;
 using BlazorBase.CRUD.Navigation;
 using BlazorBase.CRUD.Security;
 using BlazorBase.Components.Services;
+using BlazorBase.Components.Assistant;
 using BlazorBase.CRUD.Validation;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -21,7 +24,7 @@ using Microsoft.JSInterop;
 
 namespace BlazorBase.CRUD.Components;
 
-public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, IListPartCollector<TModel>, IActionGroupCollector<TModel>, IDisplayKeyCollector<TModel>, IAsyncDisposable
+public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, IListPartCollector<TModel>, IActionGroupCollector<TModel>, IDisplayKeyCollector<TModel>, IAssistantContextProvider, IAsyncDisposable
     where TModel : class, new()
 {
     #region Injects
@@ -35,6 +38,7 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
     #endregion
 
     private ElementReference CardRootElement { get; set; }
+    private CardErrorBoundary? ErrorBoundary { get; set; }
     private IJSObjectReference? DismissModule { get; set; }
     private DotNetObjectReference<BaseCard<TModel>>? SelfReference { get; set; }
     private string? DismissToken { get; set; }
@@ -93,6 +97,33 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
     public bool DeferSave { get; set; }
 
     /// <summary>
+    /// Whether the header shows the close ("X") button. Left unset, the button is shown when something can act on a
+    /// close request — a dialog hosts the card or <see cref="OnCancelled"/> has a consumer — and hidden on a card
+    /// shown standalone on a page, where closing has no meaning.
+    /// </summary>
+    [Parameter]
+    public bool? ShowCloseButton { get; set; }
+
+    /// <summary>
+    /// The dialog hosting the card, if any; its presence is what tells a dialog card from one shown on a page.
+    /// </summary>
+    [CascadingParameter]
+    private IDialogInstance? HostingDialog { get; set; }
+
+    private bool IsInline => HostingDialog is null;
+
+    /// <summary>
+    /// The hook of the list that opened this card in a dialog, used to confirm unsaved changes before the browser
+    /// navigates away from the card (back, forward, a link).
+    /// </summary>
+    [CascadingParameter]
+    private CardCloseGuard? CloseGuard { get; set; }
+
+    private bool HasCloseConsumer => HostingDialog is not null || OnCancelled.HasDelegate;
+
+    private bool IsCloseButtonVisible => ShowCloseButton ?? HasCloseConsumer;
+
+    /// <summary>
     /// Separator placed between multiple display-key values in the header title.
     /// Overridden by <see cref="BaseCardConfiguration{TModel}.DisplayKeySeparator"/>;
     /// null falls back to <see cref="DisplayKeyResolver.DefaultSeparator"/>.
@@ -117,6 +148,33 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
     private string? ResolveListPartTooltip(BaseListPartConfiguration<TModel> listPart) =>
         LocalizerResolver.ResolveOptional(ResolvedLocalizer, $"{listPart.PropertyName}_Tooltip");
+
+    private CardFieldErrors FieldErrors { get; } = new();
+
+    private bool FocusFirstErrorPending { get; set; }
+
+    private string ResolveFieldLabel(string propertyName)
+    {
+        var configuredLabel = ResolvedFields.FirstOrDefault(field => field.PropertyName == propertyName)?.Label;
+        if (configuredLabel is not null)
+            return configuredLabel;
+
+        var result = ResolvedLocalizer[propertyName];
+        return result.ResourceNotFound ? propertyName : result.Value;
+    }
+
+    /// <summary>
+    /// Whether the field takes a whole grid row: explicitly requested, a multi-line editor, or a column span that
+    /// covers every column the card can have.
+    /// </summary>
+    private bool IsFullRowField(PropertyFieldConfig<TModel> field) =>
+        field.FullWidth || field.Lines > 1 || field.ColSpan >= MaxColumns;
+
+    private Task OnInvalidSubmitAsync()
+    {
+        FocusFirstErrorPending = true;
+        return Task.CompletedTask;
+    }
 
     #region Events
 
@@ -152,6 +210,7 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
     private string? ErrorMessage { get; set; }
     private bool IsConfirmDialogOpen { get; set; }
     private bool InitialSnapshotTaken { get; set; }
+    private TModel? SnapshotParameterModel { get; set; }
     private int LoadedNavigationFields { get; set; }
 
     private IBaseDataProvider<TModel> ResolvedDataProvider =>
@@ -249,6 +308,19 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
     /// (<c>null</c>) made every new model look like an existing row — which captioned the dialog
     /// "edit", checked modify instead of insert rights, and sent the save down the update path.
     /// </remarks>
+    private IDisposable? AssistantRegistration { get; set; }
+
+    void IAssistantContextProvider.Contribute(AssistantContextBuilder builder)
+    {
+        builder.EntityType = typeof(TModel).Name;
+
+        if (IsNewModel)
+            return;
+
+        var key = typeof(TModel).GetProperty(DisplayKeyResolver.GetPrimaryKeyPropertyName(typeof(TModel)))?.GetValue(Model);
+        builder.EntityKey = Convert.ToString(key, System.Globalization.CultureInfo.InvariantCulture) ?? builder.EntityKey;
+    }
+
     private bool InferIsNewFromKey()
     {
         var idProperty = typeof(TModel).GetProperty("Id");
@@ -267,13 +339,20 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
     {
         get
         {
+            if (IsNewModel)
+                return FrameworkLocalizer["DialogTitleAdd"].Value;
+
             var displayKeyText = DisplayKeyResolver.BuildDisplayString(
                 Model, ResolveDisplayKeyPropertyNames(), ResolvedDisplayKeySeparator);
 
-            if (!string.IsNullOrEmpty(displayKeyText))
-                return displayKeyText;
+            if (ReadOnly)
+            {
+                var view = FrameworkLocalizer["DialogTitleView"].Value;
 
-            return IsNewModel ? FrameworkLocalizer["DialogTitleAdd"].Value : FrameworkLocalizer["DialogTitleEdit"].Value;
+                return string.IsNullOrEmpty(displayKeyText) ? view : $"{view} – {displayKeyText}";
+            }
+
+            return string.IsNullOrEmpty(displayKeyText) ? FrameworkLocalizer["DialogTitleEdit"].Value : displayKeyText;
         }
     }
 
@@ -369,15 +448,19 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
                 displayKey.ResolvePropertyName();
         }
 
-        if (InitialSnapshotTaken)
+        if (InitialSnapshotTaken && ReferenceEquals(SnapshotParameterModel, Model))
             return;
 
         InitialSnapshotTaken = true;
+        SnapshotParameterModel = Model;
         SnapshotOriginalValues();
     }
 
     protected override async Task OnInitializedAsync()
     {
+        AssistantRegistration = ServiceProvider.GetService<AssistantContextService>()?.Register(this);
+        CloseGuard?.Register(this, () => HasUnsavedChanges, RequestGuardedCloseAsync);
+
         var authStateProvider = ServiceProvider.GetService<AuthenticationStateProvider>();
         if (authStateProvider is null)
             return;
@@ -388,10 +471,13 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (FocusFirstErrorPending)
+            await FocusFirstErrorAsync();
+
         if (!firstRender)
             return;
 
-        if (CollectedDisplayKeys.Count > 0)
+        if (CollectedDisplayKeys.Count > 0 || CollectedListParts.Count > 0)
             StateHasChanged();
 
         DismissModule = await JsRuntime.InvokeAsync<IJSObjectReference>(
@@ -402,6 +488,22 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
         SelfReference = DotNetObjectReference.Create(this);
         DismissToken = await DismissModule.InvokeAsync<string?>("register", CardRootElement, SelfReference);
+    }
+
+    private async Task FocusFirstErrorAsync()
+    {
+        FocusFirstErrorPending = false;
+
+        if (DismissModule is null)
+            return;
+
+        try
+        {
+            await DismissModule.InvokeVoidAsync("focusFirstError", CardRootElement);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
     }
 
     /// <summary>
@@ -504,6 +606,8 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
             if (OnDeferredSave.HasDelegate)
                 await OnDeferredSave.InvokeAsync(deferredChangedFields);
 
+            SnapshotOriginalValues();
+
             foreach (var participant in SaveParticipants)
                 await participant.OnAfterSaveAsync(saveContext);
 
@@ -531,8 +635,13 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
                     Model = await provider.PatchAsync(idValue!, changedFields, ConcurrencyStamp);
             }
 
-            foreach (var listPart in RegisteredListParts.Values)
+            foreach (var (propertyName, listPart) in RegisteredListParts)
+            {
+                if (isNew && IsSentWithParent(propertyName))
+                    continue;
+
                 await listPart.FlushAsync(Model!);
+            }
 
             SnapshotOriginalValues();
         }
@@ -548,6 +657,12 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
             StateHasChanged();
             return;
         }
+        catch (HttpRequestException ex)
+        {
+            ErrorMessage = FrameworkLocalizer["SaveFailed", DescribeFailure(ex)].Value;
+            StateHasChanged();
+            return;
+        }
 
         foreach (var participant in SaveParticipants)
             await participant.OnAfterSaveAsync(saveContext);
@@ -557,6 +672,26 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
         if (OnAfterSave.HasDelegate)
             await OnAfterSave.InvokeAsync(Model);
     }
+
+    private bool IsSentWithParent(string propertyName)
+    {
+        var listPart = ResolvedListParts.FirstOrDefault(part => part.PropertyName == propertyName);
+
+        return listPart is not null && IsSerializedWithParent(ExpressionHelper.GetPropertyInfo(listPart.Property));
+    }
+
+    /// <summary>
+    /// Whether the JSON payload of the parent carries the items of this collection. The generic endpoint stores a
+    /// created parent together with everything it carries, so items sent along must not be created a second time.
+    /// </summary>
+    internal static bool IsSerializedWithParent(PropertyInfo property) =>
+        property.GetCustomAttribute<JsonIgnoreAttribute>() is not { Condition: JsonIgnoreCondition.Always };
+
+    private static string DescribeFailure(HttpRequestException exception) =>
+        exception.StatusCode is { } statusCode ? $"HTTP {(int)statusCode}" : exception.Message;
+
+    private static string DescribeException(Exception exception) =>
+        exception is HttpRequestException httpException ? DescribeFailure(httpException) : exception.Message;
 
     private void ApplyParticipantMessage(CardSaveContext context)
     {
@@ -568,7 +703,25 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
         GetChangedFields().Count > 0
         || RegisteredListParts.Values.Any(listPart => listPart.HasPendingChanges);
 
-    private async Task TryCloseAsync()
+    private Task TryCloseAsync() => ConfirmAndCloseAsync();
+
+    /// <summary>
+    /// Closes the card on behalf of the list when the browser is about to leave it, asking the same question the close
+    /// button asks when there are unsaved changes.
+    /// </summary>
+    /// <returns>Whether the card closed; false when the user chose to keep editing or a question is already open.</returns>
+    private async Task<bool> RequestGuardedCloseAsync()
+    {
+        if (IsConfirmDialogOpen)
+            return false;
+
+        var closed = await ConfirmAndCloseAsync();
+        StateHasChanged();
+
+        return closed;
+    }
+
+    private async Task<bool> ConfirmAndCloseAsync()
     {
         if (HasUnsavedChanges)
         {
@@ -588,17 +741,21 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
             }
 
             if (!discard)
-                return;
+                return false;
 
             RevertToSnapshot();
         }
 
         if (OnCancelled.HasDelegate)
             await OnCancelled.InvokeAsync();
+
+        return true;
     }
 
     private void RevertToSnapshot()
     {
+        ErrorMessage = null;
+
         foreach (var property in typeof(TModel).GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
             if (!property.CanWrite)
@@ -621,8 +778,8 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
         return builder =>
         {
             var propertyInfo = ExpressionHelper.GetPropertyInfo(listPartConfig.Property);
-            var itemType = propertyInfo.PropertyType
-                .GetInterfaces()
+            var itemType = new[] { propertyInfo.PropertyType }
+                .Concat(propertyInfo.PropertyType.GetInterfaces())
                 .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(ICollection<>))
                 .Select(i => i.GetGenericArguments()[0])
                 .FirstOrDefault();
@@ -645,13 +802,14 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
             builder.OpenComponent(0, componentType);
             builder.AddAttribute(1, "Items", items);
-            builder.AddAttribute(2, "AllowAdd", listPartConfig.AllowAdd);
-            builder.AddAttribute(3, "AllowDelete", listPartConfig.AllowDelete);
-            builder.AddAttribute(4, "AllowReorder", listPartConfig.AllowReorder);
+            builder.AddAttribute(2, "AllowAdd", listPartConfig.AllowAdd && !ReadOnly);
+            builder.AddAttribute(3, "AllowDelete", listPartConfig.AllowDelete && !ReadOnly);
+            builder.AddAttribute(4, "AllowReorder", listPartConfig.AllowReorder && !ReadOnly);
             builder.AddAttribute(5, "Localizer", Localizer);
             builder.AddAttribute(6, "CardConfiguration", listPartConfig.ChildCardConfiguration);
             builder.AddAttribute(7, "CardType", listPartConfig.ChildCardType);
-            builder.AddComponentReferenceCapture(8, instance =>
+            builder.AddAttribute(8, "ReadOnly", ReadOnly);
+            builder.AddComponentReferenceCapture(9, instance =>
             {
                 if (instance is IListPartFlushable flushable)
                     RegisteredListParts[registrationKey] = flushable;
@@ -670,6 +828,10 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
 
     public async ValueTask DisposeAsync()
     {
+        AssistantRegistration?.Dispose();
+        AssistantRegistration = null;
+        CloseGuard?.Unregister(this);
+
         try
         {
             if (DismissModule is not null && DismissToken is not null)

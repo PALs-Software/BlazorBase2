@@ -26,13 +26,13 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.11" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.11" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.11" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Localization" Version="10.0.11" />
   </ItemGroup>
 
   <ItemGroup Label="UI">
-    <PackageVersion Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.14.0" />
-    <PackageVersion Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.14.0" />
+    <PackageVersion Include="Microsoft.FluentUI.AspNetCore.Components" Version="5.0.1" />
+    <PackageVersion Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="5.0.1" />
   </ItemGroup>
 
   <ItemGroup Label="Tests">

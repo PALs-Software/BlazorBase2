@@ -3,8 +3,10 @@ using System.Globalization;
 using System.Security.Claims;
 using BlazorBase.CRUD.Components.CustomProperties;
 using BlazorBase.CRUD.Components.Filtering;
+using BlazorBase.CRUD.Components.Internal;
 using BlazorBase.CRUD.Configuration;
 using BlazorBase.CRUD.Core;
+using BlazorBase.CRUD.Display;
 using BlazorBase.CRUD.Events;
 using BlazorBase.CRUD.Filtering;
 using BlazorBase.CRUD.Localization;
@@ -21,10 +23,13 @@ using Microsoft.Extensions.Localization;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.JSInterop;
 using BlazorBase.Components.Routing;
+using BlazorBase.Components.Dialogs;
+using BlazorBase.Components.Services;
+using BlazorBase.Components.Assistant;
 
 namespace BlazorBase.CRUD.Components;
 
-public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>, IActionGroupCollector<TModel>, IFilterConfigCollector<TModel>, IAsyncDisposable where TModel : class, new()
+public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>, IActionGroupCollector<TModel>, IFilterConfigCollector<TModel>, IAssistantContextProvider, IAsyncDisposable where TModel : class, new()
 {
     #region Injects
 
@@ -107,6 +112,23 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     [Parameter]
     public string DeepLinkParameterName { get; set; } = "item";
 
+    /// <summary>
+    /// How many rows one request to the data provider asks for. The list is virtualized: only the rows near the
+    /// visible part of the page are rendered and the data provider is asked for them in aligned chunks of this size
+    /// (kept between 10 and the provider's page limit) while the page scrolls, so this is a fetch granularity and no
+    /// longer the number of rows the list loads at start.
+    /// </summary>
+    [Parameter]
+    public int PageSize { get; set; } = 50;
+
+    /// <summary>
+    /// The order the list shows until the user sorts it. Takes precedence over
+    /// <see cref="BaseListConfiguration{TModel}.DefaultSorts"/> and
+    /// <see cref="Attributes.DefaultSortAttribute"/>; without any of them rows come back by primary key.
+    /// </summary>
+    [Parameter]
+    public List<SortDescriptor>? DefaultSorts { get; set; }
+
     #endregion
 
     #region Events
@@ -138,12 +160,10 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private List<PropertyColumnConfig<TModel>> CollectedColumns { get; } = [];
     private List<CrudActionGroup<TModel>> CollectedActionGroups { get; } = [];
-    private List<TModel> LoadedItems { get; set; } = [];
     private List<FilterDescriptor> CurrentFilters { get; set; } = [];
     private List<SortDescriptor> CurrentSorts { get; set; } = [];
     private int TotalCount { get; set; }
     private bool IsLoading { get; set; }
-    private bool HasMoreItems => LoadedItems.Count < TotalCount;
 
     private List<PropertyColumnConfig<TModel>> ResolvedColumns =>
         Configuration?.Columns ?? CollectedColumns;
@@ -184,43 +204,155 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     #region Selection State
 
-    private HashSet<TModel> SelectedItems { get; } = [];
+    private HashSet<TModel> SelectedItems { get; } = new(ItemIdentityComparer<TModel>.Instance);
     private bool IsSelectionActive => SelectedItems.Count > 0;
+
+    /// <summary>
+    /// Whether selecting rows leads anywhere: only a delete or a bulk action consumes a selection, so a
+    /// read-only list does not offer one.
+    /// </summary>
+    private bool IsSelectionAvailable =>
+        CanDelete || ResolvedActionGroups.Any(group => group.Actions.Any(action => action.Scope != CrudActionScope.None));
+
+    private HashSet<TModel> BlockedItems { get; set; } = new(ItemIdentityComparer<TModel>.Instance);
+    private int BlockedVersion { get; set; }
+
+    /// <summary>
+    /// Marks the rows that block the toolbar action the pointer or keyboard is on.
+    /// </summary>
+    private void OnBlockedItemsChanged(IReadOnlyCollection<TModel> items)
+    {
+        BlockedItems = new HashSet<TModel>(items, ItemIdentityComparer<TModel>.Instance);
+        BlockedVersion++;
+    }
+
+    private string ResolveRowClass(TModel item)
+    {
+        var blocked = BlockedItems.Contains(item);
+        var selected = SelectedItems.Contains(item);
+        var menuOpen = ContextMenuOpen && ContextMenuItem is not null && ItemIdentityComparer<TModel>.Instance.Equals(ContextMenuItem, item);
+
+        var css = BaseRowClass;
+
+        if (selected)
+            css += " base-list-row-selected";
+
+        if (blocked)
+            css += " base-list-row-blocked";
+
+        return menuOpen ? $"{css} {RowMenuOpenClass}" : css;
+    }
+
+    private const string BaseRowClass = "base-list-row";
+    private const string RowMenuOpenClass = "base-list-row-menu-open";
+
+    /// <summary>
+    /// The column the row menu button follows: the open column, or the first visible column when the list has none.
+    /// </summary>
+    private PropertyColumnConfig<TModel>? RowMenuAnchorColumn => ResolveOpenColumn() ?? VisibleColumnsForUser.FirstOrDefault();
+
+    private bool HasContextMenuBaseEntries => CanOpen || CanDelete || IsSelectionAvailable;
+
+    /// <summary>
+    /// Whether a row has anything to offer in its menu; a list without entries gets no more-button column.
+    /// </summary>
+    private bool HasContextMenuEntries =>
+        HasContextMenuBaseEntries || ContextMenuActions is not null || ContextMenuActionGroups.Count > 0;
+
+    private bool MenuHasEntriesAboveLegacy =>
+        ContextMenuItem is not null && (CanOpen || CanDelete || ContextMenuSections.Count > 0);
+
+    private bool MenuShowsSelectMore => ContextMenuItem is not null && IsSelectionAvailable && !ShowsSelectionColumn;
+    private bool MenuShowsSelectAll => IsSelectionAvailable;
+    private bool MenuShowsDeselectAll => IsSelectionAvailable && (IsSelectionActive || MultiSelectMode);
+    private bool MenuHasSelectionEntries => MenuShowsSelectMore || MenuShowsSelectAll || MenuShowsDeselectAll;
+
+    private bool MenuHasEntriesAboveSelection =>
+        MenuHasEntriesAboveLegacy || (ContextMenuItem is not null && ContextMenuActions is not null);
 
     #endregion
 
     #region Context Menu State
 
     private TModel? ContextMenuItem { get; set; }
-    private double ContextMenuX { get; set; }
-    private double ContextMenuY { get; set; }
+    private ContextMenuAnchor ContextMenuAnchorRect { get; set; }
+    private double ContextMenuLeft { get; set; }
+    private double ContextMenuTop { get; set; }
+    private double? ContextMenuMaxHeight { get; set; }
     private bool ContextMenuOpen { get; set; }
+    private bool ContextMenuPositioned { get; set; }
+    private bool ShouldPositionContextMenu { get; set; }
     private bool ShouldFocusContextMenu { get; set; }
     private string? ShouldRestoreFocusKey { get; set; }
     private ElementReference ContextMenuElement { get; set; }
     private readonly string ContextMenuFocusKey = $"context-menu-{Guid.NewGuid()}";
+
+    private string ContextMenuStyle
+    {
+        get
+        {
+            var style = FormattableString.Invariant($"left: {ContextMenuLeft}px; top: {ContextMenuTop}px;");
+
+            return ContextMenuMaxHeight is { } maxHeight
+                ? style + FormattableString.Invariant($" max-height: {maxHeight}px;")
+                : style;
+        }
+    }
 
     #endregion
 
     #region Interaction State
 
     private bool LastShiftState { get; set; }
+    private bool LastCtrlState { get; set; }
+    private bool CellClickOpens { get; set; }
+    private TModel? FocusedItem { get; set; }
     private ElementReference GridContainerRef { get; set; }
     private FluentDataGrid<TModel>? DataGrid { get; set; }
-    private IQueryable<TModel>? GridQuery { get; set; }
-    private List<TModel>? GridQuerySource { get; set; }
+    private GridItemsProvider<TModel>? GridProvider { get; set; }
+    private Dictionary<PropertyColumnConfig<TModel>, GridSort<TModel>> SortByColumns { get; } = [];
     private int DataVersion { get; set; }
+    private int GridRefreshVersion { get; set; }
+    private int ParametersVersion { get; set; }
+    private int SelectionVersion { get; set; }
+
+    /// <summary>
+    /// What the rows on screen depend on. The rows are the expensive part of a long list, so they are rebuilt only when
+    /// this changes and not for every render of the list, which a context menu, the filter panel or the loading
+    /// indicator each cause.
+    /// </summary>
+    private object GridRenderKey => (
+        DataVersion,
+        GridRefreshVersion,
+        ParametersVersion,
+        SelectionVersion,
+        BlockedVersion,
+        OpenMenuItem: ContextMenuOpen ? ContextMenuItem : null,
+        IsMobileLayout,
+        ShowsRows: HasRows || IsLoading,
+        ResolvedColumns.Count,
+        CurrentUser,
+        Sort: CurrentSorts.FirstOrDefault()?.PropertyName + CurrentSorts.FirstOrDefault()?.Direction);
+
     private int RenderedVersion { get; set; }
     private int RefreshedVersion { get; set; }
+    private int LoadVersion { get; set; }
+    private bool ShouldSyncGridState { get; set; }
+    private bool IsDisposed { get; set; }
+    private bool HasCompletedFirstLoad { get; set; }
+    private bool IsCardDialogOpen { get; set; }
     private IJSObjectReference? JsModule { get; set; }
+    private DotNetObjectReference<BaseList<TModel>>? SelfReference { get; set; }
 
     #endregion
 
     #region Deep Linking State
 
     private string? CurrentOpenKey { get; set; }
-    private IDialogReference? OpenItemDialog { get; set; }
+    private int DeepLinkTicket { get; set; }
+    private BaseDialogData<TModel>? OpenItemDialog { get; set; }
     private bool DeepLinkSubscribed { get; set; }
+    private string CardDialogFocusKey => $"card-dialog-{DeepLinkParameterName}";
 
     #endregion
 
@@ -239,13 +371,30 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         CollectedFilterConfigComponent = filterConfig;
     }
 
+    private IDisposable? AssistantRegistration { get; set; }
+
+    protected override void OnInitialized()
+    {
+        AssistantRegistration = ServiceProvider.GetService<AssistantContextService>()?.Register(this);
+    }
+
+    void IAssistantContextProvider.Contribute(AssistantContextBuilder builder)
+    {
+        builder.EntityType = typeof(TModel).Name;
+        builder.EntityKey = CurrentOpenKey ?? builder.EntityKey;
+        builder.Filters = ActiveFilterCount > 0 ? $"{ActiveFilterCount} conditions" : builder.Filters;
+    }
+
     private List<FilterDescriptor>? PreviousAdditionalFilters;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
         {
+            SyncSelectionBackGuard();
             await RefreshGridForRenderedItemsAsync();
+            await SyncGridStateAsync();
+            await PositionContextMenuIfJustOpenedAsync();
             await FocusContextMenuIfJustOpenedAsync();
             await RestoreFocusIfAnOverlayJustClosedAsync();
             return;
@@ -254,9 +403,29 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         JsModule = await JsRuntime.InvokeAsync<IJSObjectReference>(
             "import", "./_content/BlazorBase.CRUD/js/baseListInterop.js");
 
+        if (IsDisposed)
+        {
+            await JsModule.DisposeAsync();
+            JsModule = null;
+            return;
+        }
+
+        SelfReference = DotNetObjectReference.Create(this);
+        await JsModule.InvokeVoidAsync("observeGrid", GridContainerRef, SelfReference, ResolveInitialFocusRestoreKey());
+
+        await InitializeMobileLayoutAsync();
         await LoadCurrentUserAsync();
         ResolveFilterFields();
-        await LoadDataAsync();
+        await InitializeSavedFiltersAsync();
+
+        try
+        {
+            await LoadDataAsync();
+        }
+        finally
+        {
+            HasCompletedFirstLoad = true;
+        }
 
         if (EnableDeepLinking)
         {
@@ -264,6 +433,65 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             DeepLinkSubscribed = true;
             await SyncDeepLinkAsync();
         }
+    }
+
+    /// <summary>
+    /// The remembered focus to hand back once the first rows are on screen: a card that was just closed leaves
+    /// the keyboard on the row it was opened from, but the router may have rebuilt this list in the meantime,
+    /// so the rebuilt one has to put it back. A list that opens a card straight away has no use for it.
+    /// </summary>
+    private string? ResolveInitialFocusRestoreKey()
+    {
+        if (!EnableDeepLinking)
+            return null;
+
+        return string.IsNullOrEmpty(QueryStringReader.TryReadValue(Navigation.Uri, DeepLinkParameterName))
+            ? CardDialogFocusKey
+            : null;
+    }
+    /// <summary>
+    /// Tells the grid script that new rows are on screen, so it measures the layout again.
+    /// </summary>
+    private async Task SyncGridStateAsync()
+    {
+        if (!ShouldSyncGridState || JsModule is null)
+            return;
+
+        ShouldSyncGridState = false;
+        await JsModule.InvokeVoidAsync("updateGrid", GridContainerRef);
+    }
+
+    /// <summary>
+    /// Measures the menu that just rendered and moves it to where it fits the viewport, then reveals it.
+    /// </summary>
+    /// <remarks>
+    /// The menu first renders hidden at the anchor, because its size is only known once it exists. Without a
+    /// measurement (no script) it stays where it was asked to open.
+    /// </remarks>
+    private async Task PositionContextMenuIfJustOpenedAsync()
+    {
+        if (!ShouldPositionContextMenu)
+            return;
+
+        ShouldPositionContextMenu = false;
+
+        var measurement = JsModule is null
+            ? null
+            : await JsModule.InvokeAsync<double[]?>("measureElement", ContextMenuElement);
+
+        if (measurement is { Length: >= 4 })
+        {
+            var placement = BaseListContextMenuPlacement.Compute(
+                ContextMenuAnchorRect, measurement[0], measurement[1], measurement[2], measurement[3]);
+
+            ContextMenuLeft = placement.Left;
+            ContextMenuTop = placement.Top;
+            ContextMenuMaxHeight = placement.MaxHeight;
+        }
+
+        ContextMenuPositioned = true;
+        ShouldFocusContextMenu = true;
+        StateHasChanged();
     }
 
     /// <summary>
@@ -294,6 +522,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     protected override async Task OnParametersSetAsync()
     {
+        ParametersVersion++;
+
         if (PreviousAdditionalFilters is not null && AdditionalFilters != PreviousAdditionalFilters)
             await LoadDataAsync();
 
@@ -301,29 +531,6 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     }
 
     #region Row Interaction Handlers
-
-    private void OnMouseDown(MouseEventArgs e)
-    {
-        LastShiftState = e.ShiftKey;
-    }
-
-    private async Task OnRowClickedAsync(FluentDataGridRow<TModel> row)
-    {
-        if (row.Item is null)
-            return;
-
-        if (LastShiftState)
-        {
-            ToggleSelection(row.Item);
-            return;
-        }
-
-        if (OnItemSelected.HasDelegate)
-            await OnItemSelected.InvokeAsync(row.Item);
-
-        if (CanEdit)
-            await OnEditClickedAsync(row.Item);
-    }
 
     /// <summary>
     /// Remembers which item the pointer or keyboard last landed on, so the context menu can act on it.
@@ -336,8 +543,11 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     /// </remarks>
     private void OnCellFocusedAsync(FluentDataGridCell<TModel> cell)
     {
-        if (cell.Item is not null)
-            ContextMenuItem = cell.Item;
+        if (cell.Item is null)
+            return;
+
+        ContextMenuItem = cell.Item;
+        FocusedItem = cell.Item;
     }
 
     #endregion
@@ -346,6 +556,9 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private async Task OnContextMenuAsync(MouseEventArgs e)
     {
+        if (!HasContextMenuEntries)
+            return;
+
         if (JsModule is not null)
         {
             var isOnRow = await JsModule.InvokeAsync<bool>("isPointOnDataRow", GridContainerRef, e.ClientX, e.ClientY);
@@ -353,12 +566,79 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
                 return;
         }
 
+        await SelectRightClickedRowAsync();
+        await OpenContextMenuAsync(ContextMenuAnchor.AtPoint(e.ClientX, e.ClientY));
+    }
+
+    /// <summary>
+    /// Opens the same menu a right-click opens from the per-row more button, which is what a touch screen
+    /// and a narrow window have: neither has a right mouse button.
+    /// </summary>
+    private async Task OnRowMenuButtonClickedAsync(TModel item, MouseEventArgs e)
+    {
+        ContextMenuItem = item;
+
+        var anchor = JsModule is null
+            ? null
+            : await JsModule.InvokeAsync<double[]?>("getRowMenuButtonRect", e.ClientX, e.ClientY);
+
+        await OpenContextMenuAsync(anchor is { Length: >= 4 }
+            ? new ContextMenuAnchor(anchor[0], anchor[1], anchor[2], anchor[3])
+            : ContextMenuAnchor.AtPoint(e.ClientX, e.ClientY));
+    }
+
+    private async Task OnGridRowMenuButtonClickedAsync(TModel item, MouseEventArgs e)
+    {
+        ContextMenuItem = item;
+        await SelectRightClickedRowAsync();
+        await OnRowMenuButtonClickedAsync(item, e);
+    }
+
+    /// <summary>
+    /// Opens the row menu for the cell that has the keyboard (Shift+F10 or the context-menu key), beside that row's
+    /// more button; the grid script reports the key together with the box to anchor to.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnGridContextMenuKeyAsync(double left, double top, double right, double bottom)
+    {
+        if (IsDisposed || ContextMenuOpen || IsCardDialogOpen)
+            return;
+
+        await InvokeAsync(async () =>
+        {
+            await OpenRowMenuForFocusedRowAsync(new ContextMenuAnchor(left, top, right, bottom));
+            StateHasChanged();
+        });
+    }
+
+    internal async Task OpenRowMenuForFocusedRowAsync(ContextMenuAnchor anchor)
+    {
+        if (FocusedItem is not { } item || !HasContextMenuEntries)
+            return;
+
+        ContextMenuItem = item;
+        await SelectRightClickedRowAsync();
+        await OpenContextMenuAsync(anchor);
+    }
+
+    private async Task OpenContextMenuAsync(ContextMenuAnchor anchor)
+    {
+        await BuildContextMenuSectionsAsync();
+
         await RememberFocusAsync(ContextMenuFocusKey);
 
-        ContextMenuX = e.ClientX;
-        ContextMenuY = e.ClientY;
+        var menuRowIndex = ContextMenuItem is null ? -1 : RangeCache.IndexOf(ContextMenuItem);
+
+        if (menuRowIndex >= 0)
+            CursorIndex = menuRowIndex;
+
+        ContextMenuAnchorRect = anchor;
+        ContextMenuLeft = anchor.Left;
+        ContextMenuTop = anchor.Bottom;
+        ContextMenuMaxHeight = null;
+        ContextMenuPositioned = false;
         ContextMenuOpen = true;
-        ShouldFocusContextMenu = true;
+        ShouldPositionContextMenu = true;
     }
 
     private void CloseContextMenu()
@@ -410,14 +690,14 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         await JsModule.InvokeVoidAsync("rememberFocus", key);
     }
 
-    private async Task OnContextMenuEditAsync()
+    private async Task OnContextMenuOpenAsync()
     {
         var item = ContextMenuItem;
         CloseContextMenu();
         if (item is null)
             return;
 
-        await OnEditClickedAsync(item);
+        await OpenItemAsync(item);
     }
 
     private async Task OnContextMenuDeleteAsync()
@@ -433,13 +713,13 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             await OnDeleteWithConfirmationAsync(item);
     }
 
-    private void OnContextMenuToggleSelectAsync()
+    private void OnContextMenuSelectMoreAsync()
     {
-        if (ContextMenuItem is null)
-            return;
+        if (ContextMenuItem is { } item && !IsSelected(item))
+            ToggleSelection(item);
 
-        ToggleSelection(ContextMenuItem);
-        CloseContextMenu();
+        EnterMultiSelectMode();
+        DismissContextMenu();
     }
 
     #endregion
@@ -450,22 +730,18 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private void ToggleSelection(TModel item)
     {
+        SelectionVersion++;
+
         if (!SelectedItems.Remove(item))
             SelectedItems.Add(item);
-    }
 
-    private void SelectAll()
-    {
-        foreach (var item in LoadedItems)
-            SelectedItems.Add(item);
-
-        CloseContextMenu();
+        SetAnchor(item, RangeCache.IndexOf(item));
     }
 
     private void DeselectAll()
     {
-        SelectedItems.Clear();
-        CloseContextMenu();
+        ClearSelection();
+        DismissContextMenu();
     }
 
     #endregion
@@ -479,64 +755,196 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         foreach (var column in VisibleColumnsForUser)
             selectFields.Add(column.PropertyName);
 
+        foreach (var displayKeyName in ResolveExplicitDisplayKeyNames())
+            selectFields.Add(displayKeyName);
+
+        foreach (var mobileName in MobileExtraSelectNames)
+            selectFields.Add(mobileName);
+
         return [.. selectFields];
     }
 
-    private async Task LoadDataAsync(bool reset = true)
+    private IReadOnlyList<SortDescriptor> EffectiveSorts
     {
+        get
+        {
+            if (CurrentSorts.Count > 0)
+                return CurrentSorts;
+
+            if (DefaultSorts is { Count: > 0 })
+                return DefaultSorts;
+
+            if (Configuration?.DefaultSorts is { Count: > 0 } configuredSorts)
+                return configuredSorts;
+
+            return ResolveDeclaredDefaultSorts();
+        }
+    }
+
+    private static List<SortDescriptor> ResolveDeclaredDefaultSorts()
+    {
+        return [.. typeof(TModel)
+            .GetCustomAttributes(typeof(Attributes.DefaultSortAttribute), inherit: true)
+            .Cast<Attributes.DefaultSortAttribute>()
+            .OrderBy(declared => declared.Order)
+            .Select(declared => new SortDescriptor
+            {
+                PropertyName = declared.PropertyName,
+                Direction = declared.Descending ? Models.SortDirection.Descending : Models.SortDirection.Ascending
+            })];
+    }
+
+    /// <summary>
+    /// Loads the rows the list shows: a new filter or sort starts at the top, a reload after a save, a delete or a
+    /// refresh (<paramref name="keepLoadedCount"/>) brings back the part of the list that is on screen, so the user
+    /// keeps their place. Further rows are fetched by the virtualizer while the page scrolls.
+    /// </summary>
+    private async Task LoadDataAsync(bool keepLoadedCount = false)
+    {
+        var version = ++LoadVersion;
+        var window = ResolveReloadWindow(keepLoadedCount);
+        var cache = new ListRangeCache<TModel>(ChunkSize, MaxCachedChunks);
+
+        if (!keepLoadedCount)
+        {
+            ClearSelection();
+            RangeCache = cache;
+            ServedStart = 0;
+            ServedCount = 0;
+        }
+
+        if (keepLoadedCount && JsModule is not null)
+            await JsModule.InvokeVoidAsync("holdFocus", GridContainerRef);
+
         IsLoading = true;
         StateHasChanged();
 
-        var filters = new List<FilterDescriptor>(CurrentFilters);
-        if (AdditionalFilters is not null)
-            filters.AddRange(AdditionalFilters);
-
-        var query = new BaseQuery
+        try
         {
-            Filters = filters,
-            Sorts = CurrentSorts,
-            Select = BuildSelectList(),
-            NavigationFilters = NavigationFilters,
-            Skip = reset ? 0 : LoadedItems.Count,
-            Take = 50
-        };
+            var first = window.Start / cache.ChunkSize;
+            await Task.WhenAll(StartFetches(cache, [.. Enumerable.Range(first, window.Count / cache.ChunkSize)]));
 
-        var result = await ResolvedDataProvider.GetListAsync(query);
-        TotalCount = result.TotalCount;
+            if (version == LoadVersion && !IsDisposed && cache.TotalCount > 0 && window.Start >= cache.TotalCount)
+            {
+                ServedStart = 0;
+                ServedCount = 0;
+                await Task.WhenAll(StartFetches(cache, [0]));
+            }
+        }
+        catch
+        {
+            if (version == LoadVersion)
+                IsLoading = false;
 
-        if (reset)
-            LoadedItems = result.Items;
-        else
-            LoadedItems.AddRange(result.Items);
+            throw;
+        }
+
+        if (version != LoadVersion || IsDisposed)
+            return;
+
+        RangeCache = cache;
+        TotalCount = Math.Max(0, cache.TotalCount);
+
+        if (keepLoadedCount)
+            KeepSelectionAfterRefresh(cache);
 
         IsLoading = false;
         DataVersion++;
+        ShouldSyncGridState = true;
         StateHasChanged();
     }
 
     /// <summary>
-    /// Hands the grid a query that only changes when the data behind it does, and records which load
-    /// this render carried.
+    /// Hands the grid the provider it reads its rows from, and records which load this render carried.
     /// </summary>
     /// <remarks>
-    /// <c>AsQueryable()</c> wraps a list in a new object every call, and the grid compares its
-    /// <c>Items</c> by reference — so building it inline made every single render look like a new data
-    /// source to the grid: it tore down and recreated a DI scope and re-queried, and the explicit
-    /// refresh below then cancelled that and queried again. Caching the query per collection instance
-    /// stops the churn; the version counter is what still tells a genuine reload apart, including
-    /// loading a further page, which keeps the same collection and would otherwise go unnoticed.
+    /// The grid compares its <c>ItemsProvider</c> by reference, so building the delegate inline made every
+    /// single render look like a new data source to the grid: it re-queried, and the explicit refresh below
+    /// then cancelled that and queried again. One cached delegate stops the churn; the version counter is
+    /// what still tells a genuine reload apart, including loading a further page, which keeps the same
+    /// collection and would otherwise go unnoticed.
     /// </remarks>
-    private IQueryable<TModel> CaptureRenderedItems()
+    private GridItemsProvider<TModel> CaptureRenderedProvider()
     {
-        if (GridQuery is null || !ReferenceEquals(GridQuerySource, LoadedItems))
-        {
-            GridQuerySource = LoadedItems;
-            GridQuery = LoadedItems.AsQueryable();
-        }
-
         RenderedVersion = DataVersion;
 
-        return GridQuery;
+        return GridProvider ??= ProvideGridItemsAsync;
+    }
+
+    /// <summary>
+    /// Serves the grid the rows it asks for, and sends a sort the user picked in a column header to the data provider.
+    /// </summary>
+    /// <remarks>
+    /// A header sort used to be the grid's own: it re-ordered whatever was already loaded, so the top rows were not the
+    /// true ones. The request the grid hands over names the sorted column, which becomes the list's current sort, the
+    /// rows are loaded again in that order from the data provider (the database, the HTTP endpoint or the in-memory
+    /// list sort everything, not just a page) and the grid starts at its first row. The rows themselves are read from
+    /// the range cache, which fetches the chunks the virtualized grid asks for, see <see cref="ReadRangeAsync"/>. The
+    /// grid also asks for a window without a count after every refresh, which only feeds its own bookkeeping: that
+    /// request is answered from the first chunk of the window, is not cancellable and does not count as the position
+    /// of the user. While the total is not known yet only one chunk is read: the virtualizer asks for as many rows as it
+    /// may ever render until it has measured the page, and the first load already fetches the first chunk.
+    /// </remarks>
+    private async ValueTask<GridItemsProviderResult<TModel>> ProvideGridItemsAsync(GridItemsProviderRequest<TModel> request)
+    {
+        var requestedSorts = ResolveRequestedSorts(request);
+
+        if (!HasSameSorts(requestedSorts, CurrentSorts))
+        {
+            CurrentSorts = requestedSorts;
+            await LoadDataAsync();
+            RefreshedVersion = DataVersion;
+            await ScrollGridToTopAsync();
+        }
+
+        var token = request.Count is null ? CancellationToken.None : request.CancellationToken;
+        var requestedCount = request.Count is { } count && RangeCache.HasTotal ? count : Math.Min(request.Count ?? ChunkSize, ChunkSize);
+        var items = await ReadRangeAsync(request.StartIndex, requestedCount, token, debounce: false, remember: request.Count is not null);
+
+        return GridItemsProviderResult.From(items, Math.Max(0, RangeCache.TotalCount));
+    }
+
+    private List<SortDescriptor> ResolveRequestedSorts(GridItemsProviderRequest<TModel> request)
+    {
+        if (request.SortColumns.FirstOrDefault() is not { } sortColumn || sortColumn.Column.SortBy is not { } sortBy)
+            return [];
+
+        var column = SortByColumns.FirstOrDefault(pair => ReferenceEquals(pair.Value, sortBy)).Key;
+        if (column is null)
+            return [];
+
+        return
+        [
+            new SortDescriptor
+            {
+                PropertyName = column.PropertyName,
+                Direction = sortColumn.Ascending ? Models.SortDirection.Ascending : Models.SortDirection.Descending
+            }
+        ];
+    }
+
+    private static bool HasSameSorts(List<SortDescriptor> left, List<SortDescriptor> right)
+    {
+        return left.Count == right.Count
+            && left.Zip(right).All(pair => pair.First.PropertyName == pair.Second.PropertyName
+                && pair.First.Direction == pair.Second.Direction);
+    }
+
+    /// <summary>
+    /// Brings the grid back to its first row after a sort, which is the row the user sorted to find.
+    /// </summary>
+    private async Task ScrollGridToTopAsync()
+    {
+        if (JsModule is null || IsDisposed)
+            return;
+
+        try
+        {
+            await JsModule.InvokeVoidAsync("scrollGridToTop", GridContainerRef);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
     }
 
     /// <summary>
@@ -548,7 +956,8 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     /// rows were loaded. The comparison is against what the completed render actually passed, not
     /// against the current field: a render triggered elsewhere can finish between the reload and the
     /// render carrying its result, and a plain "refresh pending" flag was consumed by that one instead —
-    /// which is why this was intermittent rather than broken outright.
+    /// which is why this was intermittent rather than broken outright. A virtualized grid does not paint the rows it
+    /// read again by itself, so the list renders the rows once more after the refresh.
     /// </remarks>
     private async Task RefreshGridForRenderedItemsAsync()
     {
@@ -557,19 +966,21 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         RefreshedVersion = RenderedVersion;
         await DataGrid.RefreshDataAsync();
+        GridRefreshVersion++;
+        StateHasChanged();
     }
 
-    public async Task LoadMoreAsync()
-    {
-        if (!HasMoreItems || IsLoading)
-            return;
-
-        await LoadDataAsync(reset: false);
-    }
-
+    /// <summary>
+    /// Loads the list again and keeps the part that is on screen. A list that has not finished its first load ignores
+    /// the call: that load fetches the current data anyway, and a page that refreshes its list from its own first render
+    /// would otherwise send the same first query a second time.
+    /// </summary>
     public async Task RefreshAsync()
     {
-        await LoadDataAsync();
+        if (!HasCompletedFirstLoad)
+            return;
+
+        await LoadDataAsync(keepLoadedCount: true);
     }
 
     #endregion
@@ -590,9 +1001,13 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private int ActiveFilterCount => FilterModelConverter.CountConditions(ActiveFilterModel);
 
+    private string FilterButtonLabel => ActiveFilterCount > 0
+        ? $"{FrameworkLocalizer["Filter"].Value} ({ActiveFilterCount})"
+        : FrameworkLocalizer["Filter"].Value;
+
     private void ResolveFilterFields()
     {
-        FilterFields = FilterFieldResolver.Resolve(ResolvedFilterConfig, CurrentUser, ResolvedLocalizer);
+        FilterFields = FilterFieldResolver.Resolve(ResolvedFilterConfig, CurrentUser, ResolvedLocalizer, ServiceProvider);
     }
 
     private async Task OpenFilterPanelAsync()
@@ -610,12 +1025,14 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         FilterPanelOpen = false;
         WorkingFilterModel = null;
+        SavedFilterRevision++;
         ShouldRestoreFocusKey = FilterPanelFocusKey;
     }
 
     private async Task OnFilterApplyAsync(FilterGroupModel root)
     {
         ActiveFilterModel = root;
+        SavedFilterRevision++;
 
         var descriptor = FilterModelConverter.ToDescriptor(root);
         CurrentFilters = descriptor is null ? [] : [descriptor];
@@ -624,6 +1041,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         WorkingFilterModel = null;
         ShouldRestoreFocusKey = FilterPanelFocusKey;
         await LoadDataAsync();
+        await ScrollGridToTopAsync();
     }
 
     private async Task OnFilterResetAsync()
@@ -632,6 +1050,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         WorkingFilterModel = new FilterGroupModel();
         CurrentFilters = [];
         await LoadDataAsync();
+        await ScrollGridToTopAsync();
     }
 
     #endregion
@@ -640,6 +1059,9 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private async Task OnAddClickedAsync()
     {
+        if (IsCardDialogOpen)
+            return;
+
         var newItem = Activator.CreateInstance<TModel>();
 
         var eventArgs = new ItemEventArgs<TModel> { Item = newItem };
@@ -652,38 +1074,24 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
                 return;
         }
 
-        var fw = FrameworkLocalizer;
-        var dialogParameters = new DialogParameters
-        {
-            Title = string.Empty,
-            ShowTitle = false,
-            PrimaryAction = string.Empty,
-            SecondaryAction = string.Empty,
-            Width = "600px",
-            PreventDismissOnOverlayClick = true,
-            ShowDismiss = false,
-            TrapFocus = false
-        };
-
         var dialogData = new BaseDialogData<TModel>
         {
             Model = newItem,
             DataProvider = ResolvedDataProvider,
             IsNew = true,
             Localizer = Localizer,
-            CardConfiguration = CardConfiguration,
+            CardConfiguration = ResolveCardConfiguration(newItem, isNew: true),
             CardType = CardType
         };
 
-        var dialog = await DialogService.ShowDialogAsync<BaseDialog<TModel>>(dialogData, dialogParameters);
-        var dialogResult = await dialog.Result;
+        var dialogResult = await ShowCardDialogAsync(dialogData);
 
-        if (dialogResult is { Cancelled: false, Data: TModel savedItem })
+        if (dialogResult is { Cancelled: false, Value: TModel savedItem })
         {
             if (OnAfterItemCreated.HasDelegate)
                 await OnAfterItemCreated.InvokeAsync(savedItem);
 
-            await LoadDataAsync();
+            await LoadDataAsync(keepLoadedCount: true);
         }
     }
 
@@ -691,13 +1099,18 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     {
         if (EnableDeepLinking && GetItemId(item) is { } deepLinkId)
         {
+            await RememberFocusAsync(CardDialogFocusKey);
             Navigation.NavigateTo(Navigation.GetUriWithQueryParameter(DeepLinkParameterName, deepLinkId.ToString()));
             return;
         }
 
+        if (IsCardDialogOpen)
+            return;
+
+        var readOnly = !CanEdit;
         var eventArgs = new ItemEventArgs<TModel> { Item = item };
 
-        if (OnBeforeItemUpdate.HasDelegate)
+        if (!readOnly && OnBeforeItemUpdate.HasDelegate)
         {
             await OnBeforeItemUpdate.InvokeAsync(eventArgs);
 
@@ -707,38 +1120,60 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         var editModel = await LoadFullEntityAsync(item);
 
-        var dialogParameters = new DialogParameters
-        {
-            Title = string.Empty,
-            ShowTitle = false,
-            PrimaryAction = string.Empty,
-            SecondaryAction = string.Empty,
-            Width = "600px",
-            PreventDismissOnOverlayClick = true,
-            ShowDismiss = false,
-            TrapFocus = false
-        };
-
         var dialogData = new BaseDialogData<TModel>
         {
             Model = editModel,
             DataProvider = ResolvedDataProvider,
             IsNew = false,
+            ReadOnly = readOnly,
             Localizer = Localizer,
-            CardConfiguration = CardConfiguration,
+            CardConfiguration = ResolveCardConfiguration(editModel, isNew: false),
             CardType = CardType
         };
 
-        var dialog = await DialogService.ShowDialogAsync<BaseDialog<TModel>>(dialogData, dialogParameters);
-        var dialogResult = await dialog.Result;
+        var dialogResult = await ShowCardDialogAsync(dialogData);
 
-        if (dialogResult is { Cancelled: false, Data: TModel updatedItem })
+        if (dialogResult is { Cancelled: false, Value: TModel updatedItem })
         {
             if (OnAfterItemUpdated.HasDelegate)
                 await OnAfterItemUpdated.InvokeAsync(updatedItem);
 
-            await LoadDataAsync();
+            await RefreshEditedItemAsync(updatedItem);
         }
+    }
+
+    /// <summary>
+    /// Opens the card dialog for an item the list itself hosts (a new item, or an edit without deep
+    /// linking), and takes the keyboard back to where it came from once it closes.
+    /// </summary>
+    /// <remarks>
+    /// Only one card is ever open: a second click or Enter while the first is still opening must not stack
+    /// another dialog on it, so the flag is set before the first await.
+    /// </remarks>
+    private async Task<DialogResult> ShowCardDialogAsync(BaseDialogData<TModel> dialogData)
+    {
+        IsCardDialogOpen = true;
+
+        try
+        {
+            await RememberFocusAsync(CardDialogFocusKey);
+
+            return await DialogService.ShowCardDialogAsync(dialogData);
+        }
+        finally
+        {
+            IsCardDialogOpen = false;
+            RestoreCardDialogFocus();
+        }
+    }
+
+    private void RestoreCardDialogFocus()
+    {
+        if (IsDisposed)
+            return;
+
+        ShouldRestoreFocusKey = CardDialogFocusKey;
+        StateHasChanged();
     }
 
     private async Task<TModel> LoadFullEntityAsync(TModel item)
@@ -754,15 +1189,9 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private async Task OnDeleteWithConfirmationAsync(TModel item)
     {
-        var fw = FrameworkLocalizer;
-        var dialog = await DialogService.ShowConfirmationAsync(
-            fw["ConfirmDeleteOne"].Value,
-            fw["Delete"].Value,
-            fw["Cancel"].Value,
-            fw["ConfirmDeletionTitle"].Value);
+        var message = string.Format(FrameworkLocalizer["ConfirmDeleteNamed"].Value, ResolveItemDisplayName(item));
 
-        var result = await dialog.Result;
-        if (result.Cancelled)
+        if (!await ConfirmDeletionAsync(message))
             return;
 
         await OnDeleteItemAsync(item);
@@ -772,23 +1201,87 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     {
         var itemsToDelete = SelectedItems.ToList();
 
-        var fw = FrameworkLocalizer;
-        var dialog = await DialogService.ShowConfirmationAsync(
-            string.Format(fw["ConfirmDeleteMany"].Value, itemsToDelete.Count),
-            fw["Delete"].Value,
-            fw["Cancel"].Value,
-            fw["ConfirmDeletionTitle"].Value);
+        var message = string.Format(FrameworkLocalizer["ConfirmDeleteMany"].Value, itemsToDelete.Count);
 
-        var result = await dialog.Result;
-        if (result.Cancelled)
+        if (!await ConfirmDeletionAsync(message))
             return;
 
         foreach (var item in itemsToDelete)
             await OnDeleteItemAsync(item);
 
-        SelectedItems.Clear();
+        ClearSelection();
     }
 
+    private async Task<bool> ConfirmDeletionAsync(string message)
+    {
+        var fw = FrameworkLocalizer;
+        var content = new ConfirmationDialogContent
+        {
+            Message = message,
+            ConfirmButtonText = fw["Delete"].Value,
+            CancelButtonText = fw["Cancel"].Value,
+            IsDestructive = true
+        };
+
+        var result = await DialogService.ShowConfirmationDialogAsync(fw["ConfirmDeletionTitle"].Value, content);
+
+        ShouldRestoreFocusKey = ContextMenuFocusKey;
+        StateHasChanged();
+
+        return !result.Cancelled;
+    }
+
+    /// <summary>
+    /// The property names that identify an item to a person: the card's display keys, then the entity's
+    /// <see cref="Attributes.DisplayKeyAttribute"/> properties. Empty when the model declares neither.
+    /// </summary>
+    private List<string> ResolveExplicitDisplayKeyNames()
+    {
+        var cardKeys = new List<DisplayKeyFieldConfig<TModel>>();
+
+        if (CardConfiguration is not null)
+        {
+            cardKeys.AddRange(CardConfiguration.DisplayKeys);
+            cardKeys.AddRange(CardConfiguration.Fields
+                .Where(field => field.IsDisplayKey)
+                .Select(field => new DisplayKeyFieldConfig<TModel> { PropertyName = field.PropertyName, Order = field.DisplayKeyOrder }));
+        }
+
+        if (cardKeys.Count > 0)
+            return [.. cardKeys.OrderBy(key => key.Order).Select(key => key.PropertyName)];
+
+        return [.. DisplayKeyResolver.GetAttributeDisplayKeyPropertyNames(typeof(TModel))];
+    }
+
+    /// <summary>
+    /// The name a confirmation uses for an item: its display key, otherwise the first value the row shows,
+    /// otherwise its primary key. Naming the row is what lets a person tell whether they are about to delete
+    /// the right one.
+    /// </summary>
+    private string ResolveItemDisplayName(TModel item)
+    {
+        var separator = CardConfiguration?.DisplayKeySeparator ?? DisplayKeyResolver.DefaultSeparator;
+
+        var explicitName = DisplayKeyResolver.BuildDisplayString(item, ResolveExplicitDisplayKeyNames(), separator);
+        if (!string.IsNullOrWhiteSpace(explicitName))
+            return explicitName;
+
+        foreach (var column in VisibleColumnsForUser)
+        {
+            var text = ResolveCellText(column, item);
+            if (!string.IsNullOrWhiteSpace(text))
+                return text;
+        }
+
+        return GetItemId(item)?.ToString() ?? string.Empty;
+    }
+
+    private string? DeleteErrorMessage;
+
+    /// <summary>
+    /// Deletes one row. A rule that refuses the delete, such as a category that is still in use, is shown above the list
+    /// in the list's own language instead of surfacing as an unhandled error.
+    /// </summary>
     private async Task OnDeleteItemAsync(TModel item)
     {
         var eventArgs = new ItemEventArgs<TModel> { Item = item };
@@ -811,12 +1304,23 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         if (id is null)
             return;
 
-        await ResolvedDataProvider.DeleteAsync(id);
+        try
+        {
+            await ResolvedDataProvider.DeleteAsync(id);
+        }
+        catch (BaseValidationException ex)
+        {
+            DeleteErrorMessage = ResolvedLocalizer[ex.Message].Value;
+            return;
+        }
+
+        DeleteErrorMessage = null;
+        RemoveFromSelection(item);
 
         if (OnAfterItemDeleted.HasDelegate)
             await OnAfterItemDeleted.InvokeAsync(item);
 
-        await LoadDataAsync();
+        await LoadDataAsync(keepLoadedCount: true);
     }
 
     #endregion
@@ -830,88 +1334,136 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     /// Reconciles the open card with the URL: opens the item named by the query parameter, or closes the open
     /// card when the parameter is gone. This is the single place that opens or closes the deep-linked dialog.
     /// </summary>
+    /// <remarks>
+    /// The key is claimed before the first await. Opening is asynchronous (the item is fetched first), and a
+    /// navigation can notify twice before that finishes - once for the click that navigated and once for the
+    /// list the router recreates for the new URL. If the claim waited for the fetch, both would pass the
+    /// "already open" check and stack two identical dialogs. Each claim also takes a ticket, so an open that
+    /// was overtaken by a later navigation knows to stop instead of showing a stale card.
+    /// </remarks>
     private async Task SyncDeepLinkAsync()
     {
-        var urlKey = QueryStringReader.TryReadValue(Navigation.Uri, DeepLinkParameterName);
-
-        if (string.Equals(urlKey, CurrentOpenKey, StringComparison.Ordinal))
+        if (IsDisposed)
             return;
+
+        var urlKey = QueryStringReader.TryReadValue(Navigation.Uri, DeepLinkParameterName);
+        var key = string.IsNullOrEmpty(urlKey) ? null : urlKey;
+
+        if (string.Equals(key, CurrentOpenKey, StringComparison.Ordinal))
+            return;
+
+        var ticket = ++DeepLinkTicket;
+        CurrentOpenKey = key;
 
         if (OpenItemDialog is not null)
             await CloseOpenItemDialogAsync();
 
-        if (!string.IsNullOrEmpty(urlKey))
-            await OpenItemFromKeyAsync(urlKey);
+        if (key is not null)
+            await OpenItemFromKeyAsync(key, ticket);
     }
 
-    private async Task OpenItemFromKeyAsync(string key)
+    private bool IsCurrentDeepLink(int ticket) => !IsDisposed && ticket == DeepLinkTicket;
+
+    private async Task OpenItemFromKeyAsync(string key, int ticket)
     {
-        if (!CanEdit || ConvertKey(key) is not { } id)
+        if (!CanOpen || ConvertKey(key) is not { } id)
         {
-            StripDeepLinkParameter();
+            AbandonDeepLink(ticket);
             return;
         }
 
         var entity = await ResolvedDataProvider.GetByIdAsync(id);
 
+        if (!IsCurrentDeepLink(ticket))
+            return;
+
         if (entity is null)
         {
-            StripDeepLinkParameter();
+            AbandonDeepLink(ticket);
             return;
         }
 
+        var readOnly = !CanEdit;
         var eventArgs = new ItemEventArgs<TModel> { Item = entity };
 
-        if (OnBeforeItemUpdate.HasDelegate)
+        if (!readOnly && OnBeforeItemUpdate.HasDelegate)
         {
             await OnBeforeItemUpdate.InvokeAsync(eventArgs);
 
+            if (!IsCurrentDeepLink(ticket))
+                return;
+
             if (eventArgs.Cancel)
             {
-                StripDeepLinkParameter();
+                AbandonDeepLink(ticket);
                 return;
             }
         }
-
-        CurrentOpenKey = key;
 
         var dialogData = new BaseDialogData<TModel>
         {
             Model = entity,
             DataProvider = ResolvedDataProvider,
             IsNew = false,
+            ReadOnly = readOnly,
             Localizer = Localizer,
-            CardConfiguration = CardConfiguration,
+            CardConfiguration = ResolveCardConfiguration(entity, isNew: false),
             CardType = CardType
         };
 
-        OpenItemDialog = await DialogService.ShowDialogAsync<BaseDialog<TModel>>(dialogData, BuildCardDialogParameters());
-        var dialogResult = await OpenItemDialog.Result;
+        OpenItemDialog = dialogData;
+        ArmNavigationGuard(dialogData.CloseGuard);
+        var dialogResult = await DialogService.ShowCardDialogAsync(dialogData);
 
-        OpenItemDialog = null;
-
-        // Still our key => the dialog was closed through the UI (not by a Back-navigation that already cleared it).
-        if (string.Equals(CurrentOpenKey, key, StringComparison.Ordinal))
+        if (ReferenceEquals(OpenItemDialog, dialogData))
         {
-            CurrentOpenKey = null;
-            StripDeepLinkParameter();
+            OpenItemDialog = null;
+            DisarmNavigationGuard();
         }
 
-        if (dialogResult is { Cancelled: false, Data: TModel updatedItem })
+        if (IsCurrentDeepLink(ticket))
+        {
+            CurrentOpenKey = null;
+            CompleteClosedItemNavigation();
+            RestoreCardDialogFocus();
+        }
+        else
+        {
+            PendingNavigationTarget = null;
+        }
+
+        if (dialogResult is { Cancelled: false, Value: TModel updatedItem })
         {
             if (OnAfterItemUpdated.HasDelegate)
                 await OnAfterItemUpdated.InvokeAsync(updatedItem);
 
-            await LoadDataAsync();
+            if (!IsDisposed)
+                await RefreshEditedItemAsync(updatedItem);
         }
     }
 
-    /// <summary>Closes the open card in response to a Back-navigation. Clears state first so the awaiting open call does not strip the (already changed) URL.</summary>
+    /// <summary>
+    /// Gives up on opening the item the URL names and removes the parameter, so the same link can be tried
+    /// again instead of being mistaken for an already open card.
+    /// </summary>
+    private void AbandonDeepLink(int ticket)
+    {
+        if (!IsCurrentDeepLink(ticket))
+            return;
+
+        CurrentOpenKey = null;
+        StripDeepLinkParameter();
+    }
+
+    /// <summary>
+    /// Closes the open card because the URL moved on. The claim on the key was already replaced, so the
+    /// call awaiting that card knows its close was not the user's and leaves the URL alone.
+    /// </summary>
     private async Task CloseOpenItemDialogAsync()
     {
-        CurrentOpenKey = null;
         var dialog = OpenItemDialog;
         OpenItemDialog = null;
+        DisarmNavigationGuard();
 
         if (dialog is not null)
             await dialog.CloseAsync();
@@ -924,7 +1476,6 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         if (!string.Equals(cleaned, Navigation.Uri, StringComparison.Ordinal))
             Navigation.NavigateTo(cleaned, replace: true);
     }
-
     private static object? GetItemId(TModel item)
         => typeof(TModel).GetProperty("Id")?.GetValue(item);
 
@@ -955,18 +1506,6 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         return null;
     }
 
-    private static DialogParameters BuildCardDialogParameters() => new()
-    {
-        Title = string.Empty,
-        ShowTitle = false,
-        PrimaryAction = string.Empty,
-        SecondaryAction = string.Empty,
-        Width = "600px",
-        PreventDismissOnOverlayClick = true,
-        ShowDismiss = false,
-        TrapFocus = false
-    };
-
     #endregion
 
     #region Action Helpers
@@ -975,9 +1514,6 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private bool HasToolbarActions =>
         ResolvedActionGroups.Any(g => g.Contexts.HasFlag(CrudActionContext.ListToolbar));
-
-    private bool HasContextMenuActionGroups =>
-        ResolvedActionGroups.Any(g => g.Contexts.HasFlag(CrudActionContext.ContextMenu));
 
     private List<CrudActionGroup<TModel>> ContextMenuActionGroups =>
         ResolvedActionGroups
@@ -1005,23 +1541,74 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         return true;
     }
 
-    private async Task OnContextMenuActionClickedAsync(CrudAction<TModel> action)
+    private sealed record ContextMenuActionEntry(CrudAction<TModel> Action, CrudActionState<TModel> State, string? Reason);
+
+    private sealed record ContextMenuActionSection(CrudActionGroup<TModel> Group, List<ContextMenuActionEntry> Entries);
+
+    private List<ContextMenuActionSection> ContextMenuSections { get; set; } = [];
+
+    /// <summary>
+    /// Works out which declared actions the row menu offers for the clicked row, whether each is enabled and why not.
+    /// Done once when the menu opens, so the async <c>Visible</c> predicates run for the clicked row only.
+    /// </summary>
+    private async Task BuildContextMenuSectionsAsync()
+    {
+        var sections = new List<ContextMenuActionSection>();
+        var item = ContextMenuItem;
+
+        if (item is not null)
+        {
+            IReadOnlyList<TModel> clicked = [item];
+
+            foreach (var group in ResolvedActionGroups.OrderBy(g => g.Order))
+            {
+                if (!await CrudActionEvaluator<TModel>.IsGroupVisibleAsync(group, CrudActionContext.ContextMenu, CurrentUser, item, clicked))
+                    continue;
+
+                var entries = new List<ContextMenuActionEntry>();
+
+                foreach (var action in group.Actions.OrderBy(a => a.Order))
+                {
+                    var targets = CrudActionEvaluator<TModel>.ResolveRowMenuTargets(action, item, SelectedItems, IsSelected);
+
+                    if (!await CrudActionEvaluator<TModel>.IsVisibleAsync(action, CrudActionContext.ContextMenu, CurrentUser, item, targets))
+                        continue;
+
+                    var state = CrudActionEvaluator<TModel>.Evaluate(action, targets);
+                    var reason = CrudActionEvaluator<TModel>.DescribeBlock(action, state, key => FrameworkLocalizer[key].Value, text => ResolveActionText(text));
+
+                    entries.Add(new ContextMenuActionEntry(action, state, reason));
+                }
+
+                if (entries.Count > 0)
+                    sections.Add(new ContextMenuActionSection(group, entries));
+            }
+        }
+
+        ContextMenuSections = sections;
+    }
+
+    private string ResolveActionText(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return string.Empty;
+
+        return Localizer is not null ? Localizer[text]?.Value ?? text : text;
+    }
+
+    private async Task OnContextMenuActionClickedAsync(ContextMenuActionEntry entry)
     {
         var item = ContextMenuItem;
         CloseContextMenu();
 
-        if (action.Action is null)
+        if (entry.Action.Action is null || !entry.State.IsEnabled)
             return;
 
-        var eventArgs = new CrudActionEventArgs<TModel>
-        {
-            Item = item,
-            SelectedItems = action.IsBulkAction && IsSelectionActive ? SelectedItems.ToList() : (item is not null ? [item] : []),
-            ServiceProvider = ServiceProvider,
-            Context = CrudActionContext.ContextMenu
-        };
+        var eventArgs = CrudActionEvaluator<TModel>.BuildEventArgs(
+            entry.Action, entry.State.Targets, item, ServiceProvider, CrudActionContext.ContextMenu);
 
-        await action.Action(eventArgs);
+        await entry.Action.Action(eventArgs);
+        await RefreshAsync();
     }
 
     private async Task LoadCurrentUserAsync()
@@ -1056,6 +1643,26 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         return column.PropertyName;
     }
 
+    /// <summary>
+    /// The name of a column's sort button: the title, followed by the direction when the user sorted by this column.
+    /// </summary>
+    /// <remarks>
+    /// The grid already states the sort on the column header, but a screen reader announces a button by its name, so
+    /// the direction is part of the name as well ("Name, sorted ascending").
+    /// </remarks>
+    private string ResolveColumnHeaderName(PropertyColumnConfig<TModel> column)
+    {
+        var title = ResolveColumnTitle(column);
+        var sort = column.Sortable ? CurrentSorts.FirstOrDefault(current => current.PropertyName == column.PropertyName) : null;
+
+        if (sort is null)
+            return title;
+
+        var key = sort.Direction == Models.SortDirection.Descending ? "ColumnSortedDescending" : "ColumnSortedAscending";
+
+        return string.Format(FrameworkLocalizer[key].Value, title);
+    }
+
     private string? ResolveColumnTooltip(PropertyColumnConfig<TModel> column)
     {
         if (column.Tooltip is not null)
@@ -1064,10 +1671,50 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         return LocalizerResolver.ResolveOptional(ResolvedLocalizer, $"{column.PropertyName}_Tooltip");
     }
 
-    private static GridSort<TModel>? CreateSortBy(PropertyColumnConfig<TModel> column)
+    /// <summary>
+    /// The title of a column header, with the column's description as a tooltip on the text only.
+    /// </summary>
+    /// <remarks>
+    /// Handing the description to the grid as the header tooltip also made it the accessible name of the sort
+    /// button, so a screen reader announced "When this record was first created" instead of the column. The
+    /// button keeps the title as its name and the sort state stays on the column header; the description is
+    /// reachable as a tooltip. The text wraps to two lines before it is cut, and the cut text still has its
+    /// full wording in the tooltip.
+    /// </remarks>
+    private RenderFragment<ColumnBase<TModel>> HeaderTemplate(PropertyColumnConfig<TModel> column)
     {
-        var propertyInfo = ExpressionHelper.GetPropertyInfo(column.Property);
-        return GridSort<TModel>.ByAscending(column.Property);
+        var title = ResolveColumnTitle(column);
+        var tooltip = ResolveColumnTooltip(column);
+        var accessibleName = ResolveColumnHeaderName(column);
+        var direction = column.Sortable ? CurrentSorts.FirstOrDefault(current => current.PropertyName == column.PropertyName)?.Direction : null;
+
+        return gridColumn => builder =>
+        {
+            builder.OpenComponent<BaseListColumnHeader>(0);
+            builder.AddComponentParameter(1, nameof(BaseListColumnHeader.Title), title);
+            builder.AddComponentParameter(2, nameof(BaseListColumnHeader.Tooltip), tooltip);
+            builder.AddComponentParameter(3, nameof(BaseListColumnHeader.AccessibleName), accessibleName);
+            builder.AddComponentParameter(4, nameof(BaseListColumnHeader.Direction), direction);
+
+            if (column.Sortable)
+                builder.AddComponentParameter(5, nameof(BaseListColumnHeader.OnSort), EventCallback.Factory.Create(this, () => SortByHeaderAsync(gridColumn)));
+
+            builder.CloseComponent();
+        };
+    }
+
+    private Task SortByHeaderAsync(ColumnBase<TModel> gridColumn) =>
+        DataGrid is null ? Task.CompletedTask : DataGrid.SortByColumnAsync(gridColumn);
+
+    private GridSort<TModel>? CreateSortBy(PropertyColumnConfig<TModel> column)
+    {
+        if (!SortByColumns.TryGetValue(column, out var sortBy))
+        {
+            sortBy = GridSort<TModel>.ByAscending(column.Property);
+            SortByColumns[column] = sortBy;
+        }
+
+        return sortBy;
     }
 
     private static string? FormatColumnValue(PropertyColumnConfig<TModel> column, TModel item)
@@ -1077,10 +1724,18 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
         if (value is null)
             return null;
 
+        var property = ExpressionHelper.GetPropertyInfo(column.Property);
+
+        if (BaseListDateTimeDisplay.IsDateTimeType(property.PropertyType))
+            return BaseListDateTimeDisplay.Format(BaseListDateTimeDisplay.ToDisplayValue(property, value)!, column.Format, CultureInfo.CurrentCulture);
+
         return value is IFormattable formattable
             ? formattable.ToString(column.Format, CultureInfo.CurrentCulture)
             : value.ToString();
     }
+
+    private static bool IsDateTimeColumn(PropertyColumnConfig<TModel> column) =>
+        BaseListDateTimeDisplay.IsDateTimeType(ExpressionHelper.GetPropertyInfo(column.Property).PropertyType);
 
     private static bool IsBooleanColumn(PropertyColumnConfig<TModel> column)
     {
@@ -1106,28 +1761,92 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     }
 
     private const string SelectionColumnWidth = "40px";
+    private const string RowMenuColumnWidth = "32px";
+    private const string SelectColumnId = "base-list-select";
+    private const string RowMenuColumnId = "base-list-row-menu";
 
     /// <summary>
-    /// The CSS grid track for a column: what the caller asked for, otherwise an equal share.
+    /// The columns of the grid in the order the markup declares them. The grid remembers the order of the columns it has
+    /// seen and appends a column that appears later (the selection column) at the end, so the order is handed over
+    /// explicitly on every render.
+    /// </summary>
+    private IReadOnlyList<string> GridColumnOrder
+    {
+        get
+        {
+            var order = new List<string>();
+
+            if (ShowsSelectionColumn)
+                order.Add(SelectColumnId);
+
+            foreach (var column in VisibleColumnsForUser)
+            {
+                order.Add(column.PropertyName);
+
+                if (HasContextMenuEntries && ReferenceEquals(column, RowMenuAnchorColumn))
+                    order.Add(RowMenuColumnId);
+            }
+
+            return order;
+        }
+    }
+
+    /// <summary>
+    /// The grid track of a column without an explicit width: a share of the free space with a floor that
+    /// suits the data the column holds, see <see cref="BaseListColumnWidth"/>.
+    /// </summary>
+    /// <remarks>
+    /// A bare <c>1fr</c> track has a content-based minimum, so a single long e-mail address widened its
+    /// column to its own length and pushed the others out of view - and, with a virtualized grid, only when
+    /// that row scrolled into view, so the columns jumped while scrolling. A fixed minimum makes the track
+    /// independent of what the rows hold; the cell clips what does not fit with an ellipsis and carries
+    /// the full text as a tooltip.
+    /// </remarks>
+    private string ResolveFlexibleColumnWidth(PropertyColumnConfig<TModel> column) =>
+        BaseListColumnWidth.Resolve(ExpressionHelper.GetPropertyInfo(column.Property), ResolveColumnTitle(column));
+
+    /// <summary>
+    /// The CSS grid track for a column: what the caller asked for, otherwise a flexible share.
     /// </summary>
     /// <remarks>
     /// <see cref="PropertyColumnConfig{TModel}.Width"/> was never handed to FluentUI, so both the
     /// markup <c>Width</c> and the fluent <c>.Width(...)</c> silently did nothing. A track is emitted
     /// for every column because FluentUI builds the whole template from them.
     /// </remarks>
-    private static string ResolveColumnWidth(PropertyColumnConfig<TModel> column) => column.Width ?? "1fr";
+    private string ResolveColumnWidth(PropertyColumnConfig<TModel> column) => column.Width ?? ResolveFlexibleColumnWidth(column);
 
     /// <summary>
-    /// Marks columns that carry no explicit width, so the stylesheet can keep them readable.
+    /// Marks every data cell so the stylesheet can clip long values, and the columns without an explicit
+    /// width so it can give them a readable minimum.
     /// </summary>
-    /// <remarks>
-    /// An equal share of a narrow viewport is not enough to read an address or a name: four columns on
-    /// a phone truncated every one of them to an ellipsis. The class carries a minimum width, which
-    /// makes the grid scroll sideways instead — a column the caller sized explicitly is left alone.
-    /// </remarks>
-    private static string? ResolveColumnClass(PropertyColumnConfig<TModel> column)
-        => column.Width is null ? "base-list-column-flexible" : null;
+    private string ResolveColumnClass(PropertyColumnConfig<TModel> column)
+    {
+        var css = column.Width is null ? "base-list-cell base-list-column-flexible" : "base-list-cell";
 
+        return ReferenceEquals(column, ResolveOpenColumn()) ? $"{css} {OpenCellClass}" : css;
+    }
+
+    /// <summary>
+    /// The text a cell shows for a value, or null when the value is not plain text (a template or a custom
+    /// display draws it instead). Used for the tooltip that reveals what an ellipsis cut off.
+    /// </summary>
+    private string? ResolveCellText(PropertyColumnConfig<TModel> column, TModel item)
+    {
+        if (column.Template is not null || ResolveCustomDisplay(column) is not null)
+            return null;
+
+        if (column.Format is not null || IsDateTimeColumn(column))
+            return FormatColumnValue(column, item);
+
+        if (IsBooleanColumn(column))
+            return BooleanColumnText(column, item);
+
+        var value = column.GetValue(item);
+
+        return value is IFormattable formattable
+            ? formattable.ToString(null, CultureInfo.CurrentCulture)
+            : value?.ToString();
+    }
     #endregion
 
     #region Custom Display Resolution
@@ -1182,12 +1901,47 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     #endregion
 
+    /// <summary>
+    /// Releases the list. A card it opened does not outlive it: the dialog service is shared, so a card left
+    /// behind by a list that was replaced (the router rebuilds the page for a new URL) would stack with the one
+    /// the replacement opens for the same item.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
+        IsDisposed = true;
+        DeepLinkTicket++;
+        CurrentOpenKey = null;
+        AssistantRegistration?.Dispose();
+        AssistantRegistration = null;
+
         if (DeepLinkSubscribed)
             Navigation.LocationChanged -= OnLocationChanged;
 
-        if (JsModule is not null)
+        DisarmNavigationGuard();
+
+        SelectionBackGuard?.Dispose();
+        SelectionBackGuard = null;
+
+        var dialog = OpenItemDialog;
+        OpenItemDialog = null;
+
+        if (dialog is not null)
+            await dialog.CloseAsync();
+
+        SelfReference?.Dispose();
+
+        await DisposeMobileLayoutAsync();
+
+        if (JsModule is null)
+            return;
+
+        try
+        {
+            await JsModule.InvokeVoidAsync("disposeGrid", GridContainerRef);
             await JsModule.DisposeAsync();
+        }
+        catch (Exception ex) when (ex is JSDisconnectedException or ObjectDisposedException or OperationCanceledException)
+        {
+        }
     }
 }

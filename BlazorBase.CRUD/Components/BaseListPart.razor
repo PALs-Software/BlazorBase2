@@ -1,13 +1,15 @@
 @using BlazorBase.CRUD.Components.Internal
 @using BlazorBase.CRUD.Configuration
 @using BlazorBase.CRUD.Models
+@using Microsoft.AspNetCore.Components.Web
 @typeparam TModel
 
-<div class="base-listpart">
+<div class="base-listpart" @ref="RootElement" data-has-selection="@(SelectedItems.Count > 0 || MultiSelectMode ? "true" : null)">
     <div class="base-listpart-header">
         @if (CanAdd)
         {
-            <FluentButton Appearance="Appearance.Stealth"
+            <FluentButton Appearance="ButtonAppearance.Transparent"
+                          Class="base-listpart-add"
                           OnClick="@OnAddItemAsync"
                           IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Add())">
                 @FrameworkLocalizer["Add"]
@@ -18,60 +20,207 @@
             <BaseActionToolbar TModel="TModel"
                                ActionGroups="@ActionGroups"
                                Context="CrudActionContext.ListPart"
-                               Localizer="@Localizer" />
+                               SelectedItems="@SelectedItems"
+                               Localizer="@Localizer"
+                               OnBlockedItemsChanged="@OnBlockedItemsChanged"
+                               OnActionExecuted="@OnToolbarActionExecuted" />
+        }
+        @if (ShowsSelectionColumn)
+        {
+            <div class="base-listpart-selection-info">
+                <FluentText Class="selection-count">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</FluentText>
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-listpart-deselect"
+                              OnClick="@DeselectAll"
+                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.DismissCircle())">
+                    @FrameworkLocalizer["DeselectAll"]
+                </FluentButton>
+            </div>
         }
     </div>
 
-    <div class="base-listpart-items">
-        @if (Items is not null)
+    <div class="base-listpart-items" role="list">
+        @{
+            var rows = Rows;
+            var inlineFields = UsesInlineFields;
+            var hasRowMenu = HasRowMenu;
+            var selectionColumn = ShowsSelectionColumn;
+        }
+        @for (var index = 0; index < rows.Count; index++)
         {
-            @foreach (var item in Items)
-            {
-                <div class="base-listpart-item">
-                    @if (EditMode == ListPartEditMode.Inline && CardConfiguration?.Fields is { Count: > 0 } inlineFields)
-                    {
-                        <div class="base-listpart-item-fields">
-                            @foreach (var field in inlineFields.Where(IsFieldVisibleForUser))
-                            {
-                                <BasePropertyInput TModel="TModel"
-                                                   Model="@item"
-                                                   FieldConfig="@field"
-                                                   IsEditing="@IsFieldEditableForUser(field)"
-                                                   Localizer="@Localizer"
-                                                   OnAfterPropertyChanged="@(args => OnInlinePropertyChanged(item, args))" />
-                            }
-                        </div>
-                    }
-                    else if (EditMode == ListPartEditMode.Dialog)
-                    {
-                        <button type="button"
-                                class="base-listpart-item-content base-listpart-item-button"
-                                @onclick="@(() => OpenEditDialogAsync(item))">
-                            @ResolveItemLabel(item)
-                        </button>
-                    }
-                    else
-                    {
-                        <div class="base-listpart-item-content">
-                            @ResolveItemLabel(item)
-                        </div>
-                    }
+            var item = rows[index];
+            var rowIndex = index;
+            var selected = IsSelected(item);
+            var opens = CanOpenItem(item);
+            var rowClick = inlineFields ? default : EventCallback.Factory.Create<MouseEventArgs>(this, e => OnRowClickedAsync(item, rowIndex, e, false));
+            var rowDoubleClick = inlineFields ? default : EventCallback.Factory.Create<MouseEventArgs>(this, () => OnRowDoubleClickedAsync(item, rowIndex));
+            var rowContext = inlineFields || !hasRowMenu ? default : EventCallback.Factory.Create<MouseEventArgs>(this, e => OnRowContextMenuAsync(item, rowIndex, e));
 
-                    @if (CanDelete && item is not null)
-                    {
-                        <FluentButton Appearance="Appearance.Stealth"
-                                      OnClick="@(() => OnRemoveItemAsync(item))"
-                                      IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Delete())" />
-                    }
+            <div class="@ResolveRowClass(item, selected)"
+                 role="listitem"
+                 data-listpart-row="@rowIndex"
+                 aria-current="@(selected ? "true" : null)"
+                 @onclick="@rowClick"
+                 @ondblclick="@rowDoubleClick"
+                 @oncontextmenu="@rowContext"
+                 @oncontextmenu:preventDefault="@rowContext.HasDelegate">
+                @if (selectionColumn)
+                {
+                    <div class="select-circle @(selected ? "selected" : null)"
+                         role="checkbox"
+                         tabindex="0"
+                         data-listpart-key="circle"
+                         aria-checked="@(selected ? "true" : "false")"
+                         aria-label="@(selected ? FrameworkLocalizer["Deselect"].Value : FrameworkLocalizer["Select"].Value)"
+                         @onclick="@(() => ToggleAndNotifyAsync(item, rowIndex))" @onclick:stopPropagation>
+                    </div>
+                }
+
+                @if (inlineFields)
+                {
+                    <div class="base-listpart-item-fields">
+                        @foreach (var field in CardConfiguration!.Fields.Where(IsFieldVisibleForUser))
+                        {
+                            <BasePropertyInput TModel="TModel"
+                                               Model="@item"
+                                               FieldConfig="@field"
+                                               IsEditing="@IsFieldEditableForUser(field)"
+                                               Localizer="@Localizer"
+                                               OnAfterPropertyChanged="@(args => OnInlinePropertyChanged(item, args))" />
+                        }
+                    </div>
+                }
+                else
+                {
+                    var label = ResolveItemLabel(item);
+
+                    <div class="base-listpart-item-content @(opens ? "base-listpart-item-button" : null)"
+                         role="@(opens ? "button" : null)"
+                         tabindex="0"
+                         title="@label"
+                         data-listpart-key="label"
+                         data-listpart-focus
+                         @onclick="@(e => OnRowClickedAsync(item, rowIndex, e, opens))" @onclick:stopPropagation>@label</div>
+                }
+
+                @if (hasRowMenu)
+                {
+                    <FluentButton Appearance="ButtonAppearance.Transparent"
+                                  Class="base-listpart-row-menu"
+                                  Title="@FrameworkLocalizer["MoreActions"].Value"
+                                  aria-label="@FrameworkLocalizer["MoreActions"].Value"
+                                  aria-haspopup="menu"
+                                  aria-expanded="@(IsMenuOpenFor(item) ? "true" : "false")"
+                                  data-listpart-key="menu"
+                                  StopPropagation="true"
+                                  IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.MoreHorizontal())"
+                                  OnClick="@(e => OnMenuButtonClickedAsync(item, rowIndex, e))" />
+                }
+            </div>
+        }
+    </div>
+
+    @if (MenuOpen && MenuItem is not null)
+    {
+        <div class="context-menu-overlay"
+             @onclick="DismissMenu"
+             @oncontextmenu="DismissMenu" @oncontextmenu:preventDefault></div>
+        <nav class="context-menu @(MenuPositioned ? null : "context-menu-measuring")"
+             role="menu"
+             tabindex="-1"
+             aria-label="@FrameworkLocalizer["MoreActions"].Value"
+             @ref="MenuElement"
+             @onkeydown="OnMenuKeyDown"
+             @oncontextmenu:preventDefault
+             style="@MenuStyle">
+            @if (MenuShowsOpen)
+            {
+                var canEditMenuItem = CanEditItem(MenuItem);
+
+                <div role="menuitem" @onclick="OnMenuOpenAsync">
+                    <FluentIcon Value="@(canEditMenuItem
+                                         ? (Microsoft.FluentUI.AspNetCore.Components.Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Edit()
+                                         : new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Eye())" />
+                    <span>@FrameworkLocalizer[canEditMenuItem ? "Edit" : "View"]</span>
                 </div>
             }
-        }
-    </div>
+            @if (CanDelete)
+            {
+                <div role="menuitem" @onclick="OnMenuDeleteAsync">
+                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Delete())" />
+                    <span>@(SelectedItems.Count > 1 && IsSelected(MenuItem) ? string.Format(FrameworkLocalizer["DeleteCount"].Value, SelectedItems.Count) : FrameworkLocalizer["Delete"].Value)</span>
+                </div>
+            }
+            @if (MenuSections.Count > 0)
+            {
+                var needsDivider = false;
+                @foreach (var section in MenuSections)
+                {
+                    @if (needsDivider)
+                    {
+                        <div class="context-menu-divider"></div>
+                    }
+                    needsDivider = true;
+                    @foreach (var entry in section.Entries)
+                    {
+                        @if (entry.State.IsEnabled)
+                        {
+                            <div role="menuitem" @onclick="() => OnMenuActionClickedAsync(entry)">
+                                @if (entry.Action.Icon is not null)
+                                {
+                                    <FluentIcon Value="@entry.Action.Icon" />
+                                }
+                                <span>@ResolveActionText(entry.Action.Caption)</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div role="menuitem" class="context-menu-item-disabled" aria-disabled="true" title="@entry.Reason">
+                                @if (entry.Action.Icon is not null)
+                                {
+                                    <FluentIcon Value="@entry.Action.Icon" />
+                                }
+                                <span>@ResolveActionText(entry.Action.Caption)</span>
+                            </div>
+                        }
+                    }
+                }
+            }
+            @if (MenuHasSelectionEntries)
+            {
+                @if (MenuHasEntriesAboveSelection)
+                {
+                    <div class="context-menu-divider"></div>
+                }
+                @if (MenuShowsSelectMore)
+                {
+                    <div role="menuitem" @onclick="OnMenuSelectMore">
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.CheckmarkCircle())" />
+                        <span>@FrameworkLocalizer["SelectMore"]</span>
+                    </div>
+                }
+                @if (MenuShowsSelectAll)
+                {
+                    <div role="menuitem" @onclick="SelectAll">
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.SelectAllOn())" />
+                        <span>@FrameworkLocalizer["SelectAll"]</span>
+                    </div>
+                }
+                @if (MenuShowsDeselectAll)
+                {
+                    <div role="menuitem" @onclick="DeselectAll">
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.SelectAllOff())" />
+                        <span>@FrameworkLocalizer["DeselectAll"]</span>
+                    </div>
+                }
+            }
+        </nav>
+    }
 
     @if (Items is null || !Items.Any())
     {
         <div class="base-listpart-empty">
-            <FluentLabel Typo="Typography.Body">@FrameworkLocalizer["NoListItems"]</FluentLabel>
+            <FluentText>@FrameworkLocalizer["NoListItems"]</FluentText>
         </div>
     }
 </div>

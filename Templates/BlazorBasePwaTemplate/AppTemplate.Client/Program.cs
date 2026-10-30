@@ -1,13 +1,13 @@
 using AppTemplate.Client;
 using AppTemplate.Client.Modules.Authentication.Services;
 using AppTemplate.Shared.Modules.Notes.Entities;
+using BlazorBase.Components.Services;
 using BlazorBase.CRUD.Extensions;
 using BlazorBase.User.Models;
 using BlazorBase.User.Services;
 using BlazorBase.User.Wasm;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using Microsoft.FluentUI.AspNetCore.Components;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -15,7 +15,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 var apiBaseAddress = new Uri(builder.HostEnvironment.BaseAddress);
 
-builder.Services.AddFluentUIComponents();
+builder.Services.AddBlazorBaseFluentUI();
 builder.Services.AddLocalization();
 
 builder.Services.AddBlazorBaseUserClient();

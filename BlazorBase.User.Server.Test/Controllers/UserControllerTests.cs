@@ -81,4 +81,37 @@ public sealed class UserControllerTests : IdentityServerTestBase
         Assert.Equal("Dark", reloaded!.ThemePreference);
         Assert.Equal("de", reloaded.Language);
     }
+
+    /// <summary>
+    /// The settings-updated hook is the seam a host uses to keep its own, separate preference store
+    /// (e.g. a domain user table) in sync with the same theme/language choice.
+    /// </summary>
+    [Fact]
+    public async Task UpdateSettings_InvokesTheSettingsUpdatedHook_WithThePersistedValues()
+    {
+        var user = await SeedUserAsync("grace@example.com", "Grace");
+
+        using var scope = CreateScope();
+        var controller = CreateUserController(scope, PrincipalFor(user.Id));
+
+        TestUser? hookUser = null;
+        UpdateUserSettingsRequest? hookRequest = null;
+        controller.SettingsUpdatedHook = (invokedUser, invokedRequest) =>
+        {
+            hookUser = invokedUser;
+            hookRequest = invokedRequest;
+            return Task.CompletedTask;
+        };
+
+        var result = await controller.UpdateSettings(new UpdateUserSettingsRequest
+        {
+            ThemePreference = "Light",
+            Language = "de",
+        });
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.NotNull(hookUser);
+        Assert.Equal(user.Id, hookUser!.Id);
+        Assert.Equal("de", hookRequest!.Language);
+    }
 }

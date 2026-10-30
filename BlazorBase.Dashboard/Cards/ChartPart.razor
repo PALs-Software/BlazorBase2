@@ -1,0 +1,14 @@
+@namespace BlazorBase.Dashboard
+<DashboardCard Title="@Title" MoreHref="@MoreHref" MoreText="@MoreText" Tools="@Tools" Loading="@(Loading || Palette is null)" Class="@($"cp {Class}")">
+    <div class="cp-canvas" role="img" aria-label="@AccessibleName" style="--chart-height: @Height">
+        @if (Loading || Palette is null)
+        {
+            <div class="cp-skeleton" aria-hidden="true"></div>
+        }
+        else
+        {
+            @ChildContent
+            @ChartContent?.Invoke(Palette)
+        }
+    </div>
+</DashboardCard>

@@ -1,0 +1,51 @@
+@namespace BlazorBase.Dashboard
+<section class="hl @Class" aria-labelledby="@GreetingId"
+         @onmouseenter="@(() => SetPaused(true))" @onmouseleave="@(() => SetPaused(false))"
+         @onfocusin="@(() => SetPaused(true))" @onfocusout="@(() => SetPaused(false))">
+    <div class="hl-text">
+        <h2 class="hl-greeting" id="@GreetingId">@GreetingText</h2>
+        @if (Insights.Count > 0)
+        {
+            <p class="hl-insight" @key="Index">
+                @if (Insights[Index].Content is { } content)
+                {
+                    @content
+                }
+                else
+                {
+                    @foreach (var segment in HeadlineText.Split(Insights[Index].Text ?? String.Empty))
+                    {
+                        if (segment.IsBold)
+                        {
+                            <strong>@segment.Text</strong>
+                        }
+                        else
+                        {
+                            @segment.Text
+                        }
+                    }
+                }
+            </p>
+            @if (Insights.Count > 1)
+            {
+                <div class="hl-dots" role="group" aria-label="@Localizer["HeadlineInsights"]">
+                    @for (var position = 0; position < Insights.Count; position++)
+                    {
+                        var target = position;
+                        <button type="button" class="hl-dot" aria-current="@(target == Index ? "true" : null)"
+                                aria-label="@String.Format(Localizer["HeadlineShowInsight"].Value, target + 1, Insights.Count)"
+                                @onclick="@(() => ShowInsight(target))">
+                            <span class="hl-dot-mark" aria-hidden="true"></span>
+                        </button>
+                    }
+                </div>
+            }
+        }
+    </div>
+    @if (Actions is not null)
+    {
+        <div class="hl-actions">
+            @Actions
+        </div>
+    }
+</section>

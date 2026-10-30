@@ -1,32 +1,297 @@
+/*
+   A list part follows the interaction model of the main list: a click selects an item, the item label opens it, the
+   three-dot button beside it opens the row menu, and the toolbar actions work on the selection. A list part is also
+   used on its own, which is why it defines its variables itself.
+*/
 .base-listpart {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    border: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
-    border-radius: var(--radius-sm, 4px);
-    padding: 8px;
+    gap: var(--space-1);
+    position: relative;
+    border: var(--stroke-width-thin) solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    --base-listpart-row-selected-fill: var(--color-bg-selected);
+    --base-listpart-warning-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M8.68 2.79a1.5 1.5 0 0 1 2.64 0l6.5 12A1.5 1.5 0 0 1 16.5 17h-13a1.5 1.5 0 0 1-1.32-2.21l6.5-12ZM10 7a.75.75 0 0 0-.75.75v3.5a.75.75 0 0 0 1.5 0v-3.5A.75.75 0 0 0 10 7Zm0 7.5a.9.9 0 1 0 0-1.8.9.9 0 0 0 0 1.8Z'/%3E%3C/svg%3E");
 }
 
 .base-listpart-header {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.base-listpart-selection-info {
+    order: -1;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: auto;
+}
+
+.base-listpart-selection-info ::deep .selection-count {
+    font-weight: 600;
+}
+
+.base-listpart-items {
+    display: flex;
+    flex-direction: column;
 }
 
 .base-listpart-item {
+    position: relative;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 4px 8px;
-    border-bottom: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+    gap: 4px;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 2px 8px;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    transition: background-color 0.1s ease-in-out;
 }
 
 .base-listpart-item:last-child {
     border-bottom: none;
 }
 
+.base-listpart-item:hover {
+    background-color: var(--color-bg-hover);
+}
+
+/*
+   A selected item is tinted with the accent (--color-bg-selected is an accent at low opacity, so it is laid over the opaque
+   surface colour). Under the pointer the same tint lies over the hover fill instead, which keeps a selected item distinct
+   from a hovered one.
+*/
+.base-listpart-item-selected {
+    background-color: var(--color-bg-surface);
+    background-image: linear-gradient(var(--base-listpart-row-selected-fill), var(--base-listpart-row-selected-fill));
+}
+
+.base-listpart-item-selected:hover {
+    background-color: var(--color-bg-hover);
+}
+
+.base-listpart-item:has(> .base-listpart-item-content) {
+    cursor: pointer;
+}
+
+.base-listpart-item-content {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 8px 4px;
+    border-radius: var(--radius-sm, 4px);
+    text-underline-offset: 3px;
+}
+
+.base-listpart-item-content:focus-visible,
+.base-listpart-items ::deep .select-circle:focus-visible,
+.base-listpart-items ::deep .base-listpart-row-menu:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.base-listpart-item-fields {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/*
+   The label of an item that can be opened is its open link: it takes the accent color and an underline while the
+   pointer is on the row (a touch screen has no hover, so there only the selected row shows it), and on the selected row.
+*/
+.base-listpart {
+    --base-listpart-open-link: var(--color-accent-text);
+}
+
+.base-listpart-item-button {
+    cursor: pointer;
+}
+
+.base-listpart-item-selected .base-listpart-item-button {
+    color: var(--base-listpart-open-link);
+    text-decoration: underline;
+}
+
+@media (hover: hover) {
+    .base-listpart-item:hover .base-listpart-item-button {
+        color: var(--base-listpart-open-link);
+        text-decoration: underline;
+    }
+}
+
+/*
+   While Shift is held (set by baseListPart.js) the items cannot be selected as text, so a Shift+click that selects a
+   range does not also highlight the text between the two items.
+*/
+.base-listpart[data-shift] .base-listpart-item {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/*
+   The three-dot button sits right of the label. It is invisible by default but keeps its box, so showing it moves
+   nothing: it appears on the hovered item, on the selected item, while the item holds the keyboard focus, while its menu
+   is open, and always on a screen without hover.
+*/
+.base-listpart-item ::deep .base-listpart-row-menu {
+    flex: none;
+    min-width: var(--control-height-md);
+    min-height: var(--control-height-md);
+    width: var(--control-height-md);
+    height: var(--control-height-md);
+    opacity: 0;
+}
+
+.base-listpart-item:hover ::deep .base-listpart-row-menu,
+.base-listpart-item-selected ::deep .base-listpart-row-menu,
+.base-listpart-item-menu-open ::deep .base-listpart-row-menu,
+.base-listpart-item:focus-within ::deep .base-listpart-row-menu {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .base-listpart-item ::deep .base-listpart-row-menu {
+        opacity: 1;
+    }
+}
+
+@media (pointer: coarse) {
+    .base-listpart-item ::deep .base-listpart-row-menu {
+        min-width: var(--control-height-touch);
+        min-height: var(--control-height-touch);
+        width: var(--control-height-touch);
+        height: var(--control-height-touch);
+    }
+}
+
+.select-circle {
+    position: relative;
+    flex: none;
+    box-sizing: border-box;
+    width: 20px;
+    height: 20px;
+    margin-inline: 4px;
+    border-radius: 50%;
+    border: 2px solid var(--color-border-strong);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.select-circle::after {
+    content: "";
+    position: absolute;
+    inset: -10px;
+}
+
+.select-circle.selected {
+    background-color: var(--color-accent);
+    border-color: var(--color-accent);
+}
+
+.select-circle:hover {
+    border-color: var(--color-accent);
+}
+
+/*
+   An item that blocks the toolbar action the pointer is on: a warning-colored bar on the left edge and a warning icon in
+   front of its text.
+*/
+.base-listpart-item-blocked {
+    box-shadow: inset 4px 0 0 var(--color-warning);
+}
+
+.base-listpart-item-blocked .base-listpart-item-content::before,
+.base-listpart-item-blocked .base-listpart-item-fields::before {
+    content: "";
+    display: inline-block;
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin-inline-end: 6px;
+    vertical-align: text-bottom;
+    background-color: var(--color-warning);
+    -webkit-mask: var(--base-listpart-warning-icon) center / contain no-repeat;
+    mask: var(--base-listpart-warning-icon) center / contain no-repeat;
+}
+
 .base-listpart-empty {
     display: flex;
     justify-content: center;
     padding: 12px;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
+}
+
+.context-menu-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+}
+
+.context-menu {
+    position: fixed;
+    z-index: 10000;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: 4px 0;
+    min-width: 180px;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.context-menu-measuring {
+    visibility: hidden;
+}
+
+.context-menu ::deep [role="menuitem"] {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    cursor: pointer;
+    color: var(--color-text-primary);
+    font-size: 14px;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    user-select: none;
+}
+
+.context-menu ::deep [role="menuitem"]:hover {
+    background: var(--color-bg-hover);
+}
+
+.context-menu ::deep [role="menuitem"].context-menu-item-disabled {
+    cursor: not-allowed;
+    color: var(--color-text-muted);
+    opacity: 0.6;
+}
+
+.context-menu ::deep [role="menuitem"].context-menu-item-disabled:hover {
+    background: none;
+}
+
+.context-menu-divider {
+    height: 1px;
+    background: var(--color-border);
+    margin: 4px 0;
+}
+
+@media (pointer: coarse), (max-width: 640px) {
+    .context-menu ::deep [role="menuitem"] {
+        min-height: 44px;
+    }
 }

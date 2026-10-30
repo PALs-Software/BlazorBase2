@@ -1,47 +1,87 @@
 @namespace BlazorBase.Components.Layout.Navigation
 
-<nav class="base-side-nav @(IsCollapsed ? "collapsed" : null)" aria-label="@AriaLabel">
-    <FluentNavMenu Width="220" Collapsible="false" Title="@Title">
+<div class="base-side-nav @(IsIconOnly ? "collapsed" : null)">
+    <FluentNav Class="base-side-nav-root"
+               Density="NavDensity.Small"
+               aria-label="@AriaLabel"
+               Width="@(IsIconOnly ? "48px" : $"{ExpandedWidth}px")"
+               BackgroundColor="var(--color-bg-elevated)"
+               BackgroundColorHover="var(--color-bg-hover)"
+               OnItemClick="@CloseDrawerAsync">
         @foreach (var item in VisibleItems)
         {
-            @if (item.IsGroup)
+            @if (item.IsGroup && IsIconOnly)
             {
+                var expanded = IsExpanded(item);
+                var itemsId = GroupItemsId(item);
+
                 <FluentDivider Class="base-side-nav-divider" />
-                @if (!IsCollapsed)
-                {
-                    <div class="base-side-nav-section">@item.Label</div>
-                }
-                @foreach (var child in item.Children)
-                {
-                    <FluentNavLink Href="@child.Href"
-                                   Match="@(child.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)"
-                                   Icon="@child.Icon"
-                                   IconColor="Color.Neutral"
-                                   Title="@child.Label">
-                        <span class="base-side-nav-text">@child.Label</span>
-                    </FluentNavLink>
-                }
+                <button type="button"
+                        class="base-side-nav-group-toggle @(ContainsActiveChild(item) ? "contains-active" : null)"
+                        aria-expanded="@(expanded ? "true" : "false")"
+                        aria-controls="@itemsId"
+                        title="@item.Label"
+                        @onclick="@(() => ToggleGroupAsync(item))"
+                        @onclick:stopPropagation="true">
+                    <span class="base-side-nav-group-icon">
+                        @if (item.Icon is not null)
+                        {
+                            <FluentIcon Value="@item.Icon" Color="Color.Default" />
+                        }
+                    </span>
+                    <span class="base-side-nav-sr">@item.Label</span>
+                </button>
+                <div id="@itemsId" class="base-side-nav-group-items" role="group" aria-label="@item.Label" hidden="@(!expanded)">
+                    @foreach (var child in item.Children)
+                    {
+                        <FluentNavItem Href="@child.Href"
+                                       Class="base-side-nav-item"
+                                       Match="@(child.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)"
+                                       IconRest="@child.Icon"
+                                       Tooltip="@child.Label">
+                            <span class="base-side-nav-text">@child.Label</span>
+                        </FluentNavItem>
+                    }
+                </div>
+            }
+            else if (item.IsGroup)
+            {
+                <FluentNavCategory Title="@item.Label"
+                                   Class="@("base-side-nav-category" + (ContainsActiveChild(item) ? " contains-active" : null))"
+                                   IconRest="@item.Icon"
+                                   Expanded="@IsExpanded(item)"
+                                   ExpandedChanged="@(expanded => SetGroupExpandedAsync(item, expanded))">
+                    @foreach (var child in item.Children)
+                    {
+                        <FluentNavItem Href="@child.Href"
+                                       Class="base-side-nav-item"
+                                       Match="@(child.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)"
+                                       IconRest="@child.Icon"
+                                       Tooltip="@child.Label">
+                            <span class="base-side-nav-text">@child.Label</span>
+                        </FluentNavItem>
+                    }
+                </FluentNavCategory>
             }
             else if (item.IsAction)
             {
-                <FluentNavLink @onclick="@(() => InvokeItemAsync(item))"
-                               Icon="@item.Icon"
-                               IconColor="Color.Neutral"
-                               Title="@item.Label"
-                               Class="@(item.IsDanger ? "base-side-nav-danger" : null)">
+                <FluentNavItem OnClick="@(() => InvokeItemAsync(item))"
+                               IconRest="@item.Icon"
+                               Tooltip="@item.Label"
+                               Class="@("base-side-nav-item" + (item.IsDanger ? " base-side-nav-danger" : null))">
                     <span class="base-side-nav-text">@item.Label</span>
-                </FluentNavLink>
+                </FluentNavItem>
             }
             else
             {
-                <FluentNavLink Href="@item.Href"
+                <FluentNavItem Href="@item.Href"
+                               Class="base-side-nav-item"
                                Match="@(item.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)"
-                               Icon="@item.Icon"
-                               IconColor="Color.Neutral"
-                               Title="@item.Label">
+                               IconRest="@item.Icon"
+                               Tooltip="@item.Label">
                     <span class="base-side-nav-text">@item.Label</span>
-                </FluentNavLink>
+                </FluentNavItem>
             }
         }
-    </FluentNavMenu>
-</nav>
+    </FluentNav>
+</div>

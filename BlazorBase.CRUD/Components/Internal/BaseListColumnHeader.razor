@@ -1,0 +1,18 @@
+@namespace BlazorBase.CRUD.Components.Internal
+
+@if (OnSort.HasDelegate)
+{
+    <button type="button" class="col-sort-button" aria-label="@AccessibleName" @onclick="OnSort">
+        <span class="base-list-header-title" title="@Tooltip">@Title</span>
+        @if (Direction is { } direction)
+        {
+            <FluentIcon Value="@SortIcon(direction)" Width="16px" />
+        }
+    </button>
+}
+else
+{
+    <div class="col-title">
+        <span class="base-list-header-title" title="@Tooltip">@Title</span>
+    </div>
+}

@@ -1,29 +1,390 @@
-::deep .main-content {
-    height: calc(100vh - 50px);
+.layout-root {
+    --base-header-height: 64px;
+    --base-header-control-size: 40px;
+    --base-brand-height: 44px;
+    --base-bottom-bar-height: 56px;
+    --base-bottom-bar-offset: 0px;
+    --base-nav-width: 260px;
+    --base-safe-top: env(safe-area-inset-top, 0px);
+    --base-safe-right: env(safe-area-inset-right, 0px);
+    --base-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --base-safe-left: env(safe-area-inset-left, 0px);
+
+    position: fixed;
+    inset: 0;
+    height: 100dvh;
+    display: grid;
+    grid-template-rows: calc(var(--base-header-height) + var(--base-safe-top)) minmax(0, 1fr) auto;
+    overflow: hidden;
+    background: var(--color-bg-surface);
+    color: var(--color-text-primary);
 }
 
-::deep .body-content {
-    padding: 1rem 1.5rem;
-    overflow-y: auto;
+.layout-root.has-bottom-bar {
+    --base-bottom-bar-offset: calc(var(--base-bottom-bar-height) + var(--base-safe-bottom));
 }
 
-/*
-   FluentUI paints its header in its own brand blue, which has nothing to do with the application's
-   palette — every host would otherwise start by overriding it. Take the colours from the theme
-   tokens instead, so the shell matches whatever palette is linked.
-*/
-::deep header.header {
+.layout-root[data-base-keyboard-open] {
+    --base-bottom-bar-offset: 0px;
+}
+
+.base-skip-link {
+    position: absolute;
+    top: -100px;
+    left: max(8px, var(--base-safe-left));
+    z-index: 100;
+    padding: 8px 16px;
+    border: 1px solid var(--color-border-focus);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    font: inherit;
+    cursor: pointer;
+}
+
+.base-skip-link:focus-visible {
+    top: calc(8px + var(--base-safe-top));
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.base-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    padding: var(--base-safe-top) max(12px, var(--base-safe-right)) 0 max(12px, var(--base-safe-left));
+    z-index: 50;
     background: var(--color-bg-elevated);
     color: var(--color-text-primary);
     border-bottom: 1px solid var(--color-border);
     font-family: var(--font-display);
+    font-weight: 600;
 }
 
-::deep header.header a {
-    color: var(--color-text-primary);
+.base-header-title {
+    white-space: nowrap;
+    margin-inline-start: 4px;
 }
 
-.layout-root {
+.base-header-brand {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin-inline-start: 4px;
+}
+
+.base-header-start,
+.base-header-end {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: max-content;
+}
+
+.base-header-start {
+    flex: 1 1 0;
+}
+
+.base-header-end {
+    flex: 1 1 0;
+    justify-content: flex-end;
+}
+
+.base-header-center {
+    display: flex;
+    flex: 0 1 auto;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+}
+
+.base-header-search {
+    flex: 0 1 560px;
+    max-width: 560px;
+    padding-inline: 8px;
+}
+
+.base-command-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-sizing: border-box;
+    width: 100%;
+    height: var(--base-header-control-size);
+    padding: 0 8px 0 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md, 10px);
     background: var(--color-bg-surface);
+    color: var(--color-text-muted);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    text-align: start;
+    cursor: pointer;
+    transition: border-color 140ms ease, background 140ms ease;
+}
+
+.base-command-search:hover {
+    border-color: var(--color-border-strong);
+    background: var(--color-bg-hover);
+}
+
+.base-command-search:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+}
+
+.base-command-search-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.base-command-search-key {
+    padding: 2px 6px;
+    border: 1px solid var(--color-border-strong);
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    background: var(--color-bg-elevated);
+    color: var(--color-text-secondary);
+    font: 600 11px var(--font-base);
+    white-space: nowrap;
+}
+
+.base-header ::deep .base-command-search-icon {
+    display: none;
+}
+
+.base-header.brand-centered .base-header-brand,
+.base-header.brand-centered .base-header-title {
+    margin-inline-start: 0;
+}
+
+.base-header-theme {
+    display: inline-flex;
+}
+
+.base-header ::deep a {
     color: var(--color-text-primary);
+}
+
+.base-header ::deep .base-header-control {
+    min-width: var(--base-header-control-size);
+    min-height: var(--base-header-control-size);
+    border-radius: var(--radius-md);
+}
+
+.base-header ::deep .base-header-control:focus-visible {
+    outline: var(--stroke-width-thick) solid var(--color-border-focus);
+    outline-offset: -2px;
+}
+
+.base-header ::deep .base-header-control[aria-expanded="true"]:not(.base-nav-toggle) {
+    background-color: var(--color-bg-selected);
+}
+
+.main-content {
+    position: relative;
+    display: flex;
+    min-height: 0;
+    min-width: 0;
+}
+
+.base-nav-host {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: hidden;
+    padding-block-end: var(--base-safe-bottom);
+    padding-inline-start: var(--base-safe-left);
+    background: var(--color-bg-elevated);
+    border-inline-end: 1px solid var(--color-border);
+}
+
+.base-nav-host > ::deep .base-side-nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.base-nav-host > ::deep .base-nav-narrow-only {
+    flex: none;
+}
+
+.base-nav-host:focus {
+    outline: none;
+}
+
+.base-nav-host ::deep .base-nav-narrow-only {
+    display: none;
+}
+
+.base-nav-overlay {
+    display: none;
+}
+
+.body-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    padding: 1rem max(1.5rem, var(--base-safe-right)) max(1rem, var(--base-safe-bottom)) 1.5rem;
+}
+
+.body-content:focus {
+    outline: none;
+}
+
+@media (max-width: 1024px) {
+    .base-nav-host {
+        position: absolute;
+        inset-block: 0;
+        inset-inline-start: 0;
+        z-index: 40;
+        box-sizing: border-box;
+        width: min(320px, calc(100vw - 48px));
+        border-inline-end: 1px solid var(--color-border);
+        box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+        transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform 0.2s ease, visibility 0s linear 0.2s;
+    }
+
+    .base-nav-host.open {
+        transform: translateX(0);
+        visibility: visible;
+        transition: transform 0.2s ease;
+    }
+
+    .base-nav-host ::deep .base-side-nav {
+        width: 100%;
+    }
+
+    .base-nav-overlay {
+        display: block;
+        position: absolute;
+        inset: 0;
+        z-index: 30;
+        background: rgb(0 0 0 / 0.45);
+    }
+
+    .body-content {
+        padding-left: max(1.5rem, var(--base-safe-left));
+    }
+}
+
+@media (max-height: 559px) {
+    .base-nav-host {
+        overflow-y: auto;
+    }
+
+    .base-nav-host > ::deep .base-side-nav {
+        flex: none;
+        overflow: visible;
+    }
+}
+
+@media (max-width: 768px) {
+    .base-header {
+        padding: var(--base-safe-top) max(8px, var(--base-safe-right)) 0 max(8px, var(--base-safe-left));
+    }
+
+    .base-header-title {
+        display: none;
+    }
+
+    .base-header-search {
+        display: none;
+    }
+
+    .base-header.has-command-palette .base-header-start {
+        min-width: 0;
+    }
+
+    .base-header.has-command-palette .base-header-brand {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .base-header.has-command-palette .base-header-brand ::deep img {
+        min-width: 0;
+        max-width: 100%;
+        object-fit: contain;
+        object-position: left center;
+    }
+
+    .base-header ::deep .base-command-search-icon {
+        display: inline-flex;
+    }
+
+    .layout-root {
+        --base-header-height: 56px;
+        --base-brand-height: 40px;
+    }
+
+    .layout-root.has-bottom-bar .base-nav-host {
+        padding-block-end: 0;
+    }
+
+    .layout-root.has-bottom-bar .body-content {
+        padding-bottom: 12px;
+    }
+
+    .base-header ::deep .base-header-wide-only {
+        display: none;
+    }
+
+    .base-nav-host ::deep .base-nav-narrow-only {
+        display: block;
+    }
+
+    .body-content {
+        padding: 12px max(12px, var(--base-safe-right)) max(12px, var(--base-safe-bottom)) max(12px, var(--base-safe-left));
+    }
+}
+
+@media (max-width: 480px) {
+    .base-header-theme {
+        display: none;
+    }
+}
+
+@media (max-width: 360px) {
+    .layout-root {
+        --base-brand-height: 32px;
+    }
+}
+
+.base-bottom-host {
+    z-index: 45;
+    min-width: 0;
+    background: var(--color-bg-elevated);
+    border-top: 1px solid var(--color-border);
+}
+
+.base-bottom-host ::deep .base-bottom-nav {
+    min-height: var(--base-bottom-bar-height);
+}
+
+.layout-root[data-base-keyboard-open] .base-bottom-host {
+    display: none;
+}
+
+@media (pointer: coarse) {
+    .layout-root {
+        --base-header-control-size: 44px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .base-nav-host,
+    .base-nav-host.open {
+        transition: none;
+    }
 }

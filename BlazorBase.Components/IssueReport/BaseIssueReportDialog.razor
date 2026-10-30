@@ -1,0 +1,97 @@
+@inherits BaseDialogInstance<IssueReportDialogContent>
+
+<BaseDialogBody CommitPendingEditOnEscape="false">
+    @if (Phase == IssueReportPhase.Form)
+    {
+        <form class="base-issue-form" @onsubmit="OpenMailAsync" @onsubmit:preventDefault="true">
+            <FluentTextInput @bind-Value="Summary"
+                             Immediate="true"
+                             Required="true"
+                             MaxLength="200"
+                             Autofocus="true"
+                             Label="@DialogLocalizer["Summary"]"
+                             Placeholder="@DialogLocalizer["SummaryPlaceholder"]"
+                             Class="base-issue-field"
+                             AutoComplete="off" />
+
+            @if (CategoryItems.Count > 1)
+            {
+                <FluentSelect TOption="string"
+                              TValue="string"
+                              Items="CategoryItems"
+                              @bind-Value="Category"
+                              OptionValue="@(item => item)"
+                              OptionText="@(item => string.IsNullOrEmpty(item) ? DialogLocalizer["NoCategory"].Value : item)"
+                              Label="@DialogLocalizer["Category"]"
+                              Class="base-issue-field" />
+            }
+
+            <FluentTextArea @bind-Value="Description"
+                            Immediate="true"
+                            Height="120px"
+                            Resize="TextAreaResize.Vertical"
+                            Label="@DialogLocalizer["Description"]"
+                            Placeholder="@DialogLocalizer["DescriptionPlaceholder"]"
+                            Class="base-issue-field" />
+
+            <div class="base-issue-diagnostics-block">
+                <FluentCheckbox Class="base-choice" @bind-Value="IncludeDiagnostics" Label="@DialogLocalizer["IncludeDiagnostics"]" />
+                @if (IncludeDiagnostics)
+                {
+                    <div class="base-issue-diagnostics-title" id="base-issue-diagnostics-title">@DialogLocalizer["DiagnosticsPreview"]</div>
+                    <pre class="base-issue-diagnostics" aria-labelledby="base-issue-diagnostics-title" tabindex="0">@DiagnosticsText</pre>
+                }
+            </div>
+
+            @if (IncludeDiagnostics && (Mail.IsTruncated || Mail.ExceedsLimit))
+            {
+                <div class="base-issue-notice" role="status">@(Mail.ExceedsLimit ? DialogLocalizer["TooLong"] : DialogLocalizer["Truncated"])</div>
+            }
+
+            <div class="base-issue-hint">@DialogLocalizer["AttachHint"]</div>
+
+            <div class="base-issue-actions">
+                <FluentButton Type="ButtonType.Submit" Appearance="ButtonAppearance.Primary" Disabled="@(!CanSubmit)">@DialogLocalizer["OpenMail"]</FluentButton>
+                <FluentButton Type="ButtonType.Button" Appearance="ButtonAppearance.Outline" Disabled="@(!CanSubmit)" OnClick="CopyDetailsAsync">@DialogLocalizer["CopyDetails"]</FluentButton>
+                <FluentButton Type="ButtonType.Button" Appearance="ButtonAppearance.Outline" OnClick="CancelAsync">@DialogLocalizer["Cancel"]</FluentButton>
+            </div>
+            @if (CopyState == CopyOutcome.Copied)
+            {
+                <div class="base-issue-hint" role="status">@DialogLocalizer["Copied"]</div>
+            }
+            else if (CopyState == CopyOutcome.Failed)
+            {
+                <div class="base-issue-notice" role="status">@DialogLocalizer["CopyFailed"]</div>
+                <textarea class="base-issue-fulltext" readonly rows="6" aria-label="@DialogLocalizer["DiagnosticsPreview"]">@Mail.FullText</textarea>
+            }
+        </form>
+    }
+    else
+    {
+        <div class="base-issue-result" role="status">
+            @if (Phase == IssueReportPhase.Opened)
+            {
+                <p class="base-issue-result-title">@DialogLocalizer["OpenedTitle"]</p>
+                <p>@DialogLocalizer["OpenedText"]</p>
+            }
+            else
+            {
+                <p class="base-issue-result-title">@DialogLocalizer["FallbackTitle"]</p>
+                <p>@string.Format(DialogLocalizer["FallbackText"], Mail.Recipient)</p>
+                @if (CopyState == CopyOutcome.Copied)
+                {
+                    <p>@DialogLocalizer["Copied"]</p>
+                }
+                else
+                {
+                    <p>@DialogLocalizer["CopyFailed"]</p>
+                    <textarea class="base-issue-fulltext" readonly rows="8" aria-label="@DialogLocalizer["DiagnosticsPreview"]">@Mail.FullText</textarea>
+                }
+            }
+        </div>
+        <div class="base-issue-actions">
+            <FluentButton Type="ButtonType.Button" Appearance="ButtonAppearance.Primary" OnClick="ConfirmAsync">@DialogLocalizer["Close"]</FluentButton>
+            <FluentButton Type="ButtonType.Button" Appearance="ButtonAppearance.Outline" OnClick="CopyDetailsAsync">@DialogLocalizer["CopyDetailsAgain"]</FluentButton>
+        </div>
+    }
+</BaseDialogBody>

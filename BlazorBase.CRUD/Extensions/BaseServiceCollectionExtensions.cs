@@ -18,9 +18,14 @@ namespace BlazorBase.CRUD.Extensions;
 
 public static class BaseServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers the core CRUD services every host needs, including
+    /// <see cref="BaseValidationService{TModel}"/> as an open generic.
+    /// </summary>
     public static IServiceCollection AddBlazorBaseCrud(this IServiceCollection services)
     {
         services.AddScoped(typeof(BaseValidationService<>));
+
         return services;
     }
 
@@ -39,7 +44,7 @@ public static class BaseServiceCollectionExtensions
     /// <c>AddBlazorBaseComponents()</c> must stay callable from a host that has no dialog service.
     /// Call this only from a host that actually renders the
     /// CRUD components interactively — the WASM/MAUI client or a Blazor Server interactive host — after
-    /// <c>AddFluentUIComponents()</c>. A pure hosting backend that never renders the components (for
+    /// <c>AddBlazorBaseFluentUI()</c>. A pure hosting backend that never renders the components (for
     /// example the hosted-WASM server) must not call this and therefore needs no FluentUI
     /// <c>IDialogService</c>. The registration is a <c>TryAdd</c>, so a host can override
     /// <see cref="IConfirmationService"/> with its own implementation beforehand.

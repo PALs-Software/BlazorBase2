@@ -1,7 +1,7 @@
 .filter-panel-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.35);
+    background: rgb(0 0 0 / 0.35);
     z-index: 1100;
 }
 
@@ -14,9 +14,9 @@
     z-index: 1101;
     display: flex;
     flex-direction: column;
-    background: var(--color-bg-elevated, var(--neutral-layer-floating));
-    border-right: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
-    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.28);
+    background: var(--color-bg-elevated);
+    border-right: 1px solid var(--color-border-strong);
+    box-shadow: var(--shadow-xl);
     animation: filter-panel-slide-in 0.15s ease-out;
 }
 
@@ -36,13 +36,21 @@
     justify-content: space-between;
     gap: 8px;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+    border-bottom: 1px solid var(--color-border);
     flex: 0 0 auto;
 }
 
 .filter-panel-title {
     font-weight: 600;
     font-size: 16px;
+}
+
+.filter-panel-saved {
+    flex: 0 1 auto;
+    max-height: 55%;
+    overflow: auto;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .filter-panel-body {
@@ -56,6 +64,6 @@
     display: flex;
     gap: 8px;
     padding: 12px 16px;
-    border-top: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+    border-top: 1px solid var(--color-border);
     flex: 0 0 auto;
 }

@@ -1,0 +1,203 @@
+@typeparam TModel where TModel : class
+
+@if (View.TotalCount > 0)
+{
+    <div class="base-list-card-view">
+        @if (View.SortOptions.Count > 0)
+        {
+            <div class="base-list-card-toolbar">
+                <FluentSelect TOption="MobileSortOption"
+                              TValue="string"
+                              Class="base-list-card-sort"
+                              Items="@View.SortOptions"
+                              OptionValue="@(option => option?.PropertyName)"
+                              OptionText="@(option => option?.Title ?? string.Empty)"
+                              Value="@View.SortProperty"
+                              ValueChanged="@OnSortPropertyChangedAsync"
+                              AriaLabel="@View.Localizer["SortBy"].Value" />
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-list-card-sort-direction"
+                              Disabled="@(View.SortProperty.Length == 0)"
+                              Title="@SortDirectionLabel"
+                              IconOnly="true"
+                              IconStart="@SortDirectionIcon"
+                              OnClick="@OnSortDirectionClickedAsync" />
+            </div>
+        }
+
+        <ul class="base-list-cards" style="@ViewStyle">
+            <Virtualize @ref="Virtualizer"
+                        TItem="TModel"
+                        ItemsProvider="@View.ItemsProvider"
+                        ItemSize="@View.ItemSize"
+                        OverscanCount="4"
+                        SpacerElement="li">
+                <Placeholder Context="placeholder">
+                    <li class="base-list-tile" aria-hidden="true"><div class="base-list-card base-list-card-placeholder"></div></li>
+                </Placeholder>
+                <ItemContent Context="item">
+                <li @key="item" class="base-list-tile">
+                <div class="@TileClass(item)"
+                    data-tile-index="@TileIndex(item)"
+                    @oncontextmenu="@(e => View.OnMenu(item, e))"
+                    @oncontextmenu:preventDefault
+                    @oncontextmenu:stopPropagation>
+                    @if (View.SelectionActive)
+                    {
+                        <button type="button"
+                                class="base-list-card-check @(View.IsSelected(item) ? "is-selected" : null)"
+                                role="checkbox"
+                                aria-checked="@(View.IsSelected(item) ? "true" : "false")"
+                                aria-label="@(View.IsSelected(item) ? View.Localizer["Deselect"].Value : View.Localizer["Select"].Value)"
+                                @onclick="@(() => View.OnToggleSelect(item))">
+                            <span class="base-list-card-check-mark" aria-hidden="true"></span>
+                        </button>
+                    }
+
+                    @if (View.Template is not null)
+                    {
+                        @if (View.IsClickable)
+                        {
+                            <div class="base-list-card-body is-interactive" role="button" tabindex="0"
+                                 @onclick="@(() => View.OnOpen(item))"
+                                 @onkeydown="@(e => OnBodyKeyDownAsync(item, e))">
+                                @View.Template(item)
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="base-list-card-body">@View.Template(item)</div>
+                        }
+                    }
+                    else if (View.IsClickable)
+                    {
+                        <button type="button" class="base-list-card-body is-interactive" @onclick="@(() => View.OnOpen(item))">
+                            @RenderBody(item)
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="base-list-card-body">@RenderBody(item)</div>
+                    }
+
+                    <FluentButton Appearance="ButtonAppearance.Transparent"
+                                  Class="base-list-row-menu base-list-card-more"
+                                  Title="@View.Localizer["MoreActions"].Value"
+                                  aria-label="@View.Localizer["MoreActions"].Value"
+                                  aria-haspopup="menu"
+                                  StopPropagation="true"
+                                  IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.MoreHorizontal())"
+                                  OnClick="@(e => View.OnMenu(item, e))" />
+
+                    @if (HasActions)
+                    {
+                        <div class="base-list-card-actions">
+                            @foreach (var column in View.Plan.ActionColumns)
+                            {
+                                @column.Template?.Invoke(item)
+                            }
+                            @View.Actions?.Invoke(item)
+                        </div>
+                    }
+                </div>
+                </li>
+                </ItemContent>
+            </Virtualize>
+        </ul>
+    </div>
+}
+
+@code {
+    private RenderFragment RenderBody(TModel item) =>
+        @<text>
+            <span class="base-list-card-title">
+                @if (HasTitleValue(item))
+                {
+                    @View.RenderValue(View.Plan.Title!, item)
+                }
+                else
+                {
+                    @View.ResolveFallbackTitle(item)
+                }
+            </span>
+            @if (View.Plan.Subtitle is not null)
+            {
+                <span class="base-list-card-subtitle">
+                    @if (HasSubtitleValue(item))
+                    {
+                        @View.RenderValue(View.Plan.Subtitle, item)
+                    }
+                    else
+                    {
+                        @EmptyValue
+                    }
+                </span>
+            }
+            @if (View.Plan.Badges.Count > 0)
+            {
+                var badges = VisibleBadges(item);
+
+                <span class="base-list-card-badges">
+                    @if (badges.Count == 0)
+                    {
+                        @EmptyValue
+                    }
+                    @foreach (var badge in badges)
+                    {
+                        var flag = IsFlag(badge);
+                        var on = flag && badge.GetValue(item) is true;
+
+                        <span class="base-list-card-badge @(flag ? (on ? "is-flag" : "is-flag is-off") : null)" title="@View.ResolveLabel(badge)">
+                            @if (flag)
+                            {
+                                <span class="base-list-card-badge-icon" role="img" aria-label="@FlagState(on)">
+                                    @if (on)
+                                    {
+                                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size12.Checkmark())" Color="@Color.Custom" CustomColor="currentColor" />
+                                    }
+                                    else
+                                    {
+                                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size12.Dismiss())" Color="@Color.Custom" CustomColor="currentColor" />
+                                    }
+                                </span>
+                            }
+                            <span class="base-list-card-badge-text">
+                                @if (badge.Template is not null)
+                                {
+                                    @View.RenderValue(badge, item)
+                                }
+                                else
+                                {
+                                    @View.BadgeText(badge, item)
+                                }
+                            </span>
+                        </span>
+                    }
+                </span>
+            }
+            @if (View.Plan.Fields.Count > 0)
+            {
+                <span class="base-list-card-fields">
+                    @foreach (var field in View.Plan.Fields)
+                    {
+                        <span class="base-list-card-field">
+                            <span class="base-list-card-label">@ResolveFieldLabel(field)</span>
+                            <span class="base-list-card-value">
+                                @if (HasValue(field, item))
+                                {
+                                    @View.RenderValue(field, item)
+                                }
+                                else
+                                {
+                                    @EmptyValue
+                                }
+                            </span>
+                        </span>
+                    }
+                </span>
+            }
+        </text>;
+
+    private RenderFragment EmptyValue =>
+        @<span class="base-list-card-empty" role="img" aria-label="@View.Localizer["TileNoValue"].Value">–</span>;
+}

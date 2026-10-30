@@ -1,4 +1,5 @@
 using System.Collections;
+using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Reflection;
 using System.Security.Claims;
@@ -10,10 +11,13 @@ using BlazorBase.CRUD.Localization;
 using BlazorBase.CRUD.Models;
 using BlazorBase.CRUD.Navigation;
 using BlazorBase.CRUD.Security;
+using BlazorBase.CRUD.Validation;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
+using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace BlazorBase.CRUD.Components.Internal;
 
@@ -29,6 +33,12 @@ public partial class BasePropertyInput<TModel> : IDisposable
     [CascadingParameter]
     private IFieldCollector<TModel>? FieldCollector { get; set; }
 
+    [CascadingParameter]
+    private EditContext? EditContext { get; set; }
+
+    [CascadingParameter]
+    private CardFieldErrors? FieldErrors { get; set; }
+
     [Parameter, EditorRequired]
     public TModel Model { get; set; } = default!;
 
@@ -37,6 +47,16 @@ public partial class BasePropertyInput<TModel> : IDisposable
 
     [Parameter]
     public bool IsEditing { get; set; }
+
+    /// <summary>
+    /// True when this field is the read-only exception inside an editable card. The field then carries the
+    /// <c>base-property-input-readonly</c> class and a muted, subdued look, so it is recognisable as unchangeable at
+    /// first sight. Left false for the fields of a card that is read-only as a whole, which keep their calm look.
+    /// </summary>
+    [Parameter]
+    public bool HighlightReadOnly { get; set; }
+
+    private bool IsReadOnlyException => HighlightReadOnly && !IsEditing;
 
     [Parameter]
     public IStringLocalizer? Localizer { get; set; }
@@ -54,6 +74,85 @@ public partial class BasePropertyInput<TModel> : IDisposable
     private string FieldElementId { get; } = $"bpi-{Guid.NewGuid():N}";
 
     private string TooltipAnchorId { get; } = $"bpi-tip-{Guid.NewGuid():N}";
+
+    private string LabelElementId => $"{FieldElementId}-label";
+
+    private string ErrorElementId => $"{FieldElementId}-error";
+
+    private bool ShowTemplateLabel => !FieldConfig.HideLabel;
+
+    private bool IsRequired
+    {
+        get
+        {
+            if (!IsEditing)
+                return false;
+
+            if (FieldConfig.Required)
+                return true;
+
+            if (PropertyType == typeof(bool))
+                return false;
+
+            return PropertyInfo?.IsDefined(typeof(RequiredAttribute), inherit: true) == true
+                || ForeignKeyPropertyInfo?.IsDefined(typeof(RequiredAttribute), inherit: true) == true;
+        }
+    }
+
+    private IEnumerable<string> ValidationPropertyNames
+    {
+        get
+        {
+            yield return FieldConfig.PropertyName;
+
+            if (ForeignKeyPropertyInfo is not null)
+                yield return ForeignKeyPropertyInfo.Name;
+        }
+    }
+
+    private IReadOnlyList<string> ValidationMessages
+    {
+        get
+        {
+            if (EditContext is null || Model is null)
+                return [];
+
+            return ValidationPropertyNames
+                .SelectMany(name => EditContext.GetValidationMessages(new FieldIdentifier(Model, name)))
+                .Distinct()
+                .ToList();
+        }
+    }
+
+    private EditContext? SubscribedEditContext { get; set; }
+
+    private void SyncEditContextSubscription()
+    {
+        if (ReferenceEquals(SubscribedEditContext, EditContext))
+            return;
+
+        if (SubscribedEditContext is not null)
+            SubscribedEditContext.OnValidationStateChanged -= OnValidationStateChanged;
+
+        SubscribedEditContext = EditContext;
+
+        if (SubscribedEditContext is not null)
+            SubscribedEditContext.OnValidationStateChanged += OnValidationStateChanged;
+    }
+
+    private void OnValidationStateChanged(object? sender, ValidationStateChangedEventArgs e) =>
+        _ = InvokeAsync(StateHasChanged);
+
+    private void NotifyFieldChanged(string propertyName)
+    {
+        if (EditContext is null || Model is null)
+            return;
+
+        EditContext.NotifyFieldChanged(new FieldIdentifier(Model, propertyName));
+    }
+
+    private string ResolveEnumLabel(object enumValue) =>
+        EnumLabelResolver.Resolve(ServiceProvider, ResolvedLocalizer, FieldConfig.PropertyName, PropertyType, enumValue);
 
     private IStringLocalizer ResolvedLocalizer =>
         LocalizerResolver.ResolveProperty(ServiceProvider, Localizer, typeof(TModel));
@@ -104,6 +203,38 @@ public partial class BasePropertyInput<TModel> : IDisposable
         || PropertyType == typeof(double) || PropertyType == typeof(double?)
         || PropertyType == typeof(float) || PropertyType == typeof(float?);
 
+    private bool IsIntegerType => PropertyType == typeof(int) || PropertyType == typeof(long);
+
+    private TextInputMode NumericInputMode => IsIntegerType ? TextInputMode.Numeric : TextInputMode.Decimal;
+
+    private static readonly Func<IFluentField, bool> NoFluentMessage = FluentFieldCondition.Never;
+
+    internal sealed record EnumOption(string Value, string Text);
+
+    private IReadOnlyList<EnumOption> EnumOptions
+    {
+        get
+        {
+            var options = new List<EnumOption>();
+
+            if (IsNullableEnum)
+                options.Add(new EnumOption(string.Empty, FrameworkLocalizer["SelectEmpty"].Value));
+
+            foreach (var enumValue in Enum.GetValues(PropertyType))
+                options.Add(new EnumOption(enumValue.ToString()!, ResolveEnumLabel(enumValue)));
+
+            return options;
+        }
+    }
+
+    private IReadOnlyList<LookupItem> NavigationOptions =>
+        [new LookupItem(string.Empty, FrameworkLocalizer["SelectEmpty"].Value), .. LookupItems];
+
+    private string TextAreaHeight => FormattableString.Invariant($"{FieldConfig.Lines * 20 + 16}px");
+
+    private bool IsNullableEnum =>
+        PropertyType.IsEnum && PropertyInfo is not null && Nullable.GetUnderlyingType(PropertyInfo.PropertyType) is not null;
+
     #region Navigation Property Support
 
     private bool NavigationResolved { get; set; }
@@ -132,7 +263,7 @@ public partial class BasePropertyInput<TModel> : IDisposable
     private bool HasMoreBrowseItems => BrowseItems.Count < BrowseTotalCount;
     private string? CurrentFkStringValue => ForeignKeyPropertyInfo?.GetValue(Model)?.ToString();
 
-    private sealed record LookupItem(string Id, string DisplayText);
+    internal sealed record LookupItem(string Id, string DisplayText);
 
     /// <summary>
     /// Key for the navigation FluentSelect. Bumped exactly once — after the options and an initial foreign-key value
@@ -229,6 +360,8 @@ public partial class BasePropertyInput<TModel> : IDisposable
 
     protected override async Task OnParametersSetAsync()
     {
+        SyncEditContextSubscription();
+
         PropertyInfo = ExpressionHelper.GetPropertyInfo(FieldConfig.Property);
         PropertyType = Nullable.GetUnderlyingType(PropertyInfo.PropertyType) ?? PropertyInfo.PropertyType;
 
@@ -341,6 +474,9 @@ public partial class BasePropertyInput<TModel> : IDisposable
 
     public void Dispose()
     {
+        if (SubscribedEditContext is not null)
+            SubscribedEditContext.OnValidationStateChanged -= OnValidationStateChanged;
+
         if (RegisteredParticipant is not null)
             FieldCollector?.UnregisterSaveParticipant(RegisteredParticipant);
     }
@@ -550,6 +686,8 @@ public partial class BasePropertyInput<TModel> : IDisposable
 
         ForeignKeyPropertyInfo.SetValue(Model, newValue);
         SelectedDisplayText = displayText;
+        NotifyFieldChanged(ForeignKeyPropertyInfo.Name);
+        NotifyFieldChanged(FieldConfig.PropertyName);
 
         if (OnAfterPropertyChanged.HasDelegate)
             await OnAfterPropertyChanged.InvokeAsync(beforeArgs);
@@ -624,6 +762,7 @@ public partial class BasePropertyInput<TModel> : IDisposable
         }
 
         PropertyInfo.SetValue(Model, newValue);
+        NotifyFieldChanged(FieldConfig.PropertyName);
 
         if (OnAfterPropertyChanged.HasDelegate)
             await OnAfterPropertyChanged.InvokeAsync(beforeArgs);
@@ -635,6 +774,21 @@ public partial class BasePropertyInput<TModel> : IDisposable
     {
         get => CurrentValue?.ToString();
         set => _ = OnValueChangedAsync(value);
+    }
+
+    private string? EnumStringValue
+    {
+        get => CurrentValue?.ToString() ?? string.Empty;
+        set
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                _ = OnValueChangedAsync(null);
+                return;
+            }
+
+            _ = OnValueChangedAsync(Enum.Parse(PropertyType, value));
+        }
     }
 
     private bool BoolValue
@@ -662,25 +816,96 @@ public partial class BasePropertyInput<TModel> : IDisposable
         }
     }
 
+    private string? NumericText { get; set; }
+
     private string? NumericStringValue
     {
-        get => CurrentValue?.ToString();
-        set
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                _ = OnValueChangedAsync(null);
-                return;
-            }
+        get => NumericText ?? FormatNumeric(CurrentValue);
+        set => _ = CommitNumericAsync(value);
+    }
 
-            try
-            {
-                var converted = Convert.ChangeType(value, PropertyType);
-                _ = OnValueChangedAsync(converted);
-            }
-            catch
-            {
-            }
+    private static string? FormatNumeric(object? value) =>
+        value is IFormattable formattable ? formattable.ToString(null, CultureInfo.CurrentCulture) : value?.ToString();
+
+    private async Task CommitNumericAsync(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            ClearNumericError();
+            await OnValueChangedAsync(null);
+            return;
+        }
+
+        if (!TryParseNumeric(text.Trim(), out var parsed, out var errorKey))
+        {
+            NumericText = text;
+            FieldErrors?.Set(FieldConfig.PropertyName, FrameworkLocalizer[errorKey, ResolvedLabel].Value);
+            NotifyFieldChanged(FieldConfig.PropertyName);
+            return;
+        }
+
+        ClearNumericError();
+        await OnValueChangedAsync(parsed);
+    }
+
+    private void ClearNumericError()
+    {
+        NumericText = null;
+        FieldErrors?.Clear(FieldConfig.PropertyName);
+    }
+
+    private bool TryParseNumeric(string text, out object? value, out string errorKey)
+    {
+        value = null;
+        errorKey = "Validation_NotANumber";
+        var culture = CultureInfo.CurrentCulture;
+
+        if (IsIntegerType)
+            return TryParseInteger(text, culture, out value, out errorKey);
+
+        if (PropertyType == typeof(decimal))
+        {
+            if (!decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, culture, out var amount))
+                return false;
+
+            value = amount;
+            return true;
+        }
+
+        if (!double.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowExponent, culture, out var number)
+            || !double.IsFinite(number))
+            return false;
+
+        var converted = Convert.ChangeType(number, PropertyType, culture);
+        if (converted is float single && !float.IsFinite(single))
+            return false;
+
+        value = converted;
+        return true;
+    }
+
+    private bool TryParseInteger(string text, CultureInfo culture, out object? value, out string errorKey)
+    {
+        value = null;
+        errorKey = "Validation_NotANumber";
+
+        if (!decimal.TryParse(text, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, culture, out var number))
+            return false;
+
+        if (number != decimal.Truncate(number))
+        {
+            errorKey = "Validation_NotAWholeNumber";
+            return false;
+        }
+
+        try
+        {
+            value = Convert.ChangeType(number, PropertyType, culture);
+            return true;
+        }
+        catch (OverflowException)
+        {
+            return false;
         }
     }
 

@@ -91,7 +91,7 @@ The chart components instantiate `ChartInterop` themselves via injected `IJSRunt
 
 | Component | Description |
 |---|---|
-| `<BarChart>` | Vertical bar chart (`type: "bar"`) |
+| `<BarChart>` | Vertical bar chart (`type: "bar"`); `Horizontal="true"` draws horizontal bars |
 | `<LineChart>` | Line chart (`type: "line"`) |
 | `<PieChart>` | Pie chart (`type: "pie"`) |
 | `<ChartBase>` | Generic component for any Chart.js type via `ChartConfig` |
@@ -158,6 +158,7 @@ All models live in the `BlazorBase.Chart.Models` namespace. They are POCOs decor
 | `MaintainAspectRatio` | `bool?` | `false` |
 | `Plugins` | `ChartPlugins?` | — |
 | `Scales` | `ChartScales?` | — |
+| `IndexAxis` | `string?` | — (`x`; `y` draws horizontal bars, set by `<BarChart Horizontal="true">`) |
 
 ### `ChartScales` / `ChartAxis` / `ChartAxisTicks` / `ChartAxisTitle` / `ChartGrid`
 Mirror the Chart.js scales API. `ChartAxis` supports `Display`, `BeginAtZero`, `Stacked`, `Title`, `Ticks`, `Grid`.
@@ -180,6 +181,24 @@ Mirror Chart.js plugin options. `ChartLegend.Position` accepts `"top"`, `"right"
                   Data = [12, 19, 3, 5, 2],
                   BackgroundColor = ["#3b82f6"]
               }])" />
+```
+
+### Bar chart — horizontal
+
+With `Horizontal="true"` the categories run along the y axis and the values along the x axis, so the value axis is configured under `Scales.X` and the category axis under `Scales.Y`. Use it when the category labels are long or there are many of them.
+
+```razor
+<BarChart Horizontal="true" Labels="@Teams" Datasets="@Credits" Options="@HorizontalOptions" />
+
+@code {
+    private ChartOptions HorizontalOptions { get; } = new()
+    {
+        Scales = new ChartScales
+        {
+            X = new ChartAxis { BeginAtZero = true, Title = new ChartAxisTitle { Display = true, Text = "Credits" } }
+        }
+    };
+}
 ```
 
 ### Line chart — multi-series with options

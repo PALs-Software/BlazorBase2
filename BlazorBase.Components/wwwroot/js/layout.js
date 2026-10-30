@@ -1,0 +1,388 @@
+const compactQuery = '(max-width: 1024px)';
+const phoneMedia = '(max-width: 768px)';
+const wideMedia = '(min-width: 1200px)';
+const collapsedKey = 'blazorbase-nav-collapsed';
+const groupKeyPrefix = 'blazorbase-nav-group:';
+const keyboardAttribute = 'data-base-keyboard-open';
+const keyboardThreshold = 120;
+const drawerId = 'base-navigation';
+
+// Fluent's default page styles (full-height body that never scrolls, its own link and heading styles) would fight
+// the shell below, which owns the page layout. Hosts also set the attribute on <body> so it applies from the first paint.
+document.body.setAttribute('no-fuib-style', '');
+const tabbableSelector = 'a[href], button:not([disabled]), [role="button"]:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [slot="input"]:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+let query = null;
+let handler = null;
+let reference = null;
+let phoneQuery = null;
+let phoneHandler = null;
+let phoneReference = null;
+let wideQuery = null;
+let wideHandler = null;
+let keyboardBaseline = 0;
+let keyboardWidth = 0;
+
+export function watchCompact(dotNetReference) {
+    unwatchCompact();
+
+    if (!window.matchMedia) {
+        return false;
+    }
+
+    reference = dotNetReference;
+    query = window.matchMedia(compactQuery);
+    handler = event => dotNetReference.invokeMethodAsync('OnCompactChanged', event.matches);
+    query.addEventListener('change', handler);
+    document.addEventListener('keydown', onDrawerKeyDown, true);
+
+    return query.matches;
+}
+
+export function unwatchCompact() {
+    document.removeEventListener('keydown', onDrawerKeyDown, true);
+
+    if (query === null) {
+        return;
+    }
+
+    query.removeEventListener('change', handler);
+    query = null;
+    handler = null;
+    reference = null;
+}
+
+export function readCollapsed() {
+    try {
+        return localStorage.getItem(collapsedKey) === 'true';
+    } catch {
+        return false;
+    }
+}
+
+export function writeCollapsed(collapsed) {
+    try {
+        if (collapsed) {
+            localStorage.setItem(collapsedKey, 'true');
+        } else {
+            localStorage.removeItem(collapsedKey);
+        }
+    } catch {
+        // storage can be unavailable (private browsing); the choice then only lasts for this session
+    }
+}
+
+/**
+ * Reads which navigation groups the user left expanded or collapsed. Only keys with a remembered choice are
+ * part of the result, so a group never touched stays at its default.
+ */
+export function readGroupStates(keys) {
+    const states = {};
+
+    try {
+        for (const key of keys ?? []) {
+            const value = localStorage.getItem(groupKeyPrefix + key);
+
+            if (value === 'true' || value === 'false') {
+                states[key] = value === 'true';
+            }
+        }
+    } catch {
+        // storage can be unavailable (private browsing); the groups then start at their defaults
+    }
+
+    return states;
+}
+
+export function writeGroupState(key, expanded) {
+    try {
+        localStorage.setItem(groupKeyPrefix + key, expanded ? 'true' : 'false');
+    } catch {
+        // storage can be unavailable (private browsing); the choice then only lasts for this session
+    }
+}
+
+/**
+ * Tells the layout when the viewport is a phone, which is when the bottom navigation bar is shown, and
+ * marks the layout while the on-screen keyboard is open so the bar can get out of its way. The keyboard is
+ * recognised as an editable element holding the focus while the visible height has dropped well below the
+ * tallest height seen at the current width.
+ */
+export function watchPhone(dotNetReference) {
+    unwatchPhone();
+
+    phoneReference = dotNetReference;
+
+    if (!window.matchMedia) {
+        return false;
+    }
+
+    phoneQuery = window.matchMedia(phoneMedia);
+    phoneHandler = event => dotNetReference.invokeMethodAsync('OnPhoneChanged', event.matches);
+    phoneQuery.addEventListener('change', phoneHandler);
+    keyboardBaseline = viewportHeight();
+    keyboardWidth = window.innerWidth;
+    document.addEventListener('focusin', updateKeyboardState);
+    document.addEventListener('focusout', deferKeyboardState);
+    window.addEventListener('resize', updateKeyboardState);
+    window.visualViewport?.addEventListener('resize', updateKeyboardState);
+
+    return phoneQuery.matches;
+}
+
+export function unwatchPhone() {
+    document.removeEventListener('focusin', updateKeyboardState);
+    document.removeEventListener('focusout', deferKeyboardState);
+    window.removeEventListener('resize', updateKeyboardState);
+    window.visualViewport?.removeEventListener('resize', updateKeyboardState);
+    layoutRoot()?.removeAttribute(keyboardAttribute);
+
+    if (phoneQuery !== null) {
+        phoneQuery.removeEventListener('change', phoneHandler);
+    }
+
+    phoneQuery = null;
+    phoneHandler = null;
+    phoneReference = null;
+}
+
+/**
+ * Tells the layout when the viewport is wide enough for the help panel to sit next to the page instead of
+ * covering it.
+ */
+export function watchWide(dotNetReference) {
+    unwatchWide();
+
+    if (!window.matchMedia) {
+        return false;
+    }
+
+    wideQuery = window.matchMedia(wideMedia);
+    wideHandler = event => dotNetReference.invokeMethodAsync('OnWideChanged', event.matches);
+    wideQuery.addEventListener('change', wideHandler);
+
+    return wideQuery.matches;
+}
+
+export function unwatchWide() {
+    if (wideQuery !== null) {
+        wideQuery.removeEventListener('change', wideHandler);
+    }
+
+    wideQuery = null;
+    wideHandler = null;
+}
+
+function layoutRoot() {
+    return document.querySelector('.layout-root');
+}
+
+function viewportHeight() {
+    return window.visualViewport?.height ?? window.innerHeight;
+}
+
+function deepActiveElement() {
+    let active = document.activeElement;
+
+    while (active?.shadowRoot?.activeElement) {
+        active = active.shadowRoot.activeElement;
+    }
+
+    return active;
+}
+
+function isEditable(element) {
+    if (!element) {
+        return false;
+    }
+
+    if (element.isContentEditable) {
+        return true;
+    }
+
+    const tag = element.tagName;
+
+    if (tag === 'TEXTAREA' || tag === 'SELECT') {
+        return true;
+    }
+
+    return tag === 'INPUT' && !['button', 'checkbox', 'radio', 'submit', 'reset', 'range', 'color', 'file', 'image'].includes(element.type);
+}
+
+function deferKeyboardState() {
+    setTimeout(updateKeyboardState, 0);
+}
+
+function updateKeyboardState() {
+    const root = layoutRoot();
+
+    if (!root) {
+        return;
+    }
+
+    if (window.innerWidth !== keyboardWidth) {
+        keyboardWidth = window.innerWidth;
+        keyboardBaseline = 0;
+    }
+
+    const height = viewportHeight();
+    keyboardBaseline = Math.max(keyboardBaseline, height);
+
+    const open = isEditable(deepActiveElement()) && keyboardBaseline - height > keyboardThreshold;
+
+    if (open) {
+        root.setAttribute(keyboardAttribute, '');
+    } else {
+        root.removeAttribute(keyboardAttribute);
+    }
+}
+
+function isFocusHost(element) {
+    return !!element.shadowRoot && element.shadowRoot.delegatesFocus === true && !element.hasAttribute('disabled');
+}
+
+function collectTabbable(container) {
+    return [...container.querySelectorAll('*')].filter(element => element.matches(tabbableSelector) || isFocusHost(element));
+}
+
+export function focusFirst(container) {
+    if (!container) {
+        return;
+    }
+
+    const target = container.querySelector('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    (target ?? container).focus();
+}
+
+/**
+ * Moves the focus into a modal panel and keeps Tab and Shift+Tab cycling inside it. The listener lives on the
+ * panel element, so it goes away with the panel.
+ */
+export function trapFocus(container) {
+    if (!container) {
+        return;
+    }
+
+    container.addEventListener('keydown', event => {
+        if (event.key !== 'Tab' || event.defaultPrevented) {
+            return;
+        }
+
+        const inside = collectTabbable(container).filter(isVisible);
+
+        if (inside.length === 0) {
+            event.preventDefault();
+            container.focus();
+            return;
+        }
+
+        const first = inside[0];
+        const last = inside[inside.length - 1];
+        const active = document.activeElement;
+
+        if (event.shiftKey && (active === first || active === container || !container.contains(active))) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && (active === last || !container.contains(active))) {
+            event.preventDefault();
+            first.focus();
+        }
+    });
+
+    const target = container.querySelector('[data-autofocus]');
+    (target ?? collectTabbable(container)[0] ?? container).focus();
+}
+
+/**
+ * Lets the links of the help content that point at another help topic (<a data-help-topic>) open that topic
+ * inside the panel: a plain click is handed to the component, while clicks with a modifier key or a non-primary
+ * button keep the browser's behavior. The listener lives on the panel element, so it goes away with the panel.
+ */
+export function bindHelpLinks(container, dotNetReference) {
+    if (!container || !dotNetReference) {
+        return;
+    }
+
+    container.addEventListener('click', event => {
+        if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+            return;
+        }
+
+        const link = event.target instanceof Element ? event.target.closest('a[data-help-topic]') : null;
+        const topic = link?.getAttribute('data-help-topic');
+
+        if (!topic || !container.contains(link)) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        dotNetReference.invokeMethodAsync('OpenTopicAsync', topic);
+    });
+}
+
+export function restoreFocus(main, drawer) {
+    const active = document.activeElement;
+
+    if (active === document.body || (drawer && drawer.contains(active))) {
+        main?.focus();
+    }
+}
+
+function isVisible(element) {
+    return element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden';
+}
+
+/**
+ * While the off-canvas drawer is open it behaves like a modal dialog for the keyboard: Tab and Shift+Tab
+ * cycle through the drawer and its toggle button instead of leaving for the page behind it, and Escape
+ * closes it from wherever the focus is. Escape pressed inside the drawer is left to the component.
+ */
+function onDrawerKeyDown(event) {
+    const drawer = document.getElementById(drawerId);
+
+    if (!drawer || !drawer.classList.contains('open') || !query?.matches) {
+        return;
+    }
+
+    const active = document.activeElement;
+    const toggle = document.querySelector(`[aria-controls="${drawerId}"]`);
+
+    if (event.key === 'Escape') {
+        const popupOpen = active !== toggle && active?.getAttribute('aria-expanded') === 'true';
+
+        if (!drawer.contains(active) && !popupOpen) {
+            reference?.invokeMethodAsync('OnEscapeOutsideDrawer');
+        }
+
+        return;
+    }
+
+    if (event.key !== 'Tab' || event.defaultPrevented) {
+        return;
+    }
+
+    const inside = collectTabbable(drawer).filter(isVisible);
+    const cycle = toggle ? [toggle, ...inside] : inside;
+
+    if (cycle.length === 0) {
+        return;
+    }
+
+    const index = cycle.indexOf(active);
+    const last = cycle.length - 1;
+
+    if (index === -1) {
+        event.preventDefault();
+        cycle[event.shiftKey ? last : Math.min(1, last)].focus();
+        return;
+    }
+
+    if (event.shiftKey && index === 0) {
+        event.preventDefault();
+        cycle[last].focus();
+    } else if (!event.shiftKey && index === last) {
+        event.preventDefault();
+        cycle[0].focus();
+    }
+}

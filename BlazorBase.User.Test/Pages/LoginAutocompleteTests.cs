@@ -14,11 +14,9 @@ namespace BlazorBase.User.Test.Pages;
 /// <summary>
 /// USER-02 proof: the credential fields on the combined login/first-run-setup page bind the FluentUI
 /// <c>AutoComplete</c> parameter to an appropriate hint. Assertions read
-/// <c>FluentTextField.Instance.AutoComplete</c> rather than the rendered markup, because FluentUI only
-/// forwards that parameter to the underlying element's <c>autocomplete</c> HTML attribute imperatively
-/// via JS interop in <c>OnAfterRenderAsync</c> (it never appears in the static/server-rendered render
-/// tree bUnit inspects) — the same reason other FluentUI parameters in this project (e.g.
-/// <c>TextFieldType</c> in <see cref="Components.UserCardRenderTests"/>) are asserted through the
+/// <c>FluentTextInput.Instance.AutoComplete</c> rather than the web component's DOM, which a bUnit render does
+/// not run — the same reason other FluentUI parameters in this project (e.g.
+/// <c>TextInputType</c> in <see cref="Components.UserCardRenderTests"/>) are asserted through the
 /// component instance instead of the DOM.
 /// </summary>
 public class LoginAutocompleteTests : UserBunitTestContextBase
@@ -28,7 +26,7 @@ public class LoginAutocompleteTests : UserBunitTestContextBase
     {
         var cut = RenderLogin(hasUsers: true);
 
-        var fields = cut.FindComponents<FluentTextField>();
+       var fields = cut.FindComponents<FluentTextInput>();
 
         Assert.Equal(2, fields.Count);
         Assert.Equal("username", fields[0].Instance.AutoComplete);
@@ -40,7 +38,7 @@ public class LoginAutocompleteTests : UserBunitTestContextBase
     {
         var cut = RenderLogin(hasUsers: false);
 
-        var fields = cut.FindComponents<FluentTextField>();
+       var fields = cut.FindComponents<FluentTextInput>();
 
         Assert.Equal(5, fields.Count);
         Assert.Equal("name", fields[0].Instance.AutoComplete);

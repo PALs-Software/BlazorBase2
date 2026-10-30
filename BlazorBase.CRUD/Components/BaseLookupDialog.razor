@@ -1,25 +1,25 @@
+@using BlazorBase.Components.Dialogs
 @typeparam TModel
+@inherits BaseDialogInstance
 
-<FluentDialog @ref="Dialog">
-    <FluentDialogHeader>
-        <FluentLabel Typo="Typography.PaneHeader">@(Title ?? FrameworkLocalizer["LookupSelect"].Value)</FluentLabel>
-    </FluentDialogHeader>
-    <FluentDialogBody>
+<BaseDialogBody>
+    <ChildContent>
         <div class="base-lookup-search">
-            <FluentTextField @bind-Value="SearchText"
+            <FluentTextInput @bind-Value="SearchText"
                              @bind-Value:after="OnSearchChangedAsync"
+                             Class="base-lookup-field"
                              Placeholder="@FrameworkLocalizer["LookupSearchPlaceholder"].Value"
-                             Style="width: 100%;" />
+                             AriaLabel="@FrameworkLocalizer["LookupSearchPlaceholder"].Value" />
         </div>
 
         <div class="base-lookup-items">
             @if (IsLoading)
             {
-                <FluentProgress />
+                <FluentProgressBar />
             }
             else if (LoadedItems.Count == 0)
             {
-                <FluentLabel Typo="Typography.Body">@FrameworkLocalizer["LookupNoItemsFound"]</FluentLabel>
+                <FluentText>@FrameworkLocalizer["LookupNoItemsFound"]</FluentText>
             }
             else
             {
@@ -27,29 +27,29 @@
                 {
                     <div class="base-lookup-item @(item == SelectedItem ? "selected" : "")"
                          @onclick="() => SelectItem(item)">
-                        <FluentLabel Typo="Typography.Body">@GetDisplayText(item)</FluentLabel>
+                        <FluentText>@GetDisplayText(item)</FluentText>
                     </div>
                 }
 
                 @if (HasMoreItems)
                 {
-                    <FluentButton Appearance="Appearance.Stealth"
+                    <FluentButton Appearance="ButtonAppearance.Transparent"
                                   OnClick="@LoadMoreAsync">
                         @FrameworkLocalizer["LookupLoadMore"]
                     </FluentButton>
                 }
             }
         </div>
-    </FluentDialogBody>
-    <FluentDialogFooter>
-        <FluentButton Appearance="Appearance.Accent"
+    </ChildContent>
+    <ActionTemplate>
+        <FluentButton Appearance="ButtonAppearance.Primary"
                       Disabled="@(SelectedItem is null)"
-                      OnClick="@ConfirmAsync">
+                      OnClick="@ConfirmSelectionAsync">
             @FrameworkLocalizer["LookupSelect"]
         </FluentButton>
-        <FluentButton Appearance="Appearance.Outline"
+        <FluentButton Appearance="ButtonAppearance.Outline"
                       OnClick="@CancelAsync">
             @FrameworkLocalizer["Cancel"]
         </FluentButton>
-    </FluentDialogFooter>
-</FluentDialog>
+    </ActionTemplate>
+</BaseDialogBody>

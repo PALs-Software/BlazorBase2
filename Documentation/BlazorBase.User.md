@@ -87,6 +87,7 @@ This registers:
 - `AuthTokenHandler` (DelegatingHandler) as scoped
 - `ILanguageService` → `LanguageService`
 - `IThemeService` → `ThemeService`
+- `IThemePreferenceSync` → `UserThemePreferenceSync` (stores the theme choice of a signed-in user via `PUT api/user/me/settings`; fails soft when offline)
 - `AuthorizationCore` with a `FallbackPolicy` requiring authenticated users
 - `BlazorBaseUserClientOptions` with default values (all flags off)
 
@@ -181,9 +182,8 @@ them.
 >   the framework model (`[CrudAccess]` rules union per level, so an added rule grants the extra role).
 > - **USER-02:** the login and first-run setup fields in `Login.razor` carry `autocomplete` hints
 >   (`username`, `current-password`, `new-password`, `name`; HouseholdName uses `off`) so browser password
->   managers store and fill credentials correctly. Note: FluentUI applies the `autocomplete` attribute
->   imperatively via JS interop after render, so it is present once the field has hydrated, not in the
->   very first server-rendered HTML.
+>   managers store and fill credentials correctly. The hint is set through the `AutoComplete` parameter of
+>   `FluentTextInput`.
 
 Use `<AuthorizeRouteView>` so unauthenticated users land on `/login`:
 
@@ -211,10 +211,9 @@ protected override async Task OnInitializedAsync()
 
 ### 7. Carry the Fluent UI providers in your own layout
 
-`BaseLayout` ends with `FluentToastProvider`, `FluentDialogProvider`, `FluentTooltipProvider`,
-`FluentMessageBarProvider` and `FluentMenuProvider`. A host that writes its own `MainLayout` instead
-**has to repeat them** — `UserManagementView` and every other screen built on `BaseList`/`BaseCard`
-throws without the dialog provider. See
+`BaseLayout` ends with `<FluentProviders />`, which carries the dialog, toast, tooltip and keyboard providers. A host
+that writes its own `MainLayout` instead **has to add it** and register the services with `AddBlazorBaseFluentUI()` —
+`UserManagementView` and every other screen built on `BaseList`/`BaseCard` throws without the dialog provider. See
 [BlazorBase.CRUD](BlazorBase.CRUD.md#6-layout--the-fluent-ui-providers).
 
 ---
@@ -359,6 +358,25 @@ builder.Services.Configure<BlazorBaseUserClientOptions>(o =>
 
 The field is optional — the user may leave it blank. The value travels in `SetupRequest.HouseholdName` to the server's `POST /api/auth/setup` endpoint, where the host's `AuthController` override can read it in `OnAfterUserCreatedAsync`. When neither opt-in path is used, the field is not rendered and `HouseholdName` is `null`; existing hosts are unaffected.
 
+#### Development login — provisioning host-specific data on first use
+
+`POST api/auth/development-login` resolves (creating on first call, reusing afterwards) the account
+configured under `DevelopmentAuthentication` and signs it in. A host that provisions additional data by
+email on real sign-in — a separate domain user row created from `IExternalUserResolver<TUser>` on first
+external sign-in, for instance — needs the same thing to happen for a development account, or it 404s
+on any endpoint that reads that other table. Override
+`AuthControllerBase<TUser>.OnAfterDevelopmentLoginAsync(user)`, called every time the development
+account is resolved (not only when it is first created), to run that provisioning:
+
+```csharp
+public class AuthController(..., IDomainUserProvisioningService provisioning)
+    : AuthControllerBase<AppUser>(...)
+{
+    protected override Task OnAfterDevelopmentLoginAsync(AppUser user) =>
+        provisioning.EnsureDomainUserAsync(user.Email!, user.DisplayName);
+}
+```
+
 #### `Login` — `returnUrl` round-trip
 
 After a successful **login**, `Login` reads the `returnUrl` query parameter (URL-encoded, set by `RedirectToLogin`), validates it is app-relative (starts with `/`, not an absolute URI), and navigates there. Absolute or missing values fall back to `/`. After a successful **setup** (first-run), the component always navigates to `/` regardless of `returnUrl` — there is no meaningful prior destination for the first user.
@@ -398,7 +416,7 @@ For this to work the host must register the user-management custom inputs and an
 ### Components
 
 - `RedirectToLogin` — placed inside `<NotAuthorized>` in `<AuthorizeRouteView>`. Captures the current URI as an app-relative path and navigates to `/login?returnUrl=<encoded>`. If the current path is already `/login` (or starts with `login`), navigates to `/login` without a `returnUrl` to avoid loops.
-- `ResetPasswordDialog` — modal that prompts for a new password and PATCHes `UserModel.Password` through `BaseCard`.
+- `ResetPasswordDialog` — dialog content (`BaseDialogInstance<ResetPasswordModel>`) that prompts for a new password and writes it to `ResetPasswordModel.NewPassword`. Open it with `IDialogService.ShowBaseDialogAsync<ResetPasswordDialog, ResetPasswordModel>(title, model)`; it shows Fluent's OK and Cancel buttons and the result's `Cancelled` tells which one closed it.
 
 ---
 
@@ -512,11 +530,12 @@ special user fields cleanly:
 | Component | Opts in for | Renders |
 |---|---|---|
 | `UserPasswordInput` | a `string` property marked `[UserPasswordInput]` or named `Password` | a `type=password` box that starts blank in edit mode; only a non-blank entry is pushed back to the model, so leaving it blank keeps the current password |
-| `UserRoleInput` | a `string` property marked `[UserRoleInput]` or named `Role` | a `FluentSelect` over the role names from the app-registered `IUserRoleProvider` |
+| `UserRoleInput` | a `string` property marked `[UserRoleInput]` or named `Role` | a `FluentSelect` over the role names from the app-registered `IUserRoleProvider`, with an empty entry first while no offered role is selected |
 
-Both bind a **local string** with plain `@bind-Value`, so the value expression handed to the Fluent UI
-input is a clean member access. This is what lets the generic card/list render the user model without the
-Fluent UI `FieldIdentifier` "index expression" error that a non-member-access value expression triggers.
+Neither binds the model property directly: the password input binds a local string, the role select reads the `Value`
+parameter and reports changes through `ValueChanged`. So the Fluent UI input never gets a non-member-access value
+expression, which is what lets the generic card/list render the user model without the `FieldIdentifier` "index
+expression" error that such an expression triggers.
 
 ### `IUserRoleProvider`
 
@@ -695,6 +714,36 @@ private async Task SaveSettingsAsync()
 }
 ```
 
+`UpdateSettings` (`PUT api/user/me/settings`) reissues the caller's cookie session via
+`SignInManager.RefreshSignInAsync` right after persisting the new values, so the `language`/
+`themePreference` claims on the *active* session are current immediately — without this, a user who
+changes their language would keep seeing the old one (and `UseBlazorBaseLanguageAsync` would keep
+resolving the stale claim) until signing out and back in. Under the bearer-token transport there is no
+cookie to rewrite, so this is a no-op from the caller's point of view; the client still has to refresh
+its own token pair the way `UserPreferencesPanel.razor.cs` does above.
+
+A host that keeps a separate, host-specific preference store (e.g. a domain user table distinct from
+the Identity `AspNetUsers` row) overrides `UserControllerBase<TUser>.OnSettingsUpdatedAsync(user,
+request)` — called after the new values are persisted and before the cookie is refreshed — to keep that
+store in sync with the same choice:
+
+```csharp
+public class UserController(UserManager<AppUser> userManager, SignInManager<AppUser> signInManager, IDbContextFactory<AppDbContext> dbContextFactory)
+    : UserControllerBase<AppUser>(userManager, signInManager)
+{
+    protected override async Task OnSettingsUpdatedAsync(AppUser user, UpdateUserSettingsRequest request)
+    {
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+        var domainUser = await dbContext.Set<DomainUser>().FirstOrDefaultAsync(u => u.Email == user.Email);
+        if (domainUser is not null)
+        {
+            domainUser.PreferredCulture = CultureToLcid(request.Language);
+            await dbContext.SaveChangesAsync();
+        }
+    }
+}
+```
+
 ### Switching language and reapplying culture
 
 ```csharp
@@ -714,7 +763,7 @@ private async Task SaveSettingsAsync()
 ```razor
 <AuthorizeView Roles="Admin">
     <Authorized>
-        <FluentNavLink Href="/admin/users">User Management</FluentNavLink>
+        <FluentNavItem Href="/admin/users">User Management</FluentNavItem>
     </Authorized>
 </AuthorizeView>
 ```
@@ -739,9 +788,11 @@ An immutable `record` describing one entry:
 | `MatchAll` | Match the route in full (`NavLinkMatch.All`), e.g. the `/` home link. |
 | `RequiredRole` | When set, the entry is only shown to users in any of the listed roles. A single role name or a comma-separated list (e.g. `"Admin,Member"`). `null` means always visible. |
 | `IsMobilePrimary` | Whether the entry is a primary tab in the bottom bar; otherwise it lands in the "More" sheet. |
+| `BottomBarOnly` | The entry exists for phones only and is never listed in `BaseSideNavigation` on wide screens. It is a bottom bar tab when `IsMobilePrimary` selects it; when it does not fit into the bar (more tabs than `MaxBottomBarItems`/`MaxPrimaryItems`) it is listed in "More" — the built-in sheet of `BaseBottomNavigation`, or the navigation drawer of `BaseLayout` while the bottom bar is shown — so it never vanishes from the phone menu. Default `false`. |
 | `IsDanger` | Renders with a destructive accent (e.g. logout). |
 | `OnClick` | Action invoked instead of navigating (e.g. logout). |
 | `Children` | A non-empty list turns the entry into a group that reveals its children instead of navigating. |
+| `ExpandedByDefault` | A group is open until the user opens or closes it once; the remembered choice wins afterwards. Default `false`. |
 
 Role visibility is evaluated once against the cascading `AuthenticationState`. When `RequiredRole` contains
 multiple comma-separated names the entry is visible if the user is in **any** of them (OR semantics). Groups
@@ -754,7 +805,7 @@ new() { Href = "/admin", Label = L["Admin"], RequiredRole = "Admin,Supervisor" }
 
 ### `BaseSideNavigation`
 
-Desktop renderer (Fluent UI nav menu). Groups render as a labelled section with their children beneath.
+Desktop renderer (Fluent UI `FluentNav`). Groups render as collapsible categories with their children beneath.
 Parameters: `Items`, `IsCollapsed`, `Title`, `AriaLabel`.
 
 ### `BaseBottomNavigation`

@@ -1,0 +1,27 @@
+@inherits BaseDialogInstance<ConfirmationDialogContent>
+
+<BaseDialogBody CommitPendingEditOnEscape="false">
+    <ChildContent>
+        <div class="base-confirmation-message">
+            @if (Content.IsDestructive)
+            {
+                <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Filled.Size24.Warning())"
+                            Color="Color.Warning"
+                            Class="base-confirmation-icon" />
+            }
+            <span class="base-confirmation-text">@Content.Message</span>
+        </div>
+    </ChildContent>
+    <ActionTemplate>
+        <FluentButton Appearance="ButtonAppearance.Primary"
+                      Class="@(Content.IsDestructive ? "base-danger-action" : null)"
+                      OnClick="@ConfirmAsync">
+            @Content.ConfirmButtonText
+        </FluentButton>
+        <FluentButton Appearance="ButtonAppearance.Outline"
+                      OnClick="@CancelAsync"
+                      data-autofocus="true">
+            @Content.CancelButtonText
+        </FluentButton>
+    </ActionTemplate>
+</BaseDialogBody>

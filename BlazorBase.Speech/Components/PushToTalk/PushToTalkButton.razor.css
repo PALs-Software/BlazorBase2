@@ -20,8 +20,8 @@
     padding: 0;
     border: none;
     border-radius: 50%;
-    background: var(--color-accent, var(--accent-fill-rest));
-    color: var(--color-text-on-accent, var(--foreground-on-accent-rest, #fff));
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
     cursor: pointer;
     touch-action: none;
     user-select: none;
@@ -32,11 +32,11 @@
 }
 
 .push-to-talk-button:hover:not(:disabled):not(.push-to-talk-recording) {
-    background: color-mix(in srgb, var(--color-accent, var(--accent-fill-rest)) 85%, black);
+    background: var(--color-accent-hover);
 }
 
 .push-to-talk-button:focus-visible {
-    outline: 2px solid var(--color-border-focus, var(--focus-stroke-outer));
+    outline: var(--stroke-width-thick) solid var(--color-border-focus);
     outline-offset: 3px;
 }
 
@@ -46,8 +46,8 @@
 }
 
 .push-to-talk-button.push-to-talk-recording {
-    background: var(--color-danger, #c42b1c);
-    color: var(--color-text-on-danger, #fff);
+    background: var(--color-danger);
+    color: var(--color-text-on-danger);
     transform: scale(1.06);
 }
 
@@ -64,7 +64,7 @@
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    background: var(--color-danger, #c42b1c);
+    background: var(--color-danger);
     opacity: 0;
     pointer-events: none;
     transform: scale(calc(1 + var(--speech-level, 0) * 0.6));
@@ -77,7 +77,7 @@
 
 .push-to-talk-caption {
     font-size: 0.8125rem;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
 }
 
 .push-to-talk-caption-hidden {
@@ -92,7 +92,7 @@
 .push-to-talk-error {
     flex-basis: 100%;
     font-size: 0.8125rem;
-    color: var(--color-danger, #c42b1c);
+    color: var(--color-danger);
 }
 
 @media (prefers-reduced-motion: reduce) {

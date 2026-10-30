@@ -86,7 +86,7 @@ Behavior worth knowing:
 - **Errors** (`PermissionDenied`, `NoMicrophone`, `Unsupported`, `Failed`) render as a localized
   `role="alert"` next to the button; the next successful press clears it.
 
-The button styles itself from the theme contract with Fluent fallbacks (`--color-accent`,
+The button styles itself from the theme tokens (`--color-accent`, `--color-accent-hover`,
 `--color-text-on-accent`, `--color-danger`, `--color-text-on-danger`, `--color-border-focus`,
 `--color-text-muted`).
 

@@ -836,6 +836,119 @@ public class DbContextBaseDataProviderTests
         Assert.Equal("original-author", updated.CreatedBy);
     }
 
+    [Fact]
+    public async Task PatchAsync_InterceptorSeesTypedStringAndBoolValues()
+    {
+        using var db = new SqliteInMemoryDatabase();
+        var id = Guid.NewGuid();
+        Seed(db, ctx => ctx.PatchTargets.Add(NewPatchTarget(id)));
+
+        var interceptor = new RecordingPatchInterceptor();
+        await PatchTargetProvider(db, interceptor).PatchAsync(id, new Dictionary<string, object?>
+        {
+            ["Title"] = JsonSerializer.SerializeToElement("new title"),
+            ["IsFlagged"] = JsonSerializer.SerializeToElement(true)
+        });
+
+        Assert.IsType<string>(interceptor.ObservedFields["Title"]);
+        Assert.Equal("new title", interceptor.ObservedFields["Title"]);
+        Assert.IsType<bool>(interceptor.ObservedFields["IsFlagged"]);
+        Assert.Equal(true, interceptor.ObservedFields["IsFlagged"]);
+    }
+
+    [Fact]
+    public async Task PatchAsync_InterceptorSeesTypedNullableEnumAndGuidValues()
+    {
+        using var db = new SqliteInMemoryDatabase();
+        var id = Guid.NewGuid();
+        var referenceId = Guid.NewGuid();
+        Seed(db, ctx => ctx.PatchTargets.Add(NewPatchTarget(id)));
+
+        var interceptor = new RecordingPatchInterceptor();
+        await PatchTargetProvider(db, interceptor).PatchAsync(id, new Dictionary<string, object?>
+        {
+            ["Kind"] = JsonSerializer.SerializeToElement(ProductKind.Service),
+            ["ReferenceId"] = JsonSerializer.SerializeToElement(referenceId)
+        });
+
+        Assert.IsType<ProductKind>(interceptor.ObservedFields["Kind"]);
+        Assert.Equal(ProductKind.Service, interceptor.ObservedFields["Kind"]);
+        Assert.IsType<Guid>(interceptor.ObservedFields["ReferenceId"]);
+        Assert.Equal(referenceId, interceptor.ObservedFields["ReferenceId"]);
+    }
+
+    [Fact]
+    public async Task PatchAsync_InterceptorSeesTypedNullableDecimalAndDateTimeValues()
+    {
+        using var db = new SqliteInMemoryDatabase();
+        var id = Guid.NewGuid();
+        var occurredOn = new DateTime(2026, 3, 4, 5, 6, 7, DateTimeKind.Utc);
+        Seed(db, ctx => ctx.PatchTargets.Add(NewPatchTarget(id)));
+
+        var interceptor = new RecordingPatchInterceptor();
+        await PatchTargetProvider(db, interceptor).PatchAsync(id, new Dictionary<string, object?>
+        {
+            ["Amount"] = JsonSerializer.SerializeToElement(19.99m),
+            ["OccurredOn"] = JsonSerializer.SerializeToElement(occurredOn)
+        });
+
+        Assert.IsType<decimal>(interceptor.ObservedFields["Amount"]);
+        Assert.Equal(19.99m, interceptor.ObservedFields["Amount"]);
+        Assert.IsType<DateTime>(interceptor.ObservedFields["OccurredOn"]);
+        Assert.Equal(occurredOn, interceptor.ObservedFields["OccurredOn"]);
+    }
+
+    [Fact]
+    public async Task PatchAsync_InterceptorSeesJsonNullAsClrNull()
+    {
+        using var db = new SqliteInMemoryDatabase();
+        var id = Guid.NewGuid();
+        var target = NewPatchTarget(id);
+        target.Amount = 5m;
+        Seed(db, ctx => ctx.PatchTargets.Add(target));
+
+        var interceptor = new RecordingPatchInterceptor();
+        await PatchTargetProvider(db, interceptor).PatchAsync(id, new Dictionary<string, object?>
+        {
+            ["Amount"] = JsonSerializer.SerializeToElement<decimal?>(null)
+        });
+
+        Assert.True(interceptor.ObservedFields.ContainsKey("Amount"));
+        Assert.Null(interceptor.ObservedFields["Amount"]);
+    }
+
+    [Fact]
+    public async Task PatchAsync_InterceptorSeesUnknownFieldNameUnconverted()
+    {
+        using var db = new SqliteInMemoryDatabase();
+        var id = Guid.NewGuid();
+        Seed(db, ctx => ctx.PatchTargets.Add(NewPatchTarget(id)));
+
+        var interceptor = new RecordingPatchInterceptor();
+        await PatchTargetProvider(db, interceptor).PatchAsync(id, new Dictionary<string, object?>
+        {
+            ["NoSuchField"] = JsonSerializer.SerializeToElement("whatever")
+        });
+
+        Assert.IsType<JsonElement>(interceptor.ObservedFields["NoSuchField"]);
+    }
+
+    [Fact]
+    public async Task PatchAsync_InterceptorTypedReplacement_StillApplies()
+    {
+        using var db = new SqliteInMemoryDatabase();
+        var id = Guid.NewGuid();
+        Seed(db, ctx => ctx.PatchTargets.Add(NewPatchTarget(id)));
+
+        await PatchTargetProvider(db, new TrimTitleInterceptor()).PatchAsync(id, new Dictionary<string, object?>
+        {
+            ["Title"] = JsonSerializer.SerializeToElement("  padded  ")
+        });
+
+        await using var ctx = db.CreateContext();
+        Assert.Equal("padded", (await ctx.PatchTargets.FindAsync(id))!.Title);
+    }
+
     #endregion
 
     #region DeleteAsync
@@ -882,6 +995,13 @@ public class DbContextBaseDataProviderTests
         return new DbContextBaseDataProvider<TestOrder>(db.CreateContext(), []);
     }
 
+    private static DbContextBaseDataProvider<TestPatchTarget> PatchTargetProvider(
+        SqliteInMemoryDatabase db,
+        params IBaseDataInterceptor<TestPatchTarget>[] interceptors)
+    {
+        return new DbContextBaseDataProvider<TestPatchTarget>(db.CreateContext(), interceptors);
+    }
+
     private static void Seed(SqliteInMemoryDatabase db, Action<TestDbContext> seed)
     {
         using var context = db.CreateContext();
@@ -912,6 +1032,11 @@ public class DbContextBaseDataProviderTests
         };
     }
 
+    private static TestPatchTarget NewPatchTarget(Guid id)
+    {
+        return new TestPatchTarget { Id = id, Title = "original" };
+    }
+
     private sealed class TrimNameInterceptor : BaseDataInterceptor<TestProduct>
     {
         public override Task<TestProduct> OnBeforeCreateAsync(TestProduct model, CancellationToken cancellationToken = default)
@@ -927,6 +1052,28 @@ public class DbContextBaseDataProviderTests
         {
             query.Filters.Add(new FilterDescriptor { PropertyName = "IsActive", Operator = FilterOperator.Equals, Value = true });
             return Task.FromResult(query);
+        }
+    }
+
+    private sealed class RecordingPatchInterceptor : BaseDataInterceptor<TestPatchTarget>
+    {
+        public Dictionary<string, object?> ObservedFields { get; private set; } = [];
+
+        public override Task<Dictionary<string, object?>> OnBeforePatchAsync(object id, Dictionary<string, object?> changedFields, CancellationToken cancellationToken = default)
+        {
+            ObservedFields = changedFields;
+            return Task.FromResult(changedFields);
+        }
+    }
+
+    private sealed class TrimTitleInterceptor : BaseDataInterceptor<TestPatchTarget>
+    {
+        public override Task<Dictionary<string, object?>> OnBeforePatchAsync(object id, Dictionary<string, object?> changedFields, CancellationToken cancellationToken = default)
+        {
+            if (changedFields.TryGetValue("Title", out var value) && value is string title)
+                changedFields["Title"] = title.Trim();
+
+            return Task.FromResult(changedFields);
         }
     }
 

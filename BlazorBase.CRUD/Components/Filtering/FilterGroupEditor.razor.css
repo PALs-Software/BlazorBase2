@@ -5,10 +5,10 @@
 }
 
 .filter-group-nested {
-    border: 1px solid var(--color-border-strong, var(--neutral-stroke-rest));
+    border: 1px solid var(--color-border-strong);
     border-radius: var(--radius-sm, 8px);
     padding: 10px;
-    background: var(--color-bg-surface, var(--neutral-layer-1));
+    background: var(--color-bg-surface);
 }
 
 .filter-group-header {
@@ -22,7 +22,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
 }
 
 .filter-group-body {
@@ -31,7 +31,7 @@
 }
 
 .filter-group-hint {
-    color: var(--color-text-muted, var(--neutral-foreground-hint));
+    color: var(--color-text-muted);
     font-size: 13px;
     padding: 4px 2px;
 }
@@ -48,7 +48,7 @@
     content: "";
     flex: 1;
     height: 1px;
-    background: var(--color-border, var(--neutral-stroke-divider-rest));
+    background: var(--color-border);
 }
 
 .filter-connector-chip {
@@ -72,14 +72,14 @@
    with the accent.
 */
 .filter-connector-chip.and {
-    background: var(--color-accent, var(--accent-fill-rest));
-    color: var(--color-text-on-accent, #ffffff);
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
 }
 
 .filter-connector-chip.or {
-    background: var(--color-bg-elevated, var(--neutral-layer-floating));
-    color: var(--color-accent, var(--accent-fill-rest));
-    box-shadow: inset 0 0 0 1px var(--color-accent, var(--accent-fill-rest));
+    background: var(--color-bg-elevated);
+    color: var(--color-accent);
+    box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 
 .filter-connector-chip.and:hover {
@@ -87,7 +87,7 @@
 }
 
 .filter-connector-chip.or:hover {
-    background: var(--color-bg-hover, var(--neutral-fill-stealth-hover));
+    background: var(--color-bg-hover);
 }
 
 .filter-group-actions {

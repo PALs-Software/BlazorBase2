@@ -1,0 +1,123 @@
+@namespace BlazorBase.Dashboard
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+
+<div class="rc @Class" role="region" aria-label="@Localizer["RoleCenterLabel"]">
+    <CascadingValue TValue="IDashboardRefreshService" Value="Refresh" IsFixed="true">
+        @Headline
+        <div class="rc-meta">
+            <div class="rc-meta-start">
+                @MetaContent
+                @if (MetaContent is not null)
+                {
+                    <span class="rc-separator" aria-hidden="true">·</span>
+                }
+                <span class="rc-updated" role="status">@UpdatedText</span>
+            </div>
+            <div class="rc-meta-end">
+                @Tools
+                @if (IsPersonalizable && !IsEditing)
+                {
+                    <button type="button" id="@PersonalizeButtonId" class="rc-personalize" @onclick="StartEditing">
+                        <FluentIcon Value="@(new Size16.Edit())" Color="Color.Custom" CustomColor="currentColor" />
+                        @Localizer["Personalize"]
+                    </button>
+                }
+                <FluentButton Class="rc-refresh" Appearance="ButtonAppearance.Transparent" Disabled="@IsRefreshing"
+                              aria-busy="@(IsRefreshing ? "true" : null)" OnClick="@RefreshAsync"
+                              IconStart="@(new Size16.ArrowClockwise())">
+                    @(IsRefreshing ? Localizer["Refreshing"].Value : Localizer["Refresh"].Value)
+                </FluentButton>
+            </div>
+        </div>
+        @if (IsPersonalizable)
+        {
+            <div class="rc-sr-only" role="status" aria-live="polite" aria-atomic="true">@AnnouncementText</div>
+        }
+        @if (IsEditing)
+        {
+            <div class="rc-edit-bar" role="region" aria-labelledby="@EditTitleId">
+                <div class="rc-edit-bar-text">
+                    <p id="@EditTitleId" class="rc-edit-bar-title" tabindex="-1">@Localizer["PersonalizeTitle"]</p>
+                    <p class="rc-edit-bar-hint">@Localizer["PersonalizeHint"]</p>
+                </div>
+                <div class="rc-edit-bar-actions">
+                    <button type="button" id="@ResetButtonId" class="rc-edit-bar-button rc-edit-reset" disabled="@IsSaving" @onclick="AskReset">
+                        <FluentIcon Value="@(new Size16.ArrowCounterclockwise())" Color="Color.Custom" CustomColor="currentColor" />
+                        @Localizer["PersonalizeReset"]
+                    </button>
+                    <button type="button" class="rc-edit-bar-button rc-edit-cancel" disabled="@IsSaving" @onclick="CancelEditing">@Localizer["PersonalizeCancel"]</button>
+                    <button type="button" class="rc-edit-bar-button rc-edit-bar-button--primary rc-edit-done" disabled="@IsSaving" aria-busy="@(IsSaving ? "true" : null)" @onclick="SaveAsync">@Localizer["PersonalizeDone"]</button>
+                </div>
+                @if (IsConfirmingReset)
+                {
+                    <div class="rc-edit-confirm" role="group" aria-labelledby="@ConfirmTextId">
+                        <p id="@ConfirmTextId" class="rc-edit-confirm-text">@Localizer["PersonalizeResetConfirm"]</p>
+                        <div class="rc-edit-confirm-actions">
+                            <button type="button" class="rc-edit-bar-button rc-edit-bar-button--danger rc-edit-confirm-yes" disabled="@IsSaving" @onclick="ConfirmResetAsync">@Localizer["PersonalizeResetConfirmYes"]</button>
+                            <button type="button" id="@KeepButtonId" class="rc-edit-bar-button rc-edit-confirm-no" disabled="@IsSaving" @onclick="KeepLayout">@Localizer["PersonalizeResetConfirmNo"]</button>
+                        </div>
+                    </div>
+                }
+                @if (EditError is not null)
+                {
+                    <p class="rc-edit-error" role="alert">@EditError</p>
+                }
+            </div>
+        }
+        <div class="rc-grid">
+            @foreach (var item in ListedParts)
+            {
+                var title = TitleOf(item.Registration);
+                var id = item.Registration.Id;
+                var index = Arranged.IndexOf(item);
+
+                <div @key="id" class="rc-slot @(IsEditing ? "rc-slot--editing" : null) @(IsEditing && item.Hidden ? "rc-slot--hidden" : null)" style="--pf-columns: @item.Registration.Columns" data-slot-id="@id">
+                    @if (IsEditing)
+                    {
+                        <div class="rc-edit-card" role="group" aria-label="@title">
+                            <span class="rc-edit-card-title">@title</span>
+                            @if (item.Hidden)
+                            {
+                                <span class="rc-edit-card-badge">@Localizer["PartHidden"]</span>
+                            }
+                            <div class="rc-edit-card-actions">
+                                <button type="button" class="rc-edit-button" data-edit-part="@id" data-edit-action="up"
+                                        aria-label="@Localizer["PartMoveUpLabel", title]" aria-disabled="@(index == 0 ? "true" : null)"
+                                        @onclick="() => Move(id, -1)">
+                                    <FluentIcon Value="@(new Size16.ArrowUp())" Color="Color.Custom" CustomColor="currentColor" />
+                                    @Localizer["PartMoveUp"]
+                                </button>
+                                <button type="button" class="rc-edit-button" data-edit-part="@id" data-edit-action="down"
+                                        aria-label="@Localizer["PartMoveDownLabel", title]" aria-disabled="@(index == Arranged.Count - 1 ? "true" : null)"
+                                        @onclick="() => Move(id, 1)">
+                                    <FluentIcon Value="@(new Size16.ArrowDown())" Color="Color.Custom" CustomColor="currentColor" />
+                                    @Localizer["PartMoveDown"]
+                                </button>
+                                <button type="button" class="rc-edit-button" data-edit-part="@id" data-edit-action="visibility"
+                                        aria-label="@(item.Hidden ? Localizer["PartShowLabel", title] : Localizer["PartHideLabel", title])"
+                                        @onclick="() => ToggleHidden(id)">
+                                    @if (item.Hidden)
+                                    {
+                                        <FluentIcon Value="@(new Size16.Eye())" Color="Color.Custom" CustomColor="currentColor" />
+                                        @Localizer["PartShow"]
+                                    }
+                                    else
+                                    {
+                                        <FluentIcon Value="@(new Size16.EyeOff())" Color="Color.Custom" CustomColor="currentColor" />
+                                        @Localizer["PartHide"]
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    @if (!item.Hidden)
+                    {
+                        <div class="rc-slot-body" inert="@IsEditing">
+                            <DashboardPartFrame Registration="item.Registration" Refresh="Refresh" />
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </CascadingValue>
+</div>

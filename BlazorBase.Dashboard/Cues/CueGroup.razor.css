@@ -1,0 +1,19 @@
+.cue-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+@container rolecenter (max-width: 639px) {
+    .cue-group {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 639px) {
+    .cue-group {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

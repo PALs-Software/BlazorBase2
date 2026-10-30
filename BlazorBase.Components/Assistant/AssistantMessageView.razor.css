@@ -1,0 +1,336 @@
+.assistant-message {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.assistant-message.user {
+    align-items: flex-end;
+}
+
+.assistant-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.assistant-bubble {
+    max-width: 88%;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    border-end-end-radius: 4px;
+    background: var(--color-accent);
+    color: var(--color-text-on-accent);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.assistant-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+}
+
+.assistant-attachments li {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.assistant-notice {
+    padding: 2px 0;
+    font-size: 0.8125rem;
+    text-align: center;
+    color: var(--color-text-muted);
+}
+
+.assistant-answer {
+    min-width: 0;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+.assistant-markdown ::deep > :first-child {
+    margin-top: 0;
+}
+
+.assistant-markdown ::deep > :last-child {
+    margin-bottom: 0;
+}
+
+.assistant-markdown ::deep p,
+.assistant-markdown ::deep ul,
+.assistant-markdown ::deep ol,
+.assistant-markdown ::deep blockquote,
+.assistant-markdown ::deep table {
+    margin: 0 0 10px;
+}
+
+.assistant-markdown ::deep ul,
+.assistant-markdown ::deep ol {
+    padding-inline-start: 22px;
+}
+
+.assistant-markdown ::deep h1,
+.assistant-markdown ::deep h2,
+.assistant-markdown ::deep h3,
+.assistant-markdown ::deep h4 {
+    margin: 14px 0 6px;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.assistant-markdown ::deep a {
+    color: var(--color-accent);
+}
+
+.assistant-markdown ::deep a:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.assistant-markdown ::deep code {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--color-bg-subtle);
+    font-family: var(--font-monospace);
+    font-size: 0.8125rem;
+}
+
+.assistant-markdown ::deep pre {
+    margin: 0 0 10px;
+    padding: 8px 10px;
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-subtle);
+}
+
+.assistant-markdown ::deep pre code {
+    padding: 0;
+    background: transparent;
+}
+
+.assistant-markdown ::deep blockquote {
+    padding-inline-start: 12px;
+    border-inline-start: 3px solid var(--color-border-strong);
+    color: var(--color-text-secondary);
+}
+
+.assistant-markdown ::deep table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+}
+
+.assistant-markdown ::deep th,
+.assistant-markdown ::deep td {
+    padding: 4px 8px;
+    border: 1px solid var(--color-border);
+    text-align: start;
+}
+
+.assistant-markdown ::deep th {
+    background: var(--color-bg-subtle);
+}
+
+.assistant-tool,
+.assistant-thinking {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+}
+
+.assistant-dots {
+    display: inline-flex;
+    gap: 3px;
+}
+
+.assistant-dots i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-text-muted);
+    animation: assistant-dot 1.2s infinite ease-in-out;
+}
+
+.assistant-dots i:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.assistant-dots i:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+@keyframes assistant-dot {
+    0%, 80%, 100% {
+        opacity: 0.25;
+    }
+
+    40% {
+        opacity: 1;
+    }
+}
+
+.assistant-citations {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.8125rem;
+}
+
+.assistant-citations-label {
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+
+.assistant-citations ol {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding-inline-start: 20px;
+}
+
+.assistant-citations a {
+    color: var(--color-accent);
+}
+
+.assistant-citations a:focus-visible {
+    outline: 2px solid var(--color-border-focus);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.assistant-error {
+    padding: 8px 10px;
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-sm);
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+    font-size: 0.875rem;
+}
+
+.assistant-stopped {
+    font-size: 0.8125rem;
+    font-style: italic;
+    color: var(--color-text-muted);
+}
+
+.assistant-action {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-warning);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-surface);
+}
+
+.assistant-action.confirmed {
+    border-color: var(--color-success);
+}
+
+.assistant-action.declined {
+    border-color: var(--color-border-strong);
+}
+
+.assistant-action.failed {
+    border-color: var(--color-danger);
+}
+
+.assistant-action-kind {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-warning);
+}
+
+.assistant-action-summary {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.assistant-action-parameters {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 2px 10px;
+    margin: 0;
+    font-size: 0.8125rem;
+}
+
+.assistant-action-parameters dt {
+    color: var(--color-text-muted);
+}
+
+.assistant-action-parameters dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.assistant-action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.assistant-action-result {
+    font-size: 0.875rem;
+}
+
+.assistant-feedback {
+    display: flex;
+    gap: 2px;
+    margin-inline-start: -6px;
+}
+
+.assistant-feedback ::deep .assistant-feedback-button {
+    min-width: var(--control-height-md);
+    min-height: var(--control-height-md);
+    color: var(--color-text-muted);
+}
+
+.assistant-feedback ::deep .assistant-feedback-button[aria-pressed="true"] {
+    color: var(--color-accent-text);
+    background-color: var(--color-bg-selected);
+}
+
+@media (max-width: 768px) {
+    .assistant-action-buttons ::deep .assistant-action-confirm,
+    .assistant-action-buttons ::deep .assistant-action-decline {
+        flex: 1 1 0;
+        min-height: var(--control-height-touch);
+    }
+
+    .assistant-feedback ::deep .assistant-feedback-button {
+        min-width: var(--control-height-touch);
+        min-height: var(--control-height-touch);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .assistant-dots i {
+        animation: none;
+        opacity: 0.6;
+    }
+}

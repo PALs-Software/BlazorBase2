@@ -10,8 +10,8 @@
         <h2>Server Setup</h2>
         <p>Enter the URL of your server.</p>
 
-        <FluentStack Orientation="Orientation.Vertical" Class="form-stack">
-            <FluentTextField @bind-Value="ServerUrl"
+        <FluentStack Orientation="Orientation.Vertical" VerticalGap="var(--space-4)" Class="form-stack">
+            <FluentTextInput @bind-Value="ServerUrl"
                              Label="Server URL"
                              Placeholder="https://your-server.example.com"
                              Required="true"
@@ -19,19 +19,19 @@
 
             @if (!string.IsNullOrEmpty(ErrorMessage))
             {
-                <FluentMessageBar Intent="MessageIntent.Error" Title="Error">
+                <FluentMessageBar Intent="MessageBarIntent.Error" Title="Error" AllowDismiss="false" role="alert">
                     @ErrorMessage
                 </FluentMessageBar>
             }
 
             @if (IsSuccess)
             {
-                <FluentMessageBar Intent="MessageIntent.Success" Title="Success">
+                <FluentMessageBar Intent="MessageBarIntent.Success" Title="Success" AllowDismiss="false" role="status">
                     Connection successful!
                 </FluentMessageBar>
             }
 
-            <FluentButton Appearance="Appearance.Accent"
+            <FluentButton Appearance="ButtonAppearance.Primary"
                           Loading="IsTesting"
                           OnClick="HandleSave"
                           Class="full-width">

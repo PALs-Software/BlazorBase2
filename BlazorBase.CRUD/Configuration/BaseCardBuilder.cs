@@ -135,6 +135,10 @@ public class FieldBuilder<TModel>(PropertyFieldConfig<TModel> config)
     public FieldBuilder<TModel> Required(bool required = true) { config.Required = required; return this; }
     public FieldBuilder<TModel> Placeholder(string placeholder) { config.Placeholder = placeholder; return this; }
     public FieldBuilder<TModel> ColSpan(int colSpan) { config.ColSpan = colSpan; return this; }
+    /// <summary>Makes the field span a whole row of the card grid regardless of the column count.</summary>
+    public FieldBuilder<TModel> FullWidth(bool fullWidth = true) { config.FullWidth = fullWidth; return this; }
+    /// <summary>Suppresses the framework label above a custom template that renders its own heading.</summary>
+    public FieldBuilder<TModel> HideLabel(bool hideLabel = true) { config.HideLabel = hideLabel; return this; }
     public FieldBuilder<TModel> Lines(int lines) { config.Lines = lines; return this; }
     /// <summary>
     /// Adds a view-level access rule. May be called multiple times to grant rights to
@@ -173,6 +177,8 @@ public class FieldBuilder<TModel>(PropertyFieldConfig<TModel> config)
     /// </summary>
     public FieldBuilder<TModel> HtmlField()
     {
+        config.FullWidth = true;
+
         config.EditorTemplate = ctx => (RenderTreeBuilder builder) =>
         {
             builder.OpenComponent<RichTextEditor>(0);

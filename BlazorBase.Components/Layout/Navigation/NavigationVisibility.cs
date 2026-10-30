@@ -19,7 +19,39 @@ internal static class NavigationVisibility
         return Filter(items, user);
     }
 
-    private static IReadOnlyList<NavigationItem> Filter(IReadOnlyList<NavigationItem> items, ClaimsPrincipal? user)
+    /// <summary>
+    /// Removes the <see cref="NavigationItem.BottomBarOnly"/> entries from a list the user may see. With
+    /// <paramref name="selectedTabs"/> set (the bottom bar is on screen and this list is its "More"), only the
+    /// entries that are one of those tabs (compared by reference) are removed and the others stay. Groups left
+    /// without children are dropped.
+    /// </summary>
+    public static IReadOnlyList<NavigationItem> WithoutBottomBarOnly(
+        IReadOnlyList<NavigationItem> items,
+        IReadOnlyCollection<NavigationItem>? selectedTabs = null)
+    {
+        var result = new List<NavigationItem>();
+        foreach (var item in items)
+        {
+            if (item.BottomBarOnly && (selectedTabs is null || selectedTabs.Contains(item, ReferenceEqualityComparer.Instance)))
+                continue;
+
+            if (!item.IsGroup)
+            {
+                result.Add(item);
+                continue;
+            }
+
+            var remainingChildren = WithoutBottomBarOnly(item.Children, selectedTabs);
+            if (remainingChildren.Count == 0)
+                continue;
+
+            result.Add(item with { Children = remainingChildren });
+        }
+
+        return result;
+    }
+
+    internal static IReadOnlyList<NavigationItem> Filter(IReadOnlyList<NavigationItem> items, ClaimsPrincipal? user)
     {
         var result = new List<NavigationItem>();
         foreach (var item in items)
@@ -43,15 +75,20 @@ internal static class NavigationVisibility
         return result;
     }
 
-    private static bool IsAllowed(NavigationItem item, ClaimsPrincipal? user)
+    private static bool IsAllowed(NavigationItem item, ClaimsPrincipal? user) => IsRoleAllowed(item.RequiredRole, user);
+
+    /// <summary>
+    /// True when <paramref name="requiredRole"/> is null or the user is in at least one of its comma separated roles.
+    /// </summary>
+    internal static bool IsRoleAllowed(string? requiredRole, ClaimsPrincipal? user)
     {
-        if (item.RequiredRole is null)
+        if (requiredRole is null)
             return true;
 
         if (user is null)
             return false;
 
-        foreach (var role in item.RequiredRole.Split(','))
+        foreach (var role in requiredRole.Split(','))
         {
             var trimmed = role.Trim();
             if (trimmed.Length > 0 && user.IsInRole(trimmed))

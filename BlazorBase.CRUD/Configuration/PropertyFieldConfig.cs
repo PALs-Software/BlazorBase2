@@ -38,6 +38,18 @@ public class PropertyFieldConfig<TModel>
 
     public int ColSpan { get; set; } = 1;
 
+    /// <summary>
+    /// When true the field always occupies a whole row of the card grid, however many columns the card currently has.
+    /// Multi-line text areas and HTML editors get this implicitly.
+    /// </summary>
+    public bool FullWidth { get; set; }
+
+    /// <summary>
+    /// When true the card renders no label above a custom <see cref="EditorTemplate"/>/<see cref="DisplayTemplate"/>,
+    /// for templates that render their own heading.
+    /// </summary>
+    public bool HideLabel { get; set; }
+
     public int? Lines { get; set; }
 
     public RenderFragment<PropertyFieldContext<TModel>>? EditorTemplate { get; set; }

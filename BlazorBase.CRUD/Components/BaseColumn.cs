@@ -42,6 +42,26 @@ public class BaseColumn<TModel> : ComponentBase
     public string? Width { get; set; }
 
     /// <summary>
+    /// Makes this column the open link of the row: it is styled as a link and a click on it opens the item. Left
+    /// unset on every column, the first visible data column is the open link (see <c>BaseList.OpenColumn</c>).
+    /// </summary>
+    [Parameter]
+    public bool OpensItem { get; set; }
+
+    /// <summary>
+    /// The part this column plays on the tile shown on a narrow screen (title, subtitle, field, badge, the
+    /// action row, or hidden). Undecided columns are chosen by data type unless another column sets a role.
+    /// </summary>
+    [Parameter]
+    public Configuration.MobileRole MobileRole { get; set; } = Configuration.MobileRole.Auto;
+
+    /// <summary>
+    /// Position among the columns of the same mobile role (lower comes first); the column order when omitted.
+    /// </summary>
+    [Parameter]
+    public int? MobilePriority { get; set; }
+
+    /// <summary>
     /// Comma-separated role list for a single view-level access rule (e.g. "Admin, User" or "*").
     /// Combined with <see cref="AccessRights"/> to form one <see cref="CrudAccessRule"/>.
     /// </summary>
@@ -74,7 +94,10 @@ public class BaseColumn<TModel> : ComponentBase
             Template = Template,
             Format = Format,
             Order = Order,
-            Width = Width
+            Width = Width,
+            OpensItem = OpensItem,
+            MobileRole = MobileRole,
+            MobilePriority = MobilePriority
         };
         config.ResolvePropertyName();
 

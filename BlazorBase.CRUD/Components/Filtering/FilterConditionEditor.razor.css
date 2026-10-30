@@ -4,26 +4,26 @@
     align-items: center;
     gap: 6px;
     padding: 10px;
-    border: 1px solid var(--color-border, var(--neutral-stroke-divider-rest));
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-sm, 8px);
-    background: var(--color-bg-surface, var(--neutral-layer-1));
+    background: var(--color-bg-surface);
 }
 
-.filter-condition-field {
+.filter-condition ::deep .filter-condition-field {
     min-width: 140px;
     flex: 1 1 140px;
 }
 
-.filter-condition-operator {
+.filter-condition ::deep .filter-condition-operator {
     min-width: 120px;
     flex: 0 1 140px;
 }
 
-.filter-condition-value {
+.filter-condition ::deep .filter-condition-value {
     min-width: 120px;
     flex: 1 1 140px;
 }
 
-.filter-condition-remove {
+.filter-condition ::deep .filter-condition-remove {
     margin-left: auto;
 }

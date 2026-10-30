@@ -1,0 +1,151 @@
+@namespace BlazorBase.Components.Assistant
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+
+@if (State.IsOpen)
+{
+    <div class="assistant-scrim" @onclick="State.Close"></div>
+    <aside id="@PanelId"
+           class="assistant-panel"
+           role="complementary"
+           aria-labelledby="@TitleId"
+           tabindex="-1"
+           @ref="PanelElement"
+           @onkeydown="OnKeyDown">
+        <div class="assistant-resize"
+             role="separator"
+             aria-orientation="vertical"
+             aria-label="@Localizer["Resize"]"
+             aria-valuemin="320"
+             tabindex="0"
+             @ref="ResizeElement"></div>
+        <span class="assistant-grabber" aria-hidden="true"></span>
+        <div class="assistant-header">
+            <span class="assistant-avatar" aria-hidden="true">
+                @if (AvatarContent is not null)
+                {
+                    @AvatarContent
+                }
+                else if (!string.IsNullOrWhiteSpace(ResolvedAvatarUrl))
+                {
+                    <img src="@ResolvedAvatarUrl" alt="" />
+                }
+                else
+                {
+                    <FluentIcon Value="@(new Size20.Bot())" Color="Color.Custom" CustomColor="currentColor" />
+                }
+            </span>
+            <h2 id="@TitleId" class="assistant-title">@ResolvedDisplayName</h2>
+            <FluentButton Appearance="ButtonAppearance.Transparent"
+                          Class="assistant-new"
+                          IconOnly="true"
+                          IconStart="@(new Size20.ChatAdd())"
+                          Title="@Localizer["NewConversation"]"
+                          Disabled="@(Conversation.Messages.Count == 0)"
+                          OnClick="NewConversationAsync" />
+            <FluentButton Appearance="ButtonAppearance.Transparent"
+                          Class="assistant-close"
+                          IconOnly="true"
+                          IconStart="@(new Size20.Dismiss())"
+                          Title="@Localizer["Close"]"
+                          OnClick="State.Close" />
+        </div>
+        <div class="assistant-transcript"
+             role="log"
+             aria-label="@Localizer["Conversation"]"
+             aria-live="polite"
+             aria-relevant="additions"
+             @ref="TranscriptElement">
+            @if (Conversation.Messages.Count == 0)
+            {
+                <div class="assistant-welcome">
+                    <p>@ResolvedWelcomeText</p>
+                    @if (Settings.Suggestions.Count > 0)
+                    {
+                        <div class="assistant-chips">
+                            @foreach (var suggestion in Settings.Suggestions)
+                            {
+                                var text = suggestion;
+                                <button type="button" class="assistant-chip" @onclick="() => SendTextAsync(text)">@text</button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                @foreach (var message in Conversation.Messages)
+                {
+                    <AssistantMessageView @key="message.Id"
+                                          Message="message"
+                                          DisplayName="@ResolvedDisplayName"
+                                          OnRate="rating => RateAsync(message, rating)"
+                                          OnConfirm="() => ResolveActionAsync(message, confirm: true)"
+                                          OnDecline="() => ResolveActionAsync(message, confirm: false)" />
+                }
+            }
+        </div>
+        <div class="assistant-composer">
+            @if (!string.IsNullOrEmpty(StatusText))
+            {
+                <div class="assistant-status" role="status">@StatusText</div>
+            }
+            @if (PendingAttachments.Count > 0)
+            {
+                <ul class="assistant-pending-attachments" aria-label="@Localizer["Attachments"]">
+                    @foreach (var attachment in PendingAttachments)
+                    {
+                        var current = attachment;
+                        <li>
+                            <span>@current.FileName</span>
+                            <button type="button"
+                                    class="assistant-remove-attachment"
+                                    title="@string.Format(Localizer["RemoveAttachment"].Value, current.FileName)"
+                                    aria-label="@string.Format(Localizer["RemoveAttachment"].Value, current.FileName)"
+                                    @onclick="() => PendingAttachments.Remove(current)">
+                                <FluentIcon Value="@(new Size16.Dismiss())" Color="Color.Custom" CustomColor="currentColor" />
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+            <div class="assistant-box">
+                <textarea class="assistant-input"
+                          rows="1"
+                          maxlength="@MaxMessageLength"
+                          placeholder="@Localizer["Placeholder"]"
+                          aria-label="@Localizer["Placeholder"]"
+                          aria-keyshortcuts="Enter"
+                          @ref="ComposerElement"
+                          @bind="State.Draft"
+                          @bind:event="oninput"></textarea>
+                @if (Settings.UploadEnabled)
+                {
+                    <label class="assistant-attach" title="@Localizer["Attach"]">
+                        <FluentIcon Value="@(new Size20.Attach())" Color="Color.Default" />
+                        <InputFile class="assistant-file-input" multiple aria-label="@Localizer["Attach"]" OnChange="OnFilesSelectedAsync" />
+                    </label>
+                }
+                @if (IsStreaming)
+                {
+                    <FluentButton Appearance="ButtonAppearance.Outline"
+                                  Class="assistant-stop"
+                                  IconOnly="true"
+                                  IconStart="@(new Size20.Stop())"
+                                  Title="@Localizer["Stop"]"
+                                  OnClick="StopAsync" />
+                }
+                else
+                {
+                    <FluentButton Appearance="ButtonAppearance.Primary"
+                                  Class="assistant-send"
+                                  IconOnly="true"
+                                  IconStart="@(new Size20.Send())"
+                                  Title="@Localizer["Send"]"
+                                  Disabled="@(string.IsNullOrWhiteSpace(State.Draft))"
+                                  OnClick="SendAsync" />
+                }
+            </div>
+            <div class="assistant-hint">@Localizer["KeyboardHint"]</div>
+        </div>
+    </aside>
+}

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>Hilfe</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>Zurück zum vorherigen Hilfethema</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Hilfe schließen</value>
+  </data>
+  <data name="OpenDocumentation" xml:space="preserve">
+    <value>Vollständige Dokumentation öffnen</value>
+  </data>
+  <data name="Loading" xml:space="preserve">
+    <value>Hilfe wird geladen…</value>
+  </data>
+  <data name="NoHelp" xml:space="preserve">
+    <value>Für diese Seite ist noch keine Hilfe verfügbar.</value>
+  </data>
+  <data name="AlertNote" xml:space="preserve">
+    <value>Hinweis</value>
+  </data>
+  <data name="AlertTip" xml:space="preserve">
+    <value>Tipp</value>
+  </data>
+  <data name="AlertImportant" xml:space="preserve">
+    <value>Wichtig</value>
+  </data>
+  <data name="AlertWarning" xml:space="preserve">
+    <value>Warnung</value>
+  </data>
+  <data name="AlertCaution" xml:space="preserve">
+    <value>Achtung</value>
+  </data>
+  <data name="Contents" xml:space="preserve">
+    <value>Inhalt</value>
+  </data>
+  <data name="MoreInHelp" xml:space="preserve">
+    <value>Mehr in der Hilfe</value>
+  </data>
+</root>

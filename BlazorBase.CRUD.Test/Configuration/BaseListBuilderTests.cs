@@ -51,6 +51,50 @@ public class BaseListBuilderTests
     }
 
     [Fact]
+    public void MobileCard_RecordsTheRolesInDeclarationOrder()
+    {
+        var configuration = new BaseListBuilder<TestProduct>()
+            .Column(p => p.Name)
+            .MobileCard(card => card
+                .Title(p => p.Name)
+                .Subtitle(p => p.Description)
+                .Field(p => p.Price, "Preis")
+                .Field(p => p.ReleasedOn)
+                .Badge(p => p.IsActive)
+                .MaxFields(3))
+            .MobileBreakpoint(480)
+            .Build();
+
+        var card = Assert.IsType<MobileCardConfiguration<TestProduct>>(configuration.MobileCard);
+        Assert.Equal(["Name", "Description", "Price", "ReleasedOn", "IsActive"], card.Fields.Select(f => f.PropertyName));
+        Assert.Equal(
+            [MobileRole.Title, MobileRole.Subtitle, MobileRole.Field, MobileRole.Field, MobileRole.Badge],
+            card.Fields.Select(f => f.Role));
+        Assert.Equal([0, 1, 2, 3, 4], card.Fields.Select(f => f.Priority));
+        Assert.Equal("Preis", card.Fields[2].Label);
+        Assert.Equal(3, card.MaxFields);
+        Assert.Equal(480, configuration.MobileBreakpoint);
+    }
+
+    [Fact]
+    public void Mobile_SetsTheRoleAndPriorityOfAColumn()
+    {
+        var configuration = new BaseListBuilder<TestProduct>()
+            .Column(p => p.Name, c => c.Mobile(MobileRole.Title))
+            .Column(p => p.Price, c => c.Mobile(MobileRole.Field, 3))
+            .Column(p => p.Stock)
+            .Build();
+
+        Assert.Equal(MobileRole.Title, configuration.Columns[0].MobileRole);
+        Assert.Equal(MobileRole.Field, configuration.Columns[1].MobileRole);
+        Assert.Equal(3, configuration.Columns[1].MobilePriority);
+        Assert.Equal(MobileRole.Auto, configuration.Columns[2].MobileRole);
+        Assert.Null(configuration.Columns[2].MobilePriority);
+        Assert.Null(configuration.MobileCard);
+        Assert.Null(configuration.MobileBreakpoint);
+    }
+
+    [Fact]
     public void ActionGroup_BuildsGroupWithActions()
     {
         var configuration = new BaseListBuilder<TestProduct>()
@@ -68,6 +112,6 @@ public class BaseListBuilderTests
         var action = Assert.Single(group.Actions);
         Assert.Equal("Activate", action.Caption);
         Assert.True(action.IsBulkAction);
-        Assert.Equal(Microsoft.FluentUI.AspNetCore.Components.Appearance.Stealth, action.Appearance);
+        Assert.Equal(Microsoft.FluentUI.AspNetCore.Components.ButtonAppearance.Transparent, action.Appearance);
     }
 }

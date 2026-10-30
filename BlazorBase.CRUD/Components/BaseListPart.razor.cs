@@ -16,7 +16,7 @@ using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace BlazorBase.CRUD.Components;
 
-public partial class BaseListPart<TModel> : ComponentBase, IListPartFlushable where TModel : class, new()
+public partial class BaseListPart<TModel> : ComponentBase, IListPartFlushable, IAsyncDisposable where TModel : class, new()
 {
     #region Injects
 
@@ -75,9 +75,9 @@ public partial class BaseListPart<TModel> : ComponentBase, IListPartFlushable wh
     private CrudRights ClassRightsForCurrentUser =>
         CurrentUser is null ? CrudRights.All : CrudAccessResolver.EvaluateClass(typeof(TModel), CurrentUser);
 
-    private bool CanAdd => AllowAdd && (ClassRightsForCurrentUser & CrudRights.Insert) == CrudRights.Insert;
+    private bool CanAdd => AllowAdd && !ReadOnly && (ClassRightsForCurrentUser & CrudRights.Insert) == CrudRights.Insert;
 
-    private bool CanDelete => AllowDelete && (ClassRightsForCurrentUser & CrudRights.Delete) == CrudRights.Delete;
+    private bool CanDelete => AllowDelete && !ReadOnly && (ClassRightsForCurrentUser & CrudRights.Delete) == CrudRights.Delete;
 
     private bool IsFieldVisibleForUser(PropertyFieldConfig<TModel> field)
     {
@@ -91,7 +91,7 @@ public partial class BaseListPart<TModel> : ComponentBase, IListPartFlushable wh
 
     private bool IsFieldEditableForUser(PropertyFieldConfig<TModel> field)
     {
-        if (!field.Editable)
+        if (ReadOnly || !field.Editable)
             return false;
 
         if (CurrentUser is null)
@@ -113,6 +113,8 @@ public partial class BaseListPart<TModel> : ComponentBase, IListPartFlushable wh
         var authState = await authStateProvider.GetAuthenticationStateAsync();
         CurrentUser = authState.User;
     }
+
+    protected override void OnParametersSet() => SyncSelectionWithItems();
 
     private IStringLocalizer FrameworkLocalizer =>
         LocalizerResolver.ResolveFramework(ServiceProvider);
@@ -252,6 +254,7 @@ public partial class BaseListPart<TModel> : ComponentBase, IListPartFlushable wh
         }
 
         Items?.Remove(item);
+        RemoveFromSelection(item);
 
         if (PendingAdds.Remove(item))
         {
@@ -294,25 +297,15 @@ public partial class BaseListPart<TModel> : ComponentBase, IListPartFlushable wh
         {
             Model = item,
             IsNew = PendingAdds.Contains(item),
+            ReadOnly = !CanEditItem(item),
             Localizer = Localizer,
             CardConfiguration = CardConfiguration,
             CardType = CardType
         };
 
-        var dialogParameters = new DialogParameters
-        {
-            Title = string.Empty,
-            PrimaryAction = string.Empty,
-            SecondaryAction = string.Empty,
-            Width = "600px",
-            PreventDismissOnOverlayClick = true,
-            ShowDismiss = false
-        };
+        var result = await DialogService.ShowListPartItemDialogAsync(dialogData);
 
-        var dialog = await DialogService.ShowDialogAsync<BaseListPartItemDialog<TModel>>(dialogData, dialogParameters);
-        var result = await dialog.Result;
-
-        if (result is { Cancelled: false, Data: Dictionary<string, object?> changedFields })
+        if (result is { Cancelled: false, Value: Dictionary<string, object?> changedFields })
         {
             if (!PendingAdds.Contains(item))
                 MergeChangedFields(item, changedFields);

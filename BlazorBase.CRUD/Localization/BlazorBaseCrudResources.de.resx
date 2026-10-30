@@ -85,6 +85,12 @@
   <data name="SelectAll" xml:space="preserve">
     <value>Alle auswählen</value>
   </data>
+  <data name="SelectMore" xml:space="preserve">
+    <value>Weitere auswählen</value>
+  </data>
+  <data name="View" xml:space="preserve">
+    <value>Anzeigen</value>
+  </data>
   <data name="DeselectAll" xml:space="preserve">
     <value>Alle abwählen</value>
   </data>
@@ -205,6 +211,12 @@
   <data name="DialogTitleEdit" xml:space="preserve">
     <value>Bearbeiten</value>
   </data>
+  <data name="DialogTitleView" xml:space="preserve">
+    <value>Anzeigen</value>
+  </data>
+  <data name="SelectionLimitReached" xml:space="preserve">
+    <value>Es wurden nur {0} von {1} Zeilen ausgewählt: Die Auswahl ist auf {0} Zeilen begrenzt.</value>
+  </data>
   <data name="ConcurrencyConflict" xml:space="preserve">
     <value>Dieser Eintrag wurde von einem anderen Benutzer geändert. Bitte laden Sie die Seite neu, um die aktuelle Version zu sehen.</value>
   </data>
@@ -246,5 +258,122 @@
   </data>
   <data name="KeepEditing" xml:space="preserve">
     <value>Weiter bearbeiten</value>
+  </data>
+  <data name="Validation_Required" xml:space="preserve">
+    <value>Das Feld „{0}“ ist erforderlich.</value>
+  </data>
+  <data name="Validation_StringLength" xml:space="preserve">
+    <value>Das Feld „{0}“ darf höchstens {1} Zeichen lang sein.</value>
+  </data>
+  <data name="Validation_StringLengthRange" xml:space="preserve">
+    <value>Das Feld „{0}“ muss zwischen {2} und {1} Zeichen lang sein.</value>
+  </data>
+  <data name="Validation_MinLength" xml:space="preserve">
+    <value>Das Feld „{0}“ muss mindestens {1} Zeichen lang sein.</value>
+  </data>
+  <data name="Validation_MaxLength" xml:space="preserve">
+    <value>Das Feld „{0}“ darf höchstens {1} Zeichen lang sein.</value>
+  </data>
+  <data name="Validation_Range" xml:space="preserve">
+    <value>Das Feld „{0}“ muss zwischen {1} und {2} liegen.</value>
+  </data>
+  <data name="Validation_EmailAddress" xml:space="preserve">
+    <value>Das Feld „{0}“ enthält keine gültige E-Mail-Adresse.</value>
+  </data>
+  <data name="Validation_Phone" xml:space="preserve">
+    <value>Das Feld „{0}“ enthält keine gültige Telefonnummer.</value>
+  </data>
+  <data name="Validation_Url" xml:space="preserve">
+    <value>Das Feld „{0}“ enthält keine gültige URL.</value>
+  </data>
+  <data name="Validation_RegularExpression" xml:space="preserve">
+    <value>Das Feld „{0}“ hat ein ungültiges Format.</value>
+  </data>
+  <data name="Validation_NotANumber" xml:space="preserve">
+    <value>Das Feld „{0}“ muss eine Zahl sein.</value>
+  </data>
+  <data name="Validation_NotAWholeNumber" xml:space="preserve">
+    <value>Das Feld „{0}“ muss eine ganze Zahl sein.</value>
+  </data>
+  <data name="RequiredMarkTitle" xml:space="preserve">
+    <value>Pflichtfeld</value>
+  </data>
+  <data name="ConfirmDeleteNamed" xml:space="preserve">
+    <value>Möchten Sie „{0}“ wirklich löschen? Das kann nicht rückgängig gemacht werden.</value>
+  </data>
+  <data name="MoreActions" xml:space="preserve">
+    <value>Weitere Aktionen</value>
+  </data>
+  <data name="SelectionBarLabel" xml:space="preserve">
+    <value>Aktionen für die ausgewählten Einträge</value>
+  </data>
+  <data name="ColumnSortedAscending" xml:space="preserve">
+    <value>{0}, aufsteigend sortiert</value>
+  </data>
+  <data name="ColumnSortedDescending" xml:space="preserve">
+    <value>{0}, absteigend sortiert</value>
+  </data>
+  <data name="TotalEntries" xml:space="preserve">
+    <value>{0:N0} Einträge</value>
+  </data>
+  <data name="TotalEntry" xml:space="preserve">
+    <value>{0:N0} Eintrag</value>
+  </data>
+  <data name="SaveFailed" xml:space="preserve">
+    <value>Der Eintrag konnte nicht gespeichert werden ({0}). Bitte versuchen Sie es erneut.</value>
+  </data>
+  <data name="CardUnexpectedError" xml:space="preserve">
+    <value>Es ist ein Fehler aufgetreten: {0}</value>
+  </data>
+  <data name="Validation_Compare" xml:space="preserve">
+    <value>Das Feld „{0}“ stimmt nicht mit dem Feld „{1}“ überein.</value>
+  </data>
+  <data name="Validation_CreditCard" xml:space="preserve">
+    <value>Das Feld „{0}“ enthält keine gültige Kreditkartennummer.</value>
+  </data>
+  <data name="Validation_FileExtensions" xml:space="preserve">
+    <value>Das Feld „{0}“ akzeptiert nur Dateien mit den folgenden Endungen: {1}</value>
+  </data>
+  <data name="Validation_Length" xml:space="preserve">
+    <value>Das Feld „{0}“ muss eine Länge zwischen {1} und {2} haben.</value>
+  </data>
+  <data name="Validation_Base64String" xml:space="preserve">
+    <value>Das Feld „{0}“ enthält keine gültige Base64-Zeichenfolge.</value>
+  </data>
+  <data name="Validation_AllowedValues" xml:space="preserve">
+    <value>Das Feld „{0}“ enthält keinen zulässigen Wert.</value>
+  </data>
+  <data name="Validation_DeniedValues" xml:space="preserve">
+    <value>Das Feld „{0}“ enthält einen nicht zulässigen Wert.</value>
+  </data>
+  <data name="SortBy" xml:space="preserve">
+    <value>Sortieren nach</value>
+  </data>
+  <data name="SortDefault" xml:space="preserve">
+    <value>Standardreihenfolge</value>
+  </data>
+  <data name="SortAscending" xml:space="preserve">
+    <value>Aufsteigend sortieren</value>
+  </data>
+  <data name="SortDescending" xml:space="preserve">
+    <value>Absteigend sortieren</value>
+  </data>
+  <data name="ActionSelectRowFirst" xml:space="preserve">
+    <value>Wählen Sie zuerst eine Zeile aus</value>
+  </data>
+  <data name="ActionSelectRowsFirst" xml:space="preserve">
+    <value>Wählen Sie zuerst eine oder mehrere Zeilen aus</value>
+  </data>
+  <data name="ActionSelectExactlyOne" xml:space="preserve">
+    <value>Wählen Sie genau eine Zeile aus</value>
+  </data>
+  <data name="ActionNotPossibleForRow" xml:space="preserve">
+    <value>Für die ausgewählte Zeile nicht möglich</value>
+  </data>
+  <data name="ActionNotPossibleForRows" xml:space="preserve">
+    <value>Für {0} von {1} ausgewählten Zeilen nicht möglich</value>
+  </data>
+  <data name="TileNoValue" xml:space="preserve">
+    <value>Kein Wert</value>
   </data>
 </root>

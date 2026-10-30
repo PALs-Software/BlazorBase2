@@ -1,0 +1,135 @@
+.notification-bell {
+    position: relative;
+    display: inline-flex;
+    font-weight: 400;
+}
+
+.notification-bell-anchor {
+    position: relative;
+    display: inline-flex;
+}
+
+.notification-bell-anchor ::deep .notification-bell-icon {
+    width: 22px;
+    height: 22px;
+}
+
+.notification-bell-anchor ::deep .notification-bell-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 16px;
+    pointer-events: none;
+}
+
+.notification-bell-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+}
+
+.notification-bell-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    inset-inline-end: 0;
+    z-index: 100;
+    box-sizing: border-box;
+    width: 340px;
+    max-width: calc(100vw - 16px);
+    max-height: min(420px, calc(100dvh - 80px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+    border: var(--stroke-width-thin) solid var(--color-border);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-2) 0;
+}
+
+.notification-bell-panel:focus {
+    outline: none;
+}
+
+.notification-bell-empty {
+    padding: var(--space-4);
+    margin: 0;
+    color: var(--color-text-muted);
+}
+
+.notification-bell-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.notification-bell-item {
+    padding: 10px 16px;
+    border-bottom: var(--stroke-width-thin) solid var(--color-border);
+}
+
+.notification-bell-item:last-child {
+    border-bottom: none;
+}
+
+.notification-bell-item-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.notification-bell-item-title {
+    min-width: 0;
+    flex: 1 1 auto;
+    padding-top: 6px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.notification-bell-item-time {
+    flex: 0 0 auto;
+    padding-top: 8px;
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.notification-bell-item-header ::deep .notification-bell-item-dismiss {
+    flex: 0 0 auto;
+    min-width: 32px;
+    min-height: 32px;
+    margin-inline-end: -8px;
+}
+
+.notification-bell-item-message {
+    font-size: 0.875rem;
+    overflow-wrap: anywhere;
+}
+
+.notification-bell-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 8px 4px 16px;
+    border-bottom: var(--stroke-width-thin) solid var(--color-border);
+}
+
+.notification-bell-toolbar-title {
+    font-weight: 600;
+}
+
+.notification-bell-toolbar ::deep .notification-bell-dismiss-all {
+    min-height: 32px;
+}
+
+@media (max-width: 1024px) {
+    .notification-bell-panel {
+        position: fixed;
+        top: calc(var(--base-header-height, 56px) + env(safe-area-inset-top, 0px) + 8px);
+        inset-inline: auto max(8px, env(safe-area-inset-right, 0px));
+        width: min(360px, calc(100vw - 16px));
+        max-height: calc(100dvh - var(--base-header-height, 56px) - env(safe-area-inset-top, 0px) - max(env(safe-area-inset-bottom, 0px), var(--base-bottom-bar-offset, 0px)) - 24px);
+    }
+}

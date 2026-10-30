@@ -2,17 +2,13 @@
 @implements IBaseCustomPropertyInput
 
 <div class="user-role-input">
-    <FluentSelect TOption="string"
-                  @bind-Value="RoleValue"
+    <FluentSelect TOption="RoleOption"
+                  TValue="string"
+                  Items="@RoleOptions"
+                  OptionValue="@(option => option?.Value)"
+                  OptionText="@(option => option?.Text ?? string.Empty)"
+                  Value="@(HasKnownRole ? RoleValue : string.Empty)"
+                  ValueChanged="@OnRoleChanged"
                   Disabled="@(ReadOnly || !IsEditing)"
-                  Label="@FieldLabel">
-        @if (ShowPlaceholder)
-        {
-            <FluentOption Value="">@PlaceholderText</FluentOption>
-        }
-        @foreach (var roleName in RoleNames)
-        {
-            <FluentOption Value="@roleName">@roleName</FluentOption>
-        }
-    </FluentSelect>
+                  Label="@FieldLabel" />
 </div>

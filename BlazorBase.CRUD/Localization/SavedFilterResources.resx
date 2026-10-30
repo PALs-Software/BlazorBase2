@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="SavedFilters" xml:space="preserve">
+    <value>Saved filters</value>
+  </data>
+  <data name="SavedFiltersPresets" xml:space="preserve">
+    <value>Presets</value>
+  </data>
+  <data name="SavedFiltersMine" xml:space="preserve">
+    <value>My filters</value>
+  </data>
+  <data name="SavedFiltersEmpty" xml:space="preserve">
+    <value>You have not saved any filters yet.</value>
+  </data>
+  <data name="SavedFiltersLoading" xml:space="preserve">
+    <value>Loading…</value>
+  </data>
+  <data name="SavedFiltersNameLabel" xml:space="preserve">
+    <value>Save current filter as</value>
+  </data>
+  <data name="SavedFiltersNamePlaceholder" xml:space="preserve">
+    <value>Filter name</value>
+  </data>
+  <data name="SavedFiltersSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="SavedFiltersOverwrite" xml:space="preserve">
+    <value>Overwrite</value>
+  </data>
+  <data name="SavedFiltersCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="SavedFiltersLoad" xml:space="preserve">
+    <value>Apply filter "{0}"</value>
+  </data>
+  <data name="SavedFiltersDefaultTag" xml:space="preserve">
+    <value>Default</value>
+  </data>
+  <data name="SavedFiltersSetDefault" xml:space="preserve">
+    <value>Use "{0}" as default filter</value>
+  </data>
+  <data name="SavedFiltersClearDefault" xml:space="preserve">
+    <value>Stop using "{0}" as default filter</value>
+  </data>
+  <data name="SavedFiltersRename" xml:space="preserve">
+    <value>Rename "{0}"</value>
+  </data>
+  <data name="SavedFiltersDelete" xml:space="preserve">
+    <value>Delete "{0}"</value>
+  </data>
+  <data name="SavedFiltersDeleteConfirm" xml:space="preserve">
+    <value>Delete "{0}"?</value>
+  </data>
+  <data name="SavedFiltersDeleteYes" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="SavedFiltersNameExists" xml:space="preserve">
+    <value>A saved filter with this name already exists.</value>
+  </data>
+  <data name="SavedFiltersInvalid" xml:space="preserve">
+    <value>The filter could not be saved. Please check the name.</value>
+  </data>
+  <data name="SavedFiltersGone" xml:space="preserve">
+    <value>This filter no longer exists.</value>
+  </data>
+  <data name="SavedFiltersUnavailable" xml:space="preserve">
+    <value>Saved filters are currently unavailable.</value>
+  </data>
+  <data name="QuickFilterTitle" xml:space="preserve">
+    <value>Switch filter</value>
+  </data>
+  <data name="QuickFilterNone" xml:space="preserve">
+    <value>No filter</value>
+  </data>
+  <data name="QuickFilterCustom" xml:space="preserve">
+    <value>Custom filter</value>
+  </data>
+</root>

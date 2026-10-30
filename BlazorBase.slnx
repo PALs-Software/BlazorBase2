@@ -2,10 +2,13 @@
   <Folder Name="/Documentation/">
     <File Path="Documentation/README.md" />
     <File Path="Documentation/BlazorBase.Chart.md" />
+    <File Path="Documentation/BlazorBase.Dashboard.md" />
     <File Path="Documentation/BlazorBase.CRUD.md" />
     <File Path="Documentation/BlazorBase.CRUD.Generators.md" />
     <File Path="Documentation/BlazorBase.Files.md" />
     <File Path="Documentation/BlazorBase.Files.Server.md" />
+    <File Path="Documentation/BlazorBase.Notifications.md" />
+    <File Path="Documentation/BlazorBase.Hosting.md" />
     <File Path="Documentation/BlazorBase.DataProtection.AzureKeyVault.md" />
     <File Path="Documentation/BlazorBase.User.md" />
     <File Path="Documentation/BlazorBase.User.Server.md" />
@@ -15,15 +18,22 @@
     <File Path="Documentation/BlazorBase.Speech.Server.md" />
   </Folder>
   <Project Path="BlazorBase.Chart/BlazorBase.Chart.csproj" />
+  <Project Path="BlazorBase.Dashboard/BlazorBase.Dashboard.csproj" />
   <Project Path="BlazorBase.Mailing/BlazorBase.Mailing.csproj" />
   <Project Path="BlazorBase.DataProtection/BlazorBase.DataProtection.csproj" />
   <Project Path="BlazorBase.DataProtection.AzureKeyVault/BlazorBase.DataProtection.AzureKeyVault.csproj" />
   <Project Path="BlazorBase.CRUD/BlazorBase.CRUD.csproj" />
   <Project Path="BlazorBase.Files/BlazorBase.Files.csproj" />
   <Project Path="BlazorBase.Files.Server/BlazorBase.Files.Server.csproj" />
+  <Project Path="BlazorBase.Files.Server.AzureBlob/BlazorBase.Files.Server.AzureBlob.csproj" />
+  <Project Path="BlazorBase.Notifications/BlazorBase.Notifications.csproj" />
+  <Project Path="BlazorBase.Notifications.Server/BlazorBase.Notifications.Server.csproj" />
+  <Project Path="BlazorBase.Hosting/BlazorBase.Hosting.csproj" />
+  <Project Path="BlazorBase.Hosting.AzureMonitor/BlazorBase.Hosting.AzureMonitor.csproj" />
   <Project Path="BlazorBase.CRUD.Generators/BlazorBase.CRUD.Generators.csproj" />
   <Project Path="BlazorBase.Components.Test/BlazorBase.Components.Test.csproj" />
   <Project Path="BlazorBase.Components/BlazorBase.Components.csproj" />
+  <Project Path="BlazorBase.Components.Server/BlazorBase.Components.Server.csproj" />
   <Project Path="BlazorBase.Localization/BlazorBase.Localization.csproj" />
   <Project Path="BlazorBase.CRUD.Benchmarks/BlazorBase.CRUD.Benchmarks.csproj" />
   <Project Path="BlazorBase.User/BlazorBase.User.csproj" />
@@ -43,8 +53,15 @@
     <Project Path="BlazorBase.User.Test/BlazorBase.User.Test.csproj" />
     <Project Path="BlazorBase.User.Server.Test/BlazorBase.User.Server.Test.csproj" />
     <Project Path="BlazorBase.Files.Server.Test/BlazorBase.Files.Server.Test.csproj" />
+    <Project Path="BlazorBase.Files.Test/BlazorBase.Files.Test.csproj" />
+    <Project Path="BlazorBase.Files.Server.AzureBlob.Test/BlazorBase.Files.Server.AzureBlob.Test.csproj" />
+    <Project Path="BlazorBase.Components.Server.Test/BlazorBase.Components.Server.Test.csproj" />
+    <Project Path="BlazorBase.Notifications.Server.Test/BlazorBase.Notifications.Server.Test.csproj" />
+    <Project Path="BlazorBase.Notifications.Test/BlazorBase.Notifications.Test.csproj" />
     <Project Path="BlazorBase.User.SecurityHarness.Test/BlazorBase.User.SecurityHarness.Test.csproj" />
+    <Project Path="BlazorBase.Hosting.Test/BlazorBase.Hosting.Test.csproj" />
     <Project Path="BlazorBase.Speech.Test/BlazorBase.Speech.Test.csproj" />
     <Project Path="BlazorBase.Speech.Server.Test/BlazorBase.Speech.Server.Test.csproj" />
+    <Project Path="BlazorBase.Dashboard.Test/BlazorBase.Dashboard.Test.csproj" />
   </Folder>
 </Solution>

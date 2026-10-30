@@ -1,3 +1,5 @@
+using BlazorBase.Components.CommandPalette;
+using BlazorBase.Components.HeaderActions;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BlazorBase.Components.Services;
@@ -20,6 +22,8 @@ public static class BlazorBaseComponentsServiceCollectionExtensions
     {
         services.TryAddScopedService<IThemeService, ThemeService>();
         services.TryAddScopedService<ILanguageService, LanguageService>();
+        services.AddBlazorBaseCommandPalette();
+        services.AddBlazorBaseHeaderActions();
 
         return services;
     }

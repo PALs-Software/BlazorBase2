@@ -24,8 +24,39 @@ public sealed record NavigationItem
     /// <summary>When set, the entry is only shown to users in this role.</summary>
     public string? RequiredRole { get; init; }
 
-    /// <summary>Whether this entry appears as a primary tab in the mobile bottom bar; otherwise it lands in the "More" sheet.</summary>
+    /// <summary>
+    /// Whether this entry appears as a quick link in the mobile bottom bar, wherever it sits in the tree;
+    /// otherwise it is only reachable through "More". When no entry is flagged the bar falls back to the first
+    /// top-level links.
+    /// </summary>
     public bool IsMobilePrimary { get; init; }
+
+    /// <summary>
+    /// The entry exists for the phone only and is never listed in <see cref="BaseSideNavigation"/> on wide
+    /// screens. On a phone it is a bottom bar tab when <see cref="IsMobilePrimary"/> selects it; when it does not
+    /// make it into the bar (more tabs than the bar holds) it is listed in "More" — the built-in sheet of
+    /// <see cref="BaseBottomNavigation"/> or the navigation drawer of <see cref="BaseLayout"/> — so it never
+    /// vanishes from the phone menu. A flagged group hides its whole subtree from the side navigation.
+    /// </summary>
+    public bool BottomBarOnly { get; init; }
+
+    /// <summary>Position among the bottom bar tabs; lower values come first, equal values keep the order of the list.</summary>
+    public int BottomBarOrder { get; init; }
+
+    /// <summary>Shorter text for the bottom bar tab, where a tab only has room for a word or two. Falls back to <see cref="Label"/>.</summary>
+    public string? ShortLabel { get; init; }
+
+    /// <summary>
+    /// Stable identity of a group that survives a language change, used to remember whether the group is
+    /// expanded. Falls back to <see cref="Label"/>, which is localized and so only stable within one language.
+    /// </summary>
+    public string? Key { get; init; }
+
+    /// <summary>The key a group is remembered under.</summary>
+    public string StateKey => Key ?? Label;
+
+    /// <summary>Whether a group is open until the user has opened or closed it once; the user's choice is remembered and wins afterwards.</summary>
+    public bool ExpandedByDefault { get; init; }
 
     /// <summary>Renders the entry with a destructive accent (e.g. logout).</summary>
     public bool IsDanger { get; init; }

@@ -28,17 +28,35 @@ public partial class MarkdownView(IServiceProvider serviceProvider) : ComponentB
     [Parameter]
     public string? Class { get; set; }
 
+    /// <summary>
+    /// Renders Markdown that ships with the application (documentation) with these options instead of the
+    /// restrictive defaults. Trusted content is not passed through an <see cref="IHtmlSanitizer"/>, because the
+    /// converter has already escaped raw HTML and filtered URL schemes. Leave null for anything users write.
+    /// </summary>
+    [Parameter]
+    public TrustedMarkdownOptions? Options { get; set; }
+
     private MarkupString RenderedContent;
 
     private string? RenderedValue;
 
+    private TrustedMarkdownOptions? RenderedOptions;
+
     /// <inheritdoc/>
     protected override void OnParametersSet()
     {
-        if (RenderedValue is not null && string.Equals(RenderedValue, Value, StringComparison.Ordinal))
+        if (RenderedValue is not null && string.Equals(RenderedValue, Value, StringComparison.Ordinal) && ReferenceEquals(RenderedOptions, Options))
             return;
 
         RenderedValue = Value ?? string.Empty;
+        RenderedOptions = Options;
+
+        if (Options is not null)
+        {
+            RenderedContent = new MarkupString(MarkdownConverter.ToHtml(Value, Options));
+            return;
+        }
+
         var html = MarkdownConverter.ToHtml(Value);
         var sanitizer = ServiceProvider.GetService<IHtmlSanitizer>();
         RenderedContent = new MarkupString(sanitizer is null ? html : sanitizer.Sanitize(html));

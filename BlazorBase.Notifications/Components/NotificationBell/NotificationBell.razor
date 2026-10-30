@@ -1,0 +1,63 @@
+@namespace BlazorBase.Notifications.Components.NotificationBell
+
+<div class="notification-bell @Class" @onkeydown="OnKeyDownAsync">
+    <div class="notification-bell-anchor">
+        <FluentButton Appearance="ButtonAppearance.Transparent"
+                      IconOnly="true"
+                      Class="notification-bell-button"
+                      Title="@Localizer["BellLabel"]"
+                      aria-haspopup="dialog"
+                      aria-expanded="@(IsOpen ? "true" : "false")"
+                      @ref="ToggleButton"
+                      OnClick="ToggleOpenAsync">
+            <FluentIcon Value="@BellIcon" Color="Color.Custom" CustomColor="currentColor" Class="notification-bell-icon" />
+        </FluentButton>
+        @if (UnreadCount > 0)
+        {
+            <FluentBadge Appearance="BadgeAppearance.Filled" Color="BadgeColor.Brand" Content="@UnreadCount.ToString()" Class="notification-bell-badge" />
+        }
+    </div>
+    @if (IsOpen)
+    {
+        <div class="notification-bell-backdrop" @onclick="CloseAsync"></div>
+        <div class="notification-bell-panel" role="dialog" tabindex="-1" aria-label="@Localizer["PanelLabel"]" @ref="Panel">
+            @if (Notifications.Count == 0)
+            {
+                <p class="notification-bell-empty">@Localizer["Empty"]</p>
+            }
+            else
+            {
+                <div class="notification-bell-toolbar">
+                    <span class="notification-bell-toolbar-title">@Localizer["BellLabel"]</span>
+                    <FluentButton Appearance="ButtonAppearance.Transparent"
+                                  Class="notification-bell-dismiss-all"
+                                  OnClick="DismissAllAsync"
+                                  IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())">
+                        @Localizer["DismissAll"]
+                    </FluentButton>
+                </div>
+                <ul class="notification-bell-list">
+                    @foreach (var notification in Notifications)
+                    {
+                        <li class="notification-bell-item" @key="notification.Id">
+                            <div class="notification-bell-item-header">
+                                <span class="notification-bell-item-title">@notification.Title</span>
+                                <span class="notification-bell-item-time">@notification.CreatedAt.ToLocalTime().ToString("g")</span>
+                                <FluentButton Appearance="ButtonAppearance.Transparent"
+                                              IconOnly="true"
+                                              Class="notification-bell-item-dismiss"
+                                              Title="@Localizer["Dismiss"]"
+                                              aria-label="@($"{Localizer["Dismiss"]}: {notification.Title}")"
+                                              OnClick="@(() => DismissAsync(notification))"
+                                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())" />
+                            </div>
+                            <div class="notification-bell-item-message">
+                                <SanitizedHtml Value="@notification.Message" />
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+</div>

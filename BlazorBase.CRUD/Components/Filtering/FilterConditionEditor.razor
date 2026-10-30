@@ -1,68 +1,74 @@
 <div class="filter-condition">
-    <FluentSelect TOption="string"
-                  Value="@Condition.PropertyName"
+    <FluentSelect TOption="FilterOption"
+                  TValue="string"
+                  Items="@FieldOptions"
+                  OptionValue="@(option => option?.Value)"
+                  OptionText="@(option => option?.Text ?? string.Empty)"
+                  Value="@(Condition.PropertyName ?? string.Empty)"
                   ValueChanged="@OnFieldChanged"
-                  Class="filter-condition-field">
-        <FluentOption Value="">@Localizer["FilterFieldPlaceholder"]</FluentOption>
-        @foreach (var field in Fields)
-        {
-            <FluentOption Value="@field.PropertyName">@field.Label</FluentOption>
-        }
-    </FluentSelect>
+                  AriaLabel="@Localizer["FilterFieldPlaceholder"].Value"
+                  Class="filter-condition-field" />
 
     @if (SelectedField is not null)
     {
-        <FluentSelect TOption="string"
+        <FluentSelect TOption="FilterOption"
+                      TValue="string"
+                      Items="@OperatorOptions"
+                      OptionValue="@(option => option?.Value)"
+                      OptionText="@(option => option?.Text ?? string.Empty)"
                       @bind-Value="OperatorValue"
-                      Class="filter-condition-operator">
-            @foreach (var op in SelectedField.Operators)
-            {
-                <FluentOption Value="@op.ToString()">@OperatorLabel(op)</FluentOption>
-            }
-        </FluentSelect>
+                      Class="filter-condition-operator" />
     }
 
     @if (ShowValueEditor)
     {
         @if (SelectedField!.Kind == FilterFieldKind.Boolean)
         {
-            <FluentSelect TOption="string" @bind-Value="TextValue" Class="filter-condition-value">
-                <FluentOption Value="true">@Localizer["BoolTrue"]</FluentOption>
-                <FluentOption Value="false">@Localizer["BoolFalse"]</FluentOption>
-            </FluentSelect>
+            <FluentSelect TOption="FilterOption"
+                          TValue="string"
+                          Items="@BooleanOptions"
+                          OptionValue="@(option => option?.Value)"
+                          OptionText="@(option => option?.Text ?? string.Empty)"
+                          @bind-Value="TextValue"
+                          AriaLabel="@Localizer["FilterValuePlaceholder"].Value"
+                          Class="filter-condition-value" />
         }
         else if (SelectedField.Kind == FilterFieldKind.Enum)
         {
-            <FluentSelect TOption="string" @bind-Value="TextValue" Class="filter-condition-value">
-                <FluentOption Value="">@Localizer["FilterValuePlaceholder"]</FluentOption>
-                @foreach (var name in SelectedField.EnumNames ?? Array.Empty<string>())
-                {
-                    <FluentOption Value="@name">@name</FluentOption>
-                }
-            </FluentSelect>
+            <FluentSelect TOption="FilterOption"
+                          TValue="string"
+                          Items="@EnumOptions"
+                          OptionValue="@(option => option?.Value)"
+                          OptionText="@(option => option?.Text ?? string.Empty)"
+                          @bind-Value="TextValue"
+                          AriaLabel="@Localizer["FilterValuePlaceholder"].Value"
+                          Class="filter-condition-value" />
         }
         else if (SelectedField.Kind == FilterFieldKind.Date)
         {
-            <FluentDatePicker @bind-Value="DateValue" Class="filter-condition-value" />
+            <FluentDatePicker TValue="DateTime?" @bind-Value="DateValue" Class="filter-condition-value" />
         }
         else if (SelectedField.Kind == FilterFieldKind.Number)
         {
-            <FluentTextField @bind-Value="TextValue"
-                             InputMode="InputMode.Numeric"
+            <FluentTextInput @bind-Value="TextValue"
+                             InputMode="TextInputMode.Numeric"
                              Class="filter-condition-value"
-                             Placeholder="@Localizer["FilterValuePlaceholder"].Value" />
+                             Placeholder="@Localizer["FilterValuePlaceholder"].Value"
+                             AriaLabel="@Localizer["FilterValuePlaceholder"].Value" />
         }
         else
         {
-            <FluentTextField @bind-Value="TextValue"
+            <FluentTextInput @bind-Value="TextValue"
                              Class="filter-condition-value"
-                             Placeholder="@Localizer["FilterValuePlaceholder"].Value" />
+                             Placeholder="@Localizer["FilterValuePlaceholder"].Value"
+                             AriaLabel="@Localizer["FilterValuePlaceholder"].Value" />
         }
     }
 
-    <FluentButton Appearance="Appearance.Stealth"
+    <FluentButton Appearance="ButtonAppearance.Transparent"
                   Class="filter-condition-remove"
                   OnClick="@OnRemove"
                   Title="@Localizer["FilterRemoveCondition"].Value"
+                  IconOnly="true"
                   IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Dismiss())" />
 </div>

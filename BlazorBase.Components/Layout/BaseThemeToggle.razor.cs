@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Localization;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular;
+using IThemeService = BlazorBase.Components.Services.IThemeService;
 
 namespace BlazorBase.Components.Layout;
 

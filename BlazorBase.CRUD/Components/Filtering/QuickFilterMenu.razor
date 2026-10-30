@@ -1,0 +1,16 @@
+@using BlazorBase.CRUD.SavedFilters
+
+@if (HasChoices)
+{
+    <FluentSelect TOption="QuickFilterChoice"
+                  TValue="string"
+                  Class="quick-filter"
+                  Width="12rem"
+                  Items="@Choices"
+                  OptionValue="@(choice => choice?.Key)"
+                  OptionText="@(choice => choice?.Name ?? string.Empty)"
+                  OptionDisabled="@(choice => choice?.Disabled ?? false)"
+                  Value="@SelectedKey"
+                  ValueChanged="@OnChangedAsync"
+                  AriaLabel="@T("QuickFilterTitle")" />
+}

@@ -11,6 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="BlazorBase.Components.Test" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Markdig" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />

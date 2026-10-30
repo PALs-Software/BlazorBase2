@@ -3,9 +3,10 @@
     {
         <div class="filter-group-header">
             <span class="filter-group-label">@Localizer["FilterGroup"]</span>
-            <FluentButton Appearance="Appearance.Stealth"
+            <FluentButton Appearance="ButtonAppearance.Transparent"
                           OnClick="@OnRemove"
                           Title="@Localizer["FilterRemoveGroup"].Value"
+                          IconOnly="true"
                           IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Delete())" />
         </div>
     }
@@ -51,12 +52,12 @@
     </div>
 
     <div class="filter-group-actions">
-        <FluentButton Appearance="Appearance.Stealth"
+        <FluentButton Appearance="ButtonAppearance.Transparent"
                       OnClick="@AddCondition"
                       IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Add())">
             @Localizer["FilterAddCondition"]
         </FluentButton>
-        <FluentButton Appearance="Appearance.Stealth"
+        <FluentButton Appearance="ButtonAppearance.Transparent"
                       OnClick="@AddGroup">
             @Localizer["FilterAddGroup"]
         </FluentButton>

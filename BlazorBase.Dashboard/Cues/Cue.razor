@@ -1,0 +1,69 @@
+@namespace BlazorBase.Dashboard
+@{
+    RenderFragment status = Style switch
+    {
+        CueStyle.Favorable => @<svg class="cue-status" viewBox="0 0 16 16" width="14" height="14" focusable="false"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5" /><path d="M5 8.2l2 2 4-4.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>,
+        CueStyle.Ambiguous => @<svg class="cue-status" viewBox="0 0 16 16" width="14" height="14" focusable="false"><path d="M8 2l6.5 11.5h-13z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /><path d="M8 6.5v3.2M8 11.6v.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>,
+        CueStyle.Unfavorable => @<svg class="cue-status" viewBox="0 0 16 16" width="14" height="14" focusable="false"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5" /><path d="M8 4.6v4M8 10.8v.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>,
+        _ => @<text></text>,
+    };
+
+    RenderFragment body = @<text>
+        <span class="cue-stripe" aria-hidden="true"></span>
+        @if (Loading)
+        {
+            <span class="cue-skeleton" aria-hidden="true">
+                <span class="cue-skeleton-value"></span>
+                <span class="cue-skeleton-label"></span>
+            </span>
+        }
+        else
+        {
+            <span class="cue-corner" aria-hidden="true">
+                @status
+                @if (IsLink)
+                {
+                    <svg class="cue-go" viewBox="0 0 16 16" width="12" height="12" focusable="false"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                }
+            </span>
+            <span class="cue-main">
+                <span class="cue-text">
+                    <span class="cue-value-row">
+                        <span class="cue-value">@Value</span>
+                        @if (!String.IsNullOrEmpty(Unit))
+                        {
+                            <span class="cue-unit">@Unit</span>
+                        }
+                    </span>
+                    <span class="cue-label">@Label</span>
+                </span>
+                @if (ShowRing)
+                {
+                    <svg class="cue-ring" viewBox="0 0 36 36" aria-hidden="true" focusable="false">
+                        <circle class="cue-ring-track" cx="18" cy="18" r="15" fill="none" stroke-width="5" />
+                        <circle class="cue-ring-value" cx="18" cy="18" r="15" fill="none" stroke-width="5" pathLength="100" stroke-dasharray="@RingDash" transform="rotate(-90 18 18)" />
+                    </svg>
+                }
+                @if (SparklineGeometry is { } points)
+                {
+                    <svg class="cue-sparkline" viewBox="0 0 90 34" aria-hidden="true" focusable="false">
+                        <polyline points="@points" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                }
+            </span>
+            @if (!String.IsNullOrEmpty(SubValue))
+            {
+                <span class="cue-sub">@SubValue</span>
+            }
+        }
+    </text>;
+}
+
+@if (IsLink)
+{
+    <a class="@RootClass" href="@Href" aria-label="@AriaText" aria-busy="@(Loading ? "true" : null)" @attributes="AdditionalAttributes">@body</a>
+}
+else
+{
+    <div class="@RootClass" role="group" aria-label="@AriaText" aria-busy="@(Loading ? "true" : null)" @attributes="AdditionalAttributes">@body</div>
+}

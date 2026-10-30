@@ -18,6 +18,7 @@ injection, while still letting the host fully control key management for contain
 | Static protect/unprotect surface | `BlazorBaseDataProtection.Protect` / `BlazorBaseDataProtection.Unprotect` / `BlazorBaseDataProtection.IsInitialized` |
 | Purpose-scoped (context-bound) overloads | `BlazorBaseDataProtection.Protect(text, purpose)` / `Unprotect(cipher, purpose)` (DP-02) |
 | `string` convenience extensions | `EncryptString` / `DecryptStringToInsecureString` (each with an optional purpose overload) |
+| Azure Key Vault mode and one-time key import (opt-in) | [Azure: Key Vault mode and key import](#azure-key-vault-mode-and-key-import) |
 
 ---
 
@@ -161,6 +162,59 @@ managed memory until garbage-collected (the method name `DecryptStringToInsecure
 deliberately). For a host that must minimize a secret's in-memory lifetime, a `byte[]`/`ReadOnlySpan<byte>`
 overload (paired with `CryptographicOperations.ZeroMemory`) can be added additively without breaking the
 string API; that is a documented follow-up, not part of this change.
+
+---
+
+## Azure: Key Vault mode and key import
+
+Opt-in. File-system keys stay the default and keep working unchanged.
+
+**Key Vault mode**
+
+- Package `BlazorBase.DataProtection.AzureKeyVault`; call `AddBlazorBaseAzureKeyVaultDataProtection<TDbContext>(...)`
+  instead of `AddBlazorBaseDataProtection(...)`.
+- The key ring is stored in the `DataProtectionKeys` table of the application database
+  (`TDbContext` implements `IDataProtectionKeyContext`; add and apply the EF Core migration first).
+- New keys are wrapped by the Key Vault key (`ProtectKeysWithAzureKeyVault`); the identity needs
+  *Key Vault Crypto Service Encryption User* on that key.
+- Set the same stable `ApplicationName` as before, otherwise existing protected data is not readable.
+- Details: [BlazorBase.DataProtection.AzureKeyVault](BlazorBase.DataProtection.AzureKeyVault.md).
+
+**One-time key import from an old file-system key ring**
+
+- Needed once when moving a host from `PersistKeysToFileSystem(...)` to Key Vault mode, so that
+  data protected before the move (stored secrets, sessions, cookies) stays readable.
+- `DataProtectionKeyImporter.ImportFromDirectoryAsync<TDbContext>(path)` reads the `key-*.xml` files of the
+  old key ring folder and inserts them into `DataProtectionKeys`.
+- Idempotent: a key whose key id already exists (database or earlier file of the same run) is skipped, so the
+  import can be repeated, for example for a final delta before a cutover.
+- Only plain XML keys are imported. A file that is encrypted at rest (Windows DPAPI `encryptedSecret`,
+  certificate, Key Vault) is skipped and reported as `SkippedEncrypted` with an error log; decrypt it on the
+  source machine first. Files that are not valid key files are reported as `SkippedInvalid`.
+- `revocation-*.xml` files are not imported (counted in `RevocationFilesIgnored` and logged as a warning).
+- The result lists the counts and one entry per file. Logs contain counts, file names and key ids, never key material.
+- Imported keys are stored as they are (plain). They stay readable until they expire; only keys created after
+  the switch are wrapped by Key Vault. Use the same application name and purposes as the old host.
+
+**Run it as a command line switch (not at normal startup)**
+
+- Call the helper after building the host and before starting it:
+
+```csharp
+var app = builder.Build();
+
+if (await app.Services.RunIfRequestedAsync<ApplicationDbContext>(args) is { } exitCode)
+    return exitCode;
+
+await app.RunAsync();
+```
+
+- Usage: `MyApp.exe --import-dataprotection-keys <folder>` (also `--import-dataprotection-keys=<folder>`).
+- Without the switch the helper returns `null` and the host starts normally.
+- Exit code `0`: no file was skipped as encrypted or invalid. Exit code `1`: missing folder argument, folder not found,
+  a skipped file or an error. Valid keys of a mixed folder are still imported.
+- The database must already be migrated (the `DataProtectionKeys` table must exist).
+- Run it with the Key Vault mode configuration of the target environment (connection string of the target database).
 
 ---
 

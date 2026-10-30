@@ -49,7 +49,7 @@ public class DbContextBaseDataProvider<TEntity>(
         dbQuery = ApplyFilters(dbQuery, interceptedQuery.Filters);
         var totalCount = await dbQuery.CountAsync(cancellationToken);
 
-        dbQuery = ApplySorts(dbQuery, interceptedQuery.Sorts);
+        dbQuery = ApplyOrdering(dbQuery, interceptedQuery.Sorts);
         var effectiveTake = Math.Min(interceptedQuery.Take, BaseQueryLimits.MaxPageSize);
         dbQuery = dbQuery.Skip(interceptedQuery.Skip).Take(effectiveTake);
 
@@ -174,7 +174,7 @@ public class DbContextBaseDataProvider<TEntity>(
 
     public async Task<TEntity> PatchAsync(object id, Dictionary<string, object?> changedFields, string? concurrencyStamp = null, CancellationToken cancellationToken = default)
     {
-        var interceptedFields = changedFields;
+        var interceptedFields = PatchFieldValueConverter.ConvertToClrTypes(typeof(TEntity), changedFields);
         foreach (var interceptor in Interceptors)
             interceptedFields = await interceptor.OnBeforePatchAsync(id, interceptedFields, cancellationToken);
 
@@ -437,8 +437,7 @@ public class DbContextBaseDataProvider<TEntity>(
 
             if (value is JsonElement jsonElement)
             {
-                var deserialized = JsonSerializer.Deserialize(jsonElement.GetRawText(), property.PropertyType);
-                property.SetValue(entity, deserialized);
+                property.SetValue(entity, PatchFieldValueConverter.ConvertValue(jsonElement, property.PropertyType));
                 continue;
             }
 
@@ -554,12 +553,58 @@ public class DbContextBaseDataProvider<TEntity>(
         return combined;
     }
 
-    private static IQueryable<TEntity> ApplySorts(IQueryable<TEntity> query, List<SortDescriptor> sorts)
+    /// <summary>
+    /// Orders a page query: the sorts the caller asked for, then the primary key.
+    /// </summary>
+    /// <remarks>
+    /// <c>Skip</c>/<c>Take</c> over an unordered query is undefined in SQL: the same page can come back in
+    /// another order on the next call, and paging through a list skips some rows and repeats others. The key
+    /// is a unique last tie-breaker, so every page is deterministic whatever the caller sorted by. An order
+    /// the query customizer already imposed is kept when the caller asked for none, with the key appended.
+    /// </remarks>
+    private IQueryable<TEntity> ApplyOrdering(IQueryable<TEntity> query, List<SortDescriptor> requestedSorts)
+    {
+        var continuesExistingOrder = requestedSorts.Count == 0 && IsOrdered(query);
+        var sorts = new List<SortDescriptor>(requestedSorts);
+
+        foreach (var keyProperty in DbContext.Model.FindEntityType(typeof(TEntity))?.FindPrimaryKey()?.Properties ?? [])
+        {
+            if (keyProperty.PropertyInfo is null)
+                continue;
+
+            if (sorts.Any(sort => string.Equals(sort.PropertyName, keyProperty.Name, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            sorts.Add(new SortDescriptor { PropertyName = keyProperty.Name });
+        }
+
+        return ApplySorts(query, sorts, continuesExistingOrder);
+    }
+
+    private static bool IsOrdered(IQueryable<TEntity> query)
+    {
+        var expression = query.Expression;
+
+        while (expression is MethodCallExpression call)
+        {
+            if (call.Method.Name is "OrderBy" or "OrderByDescending" or "ThenBy" or "ThenByDescending")
+                return true;
+
+            if (call.Arguments.Count == 0)
+                return false;
+
+            expression = call.Arguments[0];
+        }
+
+        return false;
+    }
+
+    private static IQueryable<TEntity> ApplySorts(IQueryable<TEntity> query, List<SortDescriptor> sorts, bool continuesExistingOrder)
     {
         if (sorts.Count == 0)
             return query;
 
-        IOrderedQueryable<TEntity>? orderedQuery = null;
+        IOrderedQueryable<TEntity>? orderedQuery = continuesExistingOrder ? (IOrderedQueryable<TEntity>)query : null;
 
         foreach (var sort in sorts)
         {

@@ -1,0 +1,101 @@
+@namespace BlazorBase.Components.CommandPalette
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+
+@if (IsShown)
+{
+    <div class="base-command-palette-overlay" @onclick="CloseAsync">
+        <div id="@PaletteId"
+             class="base-command-palette"
+             role="dialog"
+             aria-modal="true"
+             aria-label="@Localizer["Title"]"
+             tabindex="-1"
+             @ref="Panel"
+             @onclick:stopPropagation="true"
+             @onkeydown="OnKeyDownAsync">
+            <div class="base-command-palette-head">
+                <FluentIcon Value="@(new Size20.Search())" Color="Color.Custom" CustomColor="currentColor" Class="base-command-palette-head-icon" />
+                <input type="text"
+                       class="base-command-palette-input"
+                       role="combobox"
+                       aria-expanded="true"
+                       aria-controls="@ListId"
+                       aria-autocomplete="list"
+                       aria-activedescendant="@ActiveDescendantId"
+                       aria-label="@Localizer["Title"]"
+                       placeholder="@Localizer["Placeholder"]"
+                       autocomplete="off"
+                       spellcheck="false"
+                       value="@Query"
+                       @ref="Input"
+                       @oninput="OnInput" />
+                @if (IsLoading)
+                {
+                    <span class="base-command-palette-loading" aria-hidden="true"></span>
+                }
+                <kbd class="base-command-palette-key">Esc</kbd>
+                <button type="button" class="base-command-palette-close" aria-label="@Localizer["Close"]" title="@Localizer["Close"]" @onclick="CloseAsync">
+                    <FluentIcon Value="@(new Size20.Dismiss())" Color="Color.Custom" CustomColor="currentColor" />
+                </button>
+            </div>
+            <div class="base-command-palette-body" @ref="Body">
+                <div id="@ListId" class="base-command-palette-list" role="listbox" aria-label="@Localizer["Results"]">
+                    @foreach (var group in Groups)
+                    {
+                        <div class="base-command-palette-group" role="group" aria-labelledby="@group.Id" @key="group.Name">
+                            <p class="base-command-palette-group-title" id="@group.Id">@group.Name</p>
+                            @foreach (var row in group.Rows)
+                            {
+                                var entry = row.Entry;
+                                var isActive = row.Index == ActiveIndex;
+                                <div id="@OptionId(row.Index)"
+                                     class="base-command-palette-row @(isActive ? "active" : null)"
+                                     role="option"
+                                     aria-selected="@(isActive ? "true" : "false")"
+                                     @key="entry.Id"
+                                     @onclick="@(() => ActivateAsync(entry))"
+                                     @onmouseenter="@(() => OnRowHover(row.Index))">
+                                    <span class="base-command-palette-tile">
+                                        @if (entry.Icon is not null)
+                                        {
+                                            <FluentIcon Value="@entry.Icon" Color="Color.Custom" CustomColor="currentColor" />
+                                        }
+                                        else if (!String.IsNullOrEmpty(entry.IconSrc))
+                                        {
+                                            <img src="@entry.IconSrc" alt="" loading="lazy" />
+                                        }
+                                        else
+                                        {
+                                            <FluentIcon Value="@DefaultIcon(entry)" Color="Color.Custom" CustomColor="currentColor" />
+                                        }
+                                    </span>
+                                    <span class="base-command-palette-text">
+                                        <span class="base-command-palette-title">@Highlight(entry.Title)</span>
+                                        @if (!String.IsNullOrEmpty(entry.Subtitle))
+                                        {
+                                            <span class="base-command-palette-subtitle">@Highlight(entry.Subtitle)</span>
+                                        }
+                                    </span>
+                                    <span class="base-command-palette-hint">@HintFor(entry)</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                @if (ShowsEmptyState)
+                {
+                    <div class="base-command-palette-empty">
+                        <FluentIcon Value="@(new Size24.Search())" Color="Color.Custom" CustomColor="currentColor" />
+                        <span>@Localizer["NoResults"]</span>
+                    </div>
+                }
+            </div>
+            <div class="base-command-palette-foot" aria-hidden="true">
+                <span><kbd>↑</kbd><kbd>↓</kbd> @Localizer["FooterNavigate"]</span>
+                <span><kbd>Enter</kbd> @Localizer["FooterOpen"]</span>
+                <span><kbd>Esc</kbd> @Localizer["FooterClose"]</span>
+            </div>
+            <div class="base-command-palette-status" role="status" aria-live="polite">@StatusText</div>
+        </div>
+    </div>
+}

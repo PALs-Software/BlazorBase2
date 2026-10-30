@@ -78,40 +78,60 @@ public abstract class AuthControllerBase<TUser>(
             return Conflict(new { message = "System is already set up." });
 
         var dbContext = HttpContext.RequestServices.GetRequiredService<BaseUserDbContext<TUser>>();
-        await using var transaction = await dbContext.Database.BeginTransactionAsync();
+        var strategy = dbContext.Database.CreateExecutionStrategy();
+        TUser? createdUser = null;
+        var markerSaved = false;
+        var attempt = 0;
 
-        dbContext.SetupCompletionMarkers.Add(new SetupCompletionMarker());
+        ActionResult? failure;
         try
         {
-            await dbContext.SaveChangesAsync();
+            failure = await strategy.ExecuteAsync<ActionResult?>(async () =>
+            {
+                if (attempt++ > 0)
+                    dbContext.ChangeTracker.Clear();
+
+                markerSaved = false;
+                await using var transaction = await dbContext.Database.BeginTransactionAsync();
+
+                dbContext.SetupCompletionMarkers.Add(new SetupCompletionMarker());
+                await dbContext.SaveChangesAsync();
+                markerSaved = true;
+
+                var user = new TUser
+                {
+                    UserName = request.Email,
+                    Email = request.Email,
+                    DisplayName = request.DisplayName,
+                };
+
+                var result = await UserManager.CreateAsync(user, request.Password);
+                if (!result.Succeeded)
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+                }
+
+                await EnsureRolesExist();
+                await UserManager.AddToRoleAsync(user, "Admin");
+
+                await OnAfterUserCreatedAsync(user, request);
+
+                await transaction.CommitAsync();
+
+                createdUser = user;
+                return null;
+            });
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException) when (!markerSaved)
         {
             return Conflict(new { message = "System is already set up." });
         }
 
-        var user = new TUser
-        {
-            UserName = request.Email,
-            Email = request.Email,
-            DisplayName = request.DisplayName,
-        };
+        if (failure is not null)
+            return failure;
 
-        var result = await UserManager.CreateAsync(user, request.Password);
-        if (!result.Succeeded)
-        {
-            await transaction.RollbackAsync();
-            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
-        }
-
-        await EnsureRolesExist();
-        await UserManager.AddToRoleAsync(user, "Admin");
-
-        await OnAfterUserCreatedAsync(user, request);
-
-        await transaction.CommitAsync();
-
-        return Ok(await GenerateTokenResponse(user));
+        return Ok(await GenerateTokenResponse(createdUser!));
     }
 
     /// <summary>
@@ -362,6 +382,8 @@ public abstract class AuthControllerBase<TUser>(
         if (user is null)
             return Problem(detail: "The development account could not be provisioned. See the server log.", statusCode: StatusCodes.Status500InternalServerError);
 
+        await OnAfterDevelopmentLoginAsync(user);
+
         return Ok(await GenerateTokenResponse(user));
     }
 
@@ -371,6 +393,15 @@ public abstract class AuthControllerBase<TUser>(
     /// </summary>
     private IDevelopmentSessionService<TUser>? ResolveDevelopmentSession()
         => HttpContext.RequestServices?.GetService<IDevelopmentSessionService<TUser>>();
+
+    /// <summary>
+    /// Hook called every time the development account is resolved (created or reused), before token
+    /// generation. Override to provision or link host-specific data by email — such as a domain user
+    /// row that is otherwise only ever created through the real sign-up or external sign-in paths —
+    /// so a fresh development account behaves like one as soon as it signs in once.
+    /// </summary>
+    /// <param name="user">The resolved development account. Already exists in <see cref="UserManager{TUser}"/>.</param>
+    protected virtual Task OnAfterDevelopmentLoginAsync(TUser user) => Task.CompletedTask;
 
     /// <summary>
     /// Hook called after the setup user has been created and assigned the Admin role,

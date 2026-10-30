@@ -13,6 +13,8 @@ public class TestDbContext(DbContextOptions<TestDbContext> options) : DbContext(
 
     public DbSet<TestOrder> Orders => Set<TestOrder>();
 
+    public DbSet<TestPatchTarget> PatchTargets => Set<TestPatchTarget>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

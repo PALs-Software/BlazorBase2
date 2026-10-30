@@ -20,10 +20,8 @@ public class UserRoleInputTests : UserBunitTestContextBase
 
         var cut = RenderDirect(new RoleTestUser { Role = "User" });
 
-        var options = cut.FindComponents<FluentOption<string>>();
-        Assert.Equal(3, options.Count);
-        Assert.Contains("Admin", cut.Markup);
-        Assert.Contains("Viewer", cut.Markup);
+        var options = OptionsOf(cut);
+        Assert.Equal(["Admin", "User", "Viewer"], options.Select(option => option.Text));
     }
 
     [Fact]
@@ -34,7 +32,7 @@ public class UserRoleInputTests : UserBunitTestContextBase
         object? emitted = null;
         var cut = RenderDirect(new RoleTestUser { Role = "User" }, value => emitted = value);
 
-        var select = cut.FindComponent<FluentSelect<string>>().Instance;
+        var select = cut.FindComponent<FluentSelect<UserRoleInput.RoleOption, string>>().Instance;
         await cut.InvokeAsync(() => select.ValueChanged.InvokeAsync("Admin"));
 
         Assert.Equal("Admin", emitted);
@@ -45,7 +43,7 @@ public class UserRoleInputTests : UserBunitTestContextBase
     {
         var cut = RenderDirect(new RoleTestUser());
 
-        Assert.Empty(cut.FindComponents<FluentOption<string>>());
+        Assert.Empty(OptionsOf(cut));
     }
 
     /// <summary>
@@ -60,9 +58,9 @@ public class UserRoleInputTests : UserBunitTestContextBase
 
         var cut = RenderDirect(new RoleTestUser { Role = string.Empty });
 
-        var options = cut.FindComponents<FluentOption<string>>();
+        var options = OptionsOf(cut);
         Assert.Equal(3, options.Count);
-        Assert.Equal(string.Empty, options[0].Instance.Value);
+        Assert.Equal(string.Empty, options[0].Value);
     }
 
     [Fact]
@@ -72,9 +70,9 @@ public class UserRoleInputTests : UserBunitTestContextBase
 
         var cut = RenderDirect(new RoleTestUser { Role = "User" });
 
-        var options = cut.FindComponents<FluentOption<string>>();
+        var options = OptionsOf(cut);
         Assert.Equal(2, options.Count);
-        Assert.DoesNotContain(options, option => option.Instance.Value == string.Empty);
+        Assert.DoesNotContain(options, option => option.Value == string.Empty);
     }
 
     /// <summary>
@@ -87,8 +85,33 @@ public class UserRoleInputTests : UserBunitTestContextBase
 
         var cut = RenderDirect(new RoleTestUser { Role = "Moderator" });
 
-        Assert.Equal(3, cut.FindComponents<FluentOption<string>>().Count);
+        Assert.Equal(3, OptionsOf(cut).Count);
     }
+
+    [Fact]
+    public void RoleInput_SelectsTheEmptyOption_WhenTheStoredRoleIsUnknown()
+    {
+        Services.AddSingleton<IUserRoleProvider>(new StubUserRoleProvider("Admin", "User"));
+
+        var cut = RenderDirect(new RoleTestUser { Role = "Moderator" });
+
+        var select = cut.FindComponent<FluentSelect<UserRoleInput.RoleOption, string>>().Instance;
+        Assert.Equal(string.Empty, select.Value);
+    }
+
+    [Fact]
+    public void RoleInput_SelectsTheStoredRole_WhenItIsOffered()
+    {
+        Services.AddSingleton<IUserRoleProvider>(new StubUserRoleProvider("Admin", "User"));
+
+        var cut = RenderDirect(new RoleTestUser { Role = "User" });
+
+        var select = cut.FindComponent<FluentSelect<UserRoleInput.RoleOption, string>>().Instance;
+        Assert.Equal("User", select.Value);
+    }
+
+    private static List<UserRoleInput.RoleOption> OptionsOf(IRenderedComponent<UserRoleInput> cut) =>
+        [.. cut.FindComponent<FluentSelect<UserRoleInput.RoleOption, string>>().Instance.Items!];
 
     [Fact]
     public void RoleInput_CanHandle_MatchesRolePropertyByName()

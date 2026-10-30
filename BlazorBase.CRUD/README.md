@@ -132,7 +132,7 @@ All data is fetched from the server via REST endpoints.
 builder.Services.AddBlazorBaseCrud();
 
 // Interactive UI services the CRUD components depend on (IConfirmationService) —
-// call after AddFluentUIComponents()
+// call after AddBlazorBaseFluentUI()
 builder.Services.AddBlazorBaseCrudComponents();
 
 // Assembly scan — registers HttpBaseDataProvider for every [BaseCrud] entity
@@ -157,7 +157,7 @@ MAUI apps also use `HttpBaseDataProvider` and communicate with the server over R
 builder.Services.AddBlazorBaseCrud();
 
 // Interactive UI services the CRUD components depend on (IConfirmationService) —
-// call after AddFluentUIComponents()
+// call after AddBlazorBaseFluentUI()
 builder.Services.AddBlazorBaseCrudComponents();
 
 builder.Services.AddBlazorBaseCrudClient(client =>
@@ -254,7 +254,7 @@ app.MapBlazorBaseCrudEndpoints();
 
 ```csharp
 // Registers the interactive UI services the CRUD components depend on
-// (IConfirmationService) — call after AddFluentUIComponents()
+// (IConfirmationService) — call after AddBlazorBaseFluentUI()
 builder.Services.AddBlazorBaseCrudComponents();
 
 // Registers HttpBaseDataProvider<T> for each [BaseCrud] entity
@@ -555,10 +555,10 @@ and an overlay click — runs through one pipeline:
    snapshot (so the discarded edits no longer leak into the list, which holds the same object
    reference) and closes; declining keeps the card open.
 
-The dialog's native FluentUI dismiss is disabled (`PreventDismissOnOverlayClick = true`,
-`ShowDismiss = false`); `Escape`/overlay clicks are intercepted by the
+The dialog's native FluentUI dismiss is disabled (`PreventDismissOnEscape = true`, no dismiss button);
+`Escape`/overlay clicks are intercepted by the
 `_content/BlazorBase.CRUD/js/baseCardDismiss.js` interop shim and routed through the same pipeline,
-so declining can keep the dialog open (FluentUI 4.x cannot veto a native dismiss). The confirmation
+so declining can keep the dialog open. The confirmation
 is shown through the injectable `IConfirmationService` (default `FluentUiConfirmationService`,
 registered by `AddBlazorBaseCrudComponents()`); substitute it — by registering your own
 `IConfirmationService` before that call — to customize or to stub it in tests.
@@ -608,7 +608,7 @@ new BaseCardBuilder<Project>()
 ```
 
 The card renders the title in its own header (`.base-card-header`); the hosting dialog's native
-FluentUI title is suppressed (`ShowTitle = false`) so there is a single header. The same display-key
+FluentUI title is not used (the dialog has no title) so there is a single header. The same display-key
 resolution drives the FK lookup display text — see [BaseLookupDialog](#baselookupdialog).
 
 ### Automatic Field Detection
@@ -617,11 +617,11 @@ resolution drives the FK lookup display text — see [BaseLookupDialog](#baseloo
 
 | C# Type | Rendered Control |
 |---|---|
-| `string` | `FluentTextField` |
+| `string` | `FluentTextInput` |
 | `string` (with `Lines > 1`) | `FluentTextArea` |
 | `bool` / `bool?` | `FluentSwitch` |
 | `DateTime` / `DateTimeOffset` | `FluentDatePicker` |
-| `int`, `long`, `decimal`, `double`, `float` (+ nullable) | `FluentTextField` (numeric) |
+| `int`, `long`, `decimal`, `double`, `float` (+ nullable) | `FluentTextInput` (numeric, own parser) |
 | `enum` | `FluentSelect` with all enum values |
 | Reference navigation (≤ threshold) | `FluentSelect` with all items |
 | Reference navigation (> threshold) | Text field + Browse button |
@@ -687,9 +687,13 @@ of insert rights, and sending a creation down the update path.
 ```html
 <PropertyField TModel="Product" Property="@(x => x.Color)" Label="Color">
     <EditorTemplate>
-        <FluentSelect @bind-Value="@context.Value"
-                       Items="@Colors"
-                       OptionText="@(c => c.Name)" />
+        <FluentSelect TOption="ColorOption" TValue="string"
+                      Items="@Colors"
+                      OptionValue="@(c => c.Name)"
+                      OptionText="@(c => c.Name)"
+                      Value="@(context.Value as string)"
+                      ValueChanged="@(v => context.ValueChanged.InvokeAsync(v))"
+                      Class="base-field-control" />
     </EditorTemplate>
 </PropertyField>
 ```
@@ -931,7 +935,7 @@ Both approaches can be mixed — declarative child components and builder config
 ### Rendering Behavior
 
 - **Single-action groups** render as a direct button (no dropdown).
-- **Multi-action groups** render as a `FluentMenuButton` dropdown with the group caption and icon.
+- **Multi-action groups** render as a button with a `FluentMenu` (items with `OnClick`) with the group caption and icon. In the list header (`BaseActionToolbar.AllowOverflow`) they render as the toolbar's own menu, and all declared actions collapse into a "More actions" menu when they do not fit on one row (see `Documentation/BlazorBase.CRUD.md`, "Header layout and the more-actions menu").
 - In context menus, each group is separated by a divider, and actions are listed as menu items.
 
 ### CrudActionBuilder Methods
@@ -941,7 +945,7 @@ Both approaches can be mixed — declarative child components and builder config
 | `.Caption(string)` | Display text (localized via parent's `IStringLocalizer`) |
 | `.ToolTip(string)` | Tooltip text |
 | `.Icon(Icon)` | Fluent UI icon |
-| `.Appearance(Appearance)` | Button appearance (default: `Stealth`) |
+| `.Appearance(ButtonAppearance)` | Button appearance (default: `Transparent`) |
 | `.ShowIn(CrudActionContext)` | Where the action appears (default: `All`) |
 | `.Order(int)` | Sort order within the group |
 | `.Visible(Func<CrudActionVisibilityArgs<T>, Task<bool>>)` | Dynamic per-item visibility |
@@ -1119,14 +1123,11 @@ With the fluent builder this is much simpler — see [Fluent Query Builder](#flu
 
 ### BaseLookupDialog
 
-For advanced scenarios, `BaseLookupDialog<TModel>` provides a standalone modal dialog with search, pagination, and item selection:
+For advanced scenarios, `BaseLookupDialog<TModel>` is a dialog content (a `BaseDialogInstance`) with search, paging and item selection. It is opened through the `IDialogService` and returns the picked item as the dialog result:
 
-```html
-<BaseLookupDialog TModel="Category"
-                  DataProvider="@CategoryProvider"
-                  DisplayPropertyName="Name"
-                  Title="Select Category"
-                  OnItemSelected="@OnCategorySelected" />
+```csharp
+var result = await DialogService.ShowLookupDialogAsync("Select Category", categoryProvider, displayPropertyName: "Name");
+var category = result.Cancelled ? null : (Category?)result.Value;
 ```
 
 ---
@@ -1664,7 +1665,7 @@ public static class ProductEntityMappingExtensions
 
 | Component | Description |
 |---|---|
-| `BaseList<TModel>` | List view with FluentDataGrid, infinite scroll, filtering, sorting |
+| `BaseList<TModel>` | Virtualized list view (FluentDataGrid), filtering, sorting |
 | `BaseCard<TModel>` | Detail view / form with dirty tracking and concurrency |
 | `BaseListPart<TModel>` | Embedded child collection inside a BaseCard |
 | `BaseLookupDialog<TModel>` | Modal dialog for selecting related entities |
@@ -1699,7 +1700,7 @@ public static class ProductEntityMappingExtensions
 |---|---|
 | `AddBlazorBaseCrud()` | Register core (host-agnostic) services |
 | `AddBlazorBaseCrud<T>()` | Core + AuditUserProvider |
-| `AddBlazorBaseCrudComponents()` | Register the interactive UI services the CRUD components depend on (`IConfirmationService`, default `FluentUiConfirmationService`, needs the FluentUI `IDialogService`). Interactive-rendering hosts only (Wasm/Maui/Blazor-Server-interactive), not the pure server; call after `AddFluentUIComponents()` |
+| `AddBlazorBaseCrudComponents()` | Register the interactive UI services the CRUD components depend on (`IConfirmationService`, default `FluentUiConfirmationService`, needs the FluentUI `IDialogService`). Interactive-rendering hosts only (Wasm/Maui/Blazor-Server-interactive), not the pure server; call after `AddBlazorBaseFluentUI()` |
 | `AddBaseDbContext<TContext>(...)` | DbContext factory with interceptors |
 | `AddBlazorBaseCrudServer<TContext>(Assembly?)` | Assembly scan: register DbContext providers |
 | `AddBlazorBaseCrudClient(Action<HttpClient>, Assembly?)` | Assembly scan: register HTTP providers |

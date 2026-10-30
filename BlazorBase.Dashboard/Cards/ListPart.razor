@@ -1,0 +1,34 @@
+@namespace BlazorBase.Dashboard
+@typeparam TItem
+
+<DashboardCard Title="@Title" MoreHref="@ShowAllHref" MoreText="@ShowAllLabel" Tools="@Tools" Loading="@Loading" Class="@($"lp {Class}")">
+    @if (Loading)
+    {
+        <ul class="lp-list lp-list--loading" aria-hidden="true">
+            @for (var index = 0; index < SkeletonRows; index++)
+            {
+                <li class="lp-item"><span class="lp-skeleton"></span></li>
+            }
+        </ul>
+    }
+    else if (VisibleItems.Count == 0)
+    {
+        @if (EmptyTemplate is not null)
+        {
+            @EmptyTemplate
+        }
+        else
+        {
+            <p class="lp-empty">@Localizer["ListEmpty"]</p>
+        }
+    }
+    else
+    {
+        <ul class="lp-list">
+            @foreach (var item in VisibleItems)
+            {
+                <li class="lp-item">@ItemTemplate?.Invoke(item)</li>
+            }
+        </ul>
+    }
+</DashboardCard>

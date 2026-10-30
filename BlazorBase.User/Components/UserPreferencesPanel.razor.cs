@@ -86,7 +86,7 @@ public partial class UserPreferencesPanel(
             "Dark" => ThemePreference.Dark,
             _ => ThemePreference.System,
         };
-        await ThemeService.SetThemeAsync(themePref);
+        await ThemeService.SetThemeAsync(themePref, persistToAccount: false);
 
         var language = SelectedLanguage;
         await UserService.UpdateSettingsAsync(new UpdateUserSettingsRequest

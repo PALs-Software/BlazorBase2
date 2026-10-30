@@ -100,7 +100,7 @@ builder.Services.AddBlazorBaseCrudClient(c => c.BaseAddress = new Uri(apiBase, "
 
 > Note: `AddBlazorBaseCrudClient` internally calls `AddHttpClient(…)` per entity, so chaining `AddHttpMessageHandler<AuthTokenHandler>()` on its returned builder applies the handler to all CRUD clients.
 >
-> `AddBlazorBaseCrudComponents()` registers the interactive UI services the CRUD components depend on (`IConfirmationService`) and must be called after `AddFluentUIComponents()`.
+> `AddBlazorBaseCrudComponents()` registers the interactive UI services the CRUD components depend on (`IConfirmationService`) and must be called after `AddBlazorBaseFluentUI()`.
 
 ---
 
@@ -168,12 +168,12 @@ public static IServiceCollection AddBlazorBaseUserWasm(
 ### Complete `Program.cs` for a WASM host
 
 ```csharp
+using BlazorBase.Components.Services;
 using BlazorBase.CRUD.Extensions;
 using BlazorBase.User.Services;
 using BlazorBase.User.Wasm;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using Microsoft.FluentUI.AspNetCore.Components;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -181,7 +181,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 var apiBase = new Uri(builder.HostEnvironment.BaseAddress);
 
-builder.Services.AddFluentUIComponents();
+builder.Services.AddBlazorBaseFluentUI();
 builder.Services.AddLocalization();
 
 builder.Services.AddBlazorBaseUserClient();

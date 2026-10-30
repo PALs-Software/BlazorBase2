@@ -24,7 +24,7 @@ public class UserPasswordInputTests : UserBunitTestContextBase
         var cut = RenderViaCard(new PasswordTestUser(), Field(u => u.Password));
 
         Assert.Single(cut.FindComponents<UserPasswordInput>());
-        Assert.Equal(TextFieldType.Password, cut.FindComponent<FluentTextField>().Instance.TextFieldType);
+        Assert.Equal(TextInputType.Password, cut.FindComponent<FluentTextInput>().Instance.TextInputType);
     }
 
     [Fact]
@@ -32,7 +32,7 @@ public class UserPasswordInputTests : UserBunitTestContextBase
     {
         var cut = RenderDirect(new PasswordTestUser { Password = "ExistingSecret1!" });
 
-        Assert.True(string.IsNullOrEmpty(cut.FindComponent<FluentTextField>().Instance.Value));
+        Assert.True(string.IsNullOrEmpty(cut.FindComponent<FluentTextInput>().Instance.Value));
     }
 
     [Fact]
@@ -41,7 +41,7 @@ public class UserPasswordInputTests : UserBunitTestContextBase
         object? emitted = "sentinel";
         var cut = RenderDirect(new PasswordTestUser { Password = "Untouched" }, value => emitted = value);
 
-        var textField = cut.FindComponent<FluentTextField>().Instance;
+        var textField = cut.FindComponent<FluentTextInput>().Instance;
         await cut.InvokeAsync(() => textField.ValueChanged.InvokeAsync(""));
 
         Assert.Null(emitted);
@@ -53,7 +53,7 @@ public class UserPasswordInputTests : UserBunitTestContextBase
         object? emitted = null;
         var cut = RenderDirect(new PasswordTestUser(), value => emitted = value);
 
-        var textField = cut.FindComponent<FluentTextField>().Instance;
+        var textField = cut.FindComponent<FluentTextInput>().Instance;
         await cut.InvokeAsync(() => textField.ValueChanged.InvokeAsync("NewSecret1!"));
 
         Assert.Equal("NewSecret1!", emitted);

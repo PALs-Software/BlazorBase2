@@ -23,10 +23,10 @@ public class BaseAction<TModel> : ComponentBase where TModel : class
     public Icon? Icon { get; set; }
 
     [Parameter]
-    public Appearance Appearance { get; set; } = Appearance.Stealth;
+    public ButtonAppearance Appearance { get; set; } = ButtonAppearance.Transparent;
 
     [Parameter]
-    public CrudActionContext Contexts { get; set; } = CrudActionContext.All;
+    public CrudActionContext? Contexts { get; set; }
 
     [Parameter]
     public int Order { get; set; }
@@ -42,6 +42,30 @@ public class BaseAction<TModel> : ComponentBase where TModel : class
 
     [Parameter]
     public bool IsBulkAction { get; set; }
+
+    /// <summary>
+    /// Which rows the action works on. Wins over <see cref="IsBulkAction"/> when both are set.
+    /// </summary>
+    [Parameter]
+    public CrudActionScope? Scope { get; set; }
+
+    /// <summary>
+    /// Per-item predicate that decides whether the action can run for a row.
+    /// </summary>
+    [Parameter]
+    public Func<TModel, bool>? Enabled { get; set; }
+
+    /// <summary>
+    /// Static text explaining why a row blocks the action.
+    /// </summary>
+    [Parameter]
+    public string? DisabledReason { get; set; }
+
+    /// <summary>
+    /// Per-item function explaining why a row blocks the action.
+    /// </summary>
+    [Parameter]
+    public Func<TModel, string?>? DisabledReasonProvider { get; set; }
 
     [Parameter]
     public Type? DynamicComponentType { get; set; }
@@ -62,13 +86,21 @@ public class BaseAction<TModel> : ComponentBase where TModel : class
             ToolTip = ToolTip,
             Icon = Icon,
             Appearance = Appearance,
-            Contexts = Contexts,
             Order = Order,
             Visible = Visible,
             VisibleForRoles = VisibleForRoles,
             Action = OnExecute,
-            IsBulkAction = IsBulkAction
+            IsBulkAction = IsBulkAction,
+            Enabled = Enabled,
+            DisabledReason = DisabledReason,
+            DisabledReasonProvider = DisabledReasonProvider
         };
+
+        if (Scope.HasValue)
+            action.Scope = Scope.Value;
+
+        if (Contexts.HasValue)
+            action.Contexts = Contexts.Value;
 
         if (DynamicComponentType is not null)
         {

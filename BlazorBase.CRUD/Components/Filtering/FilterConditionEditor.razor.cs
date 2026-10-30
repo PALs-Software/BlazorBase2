@@ -20,6 +20,20 @@ public partial class FilterConditionEditor
     [Parameter]
     public EventCallback OnRemove { get; set; }
 
+    private sealed record FilterOption(string Value, string Text);
+
+    private IReadOnlyList<FilterOption> FieldOptions =>
+        [new FilterOption(string.Empty, Localizer["FilterFieldPlaceholder"].Value), .. Fields.Select(metadata => new FilterOption(metadata.PropertyName, metadata.Label))];
+
+    private IReadOnlyList<FilterOption> OperatorOptions =>
+        [.. SelectedField?.Operators.Select(op => new FilterOption(op.ToString(), OperatorLabel(op))) ?? []];
+
+    private IReadOnlyList<FilterOption> BooleanOptions =>
+        [new FilterOption("true", Localizer["BoolTrue"].Value), new FilterOption("false", Localizer["BoolFalse"].Value)];
+
+    private IReadOnlyList<FilterOption> EnumOptions =>
+        [new FilterOption(string.Empty, Localizer["FilterValuePlaceholder"].Value), .. (SelectedField?.EnumNames ?? []).Select(name => new FilterOption(name, SelectedField!.EnumLabel(name)))];
+
     private FilterFieldMetadata? SelectedField =>
         Fields.FirstOrDefault(f => f.PropertyName == Condition.PropertyName);
 

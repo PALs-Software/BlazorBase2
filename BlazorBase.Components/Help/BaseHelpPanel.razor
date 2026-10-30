@@ -1,0 +1,100 @@
+@namespace BlazorBase.Components.Help
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+
+@if (IsOpen)
+{
+    @if (!IsDocked)
+    {
+        <div class="base-help-overlay" @onclick="CloseAsync"></div>
+    }
+    <aside id="@PanelId"
+           class="base-help-panel @(IsDocked ? "docked" : "overlay")"
+           role="@(IsDocked ? "complementary" : "dialog")"
+           aria-modal="@(IsDocked ? null : "true")"
+           aria-labelledby="@TitleId"
+           tabindex="-1"
+           @key="IsDocked"
+           @ref="PanelElement"
+           @onkeydown="OnKeyDownAsync">
+        <div class="base-help-header @(CanGoBack ? "has-back" : null)">
+            @if (CanGoBack)
+            {
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-help-back"
+                              IconOnly="true"
+                              IconStart="@(new Size20.ArrowLeft())"
+                              Title="@Localizer["Back"]"
+                              OnClick="BackAsync" />
+            }
+            <div class="base-help-heading">
+                <h2 id="@TitleId" class="base-help-title">@(Document?.Title ?? Localizer["Title"].Value)</h2>
+                @if (DocumentationUrl is not null)
+                {
+                    <a class="base-help-docs-link" href="@DocumentationUrl" target="_blank" rel="noopener noreferrer">
+                        @Localizer["OpenDocumentation"]
+                        <FluentIcon Value="@(new Size16.Open())" Color="Color.Primary" />
+                    </a>
+                }
+            </div>
+            <FluentButton Appearance="ButtonAppearance.Transparent"
+                          Class="base-help-close"
+                          IconOnly="true"
+                          IconStart="@(new Size20.Dismiss())"
+                          Title="@Localizer["Close"]"
+                          OnClick="CloseAsync" />
+        </div>
+        @if (ShowToc)
+        {
+            <nav class="base-help-toc @(IsTocOpen ? "open" : null)" aria-label="@Localizer["Contents"]" @ref="TocElement">
+                <button type="button"
+                        class="base-help-toc-toggle"
+                        aria-expanded="@(IsTocOpen ? "true" : "false")"
+                        aria-controls="@TocListId"
+                        @onclick="ToggleToc">
+                    <FluentIcon Value="@(new Size16.TextBulletListLtr())" Color="Color.Default" />
+                    <span class="base-help-toc-label">@Localizer["Contents"]</span>
+                    <span class="base-help-toc-current"></span>
+                    <FluentIcon Value="@TocChevron" Color="Color.Default" />
+                </button>
+                <ul id="@TocListId" class="base-help-toc-list" hidden="@(!IsTocOpen)">
+                    @foreach (var entry in TocEntries)
+                    {
+                        var heading = entry.Heading;
+                        <li>
+                            <button type="button" class="base-help-toc-link" data-help-toc="@heading.Id" @onclick="() => SelectTocEntry(heading.Id)">@heading.Text</button>
+                            @if (entry.Children.Count > 0)
+                            {
+                                <ul>
+                                    @foreach (var child in entry.Children)
+                                    {
+                                        var childHeading = child;
+                                        <li>
+                                            <button type="button" class="base-help-toc-link child" data-help-toc="@childHeading.Id" @onclick="() => SelectTocEntry(childHeading.Id)">@childHeading.Text</button>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </li>
+                    }
+                </ul>
+            </nav>
+        }
+        <div class="base-help-body" @key="LoadCount" @ref="BodyElement" aria-busy="@(IsLoading ? "true" : null)">
+            @if (IsLoading)
+            {
+                <div class="base-help-status" role="status">
+                    <FluentSpinner Size="SpinnerSize.Tiny" />
+                    <span>@Localizer["Loading"]</span>
+                </div>
+            }
+            else if (Document is null)
+            {
+                <p class="base-help-empty">@Localizer["NoHelp"]</p>
+            }
+            else
+            {
+                <MarkdownView Class="base-help-content" Value="@Document.Markdown" Options="@RenderOptions" />
+            }
+        </div>
+    </aside>
+}

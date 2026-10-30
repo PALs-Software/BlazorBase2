@@ -6,6 +6,7 @@ using BlazorBase.CRUD.Models;
 using BlazorBase.CRUD.Test.Infrastructure;
 using BlazorBase.CRUD.Test.Infrastructure.TestEntities;
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.FluentUI.AspNetCore.Components;
 using NSubstitute;
@@ -29,7 +30,7 @@ public class BasePropertyInputTests : BunitTestContextBase
     {
         var cut = RenderInput(new TestProduct { ReleasedOn = new DateTime(2026, 1, 1) }, Field(p => p.ReleasedOn));
 
-        Assert.Single(cut.FindComponents<FluentDatePicker>());
+        Assert.Single(cut.FindComponents<FluentDatePicker<DateTime?>>());
     }
 
     [Fact]
@@ -37,8 +38,8 @@ public class BasePropertyInputTests : BunitTestContextBase
     {
         var cut = RenderInput(new TestProduct { Stock = 5 }, Field(p => p.Stock));
 
-        var textField = cut.FindComponent<FluentTextField>();
-        Assert.Equal(InputMode.Numeric, textField.Instance.InputMode);
+        var textField = cut.FindComponent<FluentTextInput>();
+        Assert.Equal(TextInputMode.Numeric, textField.Instance.InputMode);
     }
 
     [Fact]
@@ -46,7 +47,7 @@ public class BasePropertyInputTests : BunitTestContextBase
     {
         var cut = RenderInput(new TestProduct { Name = "P" }, Field(p => p.Name));
 
-        Assert.Single(cut.FindComponents<FluentTextField>());
+        Assert.Single(cut.FindComponents<FluentTextInput>());
         Assert.Empty(cut.FindComponents<FluentTextArea>());
     }
 
@@ -56,7 +57,7 @@ public class BasePropertyInputTests : BunitTestContextBase
         var cut = RenderInput(new TestProduct { Description = "text" }, Field(p => p.Description, f => f.Lines(3)));
 
         var textArea = cut.FindComponent<FluentTextArea>();
-        Assert.Equal(3, textArea.Instance.Rows);
+        Assert.Equal("76px", textArea.Instance.Height);
     }
 
     [Fact]
@@ -64,8 +65,61 @@ public class BasePropertyInputTests : BunitTestContextBase
     {
         var cut = RenderInput(new TestProduct { Kind = ProductKind.Digital }, Field(p => p.Kind));
 
-        Assert.Single(cut.FindComponents<FluentSelect<string>>());
-        Assert.Equal(Enum.GetValues<ProductKind>().Length, cut.FindComponents<FluentOption<string>>().Count);
+        Assert.Single(cut.FindComponents<FluentSelect<BasePropertyInput<TestProduct>.EnumOption, string>>());
+        Assert.Equal(Enum.GetValues<ProductKind>().Length, cut.FindComponent<FluentSelect<BasePropertyInput<TestProduct>.EnumOption, string>>().Instance.Items!.Count());
+    }
+
+    [Fact]
+    public void NonNullableEnumProperty_DoesNotRenderBlankOption()
+    {
+        var cut = RenderInput(new TestProduct { Kind = ProductKind.Digital }, Field(p => p.Kind));
+
+        var select = cut.FindComponent<FluentSelect<BasePropertyInput<TestProduct>.EnumOption, string>>();
+        Assert.Equal(nameof(ProductKind.Digital), select.Instance.Value);
+        Assert.Equal(Enum.GetValues<ProductKind>().Length, select.Instance.Items!.Count());
+    }
+
+    [Fact]
+    public void NullableEnumProperty_WithNullValue_RendersBlankSelectedOption()
+    {
+        var cut = RenderInput(new TestProduct { PreferredKind = null }, Field(p => p.PreferredKind));
+
+        var select = cut.FindComponent<FluentSelect<BasePropertyInput<TestProduct>.EnumOption, string>>();
+        Assert.Equal(string.Empty, select.Instance.Value);
+        Assert.Equal(Enum.GetValues<ProductKind>().Length + 1, select.Instance.Items!.Count());
+    }
+
+    [Fact]
+    public void NullableEnumProperty_WithValue_RendersThatValueSelected()
+    {
+        var cut = RenderInput(new TestProduct { PreferredKind = ProductKind.Service }, Field(p => p.PreferredKind));
+
+        var select = cut.FindComponent<FluentSelect<BasePropertyInput<TestProduct>.EnumOption, string>>();
+        Assert.Equal(nameof(ProductKind.Service), select.Instance.Value);
+    }
+
+    [Fact]
+    public void NullableEnumProperty_SelectingBlankOption_SetsModelPropertyToNull()
+    {
+        var model = new TestProduct { PreferredKind = ProductKind.Service };
+        var cut = RenderInput(model, Field(p => p.PreferredKind));
+
+        var select = cut.FindComponent<FluentSelect<BasePropertyInput<TestProduct>.EnumOption, string>>();
+        select.InvokeAsync(() => select.Instance.ValueChanged.InvokeAsync(string.Empty));
+
+        Assert.Null(model.PreferredKind);
+    }
+
+    [Fact]
+    public void NullableEnumProperty_SelectingAValue_SetsModelProperty()
+    {
+        var model = new TestProduct { PreferredKind = null };
+        var cut = RenderInput(model, Field(p => p.PreferredKind));
+
+        var select = cut.FindComponent<FluentSelect<BasePropertyInput<TestProduct>.EnumOption, string>>();
+        select.InvokeAsync(() => select.Instance.ValueChanged.InvokeAsync(nameof(ProductKind.Physical)));
+
+        Assert.Equal(ProductKind.Physical, model.PreferredKind);
     }
 
     [Fact]
@@ -89,9 +143,57 @@ public class BasePropertyInputTests : BunitTestContextBase
 
         var cut = RenderInput(new TestProduct(), Field(p => p.Category));
 
-        Assert.Single(cut.FindComponents<FluentSelect<string>>());
-        Assert.Contains("Cat A", cut.Markup);
-        Assert.Contains("Cat B", cut.Markup);
+        var select = Assert.Single(cut.FindComponents<FluentSelect<BasePropertyInput<TestProduct>.LookupItem, string>>());
+        Assert.Contains(select.Instance.Items!, item => item.DisplayText == "Cat A");
+        Assert.Contains(select.Instance.Items!, item => item.DisplayText == "Cat B");
+    }
+
+    [Fact]
+    public void RequiredProperty_WhenEditing_RendersRequiredMark()
+    {
+        var contexts = new List<PropertyFieldContext<TestProduct>>();
+        var cut = RenderInput(new TestProduct { Name = "P" }, TemplateField(p => p.Name, contexts: contexts), editing: true);
+
+        Assert.Single(cut.FindAll(".base-required-mark"));
+        Assert.True(contexts[^1].Required);
+    }
+
+    [Fact]
+    public void RequiredProperty_WhenNotEditing_RendersNoRequiredMark()
+    {
+        var contexts = new List<PropertyFieldContext<TestProduct>>();
+        var cut = RenderInput(new TestProduct { Name = "P" }, TemplateField(p => p.Name, contexts: contexts), editing: false);
+
+        Assert.Empty(cut.FindAll(".base-required-mark"));
+        Assert.False(contexts[^1].Required);
+    }
+
+    [Fact]
+    public void FieldConfigRequired_WhenNotEditing_RendersNoRequiredMark()
+    {
+        var contexts = new List<PropertyFieldContext<TestProduct>>();
+        var cut = RenderInput(new TestProduct { Description = "text" }, TemplateField(p => p.Description, f => f.Required(), contexts), editing: false);
+
+        Assert.Empty(cut.FindAll(".base-required-mark"));
+        Assert.False(contexts[^1].Required);
+    }
+
+    private static PropertyFieldConfig<TestProduct> TemplateField(
+        Expression<Func<TestProduct, object?>> property,
+        Action<FieldBuilder<TestProduct>>? configure = null,
+        List<PropertyFieldContext<TestProduct>>? contexts = null)
+    {
+        RenderFragment<PropertyFieldContext<TestProduct>> template = context => builder =>
+        {
+            contexts?.Add(context);
+            builder.AddContent(0, "value");
+        };
+
+        return Field(property, f =>
+        {
+            configure?.Invoke(f);
+            f.EditorTemplate(template).DisplayTemplate(template);
+        });
     }
 
     private IRenderedComponent<BasePropertyInput<TestProduct>> RenderInput(

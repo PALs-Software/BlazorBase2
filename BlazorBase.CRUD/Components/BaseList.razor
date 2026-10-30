@@ -2,7 +2,7 @@
 @using BlazorBase.CRUD.Configuration
 @typeparam TModel
 
-<div class="base-list">
+<div class="base-list @(IsMobileLayout ? "base-list-mobile" : null)">
     <CascadingValue Value="@((IColumnCollector<TModel>)this)" IsFixed="true">
         <CascadingValue Value="@((IActionGroupCollector<TModel>)this)" IsFixed="true">
             @ChildContent
@@ -10,44 +10,66 @@
     </CascadingValue>
 
     <div class="base-list-header">
-        @if (IsFilteringEnabled)
+        @if (CanAdd)
         {
-            <FluentButton Appearance="Appearance.Stealth"
-                          Class="base-list-filter-toggle"
-                          OnClick="@OpenFilterPanelAsync"
-                          IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Filter())">
-                @FrameworkLocalizer["Filter"]
-                @if (ActiveFilterCount > 0)
-                {
-                    <FluentBadge Appearance="Appearance.Accent" Class="base-list-filter-badge">@ActiveFilterCount</FluentBadge>
-                }
+            var addText = AddButtonText ?? FrameworkLocalizer["Add"].Value;
+
+            <FluentButton Appearance="ButtonAppearance.Primary"
+                          Class="base-list-add base-list-header-button"
+                          aria-label="@addText"
+                          OnClick="@OnAddClickedAsync"
+                          IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Add())">
+                <span class="base-list-add-text">@addText</span>
             </FluentButton>
         }
-        @if (IsSelectionActive)
+        @if (ShowsHeaderToolbar)
         {
-            <FluentLabel Class="selection-count">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</FluentLabel>
-            <FluentButton Appearance="Appearance.Stealth"
+            <BaseActionToolbar TModel="TModel"
+                               ActionGroups="@ResolvedActionGroups"
+                               Context="CrudActionContext.ListToolbar"
+                               ItemFilter="@HeaderToolbarFilter"
+                               AllowOverflow="true"
+                               SelectedItems="@SelectedItems"
+                               Localizer="@Localizer"
+                               OnBlockedItemsChanged="@OnBlockedItemsChanged"
+                               OnActionExecuted="@RefreshAsync" />
+        }
+        @if (HasRows && !IsMobileLayout)
+        {
+            <span class="base-list-count" role="status">@string.Format(FrameworkLocalizer[TotalCount == 1 ? "TotalEntry" : "TotalEntries"].Value, TotalCount)</span>
+        }
+        @if (ShowsSelectionColumn && !IsMobileLayout)
+        {
+            <FluentText Class="selection-count">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</FluentText>
+            <FluentButton Appearance="ButtonAppearance.Transparent"
+                          Class="base-list-deselect base-list-header-button"
                           OnClick="@DeselectAll"
                           IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.DismissCircle())">
                 @FrameworkLocalizer["DeselectAll"]
             </FluentButton>
         }
-        @if (CanAdd)
+        @if (IsFilteringEnabled)
         {
-            <FluentButton Appearance="Appearance.Accent"
-                          OnClick="@OnAddClickedAsync"
-                          IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Add())">
-                @(AddButtonText ?? FrameworkLocalizer["Add"].Value)
-            </FluentButton>
-        }
-        @if (HasToolbarActions)
-        {
-            <BaseActionToolbar TModel="TModel"
-                               ActionGroups="@ResolvedActionGroups"
-                               Context="CrudActionContext.ListToolbar"
-                               SelectedItems="@SelectedItems"
-                               Localizer="@Localizer"
-                               OnActionExecuted="@RefreshAsync" />
+            <div class="base-list-filter-group">
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-list-filter-toggle base-list-header-button"
+                              aria-label="@FilterButtonLabel"
+                              OnClick="@OpenFilterPanelAsync"
+                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Filter())">
+                    @FrameworkLocalizer["Filter"]
+                    @if (ActiveFilterCount > 0)
+                    {
+                        <span class="base-list-filter-count" aria-hidden="true">@ActiveFilterCount</span>
+                    }
+                </FluentButton>
+                @if (SavedFilters is not null)
+                {
+                    <QuickFilterMenu Saved="@SavedFilters"
+                                     Current="@ActiveFilterModel"
+                                     Revision="@SavedFilterRevision"
+                                     OnSelect="@ApplyQuickFilterAsync" />
+                }
+            </div>
         }
     </div>
 
@@ -56,29 +78,75 @@
         <FilterPanel Fields="@FilterFields"
                      Root="@WorkingFilterModel"
                      Localizer="@FrameworkLocalizer"
+                     SavedFilters="@SavedFilters"
                      OnApply="@OnFilterApplyAsync"
                      OnReset="@OnFilterResetAsync"
                      OnClose="@CloseFilterPanel" />
     }
 
+    @if (DeleteErrorMessage is not null)
+    {
+        <FluentMessageBar Intent="MessageBarIntent.Error" Class="base-list-delete-error" role="alert" AllowDismiss="false">
+            <ChildContent>@DeleteErrorMessage</ChildContent>
+            <ActionsTemplate>
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              IconOnly="true"
+                              Size="ButtonSize.Small"
+                              Class="base-list-message-dismiss"
+                              Title="@FrameworkLocalizer["Close"].Value"
+                              OnClick="@(() => DeleteErrorMessage = null)"
+                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())" />
+            </ActionsTemplate>
+        </FluentMessageBar>
+    }
+    @if (SelectionMessage is not null)
+    {
+        <FluentMessageBar Intent="MessageBarIntent.Warning" Class="base-list-delete-error" role="status" AllowDismiss="false">
+            <ChildContent>@SelectionMessage</ChildContent>
+            <ActionsTemplate>
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              IconOnly="true"
+                              Size="ButtonSize.Small"
+                              Class="base-list-message-dismiss"
+                              Title="@FrameworkLocalizer["Close"].Value"
+                              OnClick="@(() => SelectionMessage = null)"
+                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())" />
+            </ActionsTemplate>
+        </FluentMessageBar>
+    }
     <div class="base-list-grid" @ref="GridContainerRef"
          @onmousedown="OnMouseDown"
          @oncontextmenu="OnContextMenuAsync" @oncontextmenu:preventDefault>
-        @if (LoadedItems.Count > 0 || IsLoading)
+        <RenderGate Key="@GridRenderKey">
+        @if (IsMobileLayout)
+        {
+            <BaseListCardView TModel="TModel" View="@BuildMobileView()" />
+        }
+        else if (HasRows || IsLoading)
         {
             <FluentDataGrid @ref="DataGrid"
-                            Items="@CaptureRenderedItems()"
+                            ItemsProvider="@CaptureRenderedProvider()"
                             TGridItem="TModel"
+                            Class="base-list-table"
                             Virtualize="true"
                             ItemSize="48"
-                            GenerateHeader="GenerateHeaderOption.Sticky"
+                            OverscanCount="10"
+                            MaxItemCount="500"
+                            GenerateHeader="DataGridGeneratedHeaderType.Sticky"
+                            ColumnOrder="@GridColumnOrder"
                             OnRowClick="@OnRowClickedAsync"
+                            OnRowDoubleClick="@OnRowDoubleClickedAsync"
+                            OnCellClick="@OnCellClicked"
+                            RowClass="@ResolveRowClass"
                             OnCellFocus="@OnCellFocusedAsync">
 
-                @if (IsSelectionActive)
+                @if (ShowsSelectionColumn)
                 {
-                    <TemplateColumn Title="" Class="base-list-select-column" Width="@SelectionColumnWidth">
+                    <TemplateColumn Title="" ColumnId="@SelectColumnId" Class="base-list-select-column" Width="@SelectionColumnWidth" MinWidth="@SelectionColumnWidth">
                         <div class="select-circle @(IsSelected(context) ? "selected" : "")"
+                             role="checkbox"
+                             aria-checked="@(IsSelected(context) ? "true" : "false")"
+                             aria-label="@(IsSelected(context) ? FrameworkLocalizer["Deselect"].Value : FrameworkLocalizer["Select"].Value)"
                              @onclick="() => ToggleSelection(context)" @onclick:stopPropagation>
                         </div>
                     </TemplateColumn>
@@ -88,8 +156,10 @@
                 {
                     if (column.Template is not null)
                     {
-                        <TemplateColumn Title="@ResolveColumnTitle(column)"
-                                        HeaderTooltip="@ResolveColumnTooltip(column)"
+                        <TemplateColumn Title="@ResolveColumnHeaderName(column)"
+                                        ColumnId="@column.PropertyName"
+                                        HeaderCellItemTemplate="@HeaderTemplate(column)"
+                                        Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
                                         SortBy="@(column.Sortable ? CreateSortBy(column) : null)">
@@ -98,20 +168,25 @@
                     }
                     else if (ResolveCustomDisplay(column) is { } customDisplayType)
                     {
-                        <TemplateColumn Title="@ResolveColumnTitle(column)"
-                                        HeaderTooltip="@ResolveColumnTooltip(column)"
+                        <TemplateColumn Title="@ResolveColumnHeaderName(column)"
+                                        ColumnId="@column.PropertyName"
+                                        HeaderCellItemTemplate="@HeaderTemplate(column)"
+                                        Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
                                         SortBy="@(column.Sortable ? CreateSortBy(column) : null)">
                             @RenderCustomDisplayCell(customDisplayType, column, context)
                         </TemplateColumn>
                     }
-                    else if (column.Format is not null)
+                    else if (column.Format is not null || IsDateTimeColumn(column))
                     {
-                        <TemplateColumn Title="@ResolveColumnTitle(column)"
-                                        HeaderTooltip="@ResolveColumnTooltip(column)"
+                        <TemplateColumn Title="@ResolveColumnHeaderName(column)"
+                                        ColumnId="@column.PropertyName"
+                                        HeaderCellItemTemplate="@HeaderTemplate(column)"
+                                        Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
+                                        TooltipText="@(item => ResolveCellText(column, item))"
                                         Sortable="@column.Sortable"
                                         SortBy="@(column.Sortable ? CreateSortBy(column) : null)">
                             @FormatColumnValue(column, context)
@@ -119,10 +194,13 @@
                     }
                     else if (IsBooleanColumn(column))
                     {
-                        <TemplateColumn Title="@ResolveColumnTitle(column)"
-                                        HeaderTooltip="@ResolveColumnTooltip(column)"
+                        <TemplateColumn Title="@ResolveColumnHeaderName(column)"
+                                        ColumnId="@column.PropertyName"
+                                        HeaderCellItemTemplate="@HeaderTemplate(column)"
+                                        Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
+                                        TooltipText="@(item => ResolveCellText(column, item))"
                                         Sortable="@column.Sortable"
                                         SortBy="@(column.Sortable ? CreateSortBy(column) : null)">
                             @BooleanColumnText(column, context)
@@ -130,34 +208,100 @@
                     }
                     else
                     {
-                        <PropertyColumn Property="@column.Property"
-                                        Title="@ResolveColumnTitle(column)"
-                                        HeaderTooltip="@ResolveColumnTooltip(column)"
+                        <TemplateColumn Title="@ResolveColumnHeaderName(column)"
+                                        ColumnId="@column.PropertyName"
+                                        HeaderCellItemTemplate="@HeaderTemplate(column)"
+                                        Tooltip="true"
                                         Width="@ResolveColumnWidth(column)"
                                         Class="@ResolveColumnClass(column)"
-                                        Sortable="@column.Sortable" />
+                                        TooltipText="@(item => ResolveCellText(column, item))"
+                                        Sortable="@column.Sortable"
+                                        SortBy="@(column.Sortable ? CreateSortBy(column) : null)">
+                            @ResolveCellText(column, context)
+                        </TemplateColumn>
+                    }
+
+                    if (HasContextMenuEntries && ReferenceEquals(column, RowMenuAnchorColumn))
+                    {
+                        <TemplateColumn Title="" ColumnId="@RowMenuColumnId" Class="base-list-row-menu-column" Width="@RowMenuColumnWidth" MinWidth="@RowMenuColumnWidth">
+                            <FluentButton Appearance="ButtonAppearance.Transparent"
+                                          Class="base-list-row-menu"
+                                          Title="@FrameworkLocalizer["MoreActions"].Value"
+                                          aria-label="@FrameworkLocalizer["MoreActions"].Value"
+                                          aria-haspopup="menu"
+                                          tabindex="-1"
+                                          StopPropagation="true"
+                                          IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.MoreHorizontal())"
+                                          OnClick="@(e => OnGridRowMenuButtonClickedAsync(context, e))" />
+                        </TemplateColumn>
                     }
                 }
             </FluentDataGrid>
         }
+        </RenderGate>
     </div>
+    <div class="base-list-hscroll" aria-hidden="true" tabindex="-1"><div></div></div>
+
+    @if (ShowsMobileSelectionBar)
+    {
+        <div class="base-list-selection-bar" role="toolbar" aria-label="@FrameworkLocalizer["SelectionBarLabel"].Value">
+            @if (SelectionBarHint is not null)
+            {
+                <div class="base-list-selection-hint" role="status">@SelectionBarHint</div>
+            }
+            <div class="base-list-selection-row">
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-list-selection-close"
+                              Title="@FrameworkLocalizer["DeselectAll"].Value"
+                              aria-label="@FrameworkLocalizer["DeselectAll"].Value"
+                              OnClick="@DeselectAll"
+                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Dismiss())" />
+                <span class="base-list-selection-count" role="status">@string.Format(FrameworkLocalizer["SelectedCount"].Value, SelectedItems.Count)</span>
+                @if (HasItemBoundToolbarActions)
+                {
+                    <BaseActionToolbar TModel="TModel"
+                                       ActionGroups="@ResolvedActionGroups"
+                                       Context="CrudActionContext.ListToolbar"
+                                       ItemFilter="@ToolbarActionFilter.ItemBound"
+                                       AllowOverflow="true"
+                                       SelectedItems="@SelectedItems"
+                                       Localizer="@Localizer"
+                                       OnBlockedItemsChanged="@OnBlockedItemsChanged"
+                                       OnReasonRequested="@OnSelectionBarReasonRequested"
+                                       OnActionExecuted="@RefreshAsync" />
+                }
+                @if (CanDelete)
+                {
+                    <FluentButton Appearance="ButtonAppearance.Transparent"
+                                  Class="base-list-selection-delete"
+                                  Title="@SelectionBarDeleteLabel"
+                                  aria-label="@SelectionBarDeleteLabel"
+                                  OnClick="@OnSelectionBarDeleteAsync"
+                                  IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size20.Delete())" />
+                }
+            </div>
+        </div>
+    }
 
     @if (ContextMenuOpen)
     {
         <div class="context-menu-overlay"
              @onclick="DismissContextMenu"
              @oncontextmenu="DismissContextMenu" @oncontextmenu:preventDefault></div>
-        <nav class="context-menu"
+        <nav class="context-menu @(ContextMenuPositioned ? null : "context-menu-measuring")"
              role="menu"
              tabindex="-1"
              @ref="ContextMenuElement"
              @onkeydown="OnContextMenuKeyDown"
-             style="left: @(ContextMenuX)px; top: @(ContextMenuY)px;">
-            @if (CanEdit && ContextMenuItem is not null)
+             @oncontextmenu:preventDefault
+             style="@ContextMenuStyle">
+            @if (CanOpen && ContextMenuItem is not null)
             {
-                <div role="menuitem" @onclick="OnContextMenuEditAsync">
-                    <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Edit())" />
-                    <span>@FrameworkLocalizer["Edit"]</span>
+                <div role="menuitem" @onclick="OnContextMenuOpenAsync">
+                    <FluentIcon Value="@(CanEdit
+                                         ? (Microsoft.FluentUI.AspNetCore.Components.Icon)new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Edit()
+                                         : new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Eye())" />
+                    <span>@FrameworkLocalizer[CanEdit ? "Edit" : "View"]</span>
                 </div>
             }
             @if (CanDelete && ContextMenuItem is not null)
@@ -167,56 +311,81 @@
                     <span>@(SelectedItems.Count > 1 && IsSelected(ContextMenuItem) ? string.Format(FrameworkLocalizer["DeleteCount"].Value, SelectedItems.Count) : FrameworkLocalizer["Delete"].Value)</span>
                 </div>
             }
-            @if ((CanEdit || CanDelete) && ContextMenuItem is not null)
+            @if (ContextMenuSections.Count > 0 && ContextMenuItem is not null)
             {
-                <div class="context-menu-divider"></div>
-            }
-            @if (ContextMenuItem is not null)
-            {
-                <div role="menuitem" @onclick="OnContextMenuToggleSelectAsync">
-                    @if (IsSelected(ContextMenuItem))
+                var needsDivider = false;
+                @foreach (var section in ContextMenuSections)
+                {
+                    @if (needsDivider)
                     {
-                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.DismissCircle())" />
-                        <span>@FrameworkLocalizer["Deselect"]</span>
+                        <div class="context-menu-divider"></div>
                     }
-                    else
+                    needsDivider = true;
+                    @foreach (var entry in section.Entries)
                     {
-                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.CheckmarkCircle())" />
-                        <span>@FrameworkLocalizer["Select"]</span>
+                        @if (entry.State.IsEnabled)
+                        {
+                            <div role="menuitem" @onclick="() => OnContextMenuActionClickedAsync(entry)">
+                                @if (entry.Action.Icon is not null)
+                                {
+                                    <FluentIcon Value="@entry.Action.Icon" />
+                                }
+                                <span>@ResolveActionText(entry.Action.Caption)</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <div role="menuitem" class="context-menu-item-disabled" aria-disabled="true" title="@entry.Reason">
+                                @if (entry.Action.Icon is not null)
+                                {
+                                    <FluentIcon Value="@entry.Action.Icon" />
+                                }
+                                <span>@ResolveActionText(entry.Action.Caption)</span>
+                                @if (IsMobileLayout && !string.IsNullOrEmpty(entry.Reason))
+                                {
+                                    <small class="context-menu-reason">@entry.Reason</small>
+                                }
+                            </div>
+                        }
                     }
-                </div>
-            }
-            <div role="menuitem" @onclick="SelectAll">
-                <span>@FrameworkLocalizer["SelectAll"]</span>
-            </div>
-            @if (IsSelectionActive)
-            {
-                <div role="menuitem" @onclick="DeselectAll">
-                    <span>@FrameworkLocalizer["DeselectAll"]</span>
-                </div>
+                }
             }
             @if (ContextMenuActions is not null && ContextMenuItem is not null)
             {
-                <div class="context-menu-divider"></div>
+                @if (MenuHasEntriesAboveLegacy)
+                {
+                    <div class="context-menu-divider"></div>
+                }
                 <div @onclick="CloseContextMenu">
                     @ContextMenuActions(ContextMenuItem)
                 </div>
             }
-            @if (HasContextMenuActionGroups && ContextMenuItem is not null)
+            @if (MenuHasSelectionEntries)
             {
-                @foreach (var group in ContextMenuActionGroups)
+                @if (MenuHasEntriesAboveSelection)
                 {
                     <div class="context-menu-divider"></div>
-                    @foreach (var action in group.Actions.Where(a => IsActionVisibleInContextMenu(a)).OrderBy(a => a.Order))
-                    {
-                        <div role="menuitem" @onclick="() => OnContextMenuActionClickedAsync(action)">
-                            @if (action.Icon is not null)
-                            {
-                                <FluentIcon Value="@action.Icon" />
-                            }
-                            <span>@(action.Caption ?? "")</span>
-                        </div>
-                    }
+                }
+                @if (MenuShowsSelectMore)
+                {
+                    <div role="menuitem" @onclick="OnContextMenuSelectMoreAsync">
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.CheckmarkCircle())" />
+                        <span>@FrameworkLocalizer["SelectMore"]</span>
+                    </div>
+                }
+                @if (MenuShowsSelectAll)
+                {
+                    <div role="menuitem" @onclick="SelectAll">
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.SelectAllOn())" />
+                        <span>@FrameworkLocalizer["SelectAll"]</span>
+                    </div>
+                }
+                @if (MenuShowsDeselectAll)
+                {
+                    <div role="menuitem" @onclick="DeselectAll">
+                        <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.SelectAllOff())" />
+                        <span>@FrameworkLocalizer["DeselectAll"]</span>
+                    </div>
                 }
             }
         </nav>
@@ -225,14 +394,14 @@
     @if (IsLoading)
     {
         <div class="base-list-loading">
-            <FluentProgressRing />
+            <FluentSpinner Size="SpinnerSize.Medium" />
         </div>
     }
 
-    @if (!IsLoading && LoadedItems.Count == 0)
+    @if (!IsLoading && !HasRows)
     {
         <div class="base-list-empty">
-            <FluentLabel Typo="Typography.Body">@(EmptyText ?? FrameworkLocalizer["NoItemsFound"].Value)</FluentLabel>
+            <FluentText>@(EmptyText ?? FrameworkLocalizer["NoItemsFound"].Value)</FluentText>
         </div>
     }
 </div>

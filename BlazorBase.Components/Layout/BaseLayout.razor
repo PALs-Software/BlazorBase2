@@ -1,37 +1,201 @@
-@implements IDisposable
+@using BlazorBase.Components.CommandPalette
+@using BlazorBase.Components.Help
+@using BlazorBase.Components.HeaderActions
+@using BlazorBase.Components.Layout.Navigation
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
 
-<FluentDesignTheme Mode="@CurrentMode" CustomColor="@ThemeService.AccentColor" NeutralBaseColor="@ThemeService.NeutralBaseColor" />
-
-<div class="layout-root">
-<FluentLayout>
-    <FluentHeader>
-        @AppTitle
-        <FluentSpacer />
-        @if (HeaderContent is not null)
+@{
+    RenderFragment brand = @<text>
+        @if (Brand is not null)
         {
-            @HeaderContent
+            <span class="base-header-brand">@Brand</span>
         }
-    </FluentHeader>
+        else
+        {
+            <span class="base-header-title">@AppTitle</span>
+        }
+    </text>;
+}
 
-    <FluentStack Orientation="Orientation.Horizontal" Class="main-content">
+<div class="layout-root @(HasBottomBar ? "has-bottom-bar" : null)">
+    <button type="button" class="base-skip-link" @onclick="FocusMainAsync">@Localizer["SkipToContent"]</button>
+
+    <header class="base-header @(IsBrandCentered ? "brand-centered" : "brand-start") @(ShowCommandPalette ? "has-command-palette" : null)">
+        <div class="base-header-start">
+            @if (Navigation is not null)
+            {
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-nav-toggle base-header-control"
+                              IconOnly="true"
+                              IconStart="@(new Size20.Navigation())"
+                              Title="@NavigationToggleLabel"
+                              aria-controls="base-navigation"
+                              aria-expanded="@NavigationExpandedValue"
+                              @ref="NavigationToggle"
+                              OnClick="ToggleNavigationAsync" />
+            }
+            @if (HasAppSwitcher)
+            {
+                <CascadingValue Value="SwitcherContext">
+                    @(AppSwitcher ?? DefaultAppSwitcher)
+                </CascadingValue>
+            }
+            else if (!IsBrandCentered)
+            {
+                @brand
+            }
+        </div>
+        @if (IsBrandCentered)
+        {
+            <div class="base-header-center">
+                @brand
+            </div>
+        }
+        else if (ShowCommandPalette)
+        {
+            <div class="base-header-center base-header-search">
+                <button type="button"
+                        class="base-command-search"
+                        aria-haspopup="dialog"
+                        aria-keyshortcuts="Control+K"
+                        title="@Localizer["Search"]"
+                        @onclick="OpenCommandPaletteAsync">
+                    <FluentIcon Value="@(new Size20.Search())" Color="Color.Custom" CustomColor="currentColor" />
+                    <span class="base-command-search-text">@Localizer["SearchPlaceholder"]</span>
+                    <kbd class="base-command-search-key" aria-hidden="true">Ctrl K</kbd>
+                </button>
+            </div>
+        }
+        <div class="base-header-end">
+            @if (ShowCommandPalette)
+            {
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-command-search-icon base-header-control"
+                              IconOnly="true"
+                              IconStart="@(new Size20.Search())"
+                              Title="@Localizer["Search"]"
+                              aria-haspopup="dialog"
+                              aria-keyshortcuts="Control+K"
+                              OnClick="OpenCommandPaletteAsync" />
+            }
+            @if (HeaderContent is not null)
+            {
+                @HeaderContent
+            }
+            @if (HasHeaderActions)
+            {
+                <BaseHeaderActions Items="HeaderActions" MaxInline="@(IsPhone ? MaxPhoneHeaderActions : null)" />
+            }
+            @if (ShowHelp)
+            {
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-help-toggle base-header-control"
+                              IconOnly="true"
+                              IconStart="@(new Size20.QuestionCircle())"
+                              Title="@Localizer["Help"]"
+                              aria-haspopup="@(IsWide ? null : "dialog")"
+                              aria-controls="@HelpPanelId"
+                              aria-expanded="@(IsHelpOpen ? "true" : "false")"
+                              @ref="HelpToggle"
+                              OnClick="ToggleHelpAsync" />
+            }
+            @if (ShowThemeToggle)
+            {
+                <span class="base-header-theme">
+                    <BaseThemeToggle />
+                </span>
+            }
+            @if (ShowSettings)
+            {
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Class="base-settings-toggle base-header-control"
+                              IconOnly="true"
+                              IconStart="@(new Size20.Settings())"
+                              Title="@Localizer["Settings"]"
+                              aria-haspopup="dialog"
+                              aria-controls="@SettingsPanelId"
+                              aria-expanded="@(IsSettingsOpen ? "true" : "false")"
+                              @ref="SettingsToggle"
+                              OnClick="OpenSettingsAsync" />
+            }
+            @if (HeaderEndContent is not null)
+            {
+                @HeaderEndContent
+            }
+        </div>
+    </header>
+
+    <div class="main-content">
         @if (Navigation is not null)
         {
-            @Navigation
+            <aside id="base-navigation"
+                   class="base-nav-host @(IsDrawerOpen ? "open" : null)"
+                   tabindex="-1"
+                   role="@(IsDrawerOpen && IsCompact ? "dialog" : null)"
+                   aria-modal="@(IsDrawerOpen && IsCompact ? "true" : null)"
+                   aria-label="@(IsDrawerOpen && IsCompact ? Localizer["NavigationDrawer"].Value : null)"
+                   @ref="NavigationHost"
+                   @onkeydown="OnNavigationKeyDownAsync">
+                <CascadingValue Value="NavigationContext">
+                    @Navigation
+                </CascadingValue>
+            </aside>
+            @if (IsDrawerOpen && IsCompact)
+            {
+                <div class="base-nav-overlay" @onclick="CloseDrawerWithFocusAsync"></div>
+            }
         }
 
-        <FluentBodyContent Class="body-content">
+        <main id="base-main" class="body-content" tabindex="-1" @ref="MainContent" inert="@IsMainInert">
             @if (Banner is not null)
             {
                 @Banner
             }
             @ChildContent
-        </FluentBodyContent>
-    </FluentStack>
-</FluentLayout>
+        </main>
+        @if (ShowHelp)
+        {
+            <BaseHelpPanel PanelId="@HelpPanelId"
+                           IsOpen="IsHelpOpen"
+                           IsDocked="IsWide"
+                           AnchorTopic="@HelpAnchorTopic"
+                           Anchor="@HelpAnchor"
+                           AnchorRequest="HelpAnchorRequest"
+                           OnClose="CloseHelpAsync" />
+        }
+        @if (AreFieldTooltipsEnabled)
+        {
+            <HelpFieldTooltips CultureName="@System.Globalization.CultureInfo.CurrentUICulture.Name"
+                               OnOpenHelp="OpenHelpAtAsync" />
+        }
+        @LayoutOverlays
+    </div>
+
+    @if (HasBottomBar)
+    {
+        <div class="base-bottom-host" inert="@(IsSettingsOpen || IsHelpModal)">
+            <BaseBottomNavigation Items="BottomNavigationItems!"
+                                  MaxPrimaryItems="MaxBottomBarItems"
+                                  OnMore="MoreCallback"
+                                  IsMoreExpanded="IsDrawerOpen"
+                                  MoreControls="base-navigation" />
+        </div>
+    }
 </div>
 
-<FluentToastProvider />
-<FluentDialogProvider />
-<FluentTooltipProvider />
-<FluentMessageBarProvider />
-<FluentMenuProvider />
+@if (ShowSettings)
+{
+    <BaseSettingsPanel PanelId="@SettingsPanelId"
+                       IsOpen="IsSettingsOpen"
+                       OnClose="CloseSettingsAsync"
+                       LanguageOptions="LanguageOptions"
+                       OnLanguageSelected="OnLanguageSelected"
+                       ChildContent="SettingsContent" />
+}
+
+@if (ShowCommandPalette)
+{
+    <BaseCommandPalette Providers="PaletteProviders" />
+}
+
+<FluentProviders />

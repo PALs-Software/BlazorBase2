@@ -18,7 +18,7 @@ storage, thumbnail generation, and controller live in the companion library **Bl
 | Client upload service | `BlazorBase.Files.Services.IFileUploadClient` / `HttpFileUploadClient` |
 | Single-photo card input | `BlazorBase.Files.Components.BaseFilePhotoInput.BaseFilePhotoInputComponent` |
 | Multi-photo card input | `BlazorBase.Files.Components.BaseFileGalleryInput.BaseFileGalleryInputComponent` |
-| Full-screen image viewer | `BlazorBase.Files.Components.BaseFileModal.BaseFileModalComponent` |
+| Full-screen image viewer | `BlazorBase.Files.Components.BaseFileModal.BaseFileModalComponent` (dialog content: `BaseFileViewDialog`) |
 | List-cell thumbnail display | `BlazorBase.Files.Components.BaseFileCell.BaseFileCellComponent` |
 | DI registration | `AddBlazorBaseFiles(IServiceCollection, Action<IBlazorBaseFileOptions>?)` |
 
@@ -208,21 +208,23 @@ the token is cached in a `Dictionary<Guid, string>`. Thumbnail URLs are built wi
 
 ### `BaseFileModalComponent`
 
-Full-screen image viewer in a `FluentDialog`. Not a `IBaseCustomPropertyInput`; rendered by a host
-page or component via a `@ref`. Requires `IFileUploadClient` to be injectable (registered by the host
+Viewer that shows a file full size in a dialog: the image, or a file-info panel for a non-image file, with a download
+button. The component renders no markup of its own; a host page or component places it and calls it through a `@ref`.
+It opens the dialog with Fluent's `IDialogService` (the `FluentProviders` of `BaseLayout` render it), through the
+content component `BaseFileViewDialog`. Requires `IFileUploadClient` to be injectable (registered by the host
 alongside the `HttpClient` for the file controller).
 
 ```csharp
 // In markup
 <BaseFileModalComponent @ref="Modal" />
 
-// In code-behind — use await so the token is fetched before the dialog renders
+// In code-behind — OpenAsync fetches the token first and completes when the dialog is closed
 private BaseFileModalComponent? Modal;
 await Modal.OpenAsync(fileUploadResult);
 ```
 
-`OpenAsync` fetches a signed access token from `GET {id}/token` before setting `IsVisible = true`,
-ensuring the download `<img>` and `<a>` URLs are token-bearing on first render.
+`OpenAsync` fetches a signed access token from `GET {id}/token` before the dialog opens, ensuring the download
+`<img>` and download link URLs are token-bearing on first render. `CloseAsync()` closes the dialog from the outside.
 
 For files already on the server, construct a `FileUploadResult` from stored `BaseFile` metadata.
 
@@ -298,10 +300,61 @@ Orphaned uploads (cancelled card, navigated away) are reclaimed by the server-si
 
 ---
 
+## Azure Blob Storage provider
+
+Opt-in companion package `BlazorBase.Files.Server.AzureBlob`. The file system provider stays the default;
+the Azure SDK is referenced only by this package.
+
+- **Registration** — call after `AddBlazorBaseFilesServer<TContext>()`; it only replaces `IFileStorage` and
+  `ITemporaryFileStoreCleaner`, everything else stays as registered:
+
+  ```csharp
+  builder.Services.AddBlazorBaseFilesServer<AppDbContext>();
+  builder.Services.AddBlazorBaseFilesAzureBlobStorage(settings =>
+  {
+      settings.ServiceUri = new Uri("https://myaccount.blob.core.windows.net");
+      settings.ContainerName = "mysite";
+  });
+  ```
+
+- **Settings** (`BlazorBaseAzureBlobFileStorageSettings`)
+  - `ServiceUri` + `TokenCredential` (default `DefaultAzureCredential`, i.e. managed identity on Azure) **or**
+    `ConnectionString` (Azurite / local development) — exactly one of `ServiceUri` / `ConnectionString`.
+  - `ContainerName` (default `files`), `TemporaryPrefix` (default `temp/`),
+    `CreateContainerIfMissing` (default `false`; leave off when infrastructure creates the container and the
+    identity only has data-plane rights on it).
+- **Config-driven switch** (optional) — `AddBlazorBaseFilesStorageProvider(configuration)` reads
+  `Files:Provider` (`FileSystem` = default, or `AzureBlob`) and binds `Files:AzureBlob` to the settings.
+  Without `Files:Provider` nothing changes. Pass a `configureSettings` callback to supply a `TokenCredential`.
+
+  ```json
+  { "Files": { "Provider": "AzureBlob", "AzureBlob": { "ServiceUri": "https://myaccount.blob.core.windows.net", "ContainerName": "mysite" } } }
+  ```
+
+- **Object names** are identical to the file system provider: `{id:N}{ext}` and `{id:N}_thumb{ext}` at the
+  container root, so an existing `FileStorePath` can be copied 1:1 (for example with AzCopy). Names are derived
+  from the file id and stored extension only.
+- **Temporary uploads** are stored under `TemporaryPrefix` (`temp/{id:N}{ext}`); commit is a server-side copy
+  followed by a delete of the temporary blob. A missing temporary file throws `FileNotFoundException`, as with
+  the file system.
+- **Reads** return a seekable stream, so range requests keep working.
+- **Cleanup** — `BlobTemporaryFileStoreCleaner` deletes blobs under `TemporaryPrefix` older than
+  `DeleteTemporaryFilesOlderThanSeconds`; storage errors are logged and retried on the next sweep. A storage
+  lifecycle rule on the prefix is a good additional safety net.
+- **Options not used** — `FileStorePath` and `TempFileStorePath` are ignored while the blob provider is active.
+- **Hashing** is shared with the file system provider (`FileContentHasher.ComputeSha256`).
+- **Tests** — `BlazorBase.Files.Server.AzureBlob.Test` runs one `IFileStorage` contract suite against both
+  providers. The blob tests carry `[Trait("Category", "Integration")]` and skip themselves unless Azurite is
+  reachable: set `BLAZORBASE_AZURITE_CONNECTION_STRING` (default `UseDevelopmentStorage=true`) and start Azurite
+  with `--skipApiVersionCheck`.
+
+---
+
 ## Solution Membership
 
 `BlazorBase.Files` is registered in `BlazorBase.slnx`. Its server companion
-`BlazorBase.Files.Server` is also registered in `BlazorBase.slnx`.
+`BlazorBase.Files.Server` is also registered in `BlazorBase.slnx`, as is the optional
+`BlazorBase.Files.Server.AzureBlob`.
 
 ---
 
@@ -310,8 +363,8 @@ Orphaned uploads (cancelled card, navigated away) are reclaimed by the server-si
 ```
 BlazorBase.Files
   └─ BlazorBase.CRUD
-  └─ Microsoft.FluentUI.AspNetCore.Components 4.14.0
-  └─ Microsoft.FluentUI.AspNetCore.Components.Icons 4.14.0
+  └─ Microsoft.FluentUI.AspNetCore.Components 5.0.1
+  └─ Microsoft.FluentUI.AspNetCore.Components.Icons 5.0.1
   └─ Microsoft.Extensions.Http
   └─ Microsoft.Extensions.Localization
 ```

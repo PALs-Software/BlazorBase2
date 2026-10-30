@@ -1,7 +1,9 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Reflection;
 using System.Security.Claims;
@@ -15,8 +17,46 @@ namespace BlazorBase.CRUD.Security;
 /// addition, nulls out (or recurses into) reference and collection navigation properties whose
 /// target class or owning navigation is not readable by the user.
 /// </summary>
+/// <remarks>
+/// Cycle protection tracks both the CLR object reference <em>and</em> the logical entity identity
+/// (declared <see cref="KeyAttribute"/> property, falling back to a conventional <c>Id</c>
+/// property). The reference check alone is not enough against an EF Core lazy-loading proxy
+/// reached through an <c>AsNoTracking()</c> root query: every hop around a navigation cycle can
+/// materialize a brand new, non-identity-resolved CLR instance for the same database row, so a
+/// purely reference-based visited set never repeats and never stops the walk - this is exactly how
+/// a self-referencing or mutually-referencing pair of entities (for example a team lead who is also
+/// a member of their own team) drove this walk into a real stack overflow before this fix. Comparing
+/// by (declared type, key value) in addition to reference identity stops the walk the moment the
+/// same database row is seen again, however many distinct CLR instances represent it.
+/// </remarks>
 public static class CrudResponseSanitizer
 {
+    private static readonly ConcurrentDictionary<Type, PropertyInfo?> EntityKeyProperties = new();
+
+    /// <summary>
+    /// The property that identifies an instance of <paramref name="type"/> for cycle-detection
+    /// purposes: the <see cref="KeyAttribute"/>-annotated property if one is declared, otherwise a
+    /// conventional public <c>Id</c> property. Returns null when neither exists, in which case
+    /// cycle detection for that type falls back to reference equality alone.
+    /// </summary>
+    private static PropertyInfo? ResolveEntityKeyProperty(Type type) =>
+        EntityKeyProperties.GetOrAdd(type, static t =>
+            t.GetProperties(BindingFlags.Public | BindingFlags.Instance).FirstOrDefault(p => p.GetCustomAttribute<KeyAttribute>() is not null)
+            ?? t.GetProperty("Id", BindingFlags.Public | BindingFlags.Instance));
+
+    /// <summary>
+    /// The (declared type, key value) identity of <paramref name="item"/>, or null when the type has
+    /// no resolvable key property. Reading the key property never triggers lazy loading: it is
+    /// always a mapped scalar, never a navigation.
+    /// </summary>
+    private static (Type Type, object Key)? ResolveEntityIdentity(object item, Type type)
+    {
+        var keyProperty = ResolveEntityKeyProperty(type);
+        var keyValue = keyProperty?.GetValue(item);
+        return keyValue is null ? null : (type, keyValue);
+    }
+
+
     /// <summary>
     /// Strips unreadable fields from every non-null item in <paramref name="items"/>.
     /// </summary>
@@ -48,19 +88,19 @@ public static class CrudResponseSanitizer
         if (item is null)
             return;
 
-        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
-
         if (item is IEnumerable collection and not string)
         {
             var elementType = ResolveElementType(item.GetType());
 
             foreach (var element in collection)
-                StripObject(element, elementType ?? element?.GetType() ?? typeof(object), user, visited);
+                StripObject(element, elementType ?? element?.GetType() ?? typeof(object), user,
+                    new HashSet<object>(ReferenceEqualityComparer.Instance), new HashSet<(Type, object)>());
 
             return;
         }
 
-        StripObject(item, typeof(TModel), user, visited);
+        StripObject(item, typeof(TModel), user,
+            new HashSet<object>(ReferenceEqualityComparer.Instance), new HashSet<(Type, object)>());
     }
 
     /// <summary>
@@ -81,7 +121,7 @@ public static class CrudResponseSanitizer
             .FirstOrDefault();
     }
 
-    private static void StripObject(object? item, Type type, ClaimsPrincipal user, HashSet<object> visited)
+    private static void StripObject(object? item, Type type, ClaimsPrincipal user, HashSet<object> visited, HashSet<(Type, object)> visitedIdentities)
     {
         if (item is null)
             return;
@@ -89,8 +129,15 @@ public static class CrudResponseSanitizer
         if (!visited.Add(item))
             return;
 
+        var identity = ResolveEntityIdentity(item, type);
+        var identityAlreadyVisited = identity is not null && !visitedIdentities.Add(identity.Value);
+
         StripScalarProperties(item, type, user);
-        StripNavigationProperties(item, type, user, visited);
+
+        if (identityAlreadyVisited)
+            return;
+
+        StripNavigationProperties(item, type, user, visited, visitedIdentities);
     }
 
     private static void StripScalarProperties(object item, Type type, ClaimsPrincipal user)
@@ -109,7 +156,7 @@ public static class CrudResponseSanitizer
         }
     }
 
-    private static void StripNavigationProperties(object item, Type type, ClaimsPrincipal user, HashSet<object> visited)
+    private static void StripNavigationProperties(object item, Type type, ClaimsPrincipal user, HashSet<object> visited, HashSet<(Type, object)> visitedIdentities)
     {
         var handledPropertyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -144,19 +191,19 @@ public static class CrudResponseSanitizer
                     if (element is null)
                         continue;
 
-                    StripObject(element, navigation.TargetType, user, visited);
+                    StripObject(element, navigation.TargetType, user, visited, visitedIdentities);
                 }
 
                 continue;
             }
 
-            StripObject(navigationValue, navigation.TargetType, user, visited);
+            StripObject(navigationValue, navigation.TargetType, user, visited, visitedIdentities);
         }
 
-        StripComplexReferenceProperties(item, type, user, visited, handledPropertyNames);
+        StripComplexReferenceProperties(item, type, user, visited, visitedIdentities, handledPropertyNames);
     }
 
-    private static void StripComplexReferenceProperties(object item, Type type, ClaimsPrincipal user, HashSet<object> visited, HashSet<string> handledPropertyNames)
+    private static void StripComplexReferenceProperties(object item, Type type, ClaimsPrincipal user, HashSet<object> visited, HashSet<(Type, object)> visitedIdentities, HashSet<string> handledPropertyNames)
     {
         foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
@@ -189,7 +236,7 @@ public static class CrudResponseSanitizer
             if (value is null)
                 continue;
 
-            StripObject(value, propertyType, user, visited);
+            StripObject(value, propertyType, user, visited, visitedIdentities);
         }
     }
 }

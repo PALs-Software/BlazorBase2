@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+    <data name="CueStyleFavorable" xml:space="preserve">
+    <value>günstig</value>
+  </data>
+  <data name="CueStyleAmbiguous" xml:space="preserve">
+    <value>Aufmerksamkeit nötig</value>
+  </data>
+  <data name="CueStyleUnfavorable" xml:space="preserve">
+    <value>ungünstig</value>
+  </data>
+  <data name="CueStyleSubordinate" xml:space="preserve">
+    <value>nachrangig</value>
+  </data>
+  <data name="CueLoading" xml:space="preserve">
+    <value>wird geladen</value>
+  </data>
+  <data name="GreetingMorning" xml:space="preserve">
+    <value>Guten Morgen</value>
+  </data>
+  <data name="GreetingAfternoon" xml:space="preserve">
+    <value>Guten Tag</value>
+  </data>
+  <data name="GreetingEvening" xml:space="preserve">
+    <value>Guten Abend</value>
+  </data>
+  <data name="HeadlineInsights" xml:space="preserve">
+    <value>Hinweise</value>
+  </data>
+  <data name="HeadlineShowInsight" xml:space="preserve">
+    <value>Hinweis {0} von {1} anzeigen</value>
+  </data>
+  <data name="UpdatedAt" xml:space="preserve">
+    <value>Aktualisiert {0}</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>Aktualisieren</value>
+  </data>
+  <data name="Refreshing" xml:space="preserve">
+    <value>Wird aktualisiert</value>
+  </data>
+  <data name="PartFailed" xml:space="preserve">
+    <value>Dieser Bereich konnte nicht geladen werden.</value>
+  </data>
+  <data name="PartRetry" xml:space="preserve">
+    <value>Erneut versuchen</value>
+  </data>
+  <data name="PartLoading" xml:space="preserve">
+    <value>Wird geladen</value>
+  </data>
+  <data name="ShowAll" xml:space="preserve">
+    <value>Alle anzeigen</value>
+  </data>
+  <data name="ShowAllWithCount" xml:space="preserve">
+    <value>Alle anzeigen ({0})</value>
+  </data>
+  <data name="ListEmpty" xml:space="preserve">
+    <value>Nichts anzuzeigen.</value>
+  </data>
+  <data name="RoleCenterLabel" xml:space="preserve">
+    <value>Übersicht</value>
+  </data>
+  <data name="ChartFallbackLabel" xml:space="preserve">
+    <value>Diagramm</value>
+  </data>
+  <data name="Personalize" xml:space="preserve">
+    <value>Anpassen</value>
+  </data>
+  <data name="PersonalizeTitle" xml:space="preserve">
+    <value>Dashboard anpassen</value>
+  </data>
+  <data name="PersonalizeHint" xml:space="preserve">
+    <value>Bereiche ausblenden oder ihre Reihenfolge ändern. Mit „Fertig“ wird die Anordnung gespeichert.</value>
+  </data>
+  <data name="PersonalizeDone" xml:space="preserve">
+    <value>Fertig</value>
+  </data>
+  <data name="PersonalizeCancel" xml:space="preserve">
+    <value>Abbrechen</value>
+  </data>
+  <data name="PersonalizeReset" xml:space="preserve">
+    <value>Auf Standard zurücksetzen</value>
+  </data>
+  <data name="PersonalizeResetConfirm" xml:space="preserve">
+    <value>Das Dashboard auf das Standardlayout zurücksetzen? Die gespeicherte Anordnung geht verloren.</value>
+  </data>
+  <data name="PersonalizeResetConfirmYes" xml:space="preserve">
+    <value>Zurücksetzen</value>
+  </data>
+  <data name="PersonalizeResetConfirmNo" xml:space="preserve">
+    <value>Anordnung behalten</value>
+  </data>
+  <data name="PersonalizeStarted" xml:space="preserve">
+    <value>Anpassen ist aktiv. Bereiche lassen sich mit ihren Schaltflächen verschieben oder ausblenden.</value>
+  </data>
+  <data name="PersonalizeCancelled" xml:space="preserve">
+    <value>Änderungen verworfen.</value>
+  </data>
+  <data name="PartMoveUp" xml:space="preserve">
+    <value>Nach oben</value>
+  </data>
+  <data name="PartMoveDown" xml:space="preserve">
+    <value>Nach unten</value>
+  </data>
+  <data name="PartHide" xml:space="preserve">
+    <value>Ausblenden</value>
+  </data>
+  <data name="PartShow" xml:space="preserve">
+    <value>Einblenden</value>
+  </data>
+  <data name="PartMoveUpLabel" xml:space="preserve">
+    <value>{0} nach oben verschieben</value>
+  </data>
+  <data name="PartMoveDownLabel" xml:space="preserve">
+    <value>{0} nach unten verschieben</value>
+  </data>
+  <data name="PartHideLabel" xml:space="preserve">
+    <value>{0} ausblenden</value>
+  </data>
+  <data name="PartShowLabel" xml:space="preserve">
+    <value>{0} einblenden</value>
+  </data>
+  <data name="PartHidden" xml:space="preserve">
+    <value>Ausgeblendet</value>
+  </data>
+  <data name="PartMoved" xml:space="preserve">
+    <value>{0} an Position {1} von {2} verschoben.</value>
+  </data>
+  <data name="PartAlreadyFirst" xml:space="preserve">
+    <value>{0} steht bereits an erster Stelle.</value>
+  </data>
+  <data name="PartAlreadyLast" xml:space="preserve">
+    <value>{0} steht bereits an letzter Stelle.</value>
+  </data>
+  <data name="PartHiddenAnnouncement" xml:space="preserve">
+    <value>{0} ausgeblendet.</value>
+  </data>
+  <data name="PartShownAnnouncement" xml:space="preserve">
+    <value>{0} eingeblendet.</value>
+  </data>
+  <data name="LayoutSaved" xml:space="preserve">
+    <value>Anordnung gespeichert.</value>
+  </data>
+  <data name="LayoutReset" xml:space="preserve">
+    <value>Anordnung auf Standard zurückgesetzt.</value>
+  </data>
+  <data name="LayoutSaveFailed" xml:space="preserve">
+    <value>Die Anordnung konnte nicht gespeichert werden. Bitte erneut versuchen.</value>
+  </data>
+  <data name="LayoutResetFailed" xml:space="preserve">
+    <value>Die Anordnung konnte nicht zurückgesetzt werden. Bitte erneut versuchen.</value>
+  </data>
+</root>

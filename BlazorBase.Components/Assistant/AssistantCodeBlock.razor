@@ -1,0 +1,17 @@
+@namespace BlazorBase.Components.Assistant
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+
+<div class="assistant-code">
+    <div class="assistant-code-bar">
+        <span class="assistant-code-language">@Language</span>
+        <button type="button"
+                class="assistant-code-copy"
+                title="@Localizer["CopyCode"]"
+                aria-label="@Localizer["CopyCode"]"
+                @onclick="CopyAsync">
+            <FluentIcon Value="@CopyIcon" Color="Color.Custom" CustomColor="currentColor" />
+            <span aria-live="polite">@(IsCopied ? Localizer["Copied"] : Localizer["Copy"])</span>
+        </button>
+    </div>
+    <pre><code class="@LanguageClass">@Code</code></pre>
+</div>

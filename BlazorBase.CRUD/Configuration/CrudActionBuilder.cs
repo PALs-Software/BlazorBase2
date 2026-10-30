@@ -16,13 +16,38 @@ public class CrudActionBuilder<TModel> where TModel : class
     public CrudActionBuilder<TModel> Caption(string caption) { config.Caption = caption; return this; }
     public CrudActionBuilder<TModel> ToolTip(string toolTip) { config.ToolTip = toolTip; return this; }
     public CrudActionBuilder<TModel> Icon(Icon icon) { config.Icon = icon; return this; }
-    public CrudActionBuilder<TModel> Appearance(Appearance appearance) { config.Appearance = appearance; return this; }
+    public CrudActionBuilder<TModel> Appearance(ButtonAppearance appearance) { config.Appearance = appearance; return this; }
     public CrudActionBuilder<TModel> ShowIn(CrudActionContext contexts) { config.Contexts = contexts; return this; }
     public CrudActionBuilder<TModel> Order(int order) { config.Order = order; return this; }
     public CrudActionBuilder<TModel> Visible(Func<CrudActionVisibilityArgs<TModel>, Task<bool>> predicate) { config.Visible = predicate; return this; }
     public CrudActionBuilder<TModel> VisibleForRoles(Func<ClaimsPrincipal, bool> predicate) { config.VisibleForRoles = predicate; return this; }
     public CrudActionBuilder<TModel> OnExecute(Func<CrudActionEventArgs<TModel>, Task> action) { config.Action = action; return this; }
     public CrudActionBuilder<TModel> BulkAction(bool isBulk = true) { config.IsBulkAction = isBulk; return this; }
+
+    /// <summary>
+    /// Sets which rows the action works on; see <see cref="CrudActionScope"/>.
+    /// </summary>
+    public CrudActionBuilder<TModel> Scope(CrudActionScope scope) { config.Scope = scope; return this; }
+
+    /// <summary>
+    /// Makes the action work on exactly one row (<see cref="CrudActionScope.Single"/>).
+    /// </summary>
+    public CrudActionBuilder<TModel> SingleAction() { config.Scope = CrudActionScope.Single; return this; }
+
+    /// <summary>
+    /// Sets the per-item predicate that decides whether the action can run for a row.
+    /// </summary>
+    public CrudActionBuilder<TModel> Enabled(Func<TModel, bool> predicate) { config.Enabled = predicate; return this; }
+
+    /// <summary>
+    /// Sets a static text explaining why a row blocks the action.
+    /// </summary>
+    public CrudActionBuilder<TModel> DisabledReason(string reason) { config.DisabledReason = reason; return this; }
+
+    /// <summary>
+    /// Sets a per-item function explaining why a row blocks the action.
+    /// </summary>
+    public CrudActionBuilder<TModel> DisabledReason(Func<TModel, string?> reasonForItem) { config.DisabledReasonProvider = reasonForItem; return this; }
 
     public CrudActionBuilder<TModel> DynamicComponent<TComponent>(
         Dictionary<string, object?>? parameters = null,

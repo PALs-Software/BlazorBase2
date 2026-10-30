@@ -48,11 +48,27 @@ public partial class UserRoleInput : ComponentBase, IBaseCustomPropertyInput
     private IReadOnlyList<string> RoleNames =>
         UserRoleProvider?.GetRoleNames() ?? [];
 
-    private string? RoleValue
+    private string? RoleValue => Value as string;
+
+    private Task OnRoleChanged(string? value) => ValueChanged.InvokeAsync(value);
+
+    /// <summary>The roles to choose from, with the empty option first while no known role is selected.</summary>
+    private IReadOnlyList<RoleOption> RoleOptions
     {
-        get => Value as string;
-        set => _ = ValueChanged.InvokeAsync(value);
+        get
+        {
+            var options = RoleNames.Select(roleName => new RoleOption(roleName, roleName)).ToList();
+            if (ShowPlaceholder)
+                options.Insert(0, new RoleOption(string.Empty, PlaceholderText));
+
+            return options;
+        }
     }
+
+    /// <summary>One entry of the role select.</summary>
+    /// <param name="Value">The role name; empty for the placeholder entry.</param>
+    /// <param name="Text">The caption shown for the entry.</param>
+    public sealed record RoleOption(string Value, string Text);
 
     /// <summary>
     /// Whether the bound value is one of the offered roles.
