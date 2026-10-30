@@ -1,4 +1,6 @@
 .base-property-input {
+    display: flex;
+    flex-direction: column;
     width: 100%;
     min-width: 0;
 }
@@ -25,9 +27,13 @@
     min-width: 0;
 }
 
+.base-template-field > .base-field-label {
+    margin-bottom: 0;
+}
+
 .base-field-label {
     display: block;
-    margin-bottom: var(--space-1);
+    margin-bottom: var(--space-0);
     font-size: var(--font-size-base);
     line-height: var(--line-height-base);
     color: var(--color-text-primary);
@@ -52,15 +58,19 @@
 }
 
 .base-bool-field {
+    --base-switch-height: 20px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    min-height: var(--control-height-md);
+}
+
+.base-bool-field ::deep [slot="input"] {
+    margin-block: calc((var(--control-height-md) - var(--base-switch-height)) / 2);
 }
 
 @media (pointer: coarse) {
-    .base-bool-field {
-        min-height: var(--control-height-touch);
+    .base-bool-field ::deep [slot="input"] {
+        margin-block: calc((var(--control-height-touch) - var(--base-switch-height)) / 2);
     }
 }
 
