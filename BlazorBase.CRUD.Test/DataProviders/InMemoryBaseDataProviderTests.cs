@@ -24,6 +24,18 @@ public class InMemoryBaseDataProviderTests
         Assert.Equal("A", Assert.Single(result.Items).Name);
     }
 
+    [Fact]
+    public async Task GetByIdAsync_FindsARowByItsKeyWhenTheKeyIsNotNamedId()
+    {
+        var id = Guid.NewGuid();
+        var items = new List<TestTypeNameKeyed> { new() { TestTypeNameKeyedId = id, Name = "A" }, new() { TestTypeNameKeyedId = Guid.NewGuid(), Name = "B" } };
+        var provider = new InMemoryBaseDataProvider<TestTypeNameKeyed>(() => items);
+
+        var match = await provider.GetByIdAsync(id);
+
+        Assert.Equal("A", match?.Name);
+    }
+
     private static List<TestProduct> CreateCatalog() =>
     [
         new() { Id = Guid.NewGuid(), Name = "Alpha Widget", Price = 10m, Stock = 5, IsActive = true, ReleasedOn = new DateTime(2026, 1, 10, 14, 30, 0), Kind = ProductKind.Physical, Description = "first" },

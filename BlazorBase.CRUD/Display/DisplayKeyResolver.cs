@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using BlazorBase.CRUD.Attributes;
+using BlazorBase.CRUD.Core;
 
 namespace BlazorBase.CRUD.Display;
 
@@ -17,8 +18,6 @@ public static class DisplayKeyResolver
 {
     /// <summary>Default separator placed between multiple display-key values.</summary>
     public const string DefaultSeparator = " · ";
-
-    private const string PrimaryKeyPropertyName = "Id";
 
     private static readonly string[] ConventionalDisplayPropertyNames =
         ["Name", "Title", "Description", "DisplayName"];
@@ -43,8 +42,8 @@ public static class DisplayKeyResolver
                 .ToList());
     }
 
-    /// <summary>Name of the entity's primary key property (the framework convention is <c>Id</c>).</summary>
-    public static string GetPrimaryKeyPropertyName(Type modelType) => PrimaryKeyPropertyName;
+    /// <summary>Name of the entity's primary key property (see <see cref="EntityKeyResolver"/>; <c>Id</c> when none resolves).</summary>
+    public static string GetPrimaryKeyPropertyName(Type modelType) => EntityKeyResolver.GetName(modelType);
 
     /// <summary>
     /// Resolves the display property names for an entity in a lookup context, applying
@@ -79,7 +78,7 @@ public static class DisplayKeyResolver
                 return name;
         }
 
-        return PrimaryKeyPropertyName;
+        return GetPrimaryKeyPropertyName(modelType);
     }
 
     /// <summary>

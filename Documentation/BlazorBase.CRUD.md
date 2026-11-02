@@ -213,6 +213,15 @@ public class Order : AuditModel
 | `[CrudAccess(roles, "RIMD")]` | class & property | Grant R/I/M/D rights to roles. Multiple allowed (union per level). Use `[CrudAccess("*", "")]` to exclude a property entirely (replaces `[CrudIgnore]`). |
 | `[BaseEntity]` | class | Trigger DTO source generator (see [BlazorBase.CRUD.Generators](BlazorBase.CRUD.Generators.md)) |
 
+### Primary key
+
+The components, the data providers and the endpoints address a row by the single-property primary key that
+`EntityKeyResolver` (`BlazorBase.CRUD.Core`) resolves: a property named `Id`, otherwise the property marked
+`[Key]`, otherwise `<TypeName>Id` (the EF Core conventions). A composite key resolves to nothing, and a type without a
+key is addressed by reference only. `EntityKeyResolver.Find(type)` returns the property, `GetName(type)` its name
+(`Id` when none resolves) and `GetValue(entity)` the value. The list selects the key with every query, the card
+patches by it, the delete action and the deep link (`?item=<key>`) use it, and the `{id}` of the route is parsed to its type.
+
 ### Navigation property detection
 
 - **Reference navigation** (`Category Category`) — auto-detected via FK convention (`CategoryId` / `CategoryID`) or `[ForeignKey]`. Rendered as `FluentSelect` (≤ 20 items) or a search/browse panel (> 20 items, configurable threshold).

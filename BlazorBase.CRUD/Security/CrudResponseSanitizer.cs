@@ -7,6 +7,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Reflection;
 using System.Security.Claims;
+using BlazorBase.CRUD.Core;
 using BlazorBase.CRUD.Navigation;
 
 namespace BlazorBase.CRUD.Security;
@@ -41,8 +42,8 @@ public static class CrudResponseSanitizer
     /// </summary>
     private static PropertyInfo? ResolveEntityKeyProperty(Type type) =>
         EntityKeyProperties.GetOrAdd(type, static t =>
-            t.GetProperties(BindingFlags.Public | BindingFlags.Instance).FirstOrDefault(p => p.GetCustomAttribute<KeyAttribute>() is not null)
-            ?? t.GetProperty("Id", BindingFlags.Public | BindingFlags.Instance));
+            EntityKeyResolver.Find(t)
+            ?? t.GetProperties(BindingFlags.Public | BindingFlags.Instance).FirstOrDefault(p => p.GetCustomAttribute<KeyAttribute>() is not null));
 
     /// <summary>
     /// The (declared type, key value) identity of <paramref name="item"/>, or null when the type has

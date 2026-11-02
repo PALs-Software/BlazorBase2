@@ -44,6 +44,34 @@ public sealed class UserDataProviderDeactivationTests : IdentityServerTestBase
         Assert.Equal(before, await ReadStampAsync(user.Id));
     }
 
+    [Fact]
+    public async Task Patch_DeactivatingWithAJsonValue_DeactivatesAndRotatesTheStamp()
+    {
+        var user = await SeedUserAsync("http@example.com", "Http");
+        var before = await ReadStampAsync(user.Id);
+        var fields = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>("""{"IsActive":false}""")!;
+
+        Assert.IsType<System.Text.Json.JsonElement>(fields[nameof(UserModel.IsActive)]);
+
+        using (var scope = CreateScope())
+            await CreateProvider(scope).PatchAsync(user.Id, fields);
+
+        Assert.NotEqual(before, await ReadStampAsync(user.Id));
+        Assert.False(await ReadIsActiveAsync(user.Id));
+    }
+
+    [Fact]
+    public async Task Patch_ReactivatingWithAJsonValue_ActivatesTheAccount()
+    {
+        var user = await SeedUserAsync("off@example.com", "Off", isActive: false);
+        var fields = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object?>>("""{"IsActive":true}""")!;
+
+        using (var scope = CreateScope())
+            await CreateProvider(scope).PatchAsync(user.Id, fields);
+
+        Assert.True(await ReadIsActiveAsync(user.Id));
+    }
+
     private static UserDataProvider<TestUser> CreateProvider(IServiceScope scope)
         => new(
             scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>(),

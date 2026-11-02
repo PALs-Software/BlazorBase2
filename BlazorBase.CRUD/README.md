@@ -101,14 +101,14 @@ The server project has direct database access via EF Core.
 It uses `DbContextBaseDataProvider` and registers the REST endpoints consumed by client projects.
 
 **Important:**
-- `AddBaseDbContext<TContext>(...)` registers the `DbContext` as a **factory** (`IDbContextFactory`), not as scoped.
-- Each DataProvider creates and disposes its own `DbContext` per operation — this is **thread-safe** and compatible with Blazor Server's long-lived circuits.
-- The `BaseSaveChangesInterceptor` is automatically injected into the factory and populates audit fields on every `SaveChanges`.
+- `AddBaseDbContext<TContext>(...)` registers the `DbContext` as **scoped** (`AddDbContext`) with the framework interceptors. It does not register an `IDbContextFactory<TContext>`: hosts that use saved list filters or dashboard layouts also call `AddDbContextFactory<TContext>(options, ServiceLifetime.Scoped)`.
+- Each DataProvider uses the `DbContext` of its scope.
+- The `BaseSaveChangesInterceptor` is automatically injected into the context and populates audit fields on every `SaveChanges`.
 
 ```csharp
 // Program.cs (Server)
 
-// 1. Register DbContext (factory pattern)
+// 1. Register DbContext (scoped, with the framework interceptors)
 builder.Services.AddBaseDbContext<MyDbContext>(options =>
     options.UseSqlServer(connectionString));
 

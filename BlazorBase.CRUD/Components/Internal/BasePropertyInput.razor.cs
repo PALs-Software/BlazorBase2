@@ -611,7 +611,7 @@ public partial class BasePropertyInput<TModel> : IDisposable
         var totalCount = (int)queryResult.GetType().GetProperty("TotalCount")!.GetValue(queryResult)!;
         var items = (IList)queryResult.GetType().GetProperty("Items")!.GetValue(queryResult)!;
 
-        var idProp = NavigationType!.GetProperty("Id")!;
+        var idProp = EntityKeyResolver.Find(NavigationType!)!;
 
         var lookupItems = new List<LookupItem>(items.Count);
         foreach (var item in items)
