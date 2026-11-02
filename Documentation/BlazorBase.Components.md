@@ -60,7 +60,8 @@ before the first render:
 `BaseLayout` already does both calls. Hosting it is all an application needs; `BaseThemeToggle` gives
 the user a control that cycles system → light → dark. Register the Fluent services with
 `services.AddBlazorBaseFluentUI()` instead of `AddFluentUIComponents()` — it sets the defaults the layout is built for
-(at most three toasts, at the top end of the window below the header, fields without Fluent's default 12px vertical margin) and takes an optional callback for further
+(at most three toasts, at the top end of the window below the header, fields without Fluent's default 12px vertical margin)
+and registers `BlazorBaseFluentLocalizer`, which answers the texts of the Fluent components themselves (the required-field message, paginator, data grid, message boxes) in the current UI culture — English and German; the German texts live in `BlazorBase.Components/Localization/FluentUiStrings.de.resx` and a test fails when a Fluent key has no German text. It takes an optional callback for further
 `LibraryConfiguration` changes. Register the BlazorBase services with `services.AddBlazorBaseComponents()` —
 `AddBlazorBaseUserClient()` already calls it, so an application on the user stack needs nothing extra.
 
