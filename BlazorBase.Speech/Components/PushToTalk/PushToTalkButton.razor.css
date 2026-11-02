@@ -20,7 +20,7 @@
     padding: 0;
     border: none;
     border-radius: 50%;
-    background: var(--color-accent);
+    background: var(--color-accent-fill);
     color: var(--color-text-on-accent);
     cursor: pointer;
     touch-action: none;
@@ -32,7 +32,7 @@
 }
 
 .push-to-talk-button:hover:not(:disabled):not(.push-to-talk-recording) {
-    background: var(--color-accent-hover);
+    background: var(--color-accent-fill-hover);
 }
 
 .push-to-talk-button:focus-visible {

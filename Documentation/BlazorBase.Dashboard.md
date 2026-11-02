@@ -263,7 +263,7 @@ cues: `ForCount(boosts, CueStyle.Unfavorable)`.
 - an `Actions` slot for quick actions: plain `<a>` / `<button>` elements, styled as buttons; on phones a horizontally
   scrollable row below the text. The **first** action is the primary button (filled, bold); the others are outline
   buttons. A single action is the primary one. The primary fill comes from `--hl-primary-fill` (hover
-  `--hl-primary-fill-hover`, text `--hl-primary-text`), defined on `.hl` from `--color-accent`, `--color-accent-hover` and
+  `--hl-primary-fill-hover`, text `--hl-primary-text`), defined on `.hl` from `--color-accent-fill`, `--color-accent-fill-hover` and
   `--color-text-on-accent`, which switch with the theme. A theme can override the three variables.
 
 ```csharp

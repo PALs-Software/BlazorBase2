@@ -32,13 +32,13 @@
 }
 
 .diff-mode-btn--active {
-    background: var(--color-accent);
+    background: var(--color-accent-fill);
     color: var(--color-text-on-accent);
-    border-color: var(--color-accent);
+    border-color: var(--color-accent-fill);
 }
 
 .diff-mode-btn--active:hover {
-    background: var(--color-accent-hover);
+    background: var(--color-accent-fill-hover);
 }
 
 .diff-notice {
@@ -154,9 +154,9 @@
 }
 
 .diff-add-comment-btn:hover {
-    background: var(--color-accent);
+    background: var(--color-accent-fill);
     color: var(--color-text-on-accent);
-    border-color: var(--color-accent);
+    border-color: var(--color-accent-fill);
 }
 
 .diff-add-comment-btn:focus-visible {

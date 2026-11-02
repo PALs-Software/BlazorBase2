@@ -30,10 +30,10 @@ element or its parts. The Fluent components themselves are painted from the same
 
 Fluent UI v5 paints from Fluent 2 tokens (`--colorBrandBackground`, `--colorNeutralForeground1`, `--borderRadiusMedium`,
 `--fontSizeBase300`, …). `blazorbase-fluent-bridge.css` maps every BlazorBase token onto them, so one palette drives the
-whole page: `--color-accent` becomes the brand tokens, the text, surface and border tokens become the neutral
+whole page: `--color-accent` becomes the brand foreground, stroke and link tokens, `--color-accent-fill` (with its hover and pressed variants) the filled brand backgrounds, the text, surface and border tokens become the neutral
 tokens, `--color-success` / `--color-warning` / `--color-danger` become the status tokens, and the radius, spacing and
 font tokens become Fluent's. Hover, pressed and selected shades are mixed from the semantic tokens with `color-mix()`,
-for example the pressed brand fill from `--color-accent` and `--color-text-primary`. The bridge declares its values on
+for example the pressed brand fill from `--color-accent-fill-pressed`, and the foreground on a brand fill is `--color-text-on-accent`. The bridge declares its values on
 `body`, which wins over the values Fluent writes on `:root`, whatever the order of the stylesheets. It is the only file
 that names Fluent tokens.
 
@@ -42,7 +42,7 @@ brand colours of that button into the danger colours.
 
 There is no theme component. Light and dark come from the tokens (`data-theme` on `<html>`, see below), and
 `ThemeService` hands the same preference to Fluent so that the tokens the bridge does not cover (shadows, palettes) follow.
-An application that wants another brand colour overrides `--color-accent` and the tokens next to it — nothing else.
+An application that wants another brand colour overrides `--color-accent`, the accent fill tokens and the tokens next to them — nothing else.
 
 ### Applying and switching
 
@@ -109,10 +109,11 @@ behind the stamp.
 | `--color-text-primary` | Body text, headings, cell values |
 | `--color-text-secondary` | Secondary labels, column headers, icons |
 | `--color-text-muted` | Placeholders, disabled state, empty state |
-| `--color-accent` | Primary button, active tab, selection, the fill of an accent surface |
+| `--color-accent` | The accent as a colour on the page: focus and selection borders, indicators, icons, accent lines. Not a surface for text — use `--color-accent-fill` for that |
+| `--color-accent-fill` / `--color-accent-fill-hover` / `--color-accent-fill-pressed` | The accent as a surface that carries a label: primary button, selected row, badge, chat bubble. Light theme `#2DD4BF` / `#14B8A6` / `#0D9488`, dark theme `#0F766E` / `#115E59` / `#134E4A` |
 | `--color-accent-text` | The accent as text or an icon on a surface: links, the active label (darkened in light, lightened in dark until it reads) |
 | `--color-accent-hover` / `--color-accent-pressed` / `--color-accent-subtle` | Shades mixed from the accent: hovered and pressed fill, a light tint |
-| `--color-text-on-accent` | Text on a filled accent surface |
+| `--color-text-on-accent` | Text and glyphs on `--color-accent-fill` and its variants: near-black `#07100F` in the light theme (10.2:1 at rest, 5.1:1 pressed), white in the dark theme (5.5:1 at rest, 7.6:1 hover, 9.5:1 pressed). Never paint it on `--color-accent` |
 | `--color-neutral-base` | A grey in the hue of the palette; disabled and skeleton colours are tinted from it |
 | `--color-success` / `--color-warning` | Confirmations and warnings |
 | `--color-danger` / `--color-danger-bg` / `--color-text-on-danger` | Delete and validation errors |
@@ -135,11 +136,15 @@ button in the primary instead of the secondary text colour, and `base-danger-act
 ### Customising
 
 Override the tokens in a stylesheet linked **after** the default one. Swapping the brand colour takes
-two or three of them — the accent, its selection tint and, when the greys of the palette change hue, the neutral base:
+three to six of them — the accent, its selection tint, the fill set (`--color-accent-fill`, `-hover`, `-pressed`, and `--color-text-on-accent` when the fill is too light or too dark for the default label) and, when the greys of the palette change hue, the neutral base:
 
 ```css
 :root {
     --color-accent: #6D28D9;
+    --color-accent-fill: #6D28D9;
+    --color-accent-fill-hover: #5B21B6;
+    --color-accent-fill-pressed: #4C1D95;
+    --color-text-on-accent: #FFFFFF;
     --color-bg-selected: #6D28D914;
     --color-neutral-base: #878289;
 }
@@ -147,6 +152,10 @@ two or three of them — the accent, its selection tint and, when the greys of t
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
         --color-accent: #A78BFA;
+        --color-accent-fill: #6D28D9;
+        --color-accent-fill-hover: #5B21B6;
+        --color-accent-fill-pressed: #4C1D95;
+        --color-text-on-accent: #FFFFFF;
         --color-bg-selected: #A78BFA22;
         --color-neutral-base: #878289;
     }
@@ -154,12 +163,16 @@ two or three of them — the accent, its selection tint and, when the greys of t
 
 :root[data-theme="dark"] {
     --color-accent: #A78BFA;
+    --color-accent-fill: #6D28D9;
+    --color-accent-fill-hover: #5B21B6;
+    --color-accent-fill-pressed: #4C1D95;
+    --color-text-on-accent: #FFFFFF;
     --color-bg-selected: #A78BFA22;
     --color-neutral-base: #878289;
 }
 ```
 
-The hover, pressed and text shades of the accent follow on their own. Everything else is neutral scaffolding.
+The text, hover and pressed shades of the accent (`--color-accent-text`, `-hover`, `-pressed`, `-subtle`) follow `--color-accent` on their own; the fill set does not, because a fill is chosen for the contrast of its label, not derived from the accent. Keep a label contrast of at least 4.5:1 on every state of a fill. In a dark theme prefer white labels on a deep fill over black labels on a bright one. Everything else is neutral scaffolding.
 
 ---
 
@@ -172,7 +185,7 @@ apart:
 - `BaseSideNavigation` — the desktop rail, built on `FluentNav`: entries are `FluentNavItem`s, groups are collapsible
   `FluentNavCategory`s that remember in the browser whether they are expanded (the group holding the current page opens
   itself; `NavigationItem.ExpandedByDefault` opens a group until the user has chosen). The selected page is marked by a
-  background and a bar over the full height of its row; the group holding it only turns accent-coloured. Reduced to icons, a group is one icon button that shows or hides the icons of its entries.
+  background and a bar over the full height of its row; the group holding it only turns accent-coloured. The rail fills the width of the container it is placed in (`width: 100%`), so a host sidebar of any width, 240 px for example, is used completely instead of being clipped; reduced to icons it is 48 px wide. Reduced to icons, a group is one icon button that shows or hides the icons of its entries.
 - `BaseBottomNavigation` — the mobile tab bar. Entries flagged `IsMobilePrimary` become tabs; the rest
   land behind a "More" bottom sheet that also handles groups (with a back step) and actions such as
   logging out.

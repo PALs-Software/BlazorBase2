@@ -4,7 +4,7 @@
     <FluentNav Class="base-side-nav-root"
                Density="NavDensity.Small"
                aria-label="@AriaLabel"
-               Width="@(IsIconOnly ? "48px" : $"{ExpandedWidth}px")"
+               Width="@(IsIconOnly ? CollapsedWidth : "100%")"
                BackgroundColor="var(--color-bg-elevated)"
                BackgroundColorHover="var(--color-bg-hover)"
                OnItemClick="@CloseDrawerAsync">

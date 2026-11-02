@@ -20,7 +20,7 @@
 }
 
 .ftnode--selected > .ftnode__row {
-    background: var(--color-accent);
+    background: var(--color-accent-fill);
     color: var(--color-text-on-accent);
 }
 
