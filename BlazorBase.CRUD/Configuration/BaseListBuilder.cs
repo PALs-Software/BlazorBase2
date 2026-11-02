@@ -151,6 +151,11 @@ public class ColumnBuilder<TModel>(PropertyColumnConfig<TModel> config)
     public ColumnBuilder<TModel> Format(string format) { config.Format = format; return this; }
     public ColumnBuilder<TModel> Width(string width) { config.Width = width; return this; }
     /// <summary>
+    /// Renders the cell of the column with a template instead of the formatted value, for example to show the
+    /// localized caption of a coded value. The template receives the row's model.
+    /// </summary>
+    public ColumnBuilder<TModel> Template(Microsoft.AspNetCore.Components.RenderFragment<TModel> template) { config.Template = template; return this; }
+    /// <summary>
     /// Makes this column the open link of the row instead of the first visible data column.
     /// </summary>
     public ColumnBuilder<TModel> OpensItem(bool opensItem = true) { config.OpensItem = opensItem; return this; }

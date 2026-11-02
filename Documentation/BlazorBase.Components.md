@@ -72,6 +72,12 @@ Where the preference comes from: the signed-in user's profile claim seeds a brow
 of its own, so the setting follows the user to a new device. An explicit choice made here wins from
 then on, which is also what makes it survive a reload. Only `SetThemeAsync` writes to local storage.
 
+**Service worker.** A PWA host page loads `<script src="_content/BlazorBase.Components/js/service-worker-registration.js"></script>`
+after `blazor.webassembly.js`. It registers `service-worker.js` and, when a new worker takes over an open tab, reloads the
+page exactly once so the client and the API stay in step; the first install does not reload. The reload waits while a
+BlazorBase dialog (`.base-dialog`), an open `dialog` or an element with the role `dialog` or `alertdialog` is on the page,
+so input in a dialog is not lost, and runs as soon as the last one closes.
+
 A choice made while signed in is also stored on the account, so it follows the user to a new browser:
 after applying it, `SetThemeAsync` calls the registered `IThemePreferenceSync`. `AddBlazorBaseUserClient()`
 registers `UserThemePreferenceSync`, which sends `PUT api/user/me/settings` (it reads the profile first,

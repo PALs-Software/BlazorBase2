@@ -319,6 +319,9 @@ UI features:
   appears beside it.
 - **Boolean columns** render the framework's localized `BoolTrue`/`BoolFalse` ("Yes"/"No", "Ja"/"Nein"),
   the same wording the filter panel offers for the property — not the raw CLR `True`/`False`.
+- **Cell template** — `<BaseColumn><Template Context="row">…</Template></BaseColumn>` or fluent
+  `.Column(x => x.Status, c => c.Template(row => …))` renders the cell with a fragment instead of the
+  value, for example the localized caption of a string-coded status. The phone tile uses it for a badge too.
 - **Column width** — a column's `Width` (markup `Width="120px"` or fluent `.Width("120px")`) is any
   valid CSS grid track. Columns left without one get a width that suits what they hold: a floor per
   data type (yes/no narrow, numbers narrow, date and time and enums wider, e-mail addresses -
