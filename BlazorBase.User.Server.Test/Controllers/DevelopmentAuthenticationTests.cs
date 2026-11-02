@@ -197,6 +197,39 @@ public sealed class DevelopmentAuthenticationTests : IdentityServerTestBase
         Assert.NotEqual(otherUser.Id, string.Empty);
     }
 
+    /// <summary>
+    /// Deactivating the account ends the live sessions: the development login of a deactivated
+    /// account is refused like the password login, the external sign-in and the token refresh.
+    /// </summary>
+    [Fact]
+    public async Task DevelopmentLogin_IsRefusedForADeactivatedAccount_AndRunsNoHook()
+    {
+        using (var firstScope = CreateScope())
+            await CreateAuthController(firstScope).DevelopmentLogin(CancellationToken.None);
+
+        using (var deactivateScope = CreateScope())
+        {
+            var userManager = deactivateScope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
+            var account = (await userManager.FindByEmailAsync(DevelopmentEmail))!;
+            account.IsActive = false;
+            await userManager.UpdateAsync(account);
+        }
+
+        var hookRan = false;
+        using var scope = CreateScope();
+        var controller = CreateAuthController(scope);
+        controller.DevelopmentLoginHook = _ =>
+        {
+            hookRan = true;
+            return Task.CompletedTask;
+        };
+
+        var result = await controller.DevelopmentLogin(CancellationToken.None);
+
+        Assert.IsType<UnauthorizedObjectResult>(result.Result);
+        Assert.False(hookRan);
+    }
+
     [Fact]
     public async Task DevelopmentLogin_IsNotFound_WhenTheOptionIsOff()
     {

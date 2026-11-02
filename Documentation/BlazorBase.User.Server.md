@@ -460,7 +460,7 @@ Implements `IBaseDataProvider<UserModel>`. Hosts the `BlazorBase.CRUD` glue for 
   > `DevelopmentAuthentication`, for instance — has only the roles the development account itself
   > uses, and assigning any other one fails. Seed the app's full role set at startup rather than
   > relying on the setup flow.
-- **`PatchAsync`** — switches over allowed keys: `DisplayName`, `Email`, `IsActive`, `Role` (re-assigns role), `Password` (resets via `GeneratePasswordResetTokenAsync`, then **revokes all of that user's active refresh tokens** so existing sessions cannot continue using the old password's grant).
+- **`PatchAsync`** — switches over allowed keys: `DisplayName`, `Email`, `IsActive` (setting it to `false` rotates the security stamp, so the live bearer tokens, refresh tokens and cookie sessions of the account end at their next stamp validation), `Role` (re-assigns role), `Password` (resets via `GeneratePasswordResetTokenAsync`, then **revokes all of that user's active refresh tokens** so existing sessions cannot continue using the old password's grant).
 - **`DeleteAsync`** — refuses to delete the currently authenticated user. After a successful delete it invokes every registered `IUserDeletionHandler` (see below) so hosts can clean up per-user external resources.
 
 The `IHttpContextAccessor` dependency is what makes the self-delete check work.

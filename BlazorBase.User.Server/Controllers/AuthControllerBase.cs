@@ -382,6 +382,9 @@ public abstract class AuthControllerBase<TUser>(
         if (user is null)
             return Problem(detail: "The development account could not be provisioned. See the server log.", statusCode: StatusCodes.Status500InternalServerError);
 
+        if (!user.IsActive)
+            return Unauthorized(new { message = "Account is deactivated." });
+
         await OnAfterDevelopmentLoginAsync(user);
 
         return Ok(await GenerateTokenResponse(user));

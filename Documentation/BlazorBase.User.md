@@ -361,7 +361,8 @@ The field is optional — the user may leave it blank. The value travels in `Set
 #### Development login — provisioning host-specific data on first use
 
 `POST api/auth/development-login` resolves (creating on first call, reusing afterwards) the account
-configured under `DevelopmentAuthentication` and signs it in. A host that provisions additional data by
+configured under `DevelopmentAuthentication` and signs it in; a deactivated account (`IsActive == false`)
+is refused with `401`, like the password login and the token refresh. A host that provisions additional data by
 email on real sign-in — a separate domain user row created from `IExternalUserResolver<TUser>` on first
 external sign-in, for instance — needs the same thing to happen for a development account, or it 404s
 on any endpoint that reads that other table. Override

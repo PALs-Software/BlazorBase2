@@ -160,7 +160,13 @@ public class UserDataProvider<TUser>(
                     break;
                 case nameof(UserModel.IsActive):
                     if (value is bool active)
+                    {
+                        var isDeactivating = user.IsActive && !active;
                         user.IsActive = active;
+
+                        if (isDeactivating)
+                            await UserManager.UpdateSecurityStampAsync(user);
+                    }
                     break;
                 case nameof(UserModel.Role):
                     var newRole = value?.ToString() ?? "User";
