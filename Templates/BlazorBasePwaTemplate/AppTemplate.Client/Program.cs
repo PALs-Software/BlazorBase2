@@ -19,29 +19,29 @@ builder.Services.AddBlazorBaseFluentUI();
 builder.Services.AddLocalization();
 
 builder.Services.AddBlazorBaseUserClient();
-builder.Services.AddBlazorBaseUserWasm(builder.HostEnvironment.BaseAddress);
+builder.Services.AddBlazorBaseUserWasmCookieAuth(builder.HostEnvironment.BaseAddress);
 
-
-builder.Services.AddHttpClient<IAuthService, AuthService>(client => client.BaseAddress = apiBaseAddress);
+builder.Services.AddHttpClient<IAuthService, AuthService>(client => client.BaseAddress = apiBaseAddress)
+    .AddHttpMessageHandler<CsrfHeaderHandler>();
 
 builder.Services.AddHttpClient<IUserService, UserService>(client => client.BaseAddress = apiBaseAddress)
-    .AddHttpMessageHandler<AuthTokenHandler>();
+    .AddBlazorBaseCookieSessionHandlers();
 
 builder.Services.AddBlazorBaseCrud();
 builder.Services.AddBlazorBaseCrudComponents();
 builder.Services.AddBlazorBaseCrudClient(
     client => client.BaseAddress = new Uri(apiBaseAddress, "api/base/"),
-    configureHttpClientBuilder: httpClientBuilder => httpClientBuilder.AddHttpMessageHandler<AuthTokenHandler>());
+    configureHttpClientBuilder: httpClientBuilder => httpClientBuilder.AddBlazorBaseCookieSessionHandlers());
 
 builder.Services.AddBlazorBaseCrudClient(
     client => client.BaseAddress = new Uri(apiBaseAddress, "api/base/"),
     typeof(UserModel).Assembly,
-    httpClientBuilder => httpClientBuilder.AddHttpMessageHandler<AuthTokenHandler>());
+    httpClientBuilder => httpClientBuilder.AddBlazorBaseCookieSessionHandlers());
 
 builder.Services.AddBlazorBaseCrudClient(
     client => client.BaseAddress = new Uri(apiBaseAddress, "api/base/"),
     typeof(Note).Assembly,
-    httpClientBuilder => httpClientBuilder.AddHttpMessageHandler<AuthTokenHandler>());
+    httpClientBuilder => httpClientBuilder.AddBlazorBaseCookieSessionHandlers());
 
 builder.Services.AddBlazorBaseUserManagementInputs();
 builder.Services.AddBlazorBaseUserRoleProvider<AppUserRoleProvider>();
