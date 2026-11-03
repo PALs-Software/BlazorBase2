@@ -22,7 +22,7 @@ public sealed class SessionExpiryHandlerTests
         public Task<AuthServiceLoginOutcome> LoginAsync(LoginRequest request) => throw new NotSupportedException();
         public Task<LoginResponse> LoginTwoFactorAsync(TwoFactorLoginRequest request) => throw new NotSupportedException();
         public Task<LoginResponse> RefreshAsync(string refreshToken) => throw new NotSupportedException();
-        public Task LogoutAsync(string refreshToken) => throw new NotSupportedException();
+        public Task LogoutAsync(string? refreshToken = null) => throw new NotSupportedException();
         public Task<LoginResponse?> DevelopmentLoginAsync() => throw new NotSupportedException();
         public Task ConfirmEmailAsync(ConfirmEmailRequest request) => throw new NotSupportedException();
         public Task ResendConfirmationAsync(ResendConfirmationRequest request) => throw new NotSupportedException();

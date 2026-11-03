@@ -496,7 +496,7 @@ Constructor: `AuthControllerBase<TUser>(UserManager<TUser> userManager, SignInMa
 | `POST` | `login` | anon | `LoginRequest` | `LoginResponse`, or `202 Accepted` with a `TwoFactorRequiredResponse` when the account has two-factor enabled |
 | `POST` | `login/2fa` | anon | `TwoFactorLoginRequest` | `LoginResponse` — completes a login `login` answered with `202 Accepted` |
 | `POST` | `refresh` | anon | `RefreshTokenRequest` | `LoginResponse` (atomically revokes the presented token, issues a new one) |
-| `POST` | `logout` | anon | `RefreshTokenRequest` | `NoContent` (revokes the presented refresh token's family; the token itself is the credential) |
+| `POST` | `logout` | anon | `RefreshTokenRequest?` (body optional) | `NoContent` (revokes the presented refresh token's family; the token itself is the credential; without a token it ends the cookie session only) |
 | `POST` | `development-login` | anon | — | `LoginResponse` for the configured development account — **`404` unless the Development environment has it switched on** |
 
 Behavior details:
@@ -866,7 +866,7 @@ POST /api/auth/refresh      { "refreshToken": "..." }
 401 Unauthorized   { "message": "Invalid or expired refresh token." }   (unknown, expired, or already-revoked/replayed token)
 403 Forbidden   (cookie transport only — the request failed the transport's intentionality check)
 
-POST /api/auth/logout       { "refreshToken": "..." }
+POST /api/auth/logout       { "refreshToken": "..." }   (body optional under the cookie transport)
 204 No Content   (anonymous — no Authorization header required; succeeds even with an expired access token)
 ```
 

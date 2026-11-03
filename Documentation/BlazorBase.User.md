@@ -229,7 +229,7 @@ that writes its own `MainLayout` instead **has to add it** and register the serv
 | `LoginAsync(LoginRequest)` | POST `api/auth/login` | `AuthServiceLoginOutcome` | A completed login (`Tokens`) or, when the account has two-factor authentication enabled, a pending token (`PendingToken`) to complete with `LoginTwoFactorAsync` — the server answers `202 Accepted` rather than a token pair, so the caller never receives half-authenticated tokens by mistake |
 | `LoginTwoFactorAsync(TwoFactorLoginRequest)` | POST `api/auth/login/two-factor` | `LoginResponse` | Completes a login `LoginAsync` reported as `RequiresTwoFactor` |
 | `RefreshAsync(refreshToken)` | POST `api/auth/refresh` | `LoginResponse` | Single-use rotation — the server revokes the presented token atomically; a replayed/already-used token returns `401` |
-| `LogoutAsync(refreshToken)` | POST `api/auth/logout` | — | Revokes the refresh token by its hash; anonymous endpoint, so it succeeds even if the access token has already expired |
+| `LogoutAsync(refreshToken = null)` | POST `api/auth/logout` | — | Revokes the refresh token by its hash; anonymous endpoint, so it succeeds even if the access token has already expired. Under the cookie transport pass no token: the call sends no body and the cookie is the session. Throws when the server does not answer with success |
 | `DevelopmentLoginAsync()` | POST `api/auth/development-login` | `LoginResponse?` | Signs in as the server's development account; `null` when the server does not offer it, which is every environment but Development |
 
 ### `IUserService` — `UserService`
