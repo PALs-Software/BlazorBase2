@@ -295,6 +295,9 @@ h4 {
 /* Contextual help: the popover of a field tooltip (created by js/helpTooltips.js) and the brief highlight of an anchor in the help panel. */
 .base-help-tip {
     position: fixed;
+    inset: auto;
+    margin: 0;
+    overflow: visible;
     z-index: 2000;
     box-sizing: border-box;
     max-width: min(320px, calc(100vw - 16px));
@@ -328,6 +331,10 @@ h4 {
     color: var(--color-accent);
     font-weight: 600;
     text-decoration: none;
+}
+
+.base-help-tip-link[hidden] {
+    display: none;
 }
 
 .base-help-tip-link:hover {

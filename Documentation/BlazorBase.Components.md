@@ -616,7 +616,9 @@ registered — `AddBlazorBaseHelp` does that) renders the component `HelpFieldTo
   field entries. That covers `th` of tables (also with a sort button in it), `label` elements, small label spans and
   headings of cards and tiles. Elements whose text is longer than 80 characters, text inputs, text areas and selects
   are never candidates (a value is not a label); for a focused form control the associated `label`, a slotted
-  Fluent `label`, `aria-label` or `label` attribute is used instead.
+  Fluent `label`, `aria-label` or `label` attribute is used instead. A candidate is re-evaluated whenever the pointer enters a
+  more specific element, so a label inside a short container (a short dialog, a `dl` or a row of `dt`/`dd`) is found even
+  though the container itself is a short text.
 - **Lazy loading.** The first time the pointer rests on an element with a short text, the script asks the component for the
   index of the current page once (`IHelpFieldIndex.GetForPathAsync`: the topic of the page through `IHelpTopicResolver`,
   its content through `IHelpContentSource`, the fallback topic is *not* used). It is requested again after navigation
@@ -627,7 +629,9 @@ registered — `AddBlazorBaseHelp` does that) renders the component `HelpFieldTo
   focus. It is theme-aware (`--color-*` tokens, rules in `blazorbase.css`), shows the short text and the link **More in help**
   (de: *Mehr in der Hilfe*), is linked to the element with `aria-describedby`, and hides when the pointer leaves, on scroll, resize, click and
   Escape. It never intercepts clicks, sorting or focus of the label. Touch input (`pointerType` touch) shows no tooltip.
-  The link opens the panel at the field entry (see anchors above). The popover's link is not part of the page's Tab order;
+  The popover is a manual popover (`popover="manual"`), so it is shown in the browser's top layer and appears above an open
+  modal dialog. The link opens the panel at the field entry (see anchors above); for a label inside a modal dialog the link is
+  hidden, because the page behind the dialog is inert. The popover's link is not part of the page's Tab order;
   keyboard users reach the entry through the help panel and its table of contents.
 - A label that appears twice in the field section gets one tooltip (the first entry).
 
