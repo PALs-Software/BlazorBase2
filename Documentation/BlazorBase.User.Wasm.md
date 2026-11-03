@@ -63,7 +63,9 @@ builder.Services.AddBlazorBaseUserWasm(builder.HostEnvironment.BaseAddress);
 ```
 
 `builder.HostEnvironment.BaseAddress` is the URL the WASM app was served from. `AddBlazorBaseUserWasm`
-registers `ITokenStorage`, `IAppConfigService` and `IFormFactor` as **scoped** services.
+registers `ITokenStorage` as a **singleton** and `IAppConfigService` and `IFormFactor` as scoped
+services, and calls `AddBlazorBaseUserSharedClientSession()` (see
+[One session per process](#one-session-per-process-why-the-state-is-not-scoped)).
 `ITokenStorage` defaults to `InMemoryTokenStorage` — a browser reload signs a bearer-mode user out,
 which is the correct trade-off for a browser; pass `persistTokensInBrowserStorage: true` to keep the
 token pair in `localStorage` across a reload instead, accepting that it becomes readable by any script
@@ -152,14 +154,59 @@ public static IServiceCollection AddBlazorBaseUserWasm(
     bool persistTokensInBrowserStorage = false)
 {
     if (persistTokensInBrowserStorage)
-        services.AddScoped<ITokenStorage, BrowserTokenStorage>();
+        services.AddSingleton<ITokenStorage, BrowserTokenStorage>();
     else
-        services.AddScoped<ITokenStorage, InMemoryTokenStorage>();
+        services.AddSingleton<ITokenStorage, InMemoryTokenStorage>();
+
+    services.AddBlazorBaseUserSharedClientSession();
 
     services.AddScoped<IAppConfigService>(_ => new WasmAppConfigService(hostBaseAddress));
+    services.AddScoped<IFormFactor, WasmFormFactor>();
+    services.AddScoped<SessionExpiryHandler>();
     return services;
 }
 ```
+
+`AddBlazorBaseUserWasmCookieAuth(hostBaseAddress, configureCsrf)` is the cookie-transport counterpart:
+`NoOpTokenStorage`, `CsrfHeaderHandler`, `ICsrfTokenOptions` and the same shared session state. Put
+`CsrfHeaderHandler` alone on the `IAuthService` client and `AddBlazorBaseCookieSessionHandlers()`
+(`CsrfHeaderHandler` + `SessionExpiryHandler`) on every other API client:
+
+```csharp
+builder.Services.AddHttpClient<IAuthService, AuthService>(c => c.BaseAddress = apiBase)
+    .AddHttpMessageHandler<CsrfHeaderHandler>();
+
+builder.Services.AddHttpClient<IUserService, UserService>(c => c.BaseAddress = apiBase)
+    .AddBlazorBaseCookieSessionHandlers();
+```
+
+`SessionExpiryHandler` must stay off the auth client: it depends on the authentication state provider,
+which depends on `IAuthService`, and the cycle throws on the first resolve.
+
+### One session per process: why the state is not scoped
+
+IHttpClientFactory builds every `DelegatingHandler` in a dependency injection scope of its own, never
+in the scope the components render with. Any client state registered as scoped therefore exists twice:
+once where the login page writes it, once where `AuthTokenHandler`, `CsrfHeaderHandler` and
+`SessionExpiryHandler` read it. That caused three failures before it was fixed:
+
+- bearer transport - the login saved the tokens into the components' `InMemoryTokenStorage`, the
+  handler read an empty one, and every API call was answered **401**;
+- cookie transport - the authentication state provider stored the antiforgery token in the
+  components' `CsrfTokenProvider`, `CsrfHeaderHandler` read an empty one, and every write was answered
+  **403**;
+- both - a 401 seen by `SessionExpiryHandler` invalidated a provider no component listened to, so the
+  UI kept showing a signed-in user.
+
+A WebAssembly app is one user in one process, so the WASM registrations make that state one instance
+per process: `ITokenStorage` is a singleton and `AddBlazorBaseUserSharedClientSession()` replaces the
+scoped `CsrfTokenProvider` and `AuthenticationSessionState` from `AddBlazorBaseUserClient()` with
+singletons, whichever of the two is called first. Every `BlazorBaseUserAuthStateProvider` instance
+caches the principal in that shared `AuthenticationSessionState` and raises
+`AuthenticationStateChanged` whenever any of them signs in, refreshes or drops to anonymous.
+`HandlerScopeSessionTests` drives both transports through a real IHttpClientFactory to pin this.
+Never call `AddBlazorBaseUserSharedClientSession()` in a server-rendered host, where one process
+serves every user.
 
 ---
 

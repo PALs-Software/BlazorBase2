@@ -84,7 +84,11 @@ builder.Services.AddBlazorBaseUserClient();
 
 This registers:
 - `BlazorBaseUserAuthStateProvider` as the `AuthenticationStateProvider`
-- `AuthTokenHandler` (DelegatingHandler) as scoped
+- `CsrfTokenProvider` and `AuthenticationSessionState` as scoped (`TryAdd`); the WebAssembly and MAUI
+  registrations replace both with one instance per process through
+  `AddBlazorBaseUserSharedClientSession()`, because IHttpClientFactory resolves message handlers in
+  scopes of their own (see [BlazorBase.User.Wasm](BlazorBase.User.Wasm.md#one-session-per-process-why-the-state-is-not-scoped))
+- `AuthTokenHandler` and `SessionExpiryHandler` (DelegatingHandlers) as scoped
 - `ILanguageService` → `LanguageService`
 - `IThemeService` → `ThemeService`
 - `IThemePreferenceSync` → `UserThemePreferenceSync` (stores the theme choice of a signed-in user via `PUT api/user/me/settings`; fails soft when offline)
@@ -160,6 +164,12 @@ side and its guards are described under
 It signs in on every start rather than reusing a stored token, because a token minted before the
 roles changed in configuration would keep the old ones and quietly defeat the point of switching
 them.
+
+It works under both transports. Under the cookie transport the development login is a POST like any
+other and needs the antiforgery token, which nothing has fetched that early, so the call reads an
+anonymous session first. The sign-in itself goes through
+`BlazorBaseUserAuthStateProvider.MarkUserAsAuthenticated`, exactly like the login page, which also
+swaps the anonymous antiforgery token for one bound to the new identity.
 
 ### 6. Wire the pages
 
@@ -326,8 +336,14 @@ valid:
 
 ### `BlazorBaseUserAuthStateProvider` (AuthenticationStateProvider)
 
-- Reads `AccessToken` from `ITokenStorage` and parses JWT claims via `JwtSecurityTokenHandler`.
-- Exposes `MarkUserAsAuthenticated(LoginResponse)` and `MarkUserAsLoggedOut()` for the login/logout flows.
+- Reads the claims from `GET /api/auth/session` (passing the stored access token under the bearer
+  transport) and stores the antiforgery token from that answer in `CsrfTokenProvider`.
+- Caches the principal in `AuthenticationSessionState` until the next sign-in or sign-out. Every
+  provider instance resolving the same state raises `AuthenticationStateChanged` when any of them
+  changes it, so a 401 handled by `SessionExpiryHandler` in an IHttpClientFactory handler scope still
+  drops the UI to the login screen.
+- Exposes `MarkUserAsAuthenticated(LoginResponse)`, `MarkUserAsLoggedOut()` and `InvalidateAsync()` for
+  the login/logout flows.
 
 ### Pages & Views
 

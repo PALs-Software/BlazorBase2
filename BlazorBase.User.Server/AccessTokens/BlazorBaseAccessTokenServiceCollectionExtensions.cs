@@ -1,6 +1,7 @@
 using BlazorBase.User.Server.AccessTokens.BruteForce;
 using BlazorBase.User.Server.AccessTokens.Caching;
 using BlazorBase.User.Server.AccessTokens.Generation;
+using BlazorBase.User.Server.Entities;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -60,4 +61,20 @@ public static class BlazorBaseAccessTokenServiceCollectionExtensions
         services.AddScoped<IAccessTokenClaimsAugmentor, TAugmentor>();
         return services;
     }
+
+    /// <summary>
+    /// Opts into <see cref="AccessTokenOwnerRoleClaimsAugmentor{TUser}"/>: the principal of a token
+    /// with an owner carries that owner's current roles as <see cref="System.Security.Claims.ClaimTypes.Role"/>
+    /// claims, so <c>RequireAuthorization</c> with roles works for access tokens as it does for sessions.
+    /// </summary>
+    /// <remarks>
+    /// Not the default. Without it a token principal carries only the token id, its name and the owner
+    /// id, which keeps a machine token from inheriting more than an endpoint grants it explicitly. Opt in
+    /// when a token is meant to act with its owner's rights; the roles are read on every request, so
+    /// demoting the owner limits the token at once. Requires the Identity <c>UserManager&lt;TUser&gt;</c>
+    /// with role support, which <c>AddBlazorBaseUserServer</c> registers.
+    /// </remarks>
+    public static IServiceCollection AddAccessTokenOwnerRoleClaims<TUser>(this IServiceCollection services)
+        where TUser : BaseUser =>
+        services.AddAccessTokenClaimsAugmentor<AccessTokenOwnerRoleClaimsAugmentor<TUser>>();
 }

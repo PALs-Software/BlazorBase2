@@ -63,7 +63,7 @@ builder.Services.AddBlazorBaseUserClient();
 builder.Services.AddBlazorBaseUserMaui();
 ```
 
-`AddBlazorBaseUserMaui` registers `ITokenStorage`, `IAppConfigService` and `IFormFactor` as **singletons** — consistent with MAUI's long-lived app lifetime.
+`AddBlazorBaseUserMaui` registers `ITokenStorage`, `IAppConfigService` and `IFormFactor` as **singletons** — consistent with MAUI's long-lived app lifetime — and calls `AddBlazorBaseUserSharedClientSession()`, so the authentication state and the antiforgery token are shared with the message handlers IHttpClientFactory resolves in scopes of their own (see [BlazorBase.User.Wasm](BlazorBase.User.Wasm.md#one-session-per-process-why-the-state-is-not-scoped)).
 
 ### 3. Wire HTTP clients dynamically based on the configured URL
 
@@ -171,6 +171,7 @@ public static IServiceCollection AddBlazorBaseUserMaui(this IServiceCollection s
     services.AddSingleton<ITokenStorage, SecureTokenStorage>();
     services.AddSingleton<IAppConfigService, MauiAppConfigService>();
     services.AddSingleton<IFormFactor, MauiFormFactor>();
+    services.AddBlazorBaseUserSharedClientSession();
     return services;
 }
 ```

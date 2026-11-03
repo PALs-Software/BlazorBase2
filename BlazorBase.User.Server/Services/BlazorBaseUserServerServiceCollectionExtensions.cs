@@ -242,10 +242,13 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
     /// or <see cref="ForwardedHeadersOptions.KnownProxies"/> entry when configuration supplies neither:
     /// an unrestricted trust list lets any caller supply its own <c>X-Forwarded-For</c> value and pick
     /// its own rate-limit partition, which is worse than today's single shared bucket, because the
-    /// attacker - not the network topology - would then choose the key. With nothing configured, this
-    /// method still registers <see cref="ForwardedHeadersOptions"/>, but with no trusted proxy or
-    /// network, so <see cref="ForwardedHeadersMiddleware"/> forwards nothing and
-    /// <c>RemoteIpAddress</c> stays exactly what it was before this method existed.
+    /// attacker - not the network topology - would then choose the key.
+    ///
+    /// The configured entries are added to ASP.NET Core's defaults, which trust loopback
+    /// (<c>127.0.0.0/8</c> and <c>::1</c>), rather than replacing them. With nothing configured, forwarded
+    /// headers are therefore still honored from a proxy on the same machine and ignored from every other
+    /// caller; loopback stays trusted after configuration too. Only processes on the host itself can
+    /// reach the application from loopback, so this widens nothing an attacker could use from outside.
     /// </remarks>
     public static IServiceCollection AddBlazorBaseForwardedHeaders(
         this IServiceCollection services,
