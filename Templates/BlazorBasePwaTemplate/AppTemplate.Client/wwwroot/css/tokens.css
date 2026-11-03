@@ -2,7 +2,11 @@
   Tokens specific to this application's shell. The colour, spacing, radius and type scales come from
   BlazorBase, linked before this file — override any of those here to give the app its own look:
 
-      :root { --color-accent: #6D28D9; --color-bg-selected: #6D28D914; }
+      :root { --color-accent: #6D28D9; --color-accent-fill: #6D28D9; --color-accent-fill-hover: #5B21B6;
+              --color-accent-fill-pressed: #4C1D95; --color-text-on-accent: #FFFFFF; --color-bg-selected: #6D28D914; }
+
+  --color-accent colours links, focus rings and icons; the --color-accent-fill set colours the surfaces that
+  carry --color-text-on-accent (buttons, badges, selected rows) and must keep a 4.5:1 label contrast.
 */
 
 :root {

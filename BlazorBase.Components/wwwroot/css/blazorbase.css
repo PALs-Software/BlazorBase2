@@ -11,7 +11,8 @@
    query (guarded so an explicit light choice still beats a dark OS) and once behind the stamp.
 
    Customising: override the tokens in a stylesheet linked after this one. Swapping the brand colour
-   takes two of them, --color-accent and --color-bg-selected; everything else is neutral scaffolding.
+   takes --color-accent and --color-bg-selected, plus the fill set (--color-accent-fill, -hover, -pressed and
+   --color-text-on-accent) when filled controls should follow; everything else is neutral scaffolding.
 
    The Fluent UI components are painted from the same tokens: blazorbase-fluent-bridge.css, imported below,
    maps them onto the Fluent 2 tokens, so nothing else in an application ever names a Fluent token.
@@ -35,7 +36,21 @@
     --color-text-muted: #616B6C;
 
     --color-accent: #0F766E;
-    --color-text-on-accent: #FFFFFF;
+
+    /*
+       The accent as a surface a label sits on: primary buttons, selected rows, badges, chat bubbles. It is a
+       separate token because the colour that reads best as a link, focus ring or icon on the page is not the
+       colour that carries text best as a fill. --color-text-on-accent is the label colour for these fills
+       and nothing else; paint it on --color-accent-fill (or its hover/pressed variant), never on --color-accent.
+       Light theme: black text on a bright teal (10.2:1 rest, 7.7:1 hover, 5.1:1 pressed).
+       Dark theme: white text on a deep teal (5.5:1 rest, 7.6:1 hover, 9.5:1 pressed), because the dark theme
+       does not put black text on a coloured fill.
+       A host that swaps --color-accent for its own brand colour overrides these four tokens as well.
+    */
+    --color-accent-fill: #2DD4BF;
+    --color-accent-fill-hover: #14B8A6;
+    --color-accent-fill-pressed: #0D9488;
+    --color-text-on-accent: #07100F;
 
     /*
        The accent in the roles an accent has besides a fill. They follow --color-accent and the text colour
@@ -147,7 +162,10 @@
         --color-text-muted: #8A9494;
 
         --color-accent: #2DD4BF;
-        --color-text-on-accent: #07100F;
+        --color-accent-fill: #0F766E;
+        --color-accent-fill-hover: #115E59;
+        --color-accent-fill-pressed: #134E4A;
+        --color-text-on-accent: #FFFFFF;
 
         --color-neutral-base: #848686;
 
@@ -177,7 +195,10 @@
     --color-text-muted: #8A9494;
 
     --color-accent: #2DD4BF;
-    --color-text-on-accent: #07100F;
+    --color-accent-fill: #0F766E;
+    --color-accent-fill-hover: #115E59;
+    --color-accent-fill-pressed: #134E4A;
+    --color-text-on-accent: #FFFFFF;
 
     --color-neutral-base: #848686;
 

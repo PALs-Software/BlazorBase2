@@ -184,16 +184,16 @@ body {
     --colorStrokeFocus1: var(--color-bg-elevated);
     --colorStrokeFocus2: var(--color-border-focus);
 
-    --colorBrandBackground: var(--color-accent);
-    --colorBrandBackgroundHover: var(--color-accent-hover);
-    --colorBrandBackgroundPressed: var(--color-accent-pressed);
-    --colorBrandBackgroundSelected: var(--color-accent-pressed);
-    --colorBrandBackgroundStatic: var(--color-accent);
+    --colorBrandBackground: var(--color-accent-fill);
+    --colorBrandBackgroundHover: var(--color-accent-fill-hover);
+    --colorBrandBackgroundPressed: var(--color-accent-fill-pressed);
+    --colorBrandBackgroundSelected: var(--color-accent-fill-pressed);
+    --colorBrandBackgroundStatic: var(--color-accent-fill);
     --colorBrandBackground2: var(--color-accent-subtle);
     --colorBrandBackground2Hover: color-mix(in srgb, var(--color-accent) 20%, var(--color-bg-elevated));
     --colorBrandBackground2Pressed: color-mix(in srgb, var(--color-accent) 26%, var(--color-bg-elevated));
-    --colorBrandBackground3Static: var(--color-accent);
-    --colorBrandBackground4Static: var(--color-accent-pressed);
+    --colorBrandBackground3Static: var(--color-accent-fill);
+    --colorBrandBackground4Static: var(--color-accent-fill-pressed);
     --colorBrandForeground1: var(--color-accent-text);
     --colorBrandForeground2: var(--color-accent-text);
     --colorBrandForeground2Hover: var(--color-accent-text);
@@ -206,9 +206,9 @@ body {
     --colorBrandStroke2: color-mix(in srgb, var(--color-accent) 40%, var(--color-bg-elevated));
     --colorBrandStroke2Hover: color-mix(in srgb, var(--color-accent) 55%, var(--color-bg-elevated));
     --colorBrandStroke2Pressed: color-mix(in srgb, var(--color-accent) 70%, var(--color-bg-elevated));
-    --colorCompoundBrandBackground: var(--color-accent);
-    --colorCompoundBrandBackgroundHover: var(--color-accent-hover);
-    --colorCompoundBrandBackgroundPressed: var(--color-accent-pressed);
+    --colorCompoundBrandBackground: var(--color-accent-fill);
+    --colorCompoundBrandBackgroundHover: var(--color-accent-fill-hover);
+    --colorCompoundBrandBackgroundPressed: var(--color-accent-fill-pressed);
     --colorCompoundBrandForeground1: var(--color-accent-text);
     --colorCompoundBrandForeground1Hover: color-mix(in srgb, var(--color-accent-text) 85%, var(--color-text-primary));
     --colorCompoundBrandForeground1Pressed: color-mix(in srgb, var(--color-accent-text) 70%, var(--color-text-primary));

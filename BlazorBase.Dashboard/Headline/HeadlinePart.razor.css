@@ -12,8 +12,8 @@
     border-top: 4px solid var(--color-accent);
     border-radius: var(--radius-md);
     font-family: var(--font-base);
-    --hl-primary-fill: var(--color-accent);
-    --hl-primary-fill-hover: var(--color-accent-hover);
+    --hl-primary-fill: var(--color-accent-fill);
+    --hl-primary-fill-hover: var(--color-accent-fill-hover);
     --hl-primary-text: var(--color-text-on-accent);
 }
 
