@@ -341,8 +341,20 @@ and `::1`); they do not replace them. So:
   ignored — an empty list does not mean "forward nothing".
 - With entries configured, those proxies are trusted **in addition to** loopback.
 
-Only processes on the host itself reach the application over loopback, so this gives nothing to a
-caller outside the machine. A proxy on another machine or container must be listed. A host that
+Trusting loopback is safe only when whatever forwards traffic to the application on the same machine
+sets or appends `X-Forwarded-For` and `X-Forwarded-Proto` itself. A reverse proxy such as nginx, IIS
+or YARP does: with the default `ForwardLimit` of 1 the middleware takes the last `X-Forwarded-For`
+entry, which that proxy wrote from the peer address, so the application sees the real client.
+
+A forwarder that passes the bytes through unchanged does not. An `ssh -R` tunnel, or any other
+TCP-level tunnel or port forward, delivers the caller's own headers intact over a loopback connection,
+and they are trusted. The caller then chooses the address the application sees, and with it its
+rate-limit partition and its brute-force bucket, and can claim any scheme. In such a deployment either
+do not call `app.UseForwardedHeaders()`, so every caller shares the loopback address and one bucket,
+which is coarse but cannot be chosen by the caller, or put an HTTP reverse proxy that writes the
+headers between the tunnel and the application.
+
+A proxy on another machine or container must be listed. A host that
 forgets to call this at all behind a real proxy is warned at startup rather than left silently
 partitioning every client into the same bucket; that warning also appears for a same-machine proxy,
 where configuring its address simply makes the trust explicit.

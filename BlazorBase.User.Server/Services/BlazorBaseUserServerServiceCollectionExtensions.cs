@@ -247,8 +247,14 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
     /// The configured entries are added to ASP.NET Core's defaults, which trust loopback
     /// (<c>127.0.0.0/8</c> and <c>::1</c>), rather than replacing them. With nothing configured, forwarded
     /// headers are therefore still honored from a proxy on the same machine and ignored from every other
-    /// caller; loopback stays trusted after configuration too. Only processes on the host itself can
-    /// reach the application from loopback, so this widens nothing an attacker could use from outside.
+    /// caller; loopback stays trusted after configuration too. That is safe only when whatever forwards
+    /// traffic on the same machine sets or appends <c>X-Forwarded-For</c> and <c>X-Forwarded-Proto</c>
+    /// itself, as a reverse proxy such as nginx, IIS or YARP does. A forwarder that passes the bytes
+    /// through unchanged, such as an <c>ssh -R</c> tunnel or another TCP-level port forward, delivers the
+    /// caller's own headers intact, so the caller then chooses the address the application sees, its
+    /// rate-limit partition and brute-force bucket, and the scheme. In that deployment do not call
+    /// <c>app.UseForwardedHeaders()</c>, or put an HTTP reverse proxy that writes the headers in front of
+    /// the application; the AuthTransports documentation describes both.
     /// </remarks>
     public static IServiceCollection AddBlazorBaseForwardedHeaders(
         this IServiceCollection services,

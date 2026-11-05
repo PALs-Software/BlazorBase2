@@ -702,7 +702,10 @@ decisions involved carry real security trade-offs that deserve more room than a 
   reverse proxy or load balancer: the `"BlazorBaseAuth"` rate limiter and the access-token brute-force
   delay both key on the connection's remote address, which is the proxy's own address, identical for
   every client, until forwarded headers are processed. Loopback stays trusted by ASP.NET Core's
-  defaults whatever is configured, so a proxy on the same machine works without configuration.
+  defaults whatever is configured, so a reverse proxy on the same machine that writes
+  `X-Forwarded-For` itself works without configuration. A tunnel or port forward that passes the
+  caller's headers through unchanged does not qualify; see the forwarded headers section of
+  [Authentication token transports](BlazorBase.User.Server.AuthTransports.md).
 
 See [Authentication token transports](BlazorBase.User.Server.AuthTransports.md) for the full decision
 guide, the wiring for each transport, the CSRF checklist, and the external sign-in entry points
