@@ -330,6 +330,26 @@ valid:
   the original request fail, because otherwise a phone moving between wifi and mobile data loses its
   login for no reason.
 
+**Who handles a 401 under the bearer transport.** When `AuthTokenHandler` and `SessionExpiryHandler` are
+chained on the same client, exactly one of them answers a 401, and the chaining order does not matter.
+`AuthTokenHandler` marks every request it will recover itself - it holds a refresh token and the request is
+not an auth endpoint - through an internal request option, and `SessionExpiryHandler` leaves the 401 of a
+marked request alone:
+
+- a 401 recovered by the refresh never announces an anonymous user to the components;
+- a refresh the server rejects (`401`/`403`) still signs the user out, through `AuthTokenHandler`;
+- a 401 on a request without a held refresh token, or on an auth endpoint, is dropped to anonymous by
+  `SessionExpiryHandler` as before;
+- under the cookie transport `AuthTokenHandler` is not chained, nothing is marked, and
+  `SessionExpiryHandler` behaves exactly as before.
+
+Two behavior changes follow from this and are intended:
+
+- A refresh that fails for network reasons keeps the session and the stored tokens. `SessionExpiryHandler`
+  chained next to the handler used to clear the tokens before the refresh ran.
+- A retry that still answers `401` after a successful refresh leaves the user signed in. A freshly issued
+  token being refused points at the endpoint (another scheme, a misconfiguration), not at the session.
+
 > **Still open:** the gate is per Blazor runtime, so two browser tabs of the same app can in principle
 > still refresh at the same moment and trip the reuse detection. Closing that needs a cross-tab lock
 > (Web Locks) rather than a process-wide semaphore.

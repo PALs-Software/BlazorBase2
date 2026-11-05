@@ -208,6 +208,13 @@ caches the principal in that shared `AuthenticationSessionState` and raises
 Never call `AddBlazorBaseUserSharedClientSession()` in a server-rendered host, where one process
 serves every user.
 
+Under the bearer transport `SessionExpiryHandler` may be added next to `AuthTokenHandler` on an API
+client, in either order. It then handles only the 401 that `AuthTokenHandler` cannot recover - a request
+sent without a refresh token, or to an auth endpoint - and drops the shared session to anonymous for it.
+A 401 that `AuthTokenHandler` recovers by refreshing is never announced as anonymous, and a refresh that
+fails for network reasons keeps the stored tokens; only a refresh the server rejects signs the user out,
+and `AuthTokenHandler` does that itself.
+
 ---
 
 ## Code Examples
