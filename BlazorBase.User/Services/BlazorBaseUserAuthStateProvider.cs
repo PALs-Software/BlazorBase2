@@ -10,7 +10,9 @@ namespace BlazorBase.User.Services;
 /// <remarks>
 /// Access tokens are opaque Identity bearer tokens the client cannot decode, so the claims always
 /// come from <c>GET /api/auth/session</c> — <see cref="ITokenStorage"/> only decides whether a bearer
-/// header is attached to that call. The result is cached until the next sign-in or sign-out. This is a
+/// header is attached to that call. The result is cached until the next sign-in or sign-out; a sign-out
+/// or an expired session caches an anonymous principal without asking the server, and replaces the
+/// antiforgery token with an anonymous one when a token was held, so the login form keeps working. This is a
 /// display concern — which menu entries to render, which route to guard — and never the authorization
 /// decision: the server re-checks every request regardless of what the client believes about itself.
 ///
@@ -101,16 +103,49 @@ public class BlazorBaseUserAuthStateProvider : AuthenticationStateProvider, IDis
     public virtual Task MarkUserAsLoggedOut() => InvalidateAsync();
 
     /// <summary>
-    /// Drops the cached session and reports the caller as anonymous without asking the server again.
-    /// Called after an explicit logout, and by <see cref="SessionExpiryHandler"/> when the API answers
-    /// 401 — a cached "signed in" principal next to every request being refused is a dead end the UI
-    /// can only show as a broken app, so the state has to drop to the login screen instead.
+    /// Drops the cached session and reports the caller as anonymous without taking the principal from
+    /// the server. Called after an explicit logout, and by <see cref="SessionExpiryHandler"/> when the
+    /// API answers 401 — a cached "signed in" principal next to every request being refused is a dead
+    /// end the UI can only show as a broken app, so the state has to drop to the login screen instead.
     /// </summary>
+    /// <remarks>
+    /// When an antiforgery token was held (the cookie transport), it is replaced by the anonymous one
+    /// the session endpoint hands out, because the held token is bound to the identity that just ended
+    /// and the login request is a write that the server refuses without a valid token. Nothing else
+    /// reads the session again once the anonymous principal is cached, so without this the login form
+    /// could not succeed before a page reload. A host that signs out has to call the server-side logout
+    /// first and this method afterwards: the replacement token is minted for the identity of the
+    /// request that fetches it, and it only validates once the session cookie is gone. With no
+    /// antiforgery token held (the bearer transport, MAUI) the server is not asked at all. The
+    /// anonymous principal is announced even when the session read throws; the exception still
+    /// propagates, and no antiforgery token is held afterwards.
+    /// </remarks>
     public async Task InvalidateAsync()
     {
         await TokenStorage.ClearTokensAsync();
+
+        try
+        {
+            await ReplaceAntiforgeryTokenAsync();
+        }
+        finally
+        {
+            SessionState.Announce(new ClaimsPrincipal(new ClaimsIdentity()));
+        }
+    }
+
+    /// <summary>
+    /// Clears the held antiforgery token before asking for a new one, so a failed read never leaves the
+    /// stale, identity-bound token behind. Does nothing when no token is held.
+    /// </summary>
+    private async Task ReplaceAntiforgeryTokenAsync()
+    {
+        if (CsrfTokenProvider.Token is null)
+            return;
+
         CsrfTokenProvider.Clear();
-        SessionState.Announce(new ClaimsPrincipal(new ClaimsIdentity()));
+        var session = await AuthService.GetSessionAsync();
+        CsrfTokenProvider.Set(session.CsrfToken);
     }
 
     private void OnSessionChanged(ClaimsPrincipal principal) =>

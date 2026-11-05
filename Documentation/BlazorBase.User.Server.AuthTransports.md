@@ -250,7 +250,12 @@ That swaps three things for you:
   `BrowserRequestCredentials.Include` so the browser sends the cookies.
 
 The antiforgery token is bound to the identity of the request that minted it, so the client must
-re-read the session after signing in.
+re-read the session after signing in. The counterpart holds for signing out and for an expired session:
+`BlazorBaseUserAuthStateProvider.InvalidateAsync()` (run by `MarkUserAsLoggedOut()` and by
+`SessionExpiryHandler` on a 401) replaces the held token with an anonymous one read from the session
+endpoint, so the next login request is accepted without a page reload. A host that signs out must call
+the server-side logout first and `MarkUserAsLoggedOut()` afterwards; read before the logout, the
+replacement token would still be bound to the signed-in identity and be refused once the cookie is gone.
 
 Register the handler on **every** typed client that talks to the API. The framework cannot know which
 of a host's clients those are, and one that is missed rejects every write with a 403.

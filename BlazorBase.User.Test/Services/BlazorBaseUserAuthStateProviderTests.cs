@@ -15,15 +15,33 @@ public sealed class BlazorBaseUserAuthStateProviderTests
 {
     private sealed class StubAuthService(AuthSessionResponse session) : IAuthService
     {
+        #region Injects
+        private readonly AuthSessionResponse FirstSession = session;
+        #endregion
+
         public int SessionCallCount { get; private set; }
 
         public string? LastAccessToken { get; private set; }
+
+        public List<string?> AccessTokens { get; } = [];
+
+        public Queue<AuthSessionResponse> FollowingSessions { get; } = new();
+
+        public Exception? FailureAfterFirstCall { get; init; }
 
         public Task<AuthSessionResponse> GetSessionAsync(string? accessToken = null)
         {
             SessionCallCount++;
             LastAccessToken = accessToken;
-            return Task.FromResult(session);
+            AccessTokens.Add(accessToken);
+
+            if (SessionCallCount == 1)
+                return Task.FromResult(FirstSession);
+
+            if (FailureAfterFirstCall is not null)
+                throw FailureAfterFirstCall;
+
+            return Task.FromResult(FollowingSessions.Count > 0 ? FollowingSessions.Dequeue() : FirstSession);
         }
 
         public Task<AuthStatusResponse> GetStatusAsync() => throw new NotSupportedException();
@@ -43,9 +61,10 @@ public sealed class BlazorBaseUserAuthStateProviderTests
         public Task<TwoFactorRecoveryCodesResponse> RegenerateRecoveryCodesAsync(TwoFactorVerificationRequest request) => throw new NotSupportedException();
     }
 
-    private static AuthSessionResponse AuthenticatedSession() => new()
+    private static AuthSessionResponse AuthenticatedSession(string csrfToken = "") => new()
     {
         IsAuthenticated = true,
+        CsrfToken = csrfToken,
         Claims =
         [
             new AuthSessionClaim(ClaimTypes.NameIdentifier, "user-1"),
@@ -202,5 +221,53 @@ public sealed class BlazorBaseUserAuthStateProviderTests
 
         Assert.False(state.User.Identity?.IsAuthenticated);
         Assert.Equal(1, authService.SessionCallCount);
+    }
+
+    /// <summary>
+    /// The held token is bound to the identity that just ended, and nothing reads the session again
+    /// once the anonymous principal is cached, so the login request would otherwise go out without a
+    /// valid token.
+    /// </summary>
+    [Fact]
+    public async Task Invalidate_replaces_a_held_antiforgery_token_with_an_anonymous_one()
+    {
+        var authService = new StubAuthService(AuthenticatedSession("bound-token"));
+        authService.FollowingSessions.Enqueue(new AuthSessionResponse { CsrfToken = "anonymous-token" });
+        var tokenStorage = new InMemoryTestTokenStorage();
+        await tokenStorage.SaveTokensAsync(new LoginResponse { AccessToken = "stored-access-token" });
+        var csrfTokenProvider = new CsrfTokenProvider();
+        var provider = new BlazorBaseUserAuthStateProvider(tokenStorage, authService, csrfTokenProvider);
+        await provider.GetAuthenticationStateAsync();
+
+        await provider.InvalidateAsync();
+        var state = await provider.GetAuthenticationStateAsync();
+
+        Assert.Equal("anonymous-token", csrfTokenProvider.Token);
+        Assert.False(state.User.Identity?.IsAuthenticated);
+        Assert.Equal(2, authService.SessionCallCount);
+        Assert.Equal(["stored-access-token", null], authService.AccessTokens);
+    }
+
+    /// <summary>
+    /// A failed read must neither keep the stale token nor keep the UI signed in; the failure itself
+    /// still reaches the caller.
+    /// </summary>
+    [Fact]
+    public async Task Invalidate_announces_anonymous_and_holds_no_token_when_the_session_read_fails()
+    {
+        var authService = new StubAuthService(AuthenticatedSession("bound-token"))
+        {
+            FailureAfterFirstCall = new InvalidOperationException("session endpoint not mapped"),
+        };
+        var csrfTokenProvider = new CsrfTokenProvider();
+        var provider = new BlazorBaseUserAuthStateProvider(new NoOpTokenStorage(), authService, csrfTokenProvider);
+        await provider.GetAuthenticationStateAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(provider.InvalidateAsync);
+        var state = await provider.GetAuthenticationStateAsync();
+
+        Assert.False(state.User.Identity?.IsAuthenticated);
+        Assert.Null(csrfTokenProvider.Token);
+        Assert.Equal(2, authService.SessionCallCount);
     }
 }

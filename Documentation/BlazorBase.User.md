@@ -344,6 +344,16 @@ valid:
   drops the UI to the login screen.
 - Exposes `MarkUserAsAuthenticated(LoginResponse)`, `MarkUserAsLoggedOut()` and `InvalidateAsync()` for
   the login/logout flows.
+- `InvalidateAsync()` (also what `MarkUserAsLoggedOut()` and a 401 seen by `SessionExpiryHandler` run)
+  clears the stored tokens and caches an anonymous principal without taking anything from the server's
+  answer. Under the cookie transport, where an antiforgery token is held, it also replaces that token with
+  an anonymous one read from `GET /api/auth/session`, so the login form keeps working without a page
+  reload; the anonymous principal is announced even when that read throws, and no stale token is kept.
+  Without a held token (bearer transport, MAUI) the server is not asked.
+- A host that signs out under the cookie transport must call the server-side logout first and
+  `MarkUserAsLoggedOut()` afterwards. The antiforgery token is bound to the identity of the request that
+  minted it, so a replacement fetched while the session cookie still identifies the user no longer
+  validates once the cookie is gone.
 
 ### Pages & Views
 

@@ -35,6 +35,10 @@ public sealed class HandlerScopeSessionTests
 
         public List<HttpRequestMessage> DataRequests { get; } = [];
 
+        public List<HttpRequestMessage> LoginRequests { get; } = [];
+
+        public void EndSession() => SignedIn = false;
+
         public HttpResponseMessage Respond(HttpRequestMessage request)
         {
             var path = request.RequestUri!.AbsolutePath;
@@ -48,8 +52,17 @@ public sealed class HandlerScopeSessionTests
             if (path == "/api/auth/development-login")
                 return DevelopmentLogin(request);
 
+            if (path == "/api/auth/login")
+                return Login(request);
+
             DataRequests.Add(request);
             return new HttpResponseMessage(DataStatusCode);
+        }
+
+        private HttpResponseMessage Login(HttpRequestMessage request)
+        {
+            LoginRequests.Add(request);
+            return DevelopmentLogin(request);
         }
 
         private HttpResponseMessage DevelopmentLogin(HttpRequestMessage request)
@@ -235,5 +248,29 @@ public sealed class HandlerScopeSessionTests
         Assert.NotNull(announced);
         Assert.False((await announced).User.Identity?.IsAuthenticated);
         Assert.False(afterwards.User.Identity?.IsAuthenticated);
+    }
+
+    /// <summary>
+    /// The login request is a write that the server refuses without an antiforgery token, and once the
+    /// anonymous principal is cached nothing else reads the session again. The invalidation has to
+    /// leave the anonymous token behind, or the login form cannot succeed before a page reload.
+    /// </summary>
+    [Fact]
+    public async Task Cookie_a_login_after_the_session_ended_carries_the_anonymous_token()
+    {
+        var api = new FakeApi { CookieTransport = true };
+        await using var provider = BuildCookieClient(api);
+        await using var appScope = provider.CreateAsyncScope();
+        await appScope.ServiceProvider.UseBlazorBaseDevelopmentSessionAsync();
+        await appScope.ServiceProvider.GetRequiredService<AuthenticationStateProvider>().GetAuthenticationStateAsync();
+
+        api.EndSession();
+        api.DataStatusCode = HttpStatusCode.Unauthorized;
+        using var expired = await CreateApiClient(appScope.ServiceProvider).GetAsync("api/data");
+        await appScope.ServiceProvider.GetRequiredService<IAuthService>()
+            .LoginAsync(new LoginRequest { Email = "ada@example.test", Password = "secret" });
+
+        Assert.True(HasHeader(Assert.Single(api.LoginRequests), "X-CSRF-TOKEN", AnonymousCsrfToken));
+        Assert.True(api.SignedIn);
     }
 }
