@@ -87,7 +87,12 @@ This registers:
 - `CsrfTokenProvider` and `AuthenticationSessionState` as scoped (`TryAdd`); the WebAssembly and MAUI
   registrations replace both with one instance per process through
   `AddBlazorBaseUserSharedClientSession()`, because IHttpClientFactory resolves message handlers in
-  scopes of their own (see [BlazorBase.User.Wasm](BlazorBase.User.Wasm.md#one-session-per-process-why-the-state-is-not-scoped))
+  scopes of their own (see [BlazorBase.User.Wasm](BlazorBase.User.Wasm.md#one-session-per-process-why-the-state-is-not-scoped)).
+  The shared session refuses to run in an ASP.NET Core server process, recognized by
+  `Microsoft.AspNetCore.Hosting.Server.IServer` being registered in the container: the host fails to
+  start and the shared instances cannot be constructed. There is no opt-out. A server-rendered host
+  calls `AddBlazorBaseUserClient()` alone, which keeps the state scoped, and registers a scoped
+  `ITokenStorage` of its own
 - `AuthTokenHandler` and `SessionExpiryHandler` (DelegatingHandlers) as scoped
 - `ILanguageService` → `LanguageService`
 - `IThemeService` → `ThemeService`

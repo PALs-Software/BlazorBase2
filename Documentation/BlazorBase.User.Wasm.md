@@ -205,8 +205,17 @@ singletons, whichever of the two is called first. Every `BlazorBaseUserAuthState
 caches the principal in that shared `AuthenticationSessionState` and raises
 `AuthenticationStateChanged` whenever any of them signs in, refreshes or drops to anonymous.
 `HandlerScopeSessionTests` drives both transports through a real IHttpClientFactory to pin this.
-Never call `AddBlazorBaseUserSharedClientSession()` in a server-rendered host, where one process
-serves every user.
+
+`AddBlazorBaseUserSharedClientSession()` refuses to run in a process that hosts an ASP.NET Core server,
+where one process serves every user and the singletons would put all of them into one session. Two
+checks share one rule (the container has `Microsoft.AspNetCore.Hosting.Server.IServer` registered):
+the host does not start, because a hosted service registered by the call throws an
+`InvalidOperationException` from `StartAsync`; and the shared `CsrfTokenProvider` and
+`AuthenticationSessionState` cannot be constructed, because both are created through factories that
+run the same check. WebAssembly and MAUI never start hosted services and have no server registered, so
+nothing changes there. There is no opt-out: a desktop application that embeds a local Kestrel is
+treated as a server too. A server-rendered host calls `AddBlazorBaseUserClient()` alone and registers
+a scoped `ITokenStorage` of its own.
 
 Under the bearer transport `SessionExpiryHandler` may be added next to `AuthTokenHandler` on an API
 client, in either order. It then handles only the 401 that `AuthTokenHandler` cannot recover - a request

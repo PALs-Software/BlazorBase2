@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Services;
@@ -64,13 +65,24 @@ public static class BlazorBaseUserServiceCollectionExtensions
     /// set (every write answered 403), and a 401 seen by <see cref="SessionExpiryHandler"/> invalidated a
     /// provider no component listened to. Correct only where one process serves one user, which is why
     /// the WebAssembly and MAUI registrations call this and <see cref="AddBlazorBaseUserClient"/> does
-    /// not. Never call it in a server-rendered host, where it would share one user's session with every
-    /// other. Safe to call before or after <see cref="AddBlazorBaseUserClient"/>.
+    /// not. In a process that hosts an ASP.NET Core server it would share one user's session with every
+    /// other, so it refuses to run there: the registered hosted service throws from <c>StartAsync</c>, which
+    /// keeps the host from starting, and both instances are created through factories that throw the same
+    /// <see cref="InvalidOperationException"/>. There is no opt-out. A server-rendered host calls
+    /// <see cref="AddBlazorBaseUserClient"/> alone and registers a scoped <see cref="ITokenStorage"/>.
+    /// Safe to call before or after <see cref="AddBlazorBaseUserClient"/>, and more than once.
     /// </remarks>
     public static IServiceCollection AddBlazorBaseUserSharedClientSession(this IServiceCollection services)
     {
-        services.Replace(ServiceDescriptor.Singleton<CsrfTokenProvider, CsrfTokenProvider>());
-        services.Replace(ServiceDescriptor.Singleton<AuthenticationSessionState, AuthenticationSessionState>());
+        services.Replace(ServiceDescriptor.Singleton(serviceProvider => CreateGuarded<CsrfTokenProvider>(serviceProvider, static () => new CsrfTokenProvider())));
+        services.Replace(ServiceDescriptor.Singleton(serviceProvider => CreateGuarded<AuthenticationSessionState>(serviceProvider, static () => new AuthenticationSessionState())));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, SharedClientSessionStartupGuard>());
         return services;
+    }
+
+    private static TSessionState CreateGuarded<TSessionState>(IServiceProvider serviceProvider, Func<TSessionState> create)
+    {
+        SharedClientSessionGuard.ThrowIfServerProcess(serviceProvider);
+        return create();
     }
 }
