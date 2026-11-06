@@ -4,6 +4,16 @@ using BlazorBase.User.Models;
 
 namespace BlazorBase.User.Services;
 
+/// <summary>
+/// Attaches the bearer token, refreshes it shortly before it expires and once after a 401.
+/// </summary>
+/// <remarks>
+/// When the request is one this handler can recover from a 401 (a refresh token is held and the request is
+/// not an auth endpoint) it marks the request with
+/// <see cref="UnauthorizedRecoveryRequestOptions.HandledByAuthTokenHandler"/>, so a
+/// <see cref="SessionExpiryHandler"/> chained before or after it leaves that 401 to the refresh instead of
+/// dropping the session to anonymous.
+/// </remarks>
 public class AuthTokenHandler(
     ITokenStorage tokenStorage,
     IAuthService authService,
@@ -49,12 +59,12 @@ public class AuthTokenHandler(
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokens.AccessToken);
         }
 
+        var canRecoverUnauthorized = CanRecoverUnauthorized(tokens, request);
+        request.Options.Set(UnauthorizedRecoveryRequestOptions.HandledByAuthTokenHandler, canRecoverUnauthorized);
+
         var response = await base.SendAsync(request, cancellationToken);
 
-        if (response.StatusCode != HttpStatusCode.Unauthorized
-            || tokens is null
-            || string.IsNullOrEmpty(tokens.RefreshToken)
-            || IsAuthEndpoint(request.RequestUri))
+        if (response.StatusCode != HttpStatusCode.Unauthorized || !canRecoverUnauthorized || tokens is null)
             return response;
 
         var refreshed = await RefreshOnceAsync(tokens, cancellationToken);
@@ -125,6 +135,16 @@ public class AuthTokenHandler(
     /// </summary>
     private static bool IsSessionRejected(HttpRequestException exception)
         => exception.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
+
+    /// <summary>
+    /// Whether this handler would refresh and retry if the server answered the request with 401: it holds a
+    /// refresh token and the request is not an auth endpoint. The result is also published to
+    /// <see cref="SessionExpiryHandler"/> as <see cref="UnauthorizedRecoveryRequestOptions.HandledByAuthTokenHandler"/>.
+    /// </summary>
+    private static bool CanRecoverUnauthorized(LoginResponse? tokens, HttpRequestMessage request)
+        => tokens is not null
+            && !string.IsNullOrEmpty(tokens.RefreshToken)
+            && !IsAuthEndpoint(request.RequestUri);
 
     private static bool IsAboutToExpire(LoginResponse tokens)
         => tokens.ExpiresAt - DateTimeOffset.UtcNow < RefreshThreshold;

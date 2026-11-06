@@ -57,6 +57,14 @@ dotnet run --project AppTemplate.Server
 straight in as `developer@apptemplate.local` with the `Admin` role — no login form while developing.
 Change that email, or turn the section off, before anything leaves your machine.
 
+Authentication uses the **cookie transport** (backend-for-frontend): the browser only holds an
+`HttpOnly` session cookie, never a token, because the client is served from the same origin as the
+API. `AuthCookies:SecureOnly` is `false` in `appsettings.Development.json` only, so the cookie also
+works over plain HTTP locally. Every typed client that talks to the API needs
+`.AddBlazorBaseCookieSessionHandlers()` (the `IAuthService` client takes `CsrfHeaderHandler` alone),
+otherwise its writes are refused with 403. A native or service client that needs a bearer token still
+works against the same server; see `Documentation/BlazorBase.User.Server.AuthTransports.md`.
+
 ## Where to go next
 
 `Modules/Notes` (in `AppTemplate.Shared` and `AppTemplate.Client`) is the reference pattern for the
