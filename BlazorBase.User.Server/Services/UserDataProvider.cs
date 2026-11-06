@@ -73,16 +73,12 @@ public class UserDataProvider<TUser, TModel>(
         IOrderedQueryable<TUser>? ordered = null;
         foreach (var sort in query.Sorts)
         {
-            ordered = (sort.PropertyName, sort.Direction) switch
+            ordered = sort.PropertyName switch
             {
-                (nameof(UserModel.DisplayName), SortDirection.Ascending) => (ordered ?? dbQuery).OrderBy(u => u.DisplayName),
-                (nameof(UserModel.DisplayName), _) => (ordered ?? dbQuery).OrderByDescending(u => u.DisplayName),
-                (nameof(UserModel.Email), SortDirection.Ascending) => (ordered ?? dbQuery).OrderBy(u => u.Email),
-                (nameof(UserModel.Email), _) => (ordered ?? dbQuery).OrderByDescending(u => u.Email),
-                (nameof(UserModel.CreatedAt), SortDirection.Ascending) => (ordered ?? dbQuery).OrderBy(u => u.CreatedAt),
-                (nameof(UserModel.CreatedAt), _) => (ordered ?? dbQuery).OrderByDescending(u => u.CreatedAt),
-                (nameof(UserModel.IsActive), SortDirection.Ascending) => (ordered ?? dbQuery).OrderBy(u => u.IsActive),
-                (nameof(UserModel.IsActive), _) => (ordered ?? dbQuery).OrderByDescending(u => u.IsActive),
+                nameof(UserModel.DisplayName) => OrderByOrThenBy(dbQuery, ordered, u => u.DisplayName, sort.Direction),
+                nameof(UserModel.Email) => OrderByOrThenBy(dbQuery, ordered, u => u.Email, sort.Direction),
+                nameof(UserModel.CreatedAt) => OrderByOrThenBy(dbQuery, ordered, u => u.CreatedAt, sort.Direction),
+                nameof(UserModel.IsActive) => OrderByOrThenBy(dbQuery, ordered, u => u.IsActive, sort.Direction),
                 _ => ApplySort(dbQuery, ordered, sort),
             };
         }
@@ -256,10 +252,22 @@ public class UserDataProvider<TUser, TModel>(
 
     /// <summary>
     /// Orders the accounts by a column the provider does not know. Return <paramref name="ordered"/> unchanged to ignore
-    /// the sort, otherwise the query ordered by <paramref name="sort"/> (<c>ThenBy</c> after an earlier sort).
+    /// the sort. Otherwise return <c>ordered.ThenBy…</c> when <paramref name="ordered"/> is not <see langword="null"/>,
+    /// else <c>source.OrderBy…</c>.
     /// </summary>
     protected virtual IOrderedQueryable<TUser>? ApplySort(IQueryable<TUser> source, IOrderedQueryable<TUser>? ordered, SortDescriptor sort)
         => ordered;
+
+    /// <summary>
+    /// Starts the ordering with <c>OrderBy</c> or, when <paramref name="ordered"/> is set, extends it with <c>ThenBy</c>.
+    /// </summary>
+    private static IOrderedQueryable<TUser> OrderByOrThenBy<TKey>(IQueryable<TUser> source, IOrderedQueryable<TUser>? ordered, Expression<Func<TUser, TKey>> keySelector, SortDirection direction)
+    {
+        if (ordered is null)
+            return direction == SortDirection.Ascending ? source.OrderBy(keySelector) : source.OrderByDescending(keySelector);
+
+        return direction == SortDirection.Ascending ? ordered.ThenBy(keySelector) : ordered.ThenByDescending(keySelector);
+    }
 
     /// <summary>
     /// Reads a boolean from a patched value, which arrives as a <see cref="JsonElement"/> when the patch came over HTTP

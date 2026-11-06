@@ -472,7 +472,9 @@ it.
 `UserDataProvider<TUser>` is the one for the framework `UserModel`. An application with its own user model (more
 columns, its own `[CrudAccess]` rules) derives from the generic one and overrides:
 - `MapToModelAsync(TUser)` — fills the extra columns;
-- `ApplySort(source, ordered, sort)` — orders by a column the provider does not know (return `ordered` to ignore it);
+- `ApplySort(source, ordered, sort)` — orders by a column the provider does not know (return `ordered` to ignore it).
+  Several sorts apply in order: the first is primary, each further one is a `ThenBy`. `ApplySort` receives the ordered
+  query, so it uses `ThenBy`/`ThenByDescending` on `ordered` when that is set and `OrderBy` on `source` otherwise;
 - `PatchAsync` — virtual, for side effects of a change.
 
 Register it as `IBaseDataProvider<TModel>` after the assembly scan of the host. Hosts that map their own model do not call

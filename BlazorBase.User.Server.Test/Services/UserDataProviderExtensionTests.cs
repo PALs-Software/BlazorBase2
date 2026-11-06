@@ -34,9 +34,72 @@ public sealed class UserDataProviderExtensionTests : IdentityServerTestBase
         }
 
         protected override IOrderedQueryable<TestUser>? ApplySort(IQueryable<TestUser> source, IOrderedQueryable<TestUser>? ordered, SortDescriptor sort)
-            => sort.PropertyName == nameof(LanguageUserModel.Language)
-                ? sort.Direction == SortDirection.Ascending ? source.OrderBy(user => user.Language) : source.OrderByDescending(user => user.Language)
-                : ordered;
+        {
+            if (sort.PropertyName != nameof(LanguageUserModel.Language))
+                return ordered;
+
+            if (ordered is null)
+                return sort.Direction == SortDirection.Ascending ? source.OrderBy(user => user.Language) : source.OrderByDescending(user => user.Language);
+
+            return sort.Direction == SortDirection.Ascending ? ordered.ThenBy(user => user.Language) : ordered.ThenByDescending(user => user.Language);
+        }
+    }
+
+    [Fact]
+    public async Task SeveralBuiltInSorts_ApplyInOrder_TheFirstIsPrimary()
+    {
+        await SeedAsync("z@example.com", "de", "A");
+        await SeedAsync("y@example.com", "de", "A");
+        await SeedAsync("x@example.com", "de", "B");
+
+        using var scope = CreateScope();
+        var provider = CreateProvider(scope);
+
+        var byEmail = await provider.GetListAsync(Sorted((nameof(UserModel.Email), SortDirection.Ascending)));
+        var byDisplayNameThenEmail = await provider.GetListAsync(Sorted(
+            (nameof(UserModel.DisplayName), SortDirection.Ascending),
+            (nameof(UserModel.Email), SortDirection.Ascending)));
+        var byDisplayNameThenEmailDescending = await provider.GetListAsync(Sorted(
+            (nameof(UserModel.DisplayName), SortDirection.Ascending),
+            (nameof(UserModel.Email), SortDirection.Descending)));
+
+        Assert.Equal(["x@example.com", "y@example.com", "z@example.com"], byEmail.Items.Select(item => item.Email));
+        Assert.Equal(["y@example.com", "z@example.com", "x@example.com"], byDisplayNameThenEmail.Items.Select(item => item.Email));
+        Assert.Equal(["z@example.com", "y@example.com", "x@example.com"], byDisplayNameThenEmailDescending.Items.Select(item => item.Email));
+    }
+
+    [Fact]
+    public async Task ABuiltInSort_FollowedByTheSubclassColumn_GetsTheOrderedQueryInTheHook()
+    {
+        await SeedAsync("u1@example.com", "de", "A");
+        await SeedAsync("u2@example.com", "en", "A");
+        await SeedAsync("u3@example.com", "fr", "B");
+
+        using var scope = CreateScope();
+        var provider = CreateProvider(scope);
+
+        var result = await provider.GetListAsync(Sorted(
+            (nameof(UserModel.DisplayName), SortDirection.Ascending),
+            (nameof(LanguageUserModel.Language), SortDirection.Descending)));
+
+        Assert.Equal(["u2@example.com", "u1@example.com", "u3@example.com"], result.Items.Select(item => item.Email));
+    }
+
+    [Fact]
+    public async Task TheSubclassColumn_FollowedByABuiltInSort_BreaksTiesWithTheBuiltInSort()
+    {
+        await SeedAsync("a@example.com", "de");
+        await SeedAsync("b@example.com", "en");
+        await SeedAsync("c@example.com", "de");
+
+        using var scope = CreateScope();
+        var provider = CreateProvider(scope);
+
+        var result = await provider.GetListAsync(Sorted(
+            (nameof(LanguageUserModel.Language), SortDirection.Ascending),
+            (nameof(UserModel.Email), SortDirection.Descending)));
+
+        Assert.Equal(["c@example.com", "a@example.com", "b@example.com"], result.Items.Select(item => item.Email));
     }
 
     [Fact]
@@ -73,13 +136,16 @@ public sealed class UserDataProviderExtensionTests : IdentityServerTestBase
     }
 
     private static BaseQuery Sorted(SortDirection direction)
-        => new() { Sorts = [new SortDescriptor { PropertyName = nameof(LanguageUserModel.Language), Direction = direction }] };
+        => Sorted((nameof(LanguageUserModel.Language), direction));
 
-    private async Task SeedAsync(string email, string language)
+    private static BaseQuery Sorted(params (string PropertyName, SortDirection Direction)[] sorts)
+        => new() { Sorts = [.. sorts.Select(sort => new SortDescriptor { PropertyName = sort.PropertyName, Direction = sort.Direction })] };
+
+    private async Task SeedAsync(string email, string language, string? displayName = null)
     {
         using var scope = CreateScope();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
-        var result = await userManager.CreateAsync(new TestUser { UserName = email, Email = email, DisplayName = email, Language = language }, "Passw0rd!x");
+        var result = await userManager.CreateAsync(new TestUser { UserName = email, Email = email, DisplayName = displayName ?? email, Language = language }, "Passw0rd!x");
         Assert.True(result.Succeeded);
     }
 

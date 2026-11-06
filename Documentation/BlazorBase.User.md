@@ -727,14 +727,24 @@ public partial class TopBar(IAuthService auth, ITokenStorage tokenStorage,
     private async Task LogoutAsync()
     {
         var tokens = await TokenStorage.GetTokensAsync();
-        if (tokens is not null)
-            await Auth.LogoutAsync(tokens.RefreshToken);
 
-        await AuthState.MarkUserAsLoggedOut();
-        Nav.NavigateTo("/login");
+        try
+        {
+            await Auth.LogoutAsync(tokens?.RefreshToken);
+        }
+        finally
+        {
+            await AuthState.MarkUserAsLoggedOut();
+            Nav.NavigateTo("/login");
+        }
     }
 }
 ```
+
+`Auth.LogoutAsync(tokens?.RefreshToken)` serves both transports: under the bearer transport it sends the refresh token,
+under the cookie transport `tokens` is `null` and the call sends no body, so the server ends the cookie session. The server
+logout comes first because the anonymous antiforgery token is only valid once the session cookie is gone. The `finally`
+drops the UI to anonymous even when the server call fails; the exception still reaches the caller, which can report it.
 
 ### Reading the current user
 
