@@ -466,9 +466,21 @@ stopped being useful, so it grew without bound. A cleanup pass that fails (a tra
 is logged and swallowed rather than propagated, so a cleanup hiccup can never take the host down with
 it.
 
-### `UserDataProvider<TUser>`
+### `UserDataProvider<TUser>` and `UserDataProvider<TUser, TModel>`
 
-Implements `IBaseDataProvider<UserModel>`. Hosts the `BlazorBase.CRUD` glue for user management:
+`UserDataProvider<TUser, TModel>` implements `IBaseDataProvider<TModel>` for a `TModel` that implements `IBaseUser`;
+`UserDataProvider<TUser>` is the one for the framework `UserModel`. An application with its own user model (more
+columns, its own `[CrudAccess]` rules) derives from the generic one and overrides:
+- `MapToModelAsync(TUser)` — fills the extra columns;
+- `ApplySort(source, ordered, sort)` — orders by a column the provider does not know (return `ordered` to ignore it).
+  Several sorts apply in order: the first is primary, each further one is a `ThenBy`. `ApplySort` receives the ordered
+  query, so it uses `ThenBy`/`ThenByDescending` on `ordered` when that is set and `OrderBy` on `source` otherwise;
+- `PatchAsync` — virtual, for side effects of a change.
+
+Register it as `IBaseDataProvider<TModel>` after the assembly scan of the host. Hosts that map their own model do not call
+`MapBlazorBaseUserAdminEndpoints`, whose model carries the class rule `[CrudAccess("Admin", "RIMD")]`.
+
+Hosts that expose `UserDataProvider<TUser>`:
 - **`GetListAsync`** — applies filter ops on `DisplayName`, `Email`, `IsActive`; supports sort on `DisplayName`, `Email`, `CreatedAt`, `IsActive`. Uses `EF.Functions.Like` for `Contains` filters.
 - **`GetByIdAsync`** — `UserManager.FindByIdAsync`.
 - **`CreateAsync`** — `UserManager.CreateAsync` + `AddToRoleAsync`. **Checks the password and the role
@@ -482,7 +494,7 @@ Implements `IBaseDataProvider<UserModel>`. Hosts the `BlazorBase.CRUD` glue for 
   > `DevelopmentAuthentication`, for instance — has only the roles the development account itself
   > uses, and assigning any other one fails. Seed the app's full role set at startup rather than
   > relying on the setup flow.
-- **`PatchAsync`** — switches over allowed keys: `DisplayName`, `Email`, `IsActive`, `Role` (re-assigns role), `Password` (resets via `GeneratePasswordResetTokenAsync`, then **revokes all of that user's active refresh tokens** so existing sessions cannot continue using the old password's grant).
+- **`PatchAsync`** — switches over allowed keys: `DisplayName`, `Email`, `IsActive` (a boolean, or the JSON boolean of a patch that came over HTTP; setting it to `false` rotates the security stamp, so the live bearer tokens, refresh tokens and cookie sessions of the account end at their next stamp validation), `Role` (re-assigns role), `Password` (resets via `GeneratePasswordResetTokenAsync`, then **revokes all of that user's active refresh tokens** so existing sessions cannot continue using the old password's grant).
 - **`DeleteAsync`** — refuses to delete the currently authenticated user. After a successful delete it invokes every registered `IUserDeletionHandler` (see below) so hosts can clean up per-user external resources.
 
 The `IHttpContextAccessor` dependency is what makes the self-delete check work.
@@ -508,7 +520,7 @@ Constructor: `AuthControllerBase<TUser>(UserManager<TUser> userManager, SignInMa
 | `POST` | `login` | anon | `LoginRequest` | `LoginResponse`, or `202 Accepted` with a `TwoFactorRequiredResponse` when the account has two-factor enabled |
 | `POST` | `login/2fa` | anon | `TwoFactorLoginRequest` | `LoginResponse` — completes a login `login` answered with `202 Accepted` |
 | `POST` | `refresh` | anon | `RefreshTokenRequest` | `LoginResponse` (atomically revokes the presented token, issues a new one) |
-| `POST` | `logout` | anon | `RefreshTokenRequest` | `NoContent` (revokes the presented refresh token's family; the token itself is the credential) |
+| `POST` | `logout` | anon | `RefreshTokenRequest?` (body optional) | `NoContent` (revokes the presented refresh token's family; the token itself is the credential; without a token it ends the cookie session only) |
 | `POST` | `development-login` | anon | — | `LoginResponse` for the configured development account — **`404` unless the Development environment has it switched on** |
 
 Behavior details:
@@ -882,7 +894,7 @@ POST /api/auth/refresh      { "refreshToken": "..." }
 401 Unauthorized   { "message": "Invalid or expired refresh token." }   (unknown, expired, or already-revoked/replayed token)
 403 Forbidden   (cookie transport only — the request failed the transport's intentionality check)
 
-POST /api/auth/logout       { "refreshToken": "..." }
+POST /api/auth/logout       { "refreshToken": "..." }   (body optional under the cookie transport)
 204 No Content   (anonymous — no Authorization header required; succeeds even with an expired access token)
 ```
 

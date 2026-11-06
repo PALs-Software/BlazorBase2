@@ -208,8 +208,7 @@ public partial class BaseListPart<TModel> : ComponentBase, IListPartFlushable, I
     private Dictionary<TModel, Dictionary<string, object?>> PendingUpdates { get; } =
         new(ReferenceEqualityComparer.Instance);
 
-    private static readonly PropertyInfo? IdProperty =
-        typeof(TModel).GetProperty("Id", BindingFlags.Public | BindingFlags.Instance);
+    private static readonly PropertyInfo? IdProperty = EntityKeyResolver.Find(typeof(TModel));
 
     public bool HasPendingChanges =>
         PendingAdds.Count > 0 || PendingRemoves.Count > 0 || PendingUpdates.Count > 0;
@@ -338,8 +337,7 @@ public partial class BaseListPart<TModel> : ComponentBase, IListPartFlushable, I
     {
         var provider = ResolvedProvider;
         var fkProperty = ResolveParentForeignKey(parentEntity.GetType());
-        var parentIdProperty = parentEntity.GetType().GetProperty("Id", BindingFlags.Public | BindingFlags.Instance);
-        var parentId = parentIdProperty?.GetValue(parentEntity);
+        var parentId = EntityKeyResolver.GetValue(parentEntity);
 
         foreach (var removed in PendingRemoves.ToList())
         {

@@ -213,6 +213,15 @@ public class Order : AuditModel
 | `[CrudAccess(roles, "RIMD")]` | class & property | Grant R/I/M/D rights to roles. Multiple allowed (union per level). Use `[CrudAccess("*", "")]` to exclude a property entirely (replaces `[CrudIgnore]`). |
 | `[BaseEntity]` | class | Trigger DTO source generator (see [BlazorBase.CRUD.Generators](BlazorBase.CRUD.Generators.md)) |
 
+### Primary key
+
+The components, the data providers and the endpoints address a row by the single-property primary key that
+`EntityKeyResolver` (`BlazorBase.CRUD.Core`) resolves: a property named `Id`, otherwise the property marked
+`[Key]`, otherwise `<TypeName>Id` (the EF Core conventions). A composite key resolves to nothing, and a type without a
+key is addressed by reference only. `EntityKeyResolver.Find(type)` returns the property, `GetName(type)` its name
+(`Id` when none resolves) and `GetValue(entity)` the value. The list selects the key with every query, the card
+patches by it, the delete action and the deep link (`?item=<key>`) use it, and the `{id}` of the route is parsed to its type.
+
 ### Navigation property detection
 
 - **Reference navigation** (`Category Category`) — auto-detected via FK convention (`CategoryId` / `CategoryID`) or `[ForeignKey]`. Rendered as `FluentSelect` (≤ 20 items) or a search/browse panel (> 20 items, configurable threshold).
@@ -310,6 +319,9 @@ UI features:
   appears beside it.
 - **Boolean columns** render the framework's localized `BoolTrue`/`BoolFalse` ("Yes"/"No", "Ja"/"Nein"),
   the same wording the filter panel offers for the property — not the raw CLR `True`/`False`.
+- **Cell template** — `<BaseColumn><Template Context="row">…</Template></BaseColumn>` or fluent
+  `.Column(x => x.Status, c => c.Template(row => …))` renders the cell with a fragment instead of the
+  value, for example the localized caption of a string-coded status. The phone tile uses it for a badge too.
 - **Column width** — a column's `Width` (markup `Width="120px"` or fluent `.Width("120px")`) is any
   valid CSS grid track. Columns left without one get a width that suits what they hold: a floor per
   data type (yes/no narrow, numbers narrow, date and time and enums wider, e-mail addresses -

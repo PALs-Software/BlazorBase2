@@ -19,7 +19,12 @@ public interface IAuthService
     Task<LoginResponse> LoginTwoFactorAsync(TwoFactorLoginRequest request);
 
     Task<LoginResponse> RefreshAsync(string refreshToken);
-    Task LogoutAsync(string refreshToken);
+    /// <summary>
+    /// Ends the session on the server. Pass the refresh token under the bearer transport; leave it
+    /// null under the cookie transport, where the cookie is the session. Throws when the server does
+    /// not answer with success, so a session that stays alive is never mistaken for a closed one.
+    /// </summary>
+    Task LogoutAsync(string? refreshToken = null);
 
     /// <summary>
     /// Signs in as the server's configured development account. Returns null when the server

@@ -750,7 +750,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private List<string> BuildSelectList()
     {
-        var selectFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Id" };
+        var selectFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { EntityKeyResolver.GetName(typeof(TModel)) };
 
         foreach (var column in VisibleColumnsForUser)
             selectFields.Add(column.PropertyName);
@@ -1178,7 +1178,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
     private async Task<TModel> LoadFullEntityAsync(TModel item)
     {
-        var idProperty = typeof(TModel).GetProperty("Id");
+        var idProperty = EntityKeyResolver.Find(typeof(TModel));
         var id = idProperty?.GetValue(item);
 
         if (id is null)
@@ -1294,7 +1294,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
                 return;
         }
 
-        var idProperty = typeof(TModel).GetProperty("Id");
+        var idProperty = EntityKeyResolver.Find(typeof(TModel));
 
         if (idProperty is null)
             return;
@@ -1477,11 +1477,11 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
             Navigation.NavigateTo(cleaned, replace: true);
     }
     private static object? GetItemId(TModel item)
-        => typeof(TModel).GetProperty("Id")?.GetValue(item);
+        => EntityKeyResolver.Find(typeof(TModel))?.GetValue(item);
 
     private static object? ConvertKey(string key)
     {
-        var idProperty = typeof(TModel).GetProperty("Id");
+        var idProperty = EntityKeyResolver.Find(typeof(TModel));
 
         if (idProperty is null)
             return null;

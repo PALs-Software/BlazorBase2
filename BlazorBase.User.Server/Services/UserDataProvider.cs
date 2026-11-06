@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Security.Claims;
+using System.Text.Json;
 using BlazorBase.CRUD.Core;
 using BlazorBase.CRUD.Models;
 using BlazorBase.User.Models;
@@ -14,18 +15,28 @@ using Microsoft.Extensions.Localization;
 
 namespace BlazorBase.User.Server.Services;
 
-public class UserDataProvider<TUser>(
+/// <summary>
+/// The Identity-backed <see cref="IBaseDataProvider{TModel}"/> of the framework user model: the admin user list and
+/// its edits over <see cref="UserManager{TUser}"/>.
+/// </summary>
+/// <typeparam name="TUser">The application user entity.</typeparam>
+/// <typeparam name="TModel">
+/// The user model the list shows: <see cref="UserModel"/> or a model of its own that implements <see cref="IBaseUser"/>.
+/// Override <see cref="MapToModelAsync"/> to fill extra columns and <see cref="ApplySort"/> to sort by them.
+/// </typeparam>
+public class UserDataProvider<TUser, TModel>(
     UserManager<TUser> userManager,
     IHttpContextAccessor httpContextAccessor,
     BaseUserDbContext<TUser> dbContext,
     IEnumerable<IUserDeletionHandler>? deletionHandlers = null,
-    IStringLocalizer<BlazorBaseUserServerResources>? localizer = null) : IBaseDataProvider<UserModel>
+    IStringLocalizer<BlazorBaseUserServerResources>? localizer = null) : IBaseDataProvider<TModel>
     where TUser : BaseUser, new()
+    where TModel : class, IBaseUser, new()
 {
     #region Injects
-    private readonly UserManager<TUser> UserManager = userManager;
+    protected UserManager<TUser> UserManager { get; } = userManager;
     private readonly IHttpContextAccessor HttpContextAccessor = httpContextAccessor;
-    private readonly BaseUserDbContext<TUser> DbContext = dbContext;
+    protected BaseUserDbContext<TUser> DbContext { get; } = dbContext;
     private readonly IEnumerable<IUserDeletionHandler> DeletionHandlers = deletionHandlers ?? [];
     private readonly IStringLocalizer<BlazorBaseUserServerResources>? Localizer = localizer;
     #endregion
@@ -37,7 +48,7 @@ public class UserDataProvider<TUser>(
     private string Text(string key, params object[] arguments)
         => Localizer is null ? key : Localizer[key, arguments].Value;
 
-    public async Task<BaseQueryResult<UserModel>> GetListAsync(BaseQuery query, Expression<Func<UserModel, bool>>? scopeFilter = null, CancellationToken cancellationToken = default)
+    public async Task<BaseQueryResult<TModel>> GetListAsync(BaseQuery query, Expression<Func<TModel, bool>>? scopeFilter = null, CancellationToken cancellationToken = default)
     {
         if (scopeFilter is not null)
             throw new NotSupportedException("Row-level scope filtering is not supported by the Identity-backed UserDataProvider.");
@@ -62,31 +73,27 @@ public class UserDataProvider<TUser>(
         IOrderedQueryable<TUser>? ordered = null;
         foreach (var sort in query.Sorts)
         {
-            ordered = (sort.PropertyName, sort.Direction) switch
+            ordered = sort.PropertyName switch
             {
-                (nameof(UserModel.DisplayName), SortDirection.Ascending) => (ordered ?? dbQuery).OrderBy(u => u.DisplayName),
-                (nameof(UserModel.DisplayName), _) => (ordered ?? dbQuery).OrderByDescending(u => u.DisplayName),
-                (nameof(UserModel.Email), SortDirection.Ascending) => (ordered ?? dbQuery).OrderBy(u => u.Email),
-                (nameof(UserModel.Email), _) => (ordered ?? dbQuery).OrderByDescending(u => u.Email),
-                (nameof(UserModel.CreatedAt), SortDirection.Ascending) => (ordered ?? dbQuery).OrderBy(u => u.CreatedAt),
-                (nameof(UserModel.CreatedAt), _) => (ordered ?? dbQuery).OrderByDescending(u => u.CreatedAt),
-                (nameof(UserModel.IsActive), SortDirection.Ascending) => (ordered ?? dbQuery).OrderBy(u => u.IsActive),
-                (nameof(UserModel.IsActive), _) => (ordered ?? dbQuery).OrderByDescending(u => u.IsActive),
-                _ => ordered,
+                nameof(UserModel.DisplayName) => OrderByOrThenBy(dbQuery, ordered, u => u.DisplayName, sort.Direction),
+                nameof(UserModel.Email) => OrderByOrThenBy(dbQuery, ordered, u => u.Email, sort.Direction),
+                nameof(UserModel.CreatedAt) => OrderByOrThenBy(dbQuery, ordered, u => u.CreatedAt, sort.Direction),
+                nameof(UserModel.IsActive) => OrderByOrThenBy(dbQuery, ordered, u => u.IsActive, sort.Direction),
+                _ => ApplySort(dbQuery, ordered, sort),
             };
         }
 
         var finalQuery = ordered ?? dbQuery.OrderBy(u => u.DisplayName);
         var users = await finalQuery.Skip(query.Skip).Take(query.Take).ToListAsync(cancellationToken);
 
-        var items = new List<UserModel>(users.Count);
+        var items = new List<TModel>(users.Count);
         foreach (var user in users)
             items.Add(await MapToModelAsync(user));
 
-        return new BaseQueryResult<UserModel> { Items = items, TotalCount = totalCount };
+        return new BaseQueryResult<TModel> { Items = items, TotalCount = totalCount };
     }
 
-    public async Task<UserModel?> GetByIdAsync(object id, IEnumerable<string>? select = null, Expression<Func<UserModel, bool>>? scopeFilter = null, CancellationToken cancellationToken = default)
+    public async Task<TModel?> GetByIdAsync(object id, IEnumerable<string>? select = null, Expression<Func<TModel, bool>>? scopeFilter = null, CancellationToken cancellationToken = default)
     {
         if (scopeFilter is not null)
             throw new NotSupportedException("Row-level scope filtering is not supported by the Identity-backed UserDataProvider.");
@@ -95,7 +102,7 @@ public class UserDataProvider<TUser>(
         return user is null ? null : await MapToModelAsync(user);
     }
 
-    public async Task<int> GetCountAsync(Expression<Func<UserModel, bool>>? scopeFilter = null, CancellationToken cancellationToken = default)
+    public async Task<int> GetCountAsync(Expression<Func<TModel, bool>>? scopeFilter = null, CancellationToken cancellationToken = default)
     {
         if (scopeFilter is not null)
             throw new NotSupportedException("Row-level scope filtering is not supported by the Identity-backed UserDataProvider.");
@@ -113,7 +120,7 @@ public class UserDataProvider<TUser>(
     /// error what went wrong. A role can be missing in practice: the names offered to the
     /// administrator come from the app's role provider, while the rows are seeded elsewhere.
     /// </remarks>
-    public async Task<UserModel> CreateAsync(UserModel model, CancellationToken cancellationToken = default)
+    public async Task<TModel> CreateAsync(TModel model, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(model.Password))
             throw new BaseValidationException(Text("PasswordRequired"));
@@ -142,7 +149,7 @@ public class UserDataProvider<TUser>(
         return await MapToModelAsync(user);
     }
 
-    public async Task<UserModel> PatchAsync(object id, Dictionary<string, object?> changedFields, string? concurrencyStamp = null, CancellationToken cancellationToken = default)
+    public virtual async Task<TModel> PatchAsync(object id, Dictionary<string, object?> changedFields, string? concurrencyStamp = null, CancellationToken cancellationToken = default)
     {
         var user = await UserManager.FindByIdAsync(id.ToString()!)
             ?? throw new InvalidOperationException($"User '{id}' not found.");
@@ -159,8 +166,14 @@ public class UserDataProvider<TUser>(
                     user.UserName = user.Email;
                     break;
                 case nameof(UserModel.IsActive):
-                    if (value is bool active)
+                    if (TryReadBoolean(value) is { } active)
+                    {
+                        var isDeactivating = user.IsActive && !active;
                         user.IsActive = active;
+
+                        if (isDeactivating)
+                            await UserManager.UpdateSecurityStampAsync(user);
+                    }
                     break;
                 case nameof(UserModel.Role):
                     var newRole = value?.ToString() ?? "User";
@@ -218,19 +231,57 @@ public class UserDataProvider<TUser>(
             await handler.OnUserDeletedAsync(user.Id, cancellationToken);
     }
 
-    private async Task<UserModel> MapToModelAsync(TUser user)
+    /// <summary>Maps an account to the model the list shows. Override to fill the extra columns of a model.</summary>
+    protected virtual async Task<TModel> MapToModelAsync(TUser user)
     {
         var roles = await UserManager.GetRolesAsync(user);
-        return new UserModel
+        var model = new TModel
         {
             Id = user.Id,
             Email = user.Email ?? string.Empty,
             DisplayName = user.DisplayName,
             Role = roles.FirstOrDefault() ?? "User",
             IsActive = user.IsActive,
-            CreatedAt = user.CreatedAt,
         };
+
+        if (model is UserModel userModel)
+            userModel.CreatedAt = user.CreatedAt;
+
+        return model;
     }
+
+    /// <summary>
+    /// Orders the accounts by a column the provider does not know. Return <paramref name="ordered"/> unchanged to ignore
+    /// the sort. Otherwise return <c>ordered.ThenBy…</c> when <paramref name="ordered"/> is not <see langword="null"/>,
+    /// else <c>source.OrderBy…</c>.
+    /// </summary>
+    protected virtual IOrderedQueryable<TUser>? ApplySort(IQueryable<TUser> source, IOrderedQueryable<TUser>? ordered, SortDescriptor sort)
+        => ordered;
+
+    /// <summary>
+    /// Starts the ordering with <c>OrderBy</c> or, when <paramref name="ordered"/> is set, extends it with <c>ThenBy</c>.
+    /// </summary>
+    private static IOrderedQueryable<TUser> OrderByOrThenBy<TKey>(IQueryable<TUser> source, IOrderedQueryable<TUser>? ordered, Expression<Func<TUser, TKey>> keySelector, SortDirection direction)
+    {
+        if (ordered is null)
+            return direction == SortDirection.Ascending ? source.OrderBy(keySelector) : source.OrderByDescending(keySelector);
+
+        return direction == SortDirection.Ascending ? ordered.ThenBy(keySelector) : ordered.ThenByDescending(keySelector);
+    }
+
+    /// <summary>
+    /// Reads a boolean from a patched value, which arrives as a <see cref="JsonElement"/> when the patch came over HTTP
+    /// and as a CLR value when a caller patches in process.
+    /// </summary>
+    private static bool? TryReadBoolean(object? value) => value switch
+    {
+        bool flag => flag,
+        JsonElement { ValueKind: JsonValueKind.True } => true,
+        JsonElement { ValueKind: JsonValueKind.False } => false,
+        JsonElement { ValueKind: JsonValueKind.String } element when bool.TryParse(element.GetString(), out var parsed) => parsed,
+        string text when bool.TryParse(text, out var parsed) => parsed,
+        _ => null,
+    };
 
     private static IQueryable<TUser> ApplyStringFilter(IQueryable<TUser> query, Expression<Func<TUser, string>> selector, FilterDescriptor filter)
     {
@@ -253,3 +304,13 @@ public class UserDataProvider<TUser>(
         };
     }
 }
+
+/// <summary>The data provider of the framework <see cref="UserModel"/>.</summary>
+public class UserDataProvider<TUser>(
+    UserManager<TUser> userManager,
+    IHttpContextAccessor httpContextAccessor,
+    BaseUserDbContext<TUser> dbContext,
+    IEnumerable<IUserDeletionHandler>? deletionHandlers = null,
+    IStringLocalizer<BlazorBaseUserServerResources>? localizer = null)
+    : UserDataProvider<TUser, UserModel>(userManager, httpContextAccessor, dbContext, deletionHandlers, localizer)
+    where TUser : BaseUser, new();

@@ -1,13 +1,13 @@
 using System.Collections.Concurrent;
-using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using BlazorBase.CRUD.Core;
 
 namespace BlazorBase.CRUD.Components.Internal;
 
 /// <summary>
-/// Compares list rows by their identity: the <c>Id</c> property, otherwise the single <c>[Key]</c> property, and by
-/// reference when a model has neither or the key is not set.
+/// Compares list rows by their identity: the key property (see <see cref="EntityKeyResolver"/>), and by
+/// reference when a model has no single key property or the key is not set.
 /// </summary>
 /// <remarks>
 /// A virtualized list drops rows it holds when they are far off screen and fetches them again, as new instances, when
@@ -16,23 +16,7 @@ namespace BlazorBase.CRUD.Components.Internal;
 /// </remarks>
 internal sealed class ItemIdentityComparer<TModel> : IEqualityComparer<TModel> where TModel : class
 {
-    private static readonly PropertyInfo? IdProperty = ResolveIdentityProperty();
-
-    private static PropertyInfo? ResolveIdentityProperty()
-    {
-        var properties = typeof(TModel).GetProperties(BindingFlags.Public | BindingFlags.Instance);
-
-        var id = properties.FirstOrDefault(property => property.Name == "Id" && property.GetIndexParameters().Length == 0);
-
-        if (id is not null)
-            return id;
-
-        var keys = properties
-            .Where(property => property.GetIndexParameters().Length == 0 && property.IsDefined(typeof(KeyAttribute), inherit: true))
-            .ToList();
-
-        return keys.Count == 1 ? keys[0] : null;
-    }
+    private static readonly PropertyInfo? IdProperty = EntityKeyResolver.Find(typeof(TModel));
 
     public static ItemIdentityComparer<TModel> Instance { get; } = new();
 

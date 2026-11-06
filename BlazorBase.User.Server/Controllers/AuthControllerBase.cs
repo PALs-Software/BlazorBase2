@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -279,7 +280,10 @@ public abstract class AuthControllerBase<TUser>(
         var presentedToken = await ResolveRefreshTokenAsync(request);
 
         if (presentedToken is null)
+        {
+            ModelState.AddModelError(nameof(RefreshTokenRequest.RefreshToken), "A refresh token is required.");
             return ValidationProblem(ModelState);
+        }
 
         var stored = await TokenIssuer.FindAsync(presentedToken);
         if (stored is null)
@@ -333,7 +337,7 @@ public abstract class AuthControllerBase<TUser>(
     [HttpPost("logout")]
     [AllowAnonymous]
     [EnableRateLimiting("BlazorBaseAuth")]
-    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
+    public async Task<IActionResult> Logout([FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] RefreshTokenRequest? request)
     {
         if (HttpContext is not null && !await ResolveTokenTransport().IsRequestIntentionalAsync(HttpContext))
             return StatusCode(StatusCodes.Status403Forbidden);
@@ -381,6 +385,9 @@ public abstract class AuthControllerBase<TUser>(
 
         if (user is null)
             return Problem(detail: "The development account could not be provisioned. See the server log.", statusCode: StatusCodes.Status500InternalServerError);
+
+        if (!user.IsActive)
+            return Unauthorized(new { message = "Account is deactivated." });
 
         await OnAfterDevelopmentLoginAsync(user);
 

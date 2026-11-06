@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using System.Text;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.Account;
 using BlazorBase.User.Server.ExternalAuth;
@@ -650,6 +651,64 @@ public sealed class CookieAuthTokenTransportTests
 
         var setCookieHeader = response.Headers.GetValues("Set-Cookie").Single(c => c.StartsWith($"{SessionCookie}=", StringComparison.Ordinal));
         Assert.Contains("expires=", setCookieHeader, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The cookie client holds no refresh token, so it sends no body, an empty token or a placeholder.
+    /// Each of them must end the session through the real logout endpoint; a 400 from model validation
+    /// would leave the cookie in place.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("{\"refreshToken\":\"\"}")]
+    [InlineData("{\"refreshToken\":\"cookie-session\"}")]
+    public async Task Logout_without_a_refresh_token_ends_the_cookie_session(string? jsonBody)
+    {
+        var (host, _) = await StartHostAsync(useCookies: true, useControllers: true);
+        using var _host = host;
+
+        var sessionCookie = ReadCookies(await ExchangeAsync(host))[SessionCookie];
+        var (token, cookieHeader) = await GetCsrfAsync(host, $"{SessionCookie}={sessionCookie}");
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/logout");
+        request.Headers.Add("Cookie", cookieHeader);
+        request.Headers.Add(CsrfHeader, token);
+
+        if (jsonBody is not null)
+            request.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
+
+        var response = await host.GetTestClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Empty(ReadCookies(response)[SessionCookie]);
+
+        var replayRequest = new HttpRequestMessage(HttpMethod.Get, "/protected");
+        replayRequest.Headers.Add("Cookie", $"{SessionCookie}={sessionCookie}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await host.GetTestClient().SendAsync(replayRequest)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Refresh_without_a_refresh_token_answers_400_naming_the_field()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true, useControllers: true);
+        using var _host = host;
+
+        var sessionCookie = ReadCookies(await ExchangeAsync(host))[SessionCookie];
+        var (token, cookieHeader) = await GetCsrfAsync(host, $"{SessionCookie}={sessionCookie}");
+
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/refresh")
+        {
+            Content = new StringContent("{\"refreshToken\":\"\"}", Encoding.UTF8, "application/json"),
+        };
+        request.Headers.Add("Cookie", cookieHeader);
+        request.Headers.Add(CsrfHeader, token);
+
+        var response = await host.GetTestClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("RefreshToken", await response.Content.ReadAsStringAsync());
     }
 
     /// <summary>

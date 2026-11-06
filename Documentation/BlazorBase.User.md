@@ -244,7 +244,7 @@ that writes its own `MainLayout` instead **has to add it** and register the serv
 | `LoginAsync(LoginRequest)` | POST `api/auth/login` | `AuthServiceLoginOutcome` | A completed login (`Tokens`) or, when the account has two-factor authentication enabled, a pending token (`PendingToken`) to complete with `LoginTwoFactorAsync` — the server answers `202 Accepted` rather than a token pair, so the caller never receives half-authenticated tokens by mistake |
 | `LoginTwoFactorAsync(TwoFactorLoginRequest)` | POST `api/auth/login/two-factor` | `LoginResponse` | Completes a login `LoginAsync` reported as `RequiresTwoFactor` |
 | `RefreshAsync(refreshToken)` | POST `api/auth/refresh` | `LoginResponse` | Single-use rotation — the server revokes the presented token atomically; a replayed/already-used token returns `401` |
-| `LogoutAsync(refreshToken)` | POST `api/auth/logout` | — | Revokes the refresh token by its hash; anonymous endpoint, so it succeeds even if the access token has already expired |
+| `LogoutAsync(refreshToken = null)` | POST `api/auth/logout` | — | Revokes the refresh token by its hash; anonymous endpoint, so it succeeds even if the access token has already expired. Under the cookie transport pass no token: the call sends no body and the cookie is the session. Throws when the server does not answer with success |
 | `DevelopmentLoginAsync()` | POST `api/auth/development-login` | `LoginResponse?` | Signs in as the server's development account; `null` when the server does not offer it, which is every environment but Development |
 
 ### `IUserService` — `UserService`
@@ -412,7 +412,8 @@ The field is optional — the user may leave it blank. The value travels in `Set
 #### Development login — provisioning host-specific data on first use
 
 `POST api/auth/development-login` resolves (creating on first call, reusing afterwards) the account
-configured under `DevelopmentAuthentication` and signs it in. A host that provisions additional data by
+configured under `DevelopmentAuthentication` and signs it in; a deactivated account (`IsActive == false`)
+is refused with `401`, like the password login and the token refresh. A host that provisions additional data by
 email on real sign-in — a separate domain user row created from `IExternalUserResolver<TUser>` on first
 external sign-in, for instance — needs the same thing to happen for a development account, or it 404s
 on any endpoint that reads that other table. Override
@@ -726,14 +727,24 @@ public partial class TopBar(IAuthService auth, ITokenStorage tokenStorage,
     private async Task LogoutAsync()
     {
         var tokens = await TokenStorage.GetTokensAsync();
-        if (tokens is not null)
-            await Auth.LogoutAsync(tokens.RefreshToken);
 
-        await AuthState.MarkUserAsLoggedOut();
-        Nav.NavigateTo("/login");
+        try
+        {
+            await Auth.LogoutAsync(tokens?.RefreshToken);
+        }
+        finally
+        {
+            await AuthState.MarkUserAsLoggedOut();
+            Nav.NavigateTo("/login");
+        }
     }
 }
 ```
+
+`Auth.LogoutAsync(tokens?.RefreshToken)` serves both transports: under the bearer transport it sends the refresh token,
+under the cookie transport `tokens` is `null` and the call sends no body, so the server ends the cookie session. The server
+logout comes first because the anonymous antiforgery token is only valid once the session cookie is gone. The `finally`
+drops the UI to anonymous even when the server call fails; the exception still reaches the caller, which can report it.
 
 ### Reading the current user
 

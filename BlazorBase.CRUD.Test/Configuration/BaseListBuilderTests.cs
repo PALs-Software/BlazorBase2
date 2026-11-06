@@ -38,6 +38,18 @@ public class BaseListBuilderTests
     }
 
     [Fact]
+    public void Column_RecordsTheCellTemplate()
+    {
+        Microsoft.AspNetCore.Components.RenderFragment<TestProduct> template = product => builder => builder.AddContent(0, product.Name);
+
+        var configuration = new BaseListBuilder<TestProduct>()
+            .Column(p => p.Name, c => c.Template(template))
+            .Build();
+
+        Assert.Same(template, Assert.Single(configuration.Columns).Template);
+    }
+
+    [Fact]
     public void MultipleColumns_GetIncrementingOrder()
     {
         var configuration = new BaseListBuilder<TestProduct>()
