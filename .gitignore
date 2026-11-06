@@ -372,3 +372,4 @@ FodyWeavers.xsd
 docs/superpowers/specs/
 docs/superpowers/plans/
 .superpowers/
+.plan/
