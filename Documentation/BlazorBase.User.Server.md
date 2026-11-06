@@ -337,6 +337,28 @@ owner to check and is unaffected. The owner is looked up through the root `BaseU
 the EF model, so a host that derives further user types with table-per-hierarchy still resolves the
 base row.
 
+### Claims on the token principal, and the owner's roles
+
+An authenticated access-token principal carries `AccessTokenClaimTypes.TokenId`, `ClaimTypes.Name`
+(the token's name) and, for a token with an owner, `ClaimTypes.NameIdentifier` (the owner's id). It
+carries **no roles** by default: a machine token gets exactly what an endpoint grants it, never more
+by accident. Extra claims come from `IAccessTokenClaimsAugmentor` implementations registered with
+`AddAccessTokenClaimsAugmentor<TAugmentor>()`, applied in registration order.
+
+When a token is meant to act with its owner's rights — an MCP endpoint guarded by
+`RequireRole("Admin", "User")`, for example — opt into the built-in augmentor:
+
+```csharp
+builder.Services.AddBlazorBaseAccessTokens<AppDbContext>(builder.Configuration);
+builder.Services.AddAccessTokenOwnerRoleClaims<AppUser>();
+```
+
+`AccessTokenOwnerRoleClaimsAugmentor<TUser>` reads the owner's current roles through
+`UserManager<TUser>` on every request and adds them as `ClaimTypes.Role` claims, so removing a role
+limits the token on its next call. A token without an owner, or whose owner was deleted, gets no roles;
+a deactivated owner's tokens are already rejected by validation (above). `AccessTokenOwnerRoleClaimsTests`
+pins the role check, the immediate effect of removing a role, and the ownerless case.
+
 ### Configuration
 
 ```json
@@ -352,7 +374,7 @@ base row.
 
 `SecretByteLength` below 32 is raised to 32 rather than honoured — a shorter secret is never what the caller actually wants, and quietly accepting it would weaken every token.
 
-Failed attempts incur a per-client exponential back-off keyed on the **transport-level remote address**, never on `X-Forwarded-For`: a caller able to choose its own bucket could reset the delay at will. Behind a reverse proxy, configure `UseForwardedHeaders` with a trusted-proxy list so that address is the real client. The state is per-process, so several instances give an attacker one ladder each — a brake on guessing, not a global rate limit.
+Failed attempts incur a per-client exponential back-off keyed on the **transport-level remote address**, never on `X-Forwarded-For`: a caller able to choose its own bucket could reset the delay at will. Behind a reverse proxy, call `AddBlazorBaseForwardedHeaders` and `app.UseForwardedHeaders()` so that address is the real client (see [forwarded headers](BlazorBase.User.Server.AuthTransports.md#behind-a-reverse-proxy--forwarded-headers)). The state is per-process, so several instances give an attacker one ladder each — a brake on guessing, not a global rate limit.
 
 ### What is deliberately *not* here
 
@@ -689,7 +711,11 @@ decisions involved carry real security trade-offs that deserve more room than a 
 - **Forwarded headers** — `AddBlazorBaseForwardedHeaders` matters as soon as this host sits behind a
   reverse proxy or load balancer: the `"BlazorBaseAuth"` rate limiter and the access-token brute-force
   delay both key on the connection's remote address, which is the proxy's own address, identical for
-  every client, until forwarded headers are processed.
+  every client, until forwarded headers are processed. Loopback stays trusted by ASP.NET Core's
+  defaults whatever is configured, so a reverse proxy on the same machine that writes
+  `X-Forwarded-For` itself works without configuration. A tunnel or port forward that passes the
+  caller's headers through unchanged does not qualify; see the forwarded headers section of
+  [Authentication token transports](BlazorBase.User.Server.AuthTransports.md).
 
 See [Authentication token transports](BlazorBase.User.Server.AuthTransports.md) for the full decision
 guide, the wiring for each transport, the CSRF checklist, and the external sign-in entry points

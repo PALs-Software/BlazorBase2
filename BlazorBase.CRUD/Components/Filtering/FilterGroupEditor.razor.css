@@ -72,7 +72,7 @@
    with the accent.
 */
 .filter-connector-chip.and {
-    background: var(--color-accent);
+    background: var(--color-accent-fill);
     color: var(--color-text-on-accent);
 }
 

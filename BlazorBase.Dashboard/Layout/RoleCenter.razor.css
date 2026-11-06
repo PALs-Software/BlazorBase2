@@ -159,13 +159,13 @@
 
 .rc-edit-bar-button--primary {
     color: var(--color-text-on-accent);
-    background: var(--color-accent);
-    border-color: var(--color-accent);
+    background: var(--color-accent-fill);
+    border-color: var(--color-accent-fill);
     font-weight: 600;
 }
 
 .rc-edit-bar-button--primary:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-accent) 85%, var(--color-text-primary));
+    background: var(--color-accent-fill-hover);
 }
 
 .rc-edit-bar-button--danger {

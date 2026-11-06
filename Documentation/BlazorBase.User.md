@@ -84,7 +84,16 @@ builder.Services.AddBlazorBaseUserClient();
 
 This registers:
 - `BlazorBaseUserAuthStateProvider` as the `AuthenticationStateProvider`
-- `AuthTokenHandler` (DelegatingHandler) as scoped
+- `CsrfTokenProvider` and `AuthenticationSessionState` as scoped (`TryAdd`); the WebAssembly and MAUI
+  registrations replace both with one instance per process through
+  `AddBlazorBaseUserSharedClientSession()`, because IHttpClientFactory resolves message handlers in
+  scopes of their own (see [BlazorBase.User.Wasm](BlazorBase.User.Wasm.md#one-session-per-process-why-the-state-is-not-scoped)).
+  The shared session refuses to run in an ASP.NET Core server process, recognized by
+  `Microsoft.AspNetCore.Hosting.Server.IServer` being registered in the container: the host fails to
+  start and the shared instances cannot be constructed. There is no opt-out. A server-rendered host
+  calls `AddBlazorBaseUserClient()` alone, which keeps the state scoped, and registers a scoped
+  `ITokenStorage` of its own
+- `AuthTokenHandler` and `SessionExpiryHandler` (DelegatingHandlers) as scoped
 - `ILanguageService` → `LanguageService`
 - `IThemeService` → `ThemeService`
 - `IThemePreferenceSync` → `UserThemePreferenceSync` (stores the theme choice of a signed-in user via `PUT api/user/me/settings`; fails soft when offline)
@@ -160,6 +169,12 @@ side and its guards are described under
 It signs in on every start rather than reusing a stored token, because a token minted before the
 roles changed in configuration would keep the old ones and quietly defeat the point of switching
 them.
+
+It works under both transports. Under the cookie transport the development login is a POST like any
+other and needs the antiforgery token, which nothing has fetched that early, so the call reads an
+anonymous session first. The sign-in itself goes through
+`BlazorBaseUserAuthStateProvider.MarkUserAsAuthenticated`, exactly like the login page, which also
+swaps the anonymous antiforgery token for one bound to the new identity.
 
 ### 6. Wire the pages
 
@@ -320,14 +335,50 @@ valid:
   the original request fail, because otherwise a phone moving between wifi and mobile data loses its
   login for no reason.
 
+**Who handles a 401 under the bearer transport.** When `AuthTokenHandler` and `SessionExpiryHandler` are
+chained on the same client, exactly one of them answers a 401, and the chaining order does not matter.
+`AuthTokenHandler` marks every request it will recover itself - it holds a refresh token and the request is
+not an auth endpoint - through an internal request option, and `SessionExpiryHandler` leaves the 401 of a
+marked request alone:
+
+- a 401 recovered by the refresh never announces an anonymous user to the components;
+- a refresh the server rejects (`401`/`403`) still signs the user out, through `AuthTokenHandler`;
+- a 401 on a request without a held refresh token, or on an auth endpoint, is dropped to anonymous by
+  `SessionExpiryHandler` as before;
+- under the cookie transport `AuthTokenHandler` is not chained, nothing is marked, and
+  `SessionExpiryHandler` behaves exactly as before.
+
+Two behavior changes follow from this and are intended:
+
+- A refresh that fails for network reasons keeps the session and the stored tokens. `SessionExpiryHandler`
+  chained next to the handler used to clear the tokens before the refresh ran.
+- A retry that still answers `401` after a successful refresh leaves the user signed in. A freshly issued
+  token being refused points at the endpoint (another scheme, a misconfiguration), not at the session.
+
 > **Still open:** the gate is per Blazor runtime, so two browser tabs of the same app can in principle
 > still refresh at the same moment and trip the reuse detection. Closing that needs a cross-tab lock
 > (Web Locks) rather than a process-wide semaphore.
 
 ### `BlazorBaseUserAuthStateProvider` (AuthenticationStateProvider)
 
-- Reads `AccessToken` from `ITokenStorage` and parses JWT claims via `JwtSecurityTokenHandler`.
-- Exposes `MarkUserAsAuthenticated(LoginResponse)` and `MarkUserAsLoggedOut()` for the login/logout flows.
+- Reads the claims from `GET /api/auth/session` (passing the stored access token under the bearer
+  transport) and stores the antiforgery token from that answer in `CsrfTokenProvider`.
+- Caches the principal in `AuthenticationSessionState` until the next sign-in or sign-out. Every
+  provider instance resolving the same state raises `AuthenticationStateChanged` when any of them
+  changes it, so a 401 handled by `SessionExpiryHandler` in an IHttpClientFactory handler scope still
+  drops the UI to the login screen.
+- Exposes `MarkUserAsAuthenticated(LoginResponse)`, `MarkUserAsLoggedOut()` and `InvalidateAsync()` for
+  the login/logout flows.
+- `InvalidateAsync()` (also what `MarkUserAsLoggedOut()` and a 401 seen by `SessionExpiryHandler` run)
+  clears the stored tokens and caches an anonymous principal without taking anything from the server's
+  answer. Under the cookie transport, where an antiforgery token is held, it also replaces that token with
+  an anonymous one read from `GET /api/auth/session`, so the login form keeps working without a page
+  reload; the anonymous principal is announced even when that read throws, and no stale token is kept.
+  Without a held token (bearer transport, MAUI) the server is not asked.
+- A host that signs out under the cookie transport must call the server-side logout first and
+  `MarkUserAsLoggedOut()` afterwards. The antiforgery token is bound to the identity of the request that
+  minted it, so a replacement fetched while the session cookie still identifies the user no longer
+  validates once the cookie is gone.
 
 ### Pages & Views
 

@@ -116,6 +116,6 @@
 }
 
 .base-browse-item.selected {
-    background: var(--color-accent);
+    background: var(--color-accent-fill);
     color: var(--color-text-on-accent);
 }

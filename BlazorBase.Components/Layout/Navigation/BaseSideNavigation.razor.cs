@@ -46,7 +46,7 @@ public partial class BaseSideNavigation(
     [CascadingParameter]
     private NavigationLayoutContext? LayoutContext { get; set; }
 
-    private const int ExpandedWidth = 260;
+    private const string CollapsedWidth = "48px";
 
     private readonly Dictionary<string, bool> GroupStates = [];
 

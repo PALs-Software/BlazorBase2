@@ -4,7 +4,7 @@
     width: 34px;
     height: 34px;
     border-radius: 50%;
-    background: var(--color-accent);
+    background: var(--color-accent-fill);
     color: var(--color-text-on-accent);
     font-size: 12px;
     font-weight: 700;

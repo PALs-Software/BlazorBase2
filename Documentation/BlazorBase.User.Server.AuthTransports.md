@@ -236,6 +236,10 @@ builder.Services.AddBlazorBaseUserWasmCookieAuth(builder.HostEnvironment.BaseAdd
 builder.Services
     .AddHttpClient<IAuthService, AuthService>(c => c.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress))
     .AddHttpMessageHandler<CsrfHeaderHandler>();
+
+builder.Services
+    .AddHttpClient<IUserService, UserService>(c => c.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress))
+    .AddBlazorBaseCookieSessionHandlers();
 ```
 
 That swaps three things for you:
@@ -247,10 +251,23 @@ That swaps three things for you:
   `BrowserRequestCredentials.Include` so the browser sends the cookies.
 
 The antiforgery token is bound to the identity of the request that minted it, so the client must
-re-read the session after signing in.
+re-read the session after signing in. The counterpart holds for signing out and for an expired session:
+`BlazorBaseUserAuthStateProvider.InvalidateAsync()` (run by `MarkUserAsLoggedOut()` and by
+`SessionExpiryHandler` on a 401) replaces the held token with an anonymous one read from the session
+endpoint, so the next login request is accepted without a page reload. A host that signs out must call
+the server-side logout first and `MarkUserAsLoggedOut()` afterwards; read before the logout, the
+replacement token would still be bound to the signed-in identity and be refused once the cookie is gone.
 
 Register the handler on **every** typed client that talks to the API. The framework cannot know which
 of a host's clients those are, and one that is missed rejects every write with a 403.
+`AddBlazorBaseCookieSessionHandlers()` adds `CsrfHeaderHandler` and `SessionExpiryHandler` in one call
+for every client except the auth client, which takes `CsrfHeaderHandler` alone.
+
+The antiforgery token is held once per process (`AddBlazorBaseUserSharedClientSession()`, called by
+`AddBlazorBaseUserWasmCookieAuth`), because IHttpClientFactory resolves `CsrfHeaderHandler` in a
+dependency injection scope of its own and would otherwise never see the token the authentication
+state provider stored. `UseBlazorBaseDevelopmentSessionAsync()` fetches the anonymous token before the
+development login, so it works under this transport too.
 
 **Do not also register `AuthTokenHandler`.** It exists to attach and refresh a token the client holds;
 under this transport there is none. It would attach nothing and refresh against a body the server
@@ -315,10 +332,33 @@ shared bucket for everyone behind the same proxy.
 The registration deliberately does **not** fall back to an unrestricted trust list when
 `KnownProxies`/`KnownNetworks` is left empty: an unrestricted trust list would let any caller supply
 its own `X-Forwarded-For` value and pick its own rate-limit partition, handing the attacker — not the
-network topology — the choice of key. With nothing configured, forwarded headers middleware still
-runs but forwards nothing, so `RemoteIpAddress` stays exactly what it was before. A host that forgets
-to call this at all behind a real proxy is warned at startup rather than left silently partitioning
-every client into the same bucket.
+network topology — the choice of key.
+
+The configured entries are **added to** ASP.NET Core's defaults, which trust loopback (`127.0.0.0/8`
+and `::1`); they do not replace them. So:
+
+- With nothing configured, forwarded headers from a proxy **on the same machine** (IIS, nginx or a
+  sidecar talking to Kestrel over loopback) are honored, and those from every other caller are
+  ignored — an empty list does not mean "forward nothing".
+- With entries configured, those proxies are trusted **in addition to** loopback.
+
+Trusting loopback is safe only when whatever forwards traffic to the application on the same machine
+sets or appends `X-Forwarded-For` and `X-Forwarded-Proto` itself. A reverse proxy such as nginx, IIS
+or YARP does: with the default `ForwardLimit` of 1 the middleware takes the last `X-Forwarded-For`
+entry, which that proxy wrote from the peer address, so the application sees the real client.
+
+A forwarder that passes the bytes through unchanged does not. An `ssh -R` tunnel, or any other
+TCP-level tunnel or port forward, delivers the caller's own headers intact over a loopback connection,
+and they are trusted. The caller then chooses the address the application sees, and with it its
+rate-limit partition and its brute-force bucket, and can claim any scheme. In such a deployment either
+do not call `app.UseForwardedHeaders()`, so every caller shares the loopback address and one bucket,
+which is coarse but cannot be chosen by the caller, or put an HTTP reverse proxy that writes the
+headers between the tunnel and the application.
+
+A proxy on another machine or container must be listed. A host that
+forgets to call this at all behind a real proxy is warned at startup rather than left silently
+partitioning every client into the same bucket; that warning also appears for a same-machine proxy,
+where configuring its address simply makes the trust explicit.
 
 ---
 

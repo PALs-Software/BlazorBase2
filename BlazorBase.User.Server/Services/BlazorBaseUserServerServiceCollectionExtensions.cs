@@ -242,10 +242,19 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
     /// or <see cref="ForwardedHeadersOptions.KnownProxies"/> entry when configuration supplies neither:
     /// an unrestricted trust list lets any caller supply its own <c>X-Forwarded-For</c> value and pick
     /// its own rate-limit partition, which is worse than today's single shared bucket, because the
-    /// attacker - not the network topology - would then choose the key. With nothing configured, this
-    /// method still registers <see cref="ForwardedHeadersOptions"/>, but with no trusted proxy or
-    /// network, so <see cref="ForwardedHeadersMiddleware"/> forwards nothing and
-    /// <c>RemoteIpAddress</c> stays exactly what it was before this method existed.
+    /// attacker - not the network topology - would then choose the key.
+    ///
+    /// The configured entries are added to ASP.NET Core's defaults, which trust loopback
+    /// (<c>127.0.0.0/8</c> and <c>::1</c>), rather than replacing them. With nothing configured, forwarded
+    /// headers are therefore still honored from a proxy on the same machine and ignored from every other
+    /// caller; loopback stays trusted after configuration too. That is safe only when whatever forwards
+    /// traffic on the same machine sets or appends <c>X-Forwarded-For</c> and <c>X-Forwarded-Proto</c>
+    /// itself, as a reverse proxy such as nginx, IIS or YARP does. A forwarder that passes the bytes
+    /// through unchanged, such as an <c>ssh -R</c> tunnel or another TCP-level port forward, delivers the
+    /// caller's own headers intact, so the caller then chooses the address the application sees, its
+    /// rate-limit partition and brute-force bucket, and the scheme. In that deployment do not call
+    /// <c>app.UseForwardedHeaders()</c>, or put an HTTP reverse proxy that writes the headers in front of
+    /// the application; the AuthTransports documentation describes both.
     /// </remarks>
     public static IServiceCollection AddBlazorBaseForwardedHeaders(
         this IServiceCollection services,

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using BlazorBase.Components.Services;
 
 namespace BlazorBase.User.Services;
@@ -25,6 +27,9 @@ public static class BlazorBaseUserServiceCollectionExtensions
     /// <see cref="HttpClient"/>. <see cref="CsrfTokenProvider"/> is registered here rather than only
     /// under the cookie transport, because <see cref="BlazorBaseUserAuthStateProvider"/> reads the
     /// antiforgery token from every session response regardless of which transport is in use.
+    /// <see cref="CsrfTokenProvider"/> and <see cref="AuthenticationSessionState"/> are registered
+    /// scoped with <c>TryAdd</c>; the WebAssembly and MAUI registrations replace them with one instance
+    /// per process through <see cref="AddBlazorBaseUserSharedClientSession"/>, in either call order.
     /// </remarks>
     public static IServiceCollection AddBlazorBaseUserClient(this IServiceCollection services)
     {
@@ -35,7 +40,8 @@ public static class BlazorBaseUserServiceCollectionExtensions
                 .Build();
         });
 
-        services.AddScoped<CsrfTokenProvider>();
+        services.TryAddScoped<CsrfTokenProvider>();
+        services.TryAddScoped<AuthenticationSessionState>();
         services.AddScoped<BlazorBaseUserAuthStateProvider>();
         services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<BlazorBaseUserAuthStateProvider>());
 
@@ -47,5 +53,36 @@ public static class BlazorBaseUserServiceCollectionExtensions
         services.AddOptions<BlazorBaseUserClientOptions>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Makes the client's session state — <see cref="CsrfTokenProvider"/> and
+    /// <see cref="AuthenticationSessionState"/> — a single instance for the whole process.
+    /// </summary>
+    /// <remarks>
+    /// IHttpClientFactory builds every <see cref="DelegatingHandler"/> in a dependency injection scope of
+    /// its own, so with scoped registrations <c>CsrfHeaderHandler</c> read an antiforgery token nobody had
+    /// set (every write answered 403), and a 401 seen by <see cref="SessionExpiryHandler"/> invalidated a
+    /// provider no component listened to. Correct only where one process serves one user, which is why
+    /// the WebAssembly and MAUI registrations call this and <see cref="AddBlazorBaseUserClient"/> does
+    /// not. In a process that hosts an ASP.NET Core server it would share one user's session with every
+    /// other, so it refuses to run there: the registered hosted service throws from <c>StartAsync</c>, which
+    /// keeps the host from starting, and both instances are created through factories that throw the same
+    /// <see cref="InvalidOperationException"/>. There is no opt-out. A server-rendered host calls
+    /// <see cref="AddBlazorBaseUserClient"/> alone and registers a scoped <see cref="ITokenStorage"/>.
+    /// Safe to call before or after <see cref="AddBlazorBaseUserClient"/>, and more than once.
+    /// </remarks>
+    public static IServiceCollection AddBlazorBaseUserSharedClientSession(this IServiceCollection services)
+    {
+        services.Replace(ServiceDescriptor.Singleton(serviceProvider => CreateGuarded<CsrfTokenProvider>(serviceProvider, static () => new CsrfTokenProvider())));
+        services.Replace(ServiceDescriptor.Singleton(serviceProvider => CreateGuarded<AuthenticationSessionState>(serviceProvider, static () => new AuthenticationSessionState())));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, SharedClientSessionStartupGuard>());
+        return services;
+    }
+
+    private static TSessionState CreateGuarded<TSessionState>(IServiceProvider serviceProvider, Func<TSessionState> create)
+    {
+        SharedClientSessionGuard.ThrowIfServerProcess(serviceProvider);
+        return create();
     }
 }

@@ -5,8 +5,13 @@
 
 .base-side-nav ::deep .base-side-nav-root {
     box-sizing: border-box;
+    min-width: 0;
     border-right: none;
     padding-inline: var(--space-2);
+}
+
+.base-side-nav:not(.collapsed) ::deep .base-side-nav-root {
+    width: 100%;
 }
 
 ::deep .base-side-nav-divider {

@@ -5,6 +5,7 @@ using AppTemplate.Shared.Modules.Authentication;
 using AppTemplate.Shared.Modules.Notes.Entities;
 using BlazorBase.CRUD.Extensions;
 using BlazorBase.DataProtection;
+using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Tokens;
 using Microsoft.AspNetCore.DataProtection;
@@ -24,6 +25,7 @@ builder.Services.AddBaseDbContext<AppTemplateDbContext>(options => options.UseSq
 builder.Services.AddBlazorBaseDataProtection(dataProtection => dataProtection.SetApplicationName("AppTemplate"));
 
 builder.Services.AddBlazorBaseUserServer<AppUser, AppTemplateDbContext>(builder.Configuration);
+builder.Services.AddBlazorBaseCookieAuthTokens(builder.Configuration);
 
 builder.Services.AddBlazorBaseDevelopmentAuthentication<AppUser>(builder.Configuration, builder.Environment);
 
@@ -52,6 +54,8 @@ app.UseBlazorFrameworkFiles();
 
 app.UseRouting();
 app.UseAuthentication();
+app.UseBlazorBaseAccessTokenStampValidation();
+app.UseBlazorBaseCsrf();
 app.UseAuthorization();
 app.UseRateLimiter();
 app.MapStaticAssets();

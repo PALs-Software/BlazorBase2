@@ -111,7 +111,7 @@
     flex: 0 0 auto;
     padding: 0 8px;
     border-radius: 999px;
-    background: var(--color-accent);
+    background: var(--color-accent-fill);
     color: var(--color-text-on-accent);
     font-size: 11px;
     line-height: 18px;
