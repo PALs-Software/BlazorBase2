@@ -7,17 +7,18 @@
 
             <div class="base-file-input-dialog-picker">
                 <FluentInputFile Class="base-file-input-zone"
+                                 AnchorId="@PickerButtonId"
                                  Accept="@Content.FileFilter"
                                  MaximumFileSize="@ResolvedMaxFileSize"
                                  OnFileUploaded="@OnFileUploadedAsync"
                                  OnFileError="@OnFileError"
                                  Mode="InputFileMode.Stream"
                                  Multiple="false">
-                    <div class="base-file-input-dialog-drop-area">
+                    <button type="button" id="@PickerButtonId" class="base-file-input-dialog-drop-area">
                         <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size24.ArrowUpload())"
                                     Color="Color.Primary" />
                         <span>@Content.FileInputCaption</span>
-                    </div>
+                    </button>
                 </FluentInputFile>
             </div>
 

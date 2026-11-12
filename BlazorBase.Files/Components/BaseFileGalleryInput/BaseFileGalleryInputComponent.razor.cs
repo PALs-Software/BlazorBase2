@@ -28,6 +28,8 @@ public partial class BaseFileGalleryInputComponent(
     private readonly IStringLocalizer<BaseFileGalleryInputComponent> ComponentLocalizer = componentLocalizer;
     #endregion
 
+    private readonly string PickerButtonId = $"base-file-gallery-picker-{Guid.NewGuid():N}";
+
     [Parameter]
     public object Model { get; set; } = default!;
 

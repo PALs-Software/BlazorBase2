@@ -28,6 +28,8 @@ public partial class BaseFilePhotoInputComponent(
     private readonly IStringLocalizer<BaseFilePhotoInputComponent> ComponentLocalizer = componentLocalizer;
     #endregion
 
+    private readonly string PickerButtonId = $"base-file-photo-picker-{Guid.NewGuid():N}";
+
     [Parameter]
     public object Model { get; set; } = default!;
 

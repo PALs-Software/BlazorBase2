@@ -22,6 +22,26 @@ public class BaseFilePhotoInputComponentTests : FilesBunitTestContextBase
     }
 
     [Fact]
+    public void WhenEditing_TheUploadAreaIsAButtonThatOpensThePicker()
+    {
+        var cut = RenderInput(value: null, isEditing: true, readOnly: false);
+
+        var button = cut.Find("button.upload-area");
+        Assert.Equal("button", button.GetAttribute("type"));
+        Assert.False(string.IsNullOrEmpty(button.Id));
+        Assert.Equal(button.Id, cut.FindComponent<FluentInputFile>().Instance.AnchorId);
+    }
+
+    [Fact]
+    public void TwoInputs_UseDifferentPickerButtons()
+    {
+        var first = RenderInput(value: null, isEditing: true, readOnly: false);
+        var second = RenderInput(value: null, isEditing: true, readOnly: false);
+
+        Assert.NotEqual(first.Find("button.upload-area").Id, second.Find("button.upload-area").Id);
+    }
+
+    [Fact]
     public void WhenReadOnly_OffersNoFilePicker()
     {
         var cut = RenderInput(value: null, isEditing: true, readOnly: true);

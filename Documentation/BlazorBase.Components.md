@@ -906,7 +906,8 @@ The dialogs of this package:
   opens `BaseConfirmationDialog`; `IConfirmationService` uses it. A destructive confirmation shows a warning
   icon and a danger-styled confirm button (`base-danger-action`), and starts on **Cancel** so a stray Enter cannot confirm it.
 - `dialogService.ShowFileInputDialogAsync(title, new FileInputDialogContent { Message = ..., FileInputCaption = ..., FileFilter = ".xlsx", MaxFileSize = 20 * 1024 * 1024 })`
-  opens `BaseFileInputDialog`, a `FluentInputFile` (stream mode) with Confirm/Cancel buttons. The confirm button
+  opens `BaseFileInputDialog`, a `FluentInputFile` (stream mode) with Confirm/Cancel buttons. Its drop area is a
+  button wired as the `AnchorId`, so tapping it opens the file picker on phones too. The confirm button
   stays disabled until a file both matches `FileFilter` (comma separated extensions, e.g. `.csv,.txt`) and is at
   or under `MaxFileSize` (0 or negative disables the size check); the validation itself lives in the
   dependency-free `FileInputValidator.Validate(...)`, reused here and safe to call again server-side so the two
