@@ -34,8 +34,14 @@
   <data name="NavNotes" xml:space="preserve">
     <value>Notes</value>
   </data>
-  <data name="NavAdmin" xml:space="preserve">
-    <value>Admin</value>
+  <data name="NavUsers" xml:space="preserve">
+    <value>Users</value>
+  </data>
+  <data name="NavGroupWorkspace" xml:space="preserve">
+    <value>Workspace</value>
+  </data>
+  <data name="NavGroupAdministration" xml:space="preserve">
+    <value>Administration</value>
   </data>
   <data name="AvatarTitle" xml:space="preserve">
     <value>Signed in</value>

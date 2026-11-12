@@ -75,7 +75,10 @@ co-located `.resx`/`.de.resx` files keyed by property name so captions need no m
 The framework's own `Documentation/` folder is the authoritative reference for every library.
 
 The top bar already shows the app brand (`AppTemplate.Client/Layout/AppBrand.razor`, using
-`wwwroot/icon.svg`) and the command palette search field (Ctrl+K). Swap the icon and the wordmark to
-brand the app, and feed the palette with your own entries through
+`wwwroot/icon.svg`) and the command palette search field (Ctrl+K), and the sidebar shows grouped
+navigation with section headings. Keep all three: swap the icon and the wordmark to brand the app,
+replace the groups in `Layout/MainLayout.razor.cs` with your own (still grouped, still with headings),
+and feed the palette with your own entries through
 `builder.Services.AddCommandPaletteProvider<YourProvider>()` in `AppTemplate.Client/Program.cs`; the
 page entries come from the navigation items in `Layout/MainLayout.razor.cs` automatically.
+`AppTemplate.Tests/Layout/MainLayoutTests.cs` fails when one of these defaults is dropped.

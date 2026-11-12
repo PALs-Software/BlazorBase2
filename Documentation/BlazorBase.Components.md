@@ -238,6 +238,19 @@ component owns the appearance of the tabs and the sheet, not where the bar lives
 | `ShowHelp` | Default `false`. Shows a "?" button in front of the theme toggle and the contextual help panel it opens — see [Contextual help](#contextual-help). |
 | `ChildContent` | The routed page. |
 
+**Recommended app shell.** The defaults of an application's `BaseLayout` are the ones the
+[PWA template](../Templates/BlazorBasePwaTemplate/README.md#app-shell-defaults-keep-them) ships in
+`Layout/MainLayout.razor(.cs)`; an app keeps all of them and only swaps their content:
+
+- the brand — `Brand` with the app icon and the app name (`BrandPosition.Start`), not the plain `AppTitle`;
+- the command palette — `ShowCommandPalette` together with `NavigationItems`, so the search field sits in the middle of the top bar;
+- a grouped `NavigationItem` tree (groups with `Key`, `Label`, `Icon`, `ExpandedByDefault`, `Children`) so the sidebar shows
+  section headings; the same tree feeds `BaseSideNavigation`, `NavigationItems` and the bottom bar (`IsMobilePrimary`);
+- `BaseThemeToggle` in `HeaderContent`.
+
+The template's `MainLayoutTests` guards them. The README of the template also holds a new-app checklist and an update
+checklist for apps scaffolded from an older template.
+
 **Responsive behavior.** The shell fills the dynamic viewport (`100dvh`, so a phone's collapsing address
 bar does not cut it off) and only the `<main>` area scrolls; the header stays put. The header height is
 the `--base-header-height` custom property on `.layout-root` (56 px). Page css that needs the room left

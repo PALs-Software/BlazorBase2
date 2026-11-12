@@ -94,6 +94,8 @@ that only needs a data grid should not have to reference the auth stack to get a
 - `Services/` — `IThemeService`, `ILanguageService`, `IFormFactor`, `IConfirmationService`.
 - `Routing/` — `QueryStringReader`, a dependency-free query-parameter reader.
 
+**App shell defaults are mandatory (PWA template).** Apps generated from `Templates/BlazorBasePwaTemplate` twice lost their brand, their command palette and the sidebar section headings. When you create a new app from the template or touch an app's `Layout/MainLayout.razor(.cs)`, keep all three: the brand (`<Brand><AppBrand /></Brand>` with the app icon and name, `BrandPosition.Start`), the command palette (`ShowCommandPalette` plus `NavigationItems`) and a **grouped** `NavigationItem` tree (groups with `Key`, `Label`, `Icon`, `ExpandedByDefault`, `Children`), plus `BaseThemeToggle`. Only swap the icon, wordmark and groups for the app's own. When an app was generated from an older template, run the "Updating an app created from an older template" checklist in [Templates/BlazorBasePwaTemplate/README.md](Templates/BlazorBasePwaTemplate/README.md) (compare `Layout/*`, `App.razor`, `Program.cs`, `wwwroot/index.html` against the current template); a new app follows its "New app checklist". The template's `AppTemplate.Tests/Layout/MainLayoutTests.cs` guards these defaults — fix the layout, never delete or weaken those tests to make a change pass.
+
 ### Speech: browser audio through an authenticated proxy
 
 `BlazorBase.Speech` records push-to-talk audio (16 kHz mono WAV via an `AudioWorklet`) and reads text

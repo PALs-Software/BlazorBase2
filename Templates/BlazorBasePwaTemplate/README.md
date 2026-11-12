@@ -50,9 +50,72 @@ Earlier revisions kept a real `Libs` here — first a symlink, which breaks Razo
 this very repository, which cannot resolve in a squashed public mirror. Resolving the path through a
 property needs neither.
 
+## App shell defaults (keep them)
+
+Apps generated from this template have lost these defaults more than once, because they look like
+optional decoration and get dropped while an app is being reshaped. They are not optional. Every app
+keeps all of them; a change to `AppTemplate.Client/Layout/MainLayout.razor(.cs)` must not remove one.
+
+| Default | Where | What it must look like |
+|---|---|---|
+| Brand (app icon and app name) | `Layout/AppBrand.razor` in the `<Brand>` slot of `BaseLayout`, `BrandPosition="BrandPosition.Start"` | Icon from `wwwroot/icon.svg` plus the wordmark, as a link to the app root at the start of the top bar. Never fall back to the plain `AppTitle` text. |
+| Command palette | `ShowCommandPalette="@IsAuthenticated"` and `NavigationItems="@NavigationItems"` on `BaseLayout` | The search field sits in the middle of the top bar for signed-in users (a search icon on a phone, Ctrl+K anywhere) and lists the navigation entries as pages. |
+| Grouped sidebar with section headings | `BuildNavigationItems()` in `Layout/MainLayout.razor.cs` | A tree of groups (`Key`, `Label`, `Icon`, `ExpandedByDefault = true`, `Children`), not a flat list. The group labels are the section headings of the sidebar. |
+| One navigation tree | `NavigationItems` passed to `BaseSideNavigation` and `BaseLayout.NavigationItems` | The rail, the mobile bottom bar (`IsMobilePrimary`) and the command palette read the same tree, so role visibility cannot diverge. |
+| Theme toggle | `<BaseThemeToggle />` in `HeaderContent` | The theme switch in the top bar, next to the avatar. |
+
+`AppTemplate.Tests/Layout/MainLayoutTests.cs` guards these defaults: it fails when the brand, the
+palette, the group headings or the role gating of the admin group disappear. If one of those tests
+breaks, fix the layout, not the test. A test may only change together with an intentional redesign of
+the shell.
+
+What to change per app, and nothing else:
+
+- **Icon.** Replace `wwwroot/icon.svg` (and the PWA icons in `wwwroot` if the app has them).
+- **Wordmark.** Edit the app name in `Layout/AppBrand.razor`; keep the `<a class="app-brand">` structure.
+  Its accessible name comes from `AppBrand.razor.resx` / `AppBrand.razor.de.resx`.
+- **Groups and entries.** Replace the "Workspace" and "Administration" groups in `BuildNavigationItems()`
+  with the app's own groups and entries (labels in `MainLayout.razor.resx` / `MainLayout.razor.de.resx`).
+  Keep at least two groups with headings, mark the entries a phone needs most with `IsMobilePrimary`,
+  and gate admin-only groups and their entries with `RequiredRole`.
+- **Palette content.** Add providers (see below); the page entries need no work.
+
+### New app checklist
+
+1. `dotnet new blazorbase-pwa -n MyApp -o MyApp`, then follow `SETUP.md` in the generated project.
+2. Swap `wwwroot/icon.svg` and the wordmark in `Layout/AppBrand.razor` for the app's identity.
+3. Replace the template navigation groups in `Layout/MainLayout.razor.cs` with the app's groups; keep the
+   group headings, `ExpandedByDefault`, `IsMobilePrimary` and the role gates.
+4. Leave `ShowCommandPalette`, `NavigationItems`, `BrandPosition.Start` and `<BaseThemeToggle />` in
+   `Layout/MainLayout.razor` untouched.
+5. Run the tests (`dotnet test`): `Layout/MainLayoutTests.cs` must pass. When you add or rename navigation
+   groups, adapt the group-heading assertions there to the new labels instead of deleting them.
+
+### Updating an app created from an older template
+
+An app is a copy of the template at the time it was generated; later template changes do not reach it.
+To catch up, compare these files of the app against the current template and port what is missing:
+
+- `AppTemplate.Client/Layout/*` (`MainLayout.razor`, `MainLayout.razor.cs`, `MainLayout.razor.css`,
+  `MainLayout.razor.resx`, `MainLayout.razor.de.resx`, `AppBrand.*`)
+- `AppTemplate.Client/App.razor`
+- `AppTemplate.Client/Program.cs`
+- `AppTemplate.Client/wwwroot/index.html` (and `wwwroot/icon.svg`)
+- `AppTemplate.Tests/Layout/MainLayoutTests.cs`
+
+Then verify the three defaults that were lost before:
+
+1. **Section headings.** The sidebar shows group headings: `BuildNavigationItems()` returns groups with `Children`, not a flat list.
+2. **Command palette.** `BaseLayout` has `ShowCommandPalette="@IsAuthenticated"` and `NavigationItems="@NavigationItems"`; the search field appears in the middle of the top bar.
+3. **Brand.** `<Brand><AppBrand /></Brand>` with `BrandPosition="BrandPosition.Start"` shows the icon and the app name, not just a title.
+
+Keep the app's own icon, wordmark, groups and entries while porting; only the structure is taken over.
+Copy `Layout/MainLayoutTests.cs` along so the defaults stay guarded.
+
 ## The app shell: brand and command palette
 
-`AppTemplate.Client/Layout/MainLayout.razor` hosts `BaseLayout` with two features switched on by default:
+`AppTemplate.Client/Layout/MainLayout.razor` hosts `BaseLayout` with these features switched on by default
+(the table above is the contract, this section explains the two with their own files):
 
 - **Brand.** `Layout/AppBrand.razor` renders the app logo (`wwwroot/icon.svg`) and the app name as a link to
   the app root at the start of the top bar, in the `Brand` slot of `BaseLayout` with
