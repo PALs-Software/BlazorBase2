@@ -10,6 +10,10 @@ The server-side companion to [`BlazorBase.User`](BlazorBase.User.md). Bundles AS
 > [Authentication token transports](BlazorBase.User.Server.AuthTransports.md), which also covers CSRF
 > and both external sign-in entry points.
 
+> **OAuth for MCP endpoints:** an access-token-protected endpoint can be added as a claude.ai custom
+> connector through the opt-in OAuth 2.1 authorization server (`AddBlazorBaseOAuthServer`) - see
+> [OAuth 2.1 authorization server](BlazorBase.User.Server.OAuth.md).
+
 ---
 
 ## Table of Contents
@@ -310,7 +314,7 @@ app.MapMcp("/api/mcp")
 | `CreateAsync(name, expiresAt, userId?)` | Mints a token. **The plain-text secret is returned here and never again** — only its SHA-512 hash is stored. |
 | `ValidateAsync(secret)` | Prefix lookup → constant-time hash match → fresh database check of `IsRevoked`/`ExpiresAt`. |
 | `RevokeAsync(tokenId, userId?)` | Revokes. Pass `userId` to refuse another account's token. |
-| `ListAsync(userId?)` | Non-secret summaries; never carries the hash. |
+| `ListAsync(userId?)` | Non-secret summaries of **personal** tokens; never carries the hash. Tokens issued by the OAuth authorization server (`OAuthGrantId` set) are left out - they are managed as connected apps through their grant. |
 | `TouchAsync(tokenId)` | Updates `LastUsedAt`, throttled to once a minute per token. |
 
 `userId` is optional throughout because both shapes of application have to fit: one where every token belongs to the account that minted it, and one where the data is a single shared collection with no per-account ownership. **An application of the first kind must pass the current user's id to `ListAsync` and `RevokeAsync`** — omitting it there is what silently turns a per-user token list into an everyone's-tokens list.
@@ -382,6 +386,21 @@ Failed attempts incur a per-client exponential back-off keyed on the **transport
 
 **A management UI or REST controller.** Minting and revoking are service calls; how they are exposed — an admin page, a controller, a CLI switch — is the host's decision.
 
+### The 401 challenge
+
+An unauthenticated request to an endpoint that requires the access-token scheme is answered `401` with
+`WWW-Authenticate: Bearer` (RFC 6750), carrying `error="invalid_token"` when a token was presented and
+rejected. Every registered `IAccessTokenChallengeParameterProvider` (none by default) may add further
+auth-params; the OAuth authorization server adds `resource_metadata="…"` for a registered protected
+resource, which is how an OAuth client discovers where to obtain a token.
+
+### OAuth-issued tokens
+
+`AccessToken.OAuthGrantId` (nullable, indexed, deliberately no foreign key) marks a token issued by the
+[OAuth 2.1 authorization server](BlazorBase.User.Server.OAuth.md) under a user's grant. Such a token is
+validated, augmented and revoked like any other access token; revoking its grant revokes it at once.
+`ListAsync` leaves these tokens out.
+
 ### Migration required on upgrade
 
 `AccessTokens` is a new table on `BaseUserDbContext`. Every deriving application needs a migration, even one that never calls `AddBlazorBaseAccessTokens`:
@@ -389,6 +408,10 @@ Failed attempts incur a per-client exponential back-off keyed on the **transport
 ```bash
 dotnet ef migrations add AddAccessTokens
 ```
+
+The OAuth authorization server adds `AccessTokens.OAuthGrantId` and the tables `OAuthClients`,
+`OAuthGrants`, `OAuthAuthorizationCodes` and `OAuthRefreshTokens` to `BaseUserDbContext`, which again need
+a migration in every deriving application (`dotnet ef migrations add AddOAuthServer`).
 
 ---
 
@@ -845,6 +868,20 @@ from the `JwtSettings`-based version:
   [Account management](#account-management-email-confirmation-password-reset-two-factor) and
   [Authentication token transports](BlazorBase.User.Server.AuthTransports.md)).
 
+**OAuth 2.1 authorization server.** Additive and opt-in (`AddBlazorBaseOAuthServer`), but it touches
+every host in two places:
+
+- **The access-token 401 now carries `WWW-Authenticate: Bearer`** (with `error="invalid_token"` when a
+  presented token was rejected); before, the challenge had no header. Without the OAuth module that is the
+  only behaviour change. A client that parsed the absence of the header needs no change; one that reacts
+  to `WWW-Authenticate` now sees a standard RFC 6750 challenge.
+- **A migration is required** for `AccessTokens.OAuthGrantId` and the four `OAuth*` tables, even in a host
+  that never registers the OAuth server. Until it is added, `Database.Migrate()` refuses to run with
+  EF Core's pending-model-changes error.
+- `IAccessTokenService.ListAsync` no longer returns OAuth-issued tokens.
+
+See [OAuth 2.1 authorization server](BlazorBase.User.Server.OAuth.md#upgrade-notes).
+
 ---
 
 ## REST API Reference
@@ -942,6 +979,25 @@ The response deliberately omits one claim: the security-stamp claim, whose type 
 `IdentityOptions.ClaimsIdentity.SecurityStampClaimType`. It is server-side bookkeeping used to
 invalidate sessions; it has no client use, and handing it out widens what a cross-site script can
 read. Every other claim on the principal is returned.
+
+### OAuth authorization server — `api/oauth/*` and `/.well-known/*`
+
+Mapped via `app.MapBlazorBaseOAuthServer()` and `app.MapBlazorBaseOAuthProtectedResource(path)` when the
+host registered `AddBlazorBaseOAuthServer`. The full contract is in
+[OAuth 2.1 authorization server](BlazorBase.User.Server.OAuth.md#endpoint-reference).
+
+```http
+GET    /.well-known/oauth-authorization-server              RFC 8414 metadata
+GET    /.well-known/oauth-protected-resource/api/mcp        RFC 9728 metadata (bare path = first resource)
+POST   /api/oauth/register                                  RFC 7591 { "redirect_uris": [...], ... } -> 201
+GET    /api/oauth/authorize?response_type=code&...         302 /oauth/consent?request=...
+POST   /api/oauth/token                                     form: authorization_code | refresh_token
+POST   /api/oauth/revoke                                    form: token (RFC 7009) -> 200
+GET    /api/oauth/authorization-requests?request=...        { "clientName", "redirectHost", "scopes": [...] }
+POST   /api/oauth/authorization-requests/decision           { "request", "approved" } -> { "redirectUri" }
+GET    /api/oauth/grants                                    [ { "id", "clientName", "redirectHost", "scope", "createdAt", "lastUsedAt" } ]
+DELETE /api/oauth/grants/{id}                               204 | 404
+```
 
 ### Admin user CRUD — delegated to BlazorBase.CRUD
 

@@ -178,7 +178,17 @@ builder.Services.AddHttpClient<IAuthService, AuthService>(c => c.BaseAddress = a
 
 builder.Services.AddHttpClient<IUserService, UserService>(c => c.BaseAddress = apiBase)
     .AddBlazorBaseCookieSessionHandlers();
+
+// Only when the server hosts the OAuth authorization server (consent page, connected-apps panel):
+builder.Services.AddHttpClient<IOAuthConsentService, OAuthConsentService>(c => c.BaseAddress = apiBase)
+    .AddBlazorBaseCookieSessionHandlers();
 ```
+
+Under the bearer transport (`AddBlazorBaseUserWasm`) register `IOAuthConsentService` with
+`.AddHttpMessageHandler<AuthTokenHandler>()` instead, like `IUserService`. The consent page is reached by
+a browser navigation from `api/oauth/authorize`; in a PWA that endpoint must stay under `/api/` so the
+service worker lets it through — see
+[OAuth consent page and connected apps](BlazorBase.User.md#oauth-consent-page-and-connected-apps).
 
 `SessionExpiryHandler` must stay off the auth client: it depends on the authentication state provider,
 which depends on `IAuthService`, and the cycle throws on the first resolve.

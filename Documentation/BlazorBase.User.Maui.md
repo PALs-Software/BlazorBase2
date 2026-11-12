@@ -93,6 +93,11 @@ builder.Services.AddHttpClient<IUserService, UserService>((sp, client) =>
 .AddHttpMessageHandler<AuthTokenHandler>();
 ```
 
+To show the user's OAuth-connected apps (`OAuthConnectedAppsPanel`), register `IOAuthConsentService` the
+same way as `IUserService` — same base-address callback, `.AddHttpMessageHandler<AuthTokenHandler>()`.
+The consent page itself is only reached in a browser on the website, never inside the MAUI app; see
+[OAuth consent page and connected apps](BlazorBase.User.md#oauth-consent-page-and-connected-apps).
+
 > The blocking `GetAwaiter().GetResult()` is acceptable here because `MauiAppConfigService` reads from `SecureStorage` on the UI thread which already supports synchronous waits in the typed-client factory. For finer control, wrap the resolved URL behind a service so each request reads the latest value asynchronously.
 
 ### 4. Optional — BlazorBase.CRUD HTTP client

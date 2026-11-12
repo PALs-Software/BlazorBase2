@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>Verbundene Apps</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Apps, denen Sie über OAuth Zugriff auf Ihr Konto erlaubt haben, zum Beispiel KI-Assistenten.</value>
+  </data>
+  <data name="Empty" xml:space="preserve">
+    <value>Es sind keine Apps verbunden.</value>
+  </data>
+  <data name="LoadError" xml:space="preserve">
+    <value>Die verbundenen Apps konnten nicht geladen werden.</value>
+  </data>
+  <data name="RevokeError" xml:space="preserve">
+    <value>Die App konnte nicht getrennt werden.</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>Fehler</value>
+  </data>
+  <data name="Revoke" xml:space="preserve">
+    <value>Trennen</value>
+  </data>
+  <data name="RevokeAriaLabel" xml:space="preserve">
+    <value>{0} trennen</value>
+  </data>
+  <data name="ConfirmTitle" xml:space="preserve">
+    <value>App trennen</value>
+  </data>
+  <data name="ConfirmMessage" xml:space="preserve">
+    <value>{0} trennen? Die App verliert sofort den Zugriff und muss für eine neue Verbindung erneut autorisiert werden.</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Abbrechen</value>
+  </data>
+  <data name="RedirectHost" xml:space="preserve">
+    <value>Weiterleitungsziel</value>
+  </data>
+  <data name="Scope" xml:space="preserve">
+    <value>Berechtigung</value>
+  </data>
+  <data name="ConnectedOn" xml:space="preserve">
+    <value>Verbunden am</value>
+  </data>
+  <data name="LastUsed" xml:space="preserve">
+    <value>Zuletzt verwendet</value>
+  </data>
+  <data name="NeverUsed" xml:space="preserve">
+    <value>Nie</value>
+  </data>
+</root>

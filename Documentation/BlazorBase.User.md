@@ -254,6 +254,20 @@ that writes its own `MainLayout` instead **has to add it** and register the serv
 | `GetMeAsync()` | GET `api/user/me` | `UserProfile` | |
 | `UpdateSettingsAsync(req)` | PUT `api/user/me/settings` | — | Theme + language |
 
+### `IOAuthConsentService` — `OAuthConsentService`
+
+The client of the OAuth authorization server's user-facing API (see
+[OAuth consent page and connected apps](#oauth-consent-page-and-connected-apps)). Paths are relative to
+`BlazorBaseUserClientOptions.OAuthEndpointBasePath` (default `api/oauth`, must match the server's
+`OAuthServer:EndpointBasePath`).
+
+| Method | HTTP | Returns | Purpose |
+|---|---|---|---|
+| `GetAuthorizationRequestAsync(request)` | GET `api/oauth/authorization-requests?request=…` | `OAuthAuthorizationRequestDetails?` | `null` for an invalid or expired request; a 403 surfaces as `HttpRequestException` with `StatusCode` |
+| `SubmitDecisionAsync(decision)` | POST `api/oauth/authorization-requests/decision` | `OAuthAuthorizationDecisionResponse?` | `null` for an invalid or expired request |
+| `GetGrantsAsync()` | GET `api/oauth/grants` | `IReadOnlyList<OAuthGrantSummary>` | Connected apps, newest first |
+| `RevokeGrantAsync(id)` | DELETE `api/oauth/grants/{id}` | — | Disconnects an app |
+
 ### `ITokenStorage`
 
 ```csharp
@@ -387,6 +401,7 @@ Two behavior changes follow from this and are intended:
 | `Login.razor` (`/login`) | Login + initial admin setup form. Accepts a `[Parameter] bool CollectHouseholdName` (default `false`). When `true` and in setup mode, renders an optional household-name text field bound to `SetupRequest.HouseholdName`. After a successful login, navigates to the `returnUrl` query parameter when present and safe; falls back to `/`. | `[AllowAnonymous]` |
 | `SetupServer.razor` (`/setup-server`) | Asks the user for the backend URL (MAUI first-run) | `[AllowAnonymous]` |
 | `UserManagementView.razor` | Generic, reusable user CRUD UI (no route, no `[Authorize]`) | host-supplied |
+| `OAuthConsent.razor` (`/oauth/consent`) | Consent page of the OAuth authorization server — see [OAuth consent page and connected apps](#oauth-consent-page-and-connected-apps) | `[Authorize]` |
 
 #### `Login` — `CollectHouseholdName` opt-in
 
@@ -468,6 +483,59 @@ For this to work the host must register the user-management custom inputs and an
 
 - `RedirectToLogin` — placed inside `<NotAuthorized>` in `<AuthorizeRouteView>`. Captures the current URI as an app-relative path and navigates to `/login?returnUrl=<encoded>`. If the current path is already `/login` (or starts with `login`), navigates to `/login` without a `returnUrl` to avoid loops.
 - `ResetPasswordDialog` — dialog content (`BaseDialogInstance<ResetPasswordModel>`) that prompts for a new password and writes it to `ResetPasswordModel.NewPassword`. Open it with `IDialogService.ShowBaseDialogAsync<ResetPasswordDialog, ResetPasswordModel>(title, model)`; it shows Fluent's OK and Cancel buttons and the result's `Cancelled` tells which one closed it.
+- `OAuthConnectedAppsPanel` — lists the apps the signed-in user connected through OAuth and disconnects one after an `IConfirmationService.ConfirmDestructiveAsync` prompt — see below.
+
+### OAuth consent page and connected apps
+
+The client half of the [OAuth 2.1 authorization server](BlazorBase.User.Server.OAuth.md) that lets an
+access-token-protected endpoint (an MCP server) be added as a claude.ai custom connector.
+
+**`OAuthConsent` (`/oauth/consent`, `[Authorize]`).** `api/oauth/authorize` redirects the browser here
+with a sealed `request` query parameter. The page shows the client name **and** the redirect host the
+browser will be sent to — the name is chosen by whoever registered the client, the host is the one fact
+the user can check; for a client identified by a Client ID Metadata Document also the host that
+published it (`ClientIdHost`) — plus the requested scopes with their descriptions (a localized `Scope_{name}`
+resource wins over the server-configured description; `Scope_mcp` ships in English and German). *Allow*
+and *Deny* post the decision and then leave the application with `NavigateTo(redirectUri, forceLoad: true)`.
+An invalid or expired request, or an account outside `OAuthServer:RequiredRoles`, shows a message and no
+buttons. An unauthenticated visitor is sent by the host's `RedirectToLogin` to
+`/login?returnUrl=%2Foauth%2Fconsent%3Frequest%3D…`; `Login` accepts that local return URL and brings the
+user back after signing in.
+
+**`OAuthConnectedAppsPanel`.** A routeless component for the host's settings page: client name, redirect
+host, scope, connected and last-used dates per grant, and a *Disconnect* button that revokes the grant
+after confirmation — every token the app holds stops working on its next request. Requires
+`IConfirmationService` (registered by `AddBlazorBaseCrudComponents()`).
+
+```razor
+@page "/settings/connected-apps"
+@attribute [Authorize]
+
+<OAuthConnectedAppsPanel />
+```
+
+**Registration.** Both use `IOAuthConsentService`, which calls authenticated endpoints, so register it
+exactly like `IUserService` — the framework cannot know which handlers the host's clients use:
+
+```csharp
+// Bearer transport (AddBlazorBaseUserWasm, MAUI)
+builder.Services.AddHttpClient<IOAuthConsentService, OAuthConsentService>(c => c.BaseAddress = apiBase)
+    .AddHttpMessageHandler<AuthTokenHandler>();
+
+// Cookie transport (AddBlazorBaseUserWasmCookieAuth)
+builder.Services.AddHttpClient<IOAuthConsentService, OAuthConsentService>(c => c.BaseAddress = apiBase)
+    .AddBlazorBaseCookieSessionHandlers();
+```
+
+A Blazor Server host registers it with whatever authenticated `HttpClient` setup its `IUserService` uses.
+Change `BlazorBaseUserClientOptions.OAuthEndpointBasePath` only together with the server's
+`OAuthServer:EndpointBasePath`. In a PWA keep both under `api/`: the service worker answers every other
+navigation with `index.html`, and `authorize` is reached by a browser navigation.
+
+The consent page is always entered by a full page load (the redirect from `authorize`). Under the cookie
+transport the session survives it; under the bearer transport with the default in-memory token storage
+it does not, so the user signs in on every connection attempt - one more reason the cookie transport is
+the recommended mode for a browser host.
 
 ---
 
@@ -526,6 +594,16 @@ public string Role { get; set; } = "";
 [RegularExpression("^(System|Light|Dark)$")] public string ThemePreference { get; set; }
 [RegularExpression("^(de|en)$")]             public string Language { get; set; }
 ```
+
+### OAuth consent DTOs
+
+| Type | Members |
+|---|---|
+| `OAuthAuthorizationRequestDetails` | `ClientName`, `RedirectHost`, `ClientIdHost` (nullable), `Scopes` (`List<OAuthScopeDetails>`) |
+| `OAuthScopeDetails` | `Name`, `Description` |
+| `OAuthAuthorizationDecisionRequest` | `Request` (the sealed request), `Approved` |
+| `OAuthAuthorizationDecisionResponse` | `RedirectUri` (client redirect carrying `code` or `error`, `state`, `iss`) |
+| `OAuthGrantSummary` | `Id`, `ClientName`, `RedirectHost`, `Scope`, `CreatedAt`, `LastUsedAt` |
 
 ### `UserModel` *(admin CRUD — the framework user model)*
 

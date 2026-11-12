@@ -13,4 +13,11 @@ public sealed class BlazorBaseUserClientOptions
     /// <see langword="false"/> so existing hosts that do not use households are unaffected.
     /// </summary>
     public bool CollectHouseholdNameOnSetup { get; set; }
+
+    /// <summary>
+    /// The API path of the server's OAuth consent and connected-apps endpoints, relative to the
+    /// <see cref="IOAuthConsentService"/> client's base address. Must match the server's
+    /// <c>OAuthServer:EndpointBasePath</c>; defaults to the server default <c>api/oauth</c>.
+    /// </summary>
+    public string OAuthEndpointBasePath { get; set; } = "api/oauth";
 }

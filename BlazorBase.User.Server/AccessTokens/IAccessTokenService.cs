@@ -47,7 +47,9 @@ public interface IAccessTokenService
     Task<bool> RevokeAsync(Guid tokenId, string? userId = null, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Returns access tokens ordered by name, restricted to <paramref name="userId"/> when given.
+    /// Returns personal access tokens ordered by name, restricted to <paramref name="userId"/> when
+    /// given. Tokens issued by the OAuth authorization server (<see cref="AccessToken.OAuthGrantId"/>
+    /// set) are left out: they are managed as connected apps through their grant, not as personal tokens.
     /// </summary>
     Task<IReadOnlyList<AccessTokenSummary>> ListAsync(string? userId = null, CancellationToken cancellationToken = default);
 

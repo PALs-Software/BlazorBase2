@@ -2,9 +2,11 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using BlazorBase.User.Server.AccessTokens.BruteForce;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Net.Http.Headers;
 
 namespace BlazorBase.User.Server.AccessTokens;
 
@@ -85,6 +87,38 @@ public class AccessTokenAuthenticationHandler(
         var ticket = new AuthenticationTicket(principal, Scheme.Name);
 
         return AuthenticateResult.Success(ticket);
+    }
+
+    /// <summary>
+    /// Answers 401 with <c>WWW-Authenticate: Bearer</c> (RFC 6750): <c>error="invalid_token"</c> when a
+    /// token was presented and rejected, plus whatever every registered
+    /// <see cref="IAccessTokenChallengeParameterProvider"/> contributes - the OAuth authorization server
+    /// adds <c>resource_metadata</c> so an OAuth client can discover how to obtain a token.
+    /// </summary>
+    protected override async Task HandleChallengeAsync(AuthenticationProperties properties)
+    {
+        var authenticateResult = await HandleAuthenticateOnceSafeAsync();
+        var parameters = new List<KeyValuePair<string, string>>();
+
+        if (authenticateResult.Failure is not null)
+            parameters.Add(new KeyValuePair<string, string>("error", "invalid_token"));
+
+        foreach (var parameterProvider in Context.RequestServices.GetServices<IAccessTokenChallengeParameterProvider>())
+            parameters.AddRange(parameterProvider.GetParameters(Context));
+
+        Response.StatusCode = StatusCodes.Status401Unauthorized;
+        Response.Headers.Append(HeaderNames.WWWAuthenticate, FormatBearerChallenge(parameters));
+    }
+
+    private static string FormatBearerChallenge(IReadOnlyCollection<KeyValuePair<string, string>> parameters)
+    {
+        if (parameters.Count == 0)
+            return "Bearer";
+
+        var formattedParameters = parameters.Select(parameter =>
+            $"{parameter.Key}=\"{parameter.Value.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"");
+
+        return "Bearer " + string.Join(", ", formattedParameters);
     }
 
     private string? ExtractToken()
