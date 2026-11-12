@@ -2,7 +2,13 @@
 @using BlazorBase.Components.Layout
 @using BlazorBase.Components.Layout.Navigation
 
-<BaseLayout AppTitle="AppTemplate">
+<BaseLayout AppTitle="AppTemplate"
+            BrandPosition="BrandPosition.Start"
+            ShowCommandPalette="@IsAuthenticated"
+            NavigationItems="@NavigationItems">
+    <Brand>
+        <AppBrand />
+    </Brand>
     <HeaderContent>
         <BaseThemeToggle />
         @if (IsAuthenticated)

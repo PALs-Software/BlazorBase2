@@ -73,3 +73,9 @@ first real module. Copy its shape: the entity in `.Shared` carrying `[BaseCrud("
 co-located `.resx`/`.de.resx` files keyed by property name so captions need no markup.
 
 The framework's own `Documentation/` folder is the authoritative reference for every library.
+
+The top bar already shows the app brand (`AppTemplate.Client/Layout/AppBrand.razor`, using
+`wwwroot/icon.svg`) and the command palette search field (Ctrl+K). Swap the icon and the wordmark to
+brand the app, and feed the palette with your own entries through
+`builder.Services.AddCommandPaletteProvider<YourProvider>()` in `AppTemplate.Client/Program.cs`; the
+page entries come from the navigation items in `Layout/MainLayout.razor.cs` automatically.

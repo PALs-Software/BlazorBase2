@@ -50,6 +50,32 @@ Earlier revisions kept a real `Libs` here — first a symlink, which breaks Razo
 this very repository, which cannot resolve in a squashed public mirror. Resolving the path through a
 property needs neither.
 
+## The app shell: brand and command palette
+
+`AppTemplate.Client/Layout/MainLayout.razor` hosts `BaseLayout` with two features switched on by default:
+
+- **Brand.** `Layout/AppBrand.razor` renders the app logo (`wwwroot/icon.svg`) and the app name as a link to
+  the app root at the start of the top bar, in the `Brand` slot of `BaseLayout` with
+  `BrandPosition="BrandPosition.Start"`. It replaces the plain `AppTitle` text. Replace `wwwroot/icon.svg` (and
+  the wordmark in `AppBrand.razor`) to give the app its own identity; its accessible name comes from
+  `AppBrand.razor.resx` / `AppBrand.razor.de.resx`.
+- **Command palette.** `ShowCommandPalette="@IsAuthenticated"` shows the search field to signed-in users in the center of the header (a
+  search icon on a phone) and opens the palette with Ctrl+K from anywhere. It lists the entries of
+  `NavigationItems` as pages. The palette services are registered by `AddBlazorBaseUserClient()` (through
+  `AddBlazorBaseComponents()`), so no extra registration is needed in `Program.cs`.
+
+To add more entries, register providers in `AppTemplate.Client/Program.cs`:
+
+```csharp
+builder.Services.AddCommandPaletteProvider<NoteSearchProvider>();
+builder.Services.AddCommandPaletteProvider([new CommandPaletteEntry { Id = "help", Title = "Help", Group = "Pages", Href = "help" }]);
+```
+
+`NoteSearchProvider` is a class implementing `ICommandPaletteProvider`. See "Command palette" in
+[`../../Documentation/BlazorBase.Components.md`](../../Documentation/BlazorBase.Components.md) for the provider
+contract, permission rules and ranking. To remove the palette or the brand again, drop `ShowCommandPalette` or
+the `<Brand>` block from `MainLayout.razor`.
+
 ## Where to go next
 
 - `Modules/Notes` (in `.Shared`/`.Client`) is the reference pattern for adding a first real
