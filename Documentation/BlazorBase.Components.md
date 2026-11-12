@@ -232,6 +232,9 @@ component owns the appearance of the tabs and the sheet, not where the bar lives
 | `HeaderContent` | Controls on the right of the header, in front of the built-in buttons (for example a notification bell). |
 | `HeaderEndContent` | Controls rendered after the built-in buttons, at the very end of the header (for example sign out). |
 | `Banner` | Content shown above the page, inside the scrolling main area. |
+| `BottomNavigationItems`, `MaxBottomBarItems` | The entries a phone's bottom bar (768 px and below) draws its quick links from, and the most quick links it shows (default 4, not counting "More"). The bar is left out while the list is null or empty. |
+| `BottomBarMore` | `BottomBarMoreMode`, default `Navigation`. What the "More" tab of the bottom bar reveals: `Navigation` opens the navigation drawer (the same list the header button opens), `Sheet` opens the bottom sheet of `BaseBottomNavigation` with only the entries that are not tabs, so "More" no longer repeats the drawer. See [Bottom bar "More"](#bottom-bar-more). |
+| `ShowTitleOnPhone` | Default `false`. Keeps `AppTitle` visible in the header at 768 px and below, where it is hidden otherwise; it is cut off with an ellipsis when the header buttons leave too little room. A `Brand` is always visible and is not affected. |
 | `ShowHelp` | Default `false`. Shows a "?" button in front of the theme toggle and the contextual help panel it opens — see [Contextual help](#contextual-help). |
 | `ChildContent` | The routed page. |
 
@@ -245,8 +248,8 @@ guess, otherwise the page scrolls although its content fits.
 |---|---|---|
 | above 1024 px | Persistent rail; the header button collapses it to icons. | Everything visible. |
 | 1024 px and below | Off-canvas drawer opened by the same button. It closes on navigation, Escape, a click on the overlay and when the viewport grows past the breakpoint. Focus moves into the drawer on open and back to the button on close; the page behind it is `inert`. | Everything visible. |
-| 768 px and below | Same drawer. | `AppTitle` is hidden (a `Brand` stays), padding shrinks, the body padding drops to 12 px. |
-| coarse pointer | Header controls grow from 40 px to 44 px (`--base-header-control-size`). | |
+| 768 px and below | Same drawer. | `AppTitle` is hidden unless `ShowTitleOnPhone` is set (a `Brand` stays), padding shrinks, the body padding drops to 12 px. |
+| any pointer | | Header controls have a 44 x 44 px hit area (`--base-header-control-size`, set on `.layout-root`; a host may override it). |
 
 **Header order.** From left to right the end of the header shows the search button of the command palette
 (`ShowCommandPalette`, phones only), `HeaderContent`, the help button
@@ -256,10 +259,38 @@ guess, otherwise the page scrolls although its content fits.
 **Plain header icons.** The icon buttons in the header — the navigation button, help, theme toggle, settings,
 the header actions and whatever a host puts into `HeaderContent` / `HeaderEndContent` — are `FluentButton`s with
 `Appearance="ButtonAppearance.Transparent"`, `IconOnly="true"` and an `IconStart` icon, and carry the class
-`base-header-control`. That class gives them the header control size (40 px, 44 px on touch screens) and a rounded
+`base-header-control`. That class gives them the header control size (44 px) and a rounded
 hit area, and `--color-bg-selected` while their popup is open (`aria-expanded="true"`); the transparent appearance
 draws the muted text color, `--color-bg-hover` on hover and the focus ring. A host button in the header sets
 `Class="base-header-control"` to match; the unread badge of the notification bell is not affected.
+
+### Bottom bar "More"
+
+On a phone the "More" tab of the bottom bar reveals either the navigation drawer or a sheet, chosen with
+`BaseLayout.BottomBarMore` (`BottomBarMoreMode`, namespace `BlazorBase.Components.Layout.Navigation`):
+
+| Value | The "More" tab opens |
+|---|---|
+| `Navigation` (default) | The navigation drawer, as the header button does. `BaseLayout` passes `OnMore` to `BaseBottomNavigation`. |
+| `Sheet` | The bottom sheet of `BaseBottomNavigation` with only the entries that did not become a tab (`MoreItems`), including groups with a back step and actions. `BaseLayout` passes no `OnMore`. Without such entries the bar shows no "More" tab. While the sheet is open it covers the header as well. |
+
+While the "More" tab is expanded (the sheet in `Sheet` mode, the drawer in `Navigation` mode, however the drawer was
+opened), the tab of the current page loses its `active` class and carries `base-bottom-tab-current` instead, which has no
+styling, so only "More" shows as active and never two tabs at once; the tab keeps `aria-current="page"` and the active
+mark returns when "More" closes. The same happens when a host uses `BaseBottomNavigation` on its own, with the sheet or
+with `OnMore` and `IsMoreExpanded`.
+
+```razor
+<BaseLayout AppTitle="Notes"
+            ShowTitleOnPhone="true"
+            BottomNavigationItems="Items"
+            BottomBarMore="BottomBarMoreMode.Sheet">
+    <Navigation>
+        <BaseSideNavigation Items="Items" />
+    </Navigation>
+    <ChildContent>@Body</ChildContent>
+</BaseLayout>
+```
 
 ### App switcher
 

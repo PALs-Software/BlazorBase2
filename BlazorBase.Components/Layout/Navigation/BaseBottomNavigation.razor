@@ -6,7 +6,7 @@
         <NavLink href="@item.Href"
                  Match="@(item.MatchAll ? NavLinkMatch.All : NavLinkMatch.Prefix)"
                  class="base-bottom-tab"
-                 ActiveClass="active"
+                 ActiveClass="@(IsMoreTabExpanded ? "base-bottom-tab-current" : "active")"
                  title="@(item.ShortLabel is null ? null : item.Label)"
                  aria-current="@AriaCurrent(item)">
             <span class="base-bottom-tab-icon">

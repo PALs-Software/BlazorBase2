@@ -20,7 +20,7 @@
 <div class="layout-root @(HasBottomBar ? "has-bottom-bar" : null)">
     <button type="button" class="base-skip-link" @onclick="FocusMainAsync">@Localizer["SkipToContent"]</button>
 
-    <header class="base-header @(IsBrandCentered ? "brand-centered" : "brand-start") @(ShowCommandPalette ? "has-command-palette" : null)">
+    <header class="base-header @(IsBrandCentered ? "brand-centered" : "brand-start") @(ShowCommandPalette ? "has-command-palette" : null) @(ShowTitleOnPhone ? "show-title-on-phone" : null)">
         <div class="base-header-start">
             @if (Navigation is not null)
             {

@@ -32,7 +32,8 @@ namespace BlazorBase.Components.Layout;
 /// The brand is centered in the header by default (<see cref="BrandPosition"/>). A settings button at the end of
 /// the header opens a <see cref="BaseSettingsPanel"/> with the language and theme plus the host's own sections
 /// (<see cref="SettingsContent"/>), next to a quick theme toggle. Given <see cref="BottomNavigationItems"/>, a phone
-/// (768 px and below) also gets a bottom bar with quick links and a "More" tab that opens the drawer; the bar is a
+/// (768 px and below) also gets a bottom bar with quick links and a "More" tab that opens the drawer (or, with <see cref="BottomBarMore"/>
+/// set to <see cref="BottomBarMoreMode.Sheet"/>, a sheet of the remaining entries); the bar is a
 /// row of the shell, so the content never runs behind it, and it steps aside while the on-screen keyboard is open.
 /// With <see cref="ShowHelp"/> a help button left of the settings button opens the <see cref="BaseHelpPanel"/>;
 /// opening the help closes the settings panel and the navigation drawer, and the other way round.
@@ -188,6 +189,23 @@ public partial class BaseLayout(
     [Parameter]
     public int MaxBottomBarItems { get; set; } = 4;
 
+    /// <summary>
+    /// What the "More" tab of the bottom bar reveals. <see cref="BottomBarMoreMode.Navigation"/> (the default) opens the
+    /// navigation drawer; <see cref="BottomBarMoreMode.Sheet"/> opens the bottom sheet of
+    /// <see cref="BaseBottomNavigation"/> with only the entries that are not tabs, so "More" does not repeat what the
+    /// header button already opens. While "More" is open, no tab shows as the current one.
+    /// </summary>
+    [Parameter]
+    public BottomBarMoreMode BottomBarMore { get; set; } = BottomBarMoreMode.Navigation;
+
+    /// <summary>
+    /// Keeps <see cref="AppTitle"/> visible in the header at 768 px and below, where it is hidden by default; it is
+    /// cut off with an ellipsis when the header buttons leave too little room. A <see cref="Brand"/> is always
+    /// visible and is not affected.
+    /// </summary>
+    [Parameter]
+    public bool ShowTitleOnPhone { get; set; }
+
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 
@@ -242,7 +260,7 @@ public partial class BaseLayout(
 
     private bool HasBottomBar => IsPhone && BottomNavigationItems is { Count: > 0 };
 
-    private EventCallback MoreCallback => Navigation is null
+    private EventCallback MoreCallback => Navigation is null || BottomBarMore == BottomBarMoreMode.Sheet
         ? default
         : EventCallback.Factory.Create(this, ToggleNavigationAsync);
 

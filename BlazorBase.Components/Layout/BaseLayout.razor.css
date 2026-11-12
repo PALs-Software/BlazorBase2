@@ -1,6 +1,6 @@
 .layout-root {
     --base-header-height: 64px;
-    --base-header-control-size: 40px;
+    --base-header-control-size: 44px;
     --base-brand-height: 44px;
     --base-bottom-bar-height: 56px;
     --base-bottom-bar-offset: 0px;
@@ -298,6 +298,21 @@
         display: none;
     }
 
+    .base-header.show-title-on-phone .base-header-title {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .base-header.brand-start.show-title-on-phone .base-header-start {
+        min-width: 0;
+    }
+
+    .base-header.brand-start.show-title-on-phone .base-header-start ::deep .base-header-control {
+        flex: none;
+    }
+
     .base-header-search {
         display: none;
     }
@@ -376,10 +391,8 @@
     display: none;
 }
 
-@media (pointer: coarse) {
-    .layout-root {
-        --base-header-control-size: 44px;
-    }
+.base-bottom-host:has(.base-more-backdrop) {
+    z-index: 500;
 }
 
 @media (prefers-reduced-motion: reduce) {
