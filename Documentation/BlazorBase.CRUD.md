@@ -277,6 +277,9 @@ Key parameters:
 | `ActionGroups` | `IList<CrudActionGroup<TModel>>?` | Dynamic action groups |
 | `PageSize` | `int` | Rows per request to the data provider (the fetch chunk of the virtualized list, 10 to `BaseQueryLimits.MaxPageSize`). Default: `50`; see "Virtualization and paging" below |
 | `DefaultSorts` | `List<SortDescriptor>?` | The order shown until the user sorts; see "Order and paging" below |
+| `ShowQuickSearch` | `bool?` | The toolbar search box. `null` (default): shown when properties were named (below), so existing lists are unchanged; `true`: shown, and with no named property the model's `[DisplayKey]` properties are searched; `false`: hidden. See "Quick search" below |
+| `QuickSearchProperties` | `List<string>?` | The text properties the search looks in (names or dotted paths such as `Category.Name`); takes precedence over `BaseListConfiguration.QuickSearchProperties` |
+| `QuickSearchDebounceMilliseconds` | `int` | Pause in typing before the list loads again. Default: `300` |
 | `FilterDefaults` | `ListFilterDefaults?` | Presets, default filter and storage key declared in code; see "Saved filters, presets and defaults" below |
 | `EnableSavedFilters` | `bool` | Lets users save/load their own filters when an `IListFilterStore` is registered. Default: `true` |
 | `EnableDeepLinking` / `DeepLinkParameterName` | `bool` / `string` | Ties the card dialog to the URL (`?item=<id>`). Default: `true` / `"item"`; see "Editing a row" below |
@@ -689,6 +692,40 @@ table (the table
 starts from its header state). All strings are localized (`SortBy`, `SortDefault`, `SortAscending`,
 `SortDescending` in `BlazorBaseCrudResources`). The pieces are public and testable on their own:
 `MobileCardPlanResolver.Resolve(...)` computes the plan, `BaseListCardView<TModel>` draws it.
+
+#### Quick search
+
+A search box in the toolbar (a Fluent text input with a search icon, a clear button, and the localized placeholder
+`ListSearchPlaceholder`: "Search..." / "Suchen...") narrows the list to the rows whose text properties contain what was
+typed.
+
+- **Opt-in.** Name the properties: `QuickSearchProperties="@(["Name", "Description"])"` on the list, or
+  `BaseListBuilder.QuickSearch(x => x.Name, x => x.Category.Name)` in the configuration (`BaseListConfiguration.QuickSearchProperties`;
+  the parameter wins). With neither, a list shows no search box and looks as before; `ShowQuickSearch="true"` asks for
+  one and searches the entity's `[DisplayKey]` properties (the card's display keys when a `CardConfiguration` declares
+  them). `ShowQuickSearch="false"` hides the box whatever was named.
+- **Which properties count.** Only existing `string` properties (a dotted path may walk into navigation properties) that
+  the current user may read. Others are dropped silently: the server rejects a query that filters on an unreadable
+  field (`QueryFieldAccessValidator`), so searching one would break the list for that user. If nothing remains, no box is
+  shown.
+- **The query.** The trimmed text becomes one extra `FilterDescriptor` in `BaseQuery.Filters`: a single `Contains`
+  condition for one property, otherwise an `Or` group of `Contains` conditions
+  (`QuickSearchFilterBuilder.Build`). The filter list is ANDed, so the search combines with the column filters
+  (filter panel), the saved/default/preset filter, `AdditionalFilters` and `NavigationFilters`, and it applies to
+  every chunk the virtualized list fetches and to the tile view. Blank text adds no filter. The descriptor is an ordinary
+  filter, so it works with every data provider (EF Core, HTTP, in-memory).
+- **Case.** `Contains` is translated to `LIKE` by EF Core, so whether it ignores case follows the collation of the
+  database column (SQL Server's default collations ignore it, SQLite matches case-sensitively); the in-memory provider
+  always ignores case. `%` and `_` in the text are matched literally.
+- **Behaviour.** Typing is debounced (`QuickSearchDebounceMilliseconds`, 300 ms); clearing the box applies at once.
+  Applying a search loads the list from its first row and scrolls to the top, clears the row selection, and a later
+  refresh keeps the search. The text is not kept in the URL: the list does not put its other filters there either (only the
+  open card and the `preset` parameter are read from it).
+- **Layout.** On the table layout the box sits in the toolbar left of the filter button; on the tile layout it is a
+  full-width row above the cards. No keyboard shortcut (such as `/`) is bound.
+
+The box is the public component `BaseListQuickSearch` (`Value`, `Placeholder`, `ClearLabel`, `DebounceMilliseconds`,
+`OnSearch`); `QuickSearchPropertyResolver.Resolve` and `QuickSearchFilterBuilder.Build` are public as well.
 
 #### Filter panel fields
 

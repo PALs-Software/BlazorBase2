@@ -376,4 +376,10 @@
   <data name="TileNoValue" xml:space="preserve">
     <value>No value</value>
   </data>
+  <data name="ListSearchPlaceholder" xml:space="preserve">
+    <value>Search...</value>
+  </data>
+  <data name="ListSearchClear" xml:space="preserve">
+    <value>Clear search</value>
+  </data>
 </root>

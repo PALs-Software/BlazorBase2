@@ -48,6 +48,14 @@
                 @FrameworkLocalizer["DeselectAll"]
             </FluentButton>
         }
+        @if (ShowsQuickSearch && !IsMobileLayout)
+        {
+            <BaseListQuickSearch Value="@QuickSearchText"
+                                 Placeholder="@QuickSearchPlaceholder"
+                                 ClearLabel="@QuickSearchClearLabel"
+                                 DebounceMilliseconds="@QuickSearchDebounceMilliseconds"
+                                 OnSearch="@OnQuickSearchChangedAsync" />
+        }
         @if (IsFilteringEnabled)
         {
             <div class="base-list-filter-group">
@@ -72,6 +80,17 @@
             </div>
         }
     </div>
+
+    @if (ShowsQuickSearch && IsMobileLayout)
+    {
+        <div class="base-list-search-row">
+            <BaseListQuickSearch Value="@QuickSearchText"
+                                 Placeholder="@QuickSearchPlaceholder"
+                                 ClearLabel="@QuickSearchClearLabel"
+                                 DebounceMilliseconds="@QuickSearchDebounceMilliseconds"
+                                 OnSearch="@OnQuickSearchChangedAsync" />
+        </div>
+    }
 
     @if (FilterPanelOpen && WorkingFilterModel is not null)
     {

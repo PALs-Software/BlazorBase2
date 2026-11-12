@@ -523,6 +523,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
     protected override async Task OnParametersSetAsync()
     {
         ParametersVersion++;
+        InvalidateQuickSearchProperties();
 
         if (PreviousAdditionalFilters is not null && AdditionalFilters != PreviousAdditionalFilters)
             await LoadDataAsync();
@@ -1619,6 +1620,7 @@ public partial class BaseList<TModel> : ComponentBase, IColumnCollector<TModel>,
 
         var authState = await authStateProvider.GetAuthenticationStateAsync();
         CurrentUser = authState.User;
+        InvalidateQuickSearchProperties();
     }
 
     #endregion

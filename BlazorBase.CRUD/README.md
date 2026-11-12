@@ -428,6 +428,7 @@ public partial class ProductList : ComponentBase
 - **Custom Context Menu Actions**: Use the `ContextMenuActions` template to add custom menu items per row (rendered as `<div role="menuitem">` elements).
 - **Infinite Scroll**: The list automatically loads more items when the user reaches the end.
 - **Filtering**: Every column is filterable by default. Disable per column with `Filterable="false"`.
+- **Quick Search**: Opt-in search box in the toolbar (`QuickSearchProperties` / `BaseListBuilder.QuickSearch(...)`, or `ShowQuickSearch="true"` for the `[DisplayKey]` properties). A case-insensitive-by-collation "contains" over the chosen text properties, ANDed with every other filter. See [Documentation/BlazorBase.CRUD.md](../Documentation/BlazorBase.CRUD.md) "Quick search".
 - **Sorting**: Every column is sortable by default. Disable per column with `Sortable="false"`.
 - **Add/Edit/Delete**: Controllable via `AllowAdd`, `AllowEdit`, `AllowDelete`.
 - **Role-Based Access**: Use `[CrudAccess]` on entities/properties or `.Access(roles, rights)` on columns to restrict R/I/M/D rights by role.
@@ -804,6 +805,7 @@ new BaseListBuilder<TModel>()
         .Format("N2")
         .Width("200px")
     )
+    .QuickSearch(x => x.Name, x => x.Category.Name)
     .Build();
 ```
 

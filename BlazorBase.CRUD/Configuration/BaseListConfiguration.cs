@@ -25,6 +25,13 @@ public class BaseListConfiguration<TModel> where TModel : class
     public List<SortDescriptor> DefaultSorts { get; set; } = [];
 
     /// <summary>
+    /// The text properties the list's quick search looks in (names, or dotted paths into a navigation property). Empty
+    /// means the list declares none; the search box is then only shown when the list asks for it explicitly and the
+    /// model has <see cref="Attributes.DisplayKeyAttribute"/> properties to search.
+    /// </summary>
+    public List<string> QuickSearchProperties { get; set; } = [];
+
+    /// <summary>
     /// The tile shown instead of the table on a narrow screen; null chooses it from the column roles and the data
     /// types.
     /// </summary>
