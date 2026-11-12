@@ -133,6 +133,70 @@ public sealed class PushSettingsToggleTests : BunitContext
     }
 
     [Fact]
+    public void Label_Override_ReplacesTheResourceLabel()
+    {
+        var cut = Render<PushSettingsToggle>(parameters => parameters.Add(component => component.Label, "Custom label"));
+
+        Assert.Equal("Custom label", SwitchOf(cut).Label);
+    }
+
+    [Fact]
+    public void Label_Default_UsesTheResourceLabel()
+    {
+        var cut = Render<PushSettingsToggle>();
+
+        Assert.Equal("Native notifications on this device", SwitchOf(cut).Label);
+    }
+
+    [Fact]
+    public void UnsupportedText_Override_ReplacesTheResourceCaption()
+    {
+        WebPushClient.IsSupportedAsync().Returns(false);
+
+        var cut = Render<PushSettingsToggle>(parameters => parameters.Add(component => component.UnsupportedText, "Custom unsupported"));
+
+        Assert.Equal("Custom unsupported", cut.Find(".push-settings-toggle-caption").TextContent);
+    }
+
+    [Fact]
+    public void DeniedText_Override_ReplacesTheResourceCaption()
+    {
+        WebPushClient.GetPermissionAsync().Returns(WebPushPermission.Denied);
+
+        var cut = Render<PushSettingsToggle>(parameters => parameters.Add(component => component.DeniedText, "Custom denied"));
+
+        Assert.Equal("Custom denied", cut.Find(".push-settings-toggle-caption").TextContent);
+    }
+
+    [Fact]
+    public void EnabledText_Override_ReplacesTheResourceCaption()
+    {
+        WebPushClient.GetCurrentEndpointAsync().Returns("https://push.test/abc");
+
+        var cut = Render<PushSettingsToggle>(parameters => parameters.Add(component => component.EnabledText, "Custom enabled"));
+
+        Assert.Equal("Custom enabled", cut.Find(".push-settings-toggle-caption").TextContent);
+    }
+
+    [Fact]
+    public void DisabledText_Override_ReplacesTheResourceCaption()
+    {
+        var cut = Render<PushSettingsToggle>(parameters => parameters.Add(component => component.DisabledText, "Custom disabled"));
+
+        Assert.Equal("Custom disabled", cut.Find(".push-settings-toggle-caption").TextContent);
+    }
+
+    [Fact]
+    public void TextOverrides_OnlyAffectTheirOwnState()
+    {
+        var cut = Render<PushSettingsToggle>(parameters => parameters
+            .Add(component => component.EnabledText, "Custom enabled")
+            .Add(component => component.DeniedText, "Custom denied"));
+
+        Assert.Contains("Turn this on", cut.Find(".push-settings-toggle-caption").TextContent);
+    }
+
+    [Fact]
     public void GermanCulture_UsesGermanTexts()
     {
         using var culture = new CultureScope("de");

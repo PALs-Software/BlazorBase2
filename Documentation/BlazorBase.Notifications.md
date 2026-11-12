@@ -29,8 +29,8 @@ polling:
 - Notifications remain visible in the in-app list after a push fires, so a user who missed or
   dismissed the native toast can still find it.
 
-Push payloads deliberately carry only `title`, a short `body`, a `url` and a `tag` — never the full
-notification detail — so a compromised push service or endpoint never exposes sensitive content; the
+Push payloads deliberately carry only `title`, a short `body`, a `url`, a `tag` and optionally an
+`icon` and a `badge` URL — never the full notification detail — so a compromised push service or endpoint never exposes sensitive content; the
 app loads the detail itself after the user clicks through.
 
 ---
@@ -52,6 +52,7 @@ app loads the detail itself after the user clicks through.
 | Tab-focus / push-message refresh interop | `BlazorBase.Notifications.Interop.INotificationRefreshInterop` / `NotificationRefreshInterop` |
 | Inbox bell + popover | `BlazorBase.Notifications.Components.NotificationBell.NotificationBell` |
 | Native-notifications settings switch | `BlazorBase.Notifications.Components.PushSettingsToggle.PushSettingsToggle` |
+| In-app navigation on notification tap | `BlazorBase.Notifications.Components.PushNavigationListener.PushNavigationListener` / `BlazorBase.Notifications.Interop.IPushNavigationInterop` / `PushNavigationInterop` |
 | DI registration | `AddBlazorBaseNotifications(Action<NotificationClientOptions>?)` |
 | JS interop module | `wwwroot/blazorbase-notifications.js` |
 | Push service-worker handler | `wwwroot/blazorbase-push-sw.js` |
@@ -189,6 +190,23 @@ await pushNotifier.NotifyUserAsync(targetUserId, new PushPayload(title, shortBod
 await pushNotifier.NotifyAllAsync(new PushPayload(title, shortBody, url, tag));
 ```
 
+`PushPayload(Title, Body, Url = null, Tag = null, Icon = null, Badge = null)` — all but `Title` and
+`Body` are optional, and the two newest parameters are appended so existing calls keep compiling. The
+payload is serialized as camelCase JSON with `null` members omitted:
+
+| JSON field | `PushPayload` member | Used by `blazorbase-push-sw.js` as |
+|---|---|---|
+| `title` | `Title` | notification title |
+| `body` | `Body` | notification text |
+| `url` | `Url` | click target (defaults to `/`) |
+| `tag` | `Tag` | Notifications API tag; same tag replaces instead of stacking |
+| `icon` | `Icon` | notification icon, e.g. `"/icons/icon-192.png"`; omitted when `null` (browser default) |
+| `badge` | `Badge` | small monochrome status-bar glyph (Android), e.g. `"/icons/badge-72.png"`; omitted when `null` |
+
+`Icon` and `Badge` are plain URLs resolved by the browser against the app origin, so a host passes a
+path to an asset it serves itself. They are not part of the encrypted-payload privacy trade-off: use
+URLs that carry no user-specific data.
+
 `IPushNotifier` sends only to `Enabled` subscriptions, removes a subscription the push service
 reports as gone (HTTP 404/410), and never lets one failing subscription stop delivery to the rest of
 the batch (bounded parallelism, 8 concurrent sends per call).
@@ -228,7 +246,11 @@ self.importScripts('./_content/BlazorBase.Notifications/blazorbase-push-sw.js');
 ```razor
 <NotificationBell />
 <PushSettingsToggle />
+<PushNavigationListener />
 ```
+
+`PushNavigationListener` renders nothing and is optional; see
+[Tap navigation](#tap-navigation-pushnavigationlistener) for what it does and where to put it.
 
 Both render through FluentUI and theme CSS custom properties only — no Bootstrap, FontAwesome, or
 Blazorise. The host registers the Fluent services with `AddBlazorBaseFluentUI()` (BlazorBase.Components).
@@ -276,6 +298,64 @@ decided yet), then register the resulting subscription with the host
 registration. Permission is requested **only** inside this click handler, never on page load, so the
 browser always sees it as triggered by the user gesture that caused it.
 
+**Wording and tone.** The default texts are English, with a German `.de.resx` satellite for German
+cultures. Whether an app addresses its users formally ("Sie") or informally ("du") is the host's
+choice, so every text can be overridden per usage with an optional parameter. A parameter that is
+`null` (the default) keeps the localized resource text, so existing usages render exactly as before.
+
+| Parameter | Type | Default | Overrides |
+|---|---|---|---|
+| `Label` | `string?` | `null` | the label next to the switch |
+| `UnsupportedText` | `string?` | `null` | caption in the `Unsupported` state |
+| `DeniedText` | `string?` | `null` | caption in the `Denied` state |
+| `EnabledText` | `string?` | `null` | caption in the `Enabled` state |
+| `DisabledText` | `string?` | `null` | caption in the `Disabled` state |
+| `Class` | `string?` | `null` | additional CSS classes on the wrapper |
+
+```razor
+<PushSettingsToggle Label="@Localizer["PushLabel"]"
+                    UnsupportedText="@Localizer["PushUnsupported"]"
+                    DeniedText="@Localizer["PushDenied"]"
+                    EnabledText="@Localizer["PushEnabled"]"
+                    DisabledText="@Localizer["PushDisabled"]" />
+```
+
+### Tap navigation (`PushNavigationListener`)
+
+Tapping a native notification focuses the app. `blazorbase-push-sw.js` resolves the payload `url`
+against the service worker's origin (`new URL(url, self.location.origin).href`) and looks for an open
+window client, preferring one that is already on exactly that URL:
+
+1. A client already on the target URL is only focused.
+2. Another open client is focused and receives
+   `postMessage({ type: 'blazorbase-push-navigate', url }, [port])`, where `url` is the absolute URL and
+   `port` is a `MessageChannel` port for the acknowledgement. It is **not** force-navigated with
+   `client.navigate(...)`, so the running app (and its `NavigationLock`) stays alive.
+3. If the page does not answer on that port within 1 second (the page has no listener), the service
+   worker falls back to `client.navigate(url)` — the previous full-reload behaviour.
+4. With no open window, `clients.openWindow(url)` opens a new one.
+
+The page-side listener is the `PushNavigationListener` component. It renders no markup. On first render
+it registers a service-worker `message` handler through `IPushNavigationInterop` (module
+`blazorbase-notifications.js`, `registerNavigationListener`); for a `blazorbase-push-navigate` message
+the handler acknowledges on the supplied port and calls `PushNavigationListener.OnNavigateRequested`,
+which calls `NavigationManager.NavigateTo` with the path relative to the application base, so the app's
+`NavigationLock` and client-side routing apply. Messages for another origin are ignored without an
+acknowledgement.
+
+Enable it by placing the component once in a layout that is always rendered interactively, for example
+next to `NotificationBell`:
+
+```razor
+<NotificationBell />
+<PushNavigationListener />
+```
+
+`AddBlazorBaseNotifications()` registers `IPushNavigationInterop`; no further setup or parameters are
+needed. Hosts that do not add the component keep the previous behaviour (full navigation of the open
+tab after at most one second). Hosts whose service worker imports `blazorbase-push-sw.js` pick up the
+new behaviour automatically.
+
 ---
 
 ## REST endpoints (`MapBlazorBaseNotifications`, default prefix `api/notifications`)
@@ -312,7 +392,7 @@ request body — a caller can only ever act on their own notifications and subsc
 - Whether a closed browser still shows a toast depends on the OS and browser (Edge/Chrome keep their
   background service running for push on Windows; this is **not** testable by automation — see
   "What only a human can verify" in the phase plan).
-- Push payloads carry only `title`, `body`, `url` and `tag`. Nothing sensitive crosses the push
+- Push payloads carry only `title`, `body`, `url`, `tag` and optionally `icon` and `badge`. Nothing sensitive crosses the push
   service; the app fetches full detail after the user clicks through to it.
 
 ---

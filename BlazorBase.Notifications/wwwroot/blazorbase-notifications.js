@@ -110,3 +110,43 @@ export function unregisterRefreshListener(listenerId) {
 
     refreshListeners.delete(listenerId);
 }
+
+const navigationListeners = new Map();
+
+export function registerNavigationListener(listenerId, dotNetHelper) {
+    const onMessage = (event) => {
+        if (!event.data || event.data.type !== 'blazorbase-push-navigate' || typeof event.data.url !== 'string') {
+            return;
+        }
+
+        const target = new URL(event.data.url, window.location.origin);
+        if (target.origin !== window.location.origin) {
+            return;
+        }
+
+        if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({ type: 'blazorbase-push-navigate-ack' });
+        }
+
+        dotNetHelper.invokeMethodAsync('OnNavigateRequested', target.href);
+    };
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', onMessage);
+    }
+
+    navigationListeners.set(listenerId, { onMessage });
+}
+
+export function unregisterNavigationListener(listenerId) {
+    const listener = navigationListeners.get(listenerId);
+    if (!listener) {
+        return;
+    }
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', listener.onMessage);
+    }
+
+    navigationListeners.delete(listenerId);
+}

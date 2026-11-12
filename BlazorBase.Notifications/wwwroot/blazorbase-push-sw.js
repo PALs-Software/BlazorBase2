@@ -5,23 +5,48 @@ async function notifyOpenClients() {
     }
 }
 
+const NAVIGATE_MESSAGE_TYPE = 'blazorbase-push-navigate';
+const NAVIGATE_ACKNOWLEDGE_TIMEOUT_MS = 1000;
+
+function requestInAppNavigation(client, absoluteUrl) {
+    return new Promise((resolve) => {
+        const channel = new MessageChannel();
+        const timer = setTimeout(() => {
+            channel.port1.onmessage = null;
+            resolve(false);
+        }, NAVIGATE_ACKNOWLEDGE_TIMEOUT_MS);
+
+        channel.port1.onmessage = () => {
+            clearTimeout(timer);
+            resolve(true);
+        };
+
+        client.postMessage({ type: NAVIGATE_MESSAGE_TYPE, url: absoluteUrl }, [channel.port2]);
+    });
+}
+
 async function focusOrOpen(targetUrl) {
+    const absoluteUrl = new URL(targetUrl, self.location.origin).href;
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    for (const client of clients) {
-        if (client.url === targetUrl && 'focus' in client) {
-            return client.focus();
-        }
+    const focusableClients = clients.filter((client) => 'focus' in client);
+    const client = focusableClients.find((candidate) => candidate.url === absoluteUrl) || focusableClients[0];
+
+    if (!client) {
+        return self.clients.openWindow ? self.clients.openWindow(absoluteUrl) : undefined;
     }
 
-    for (const client of clients) {
-        if (!('focus' in client)) {
-            continue;
-        }
-        await client.focus();
-        return 'navigate' in client ? client.navigate(targetUrl) : undefined;
+    await client.focus();
+
+    if (client.url === absoluteUrl) {
+        return undefined;
     }
 
-    return self.clients.openWindow ? self.clients.openWindow(targetUrl) : undefined;
+    const acknowledged = await requestInAppNavigation(client, absoluteUrl);
+    if (acknowledged || !('navigate' in client)) {
+        return undefined;
+    }
+
+    return client.navigate(absoluteUrl);
 }
 
 self.addEventListener('push', (event) => {

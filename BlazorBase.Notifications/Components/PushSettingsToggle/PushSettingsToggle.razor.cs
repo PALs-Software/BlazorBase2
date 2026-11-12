@@ -28,6 +28,26 @@ public partial class PushSettingsToggle(
     [Parameter]
     public string? Class { get; set; }
 
+    /// <summary>Overrides the switch label. When <c>null</c>, the localized resource text is used.</summary>
+    [Parameter]
+    public string? Label { get; set; }
+
+    /// <summary>Overrides the caption shown while the browser does not support native notifications. When <c>null</c>, the localized resource text is used.</summary>
+    [Parameter]
+    public string? UnsupportedText { get; set; }
+
+    /// <summary>Overrides the caption shown while notification permission is denied. When <c>null</c>, the localized resource text is used.</summary>
+    [Parameter]
+    public string? DeniedText { get; set; }
+
+    /// <summary>Overrides the caption shown while native notifications are enabled. When <c>null</c>, the localized resource text is used.</summary>
+    [Parameter]
+    public string? EnabledText { get; set; }
+
+    /// <summary>Overrides the caption shown while native notifications are available but turned off. When <c>null</c>, the localized resource text is used.</summary>
+    [Parameter]
+    public string? DisabledText { get; set; }
+
     private PushToggleState State { get; set; } = PushToggleState.Unsupported;
 
     private bool IsBusy { get; set; }
@@ -36,7 +56,15 @@ public partial class PushSettingsToggle(
 
     private bool IsInteractive => !IsBusy && State is PushToggleState.Enabled or PushToggleState.Disabled;
 
-    private string Caption => Localizer[$"State{State}"];
+    private string LabelText => Label ?? Localizer["Label"].Value;
+
+    private string Caption => State switch
+    {
+        PushToggleState.Unsupported => UnsupportedText ?? Localizer["StateUnsupported"].Value,
+        PushToggleState.Denied => DeniedText ?? Localizer["StateDenied"].Value,
+        PushToggleState.Enabled => EnabledText ?? Localizer["StateEnabled"].Value,
+        _ => DisabledText ?? Localizer["StateDisabled"].Value,
+    };
 
     /// <inheritdoc/>
     protected override async Task OnInitializedAsync()
