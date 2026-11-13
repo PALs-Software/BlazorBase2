@@ -14,7 +14,8 @@ public static class BlazorBaseUserServiceCollectionExtensions
     /// <see cref="BlazorBaseUserAuthStateProvider"/> as <see cref="AuthenticationStateProvider"/>,
     /// <see cref="CsrfTokenProvider"/>, <see cref="AuthTokenHandler"/> and
     /// <see cref="SessionExpiryHandler"/> as <see cref="DelegatingHandler"/>s for typed clients,
-    /// <see cref="ILanguageService"/>, <see cref="IThemeService"/>, and the FallbackPolicy that
+    /// <see cref="ILanguageService"/>, <see cref="IThemeService"/>, <see cref="IUserSignOutService"/> and
+    /// <see cref="IUserLanguagePreferenceSync"/> (both used by <c>BaseUserMenu</c>), and the FallbackPolicy that
     /// requires authenticated users. Also registers <see cref="BlazorBaseUserClientOptions"/>
     /// with default values; override individual flags with
     /// <c>services.Configure&lt;BlazorBaseUserClientOptions&gt;(o =&gt; …)</c>.
@@ -49,6 +50,8 @@ public static class BlazorBaseUserServiceCollectionExtensions
         services.AddScoped<SessionExpiryHandler>();
         services.AddBlazorBaseComponents();
         services.AddScoped<IThemePreferenceSync, UserThemePreferenceSync>();
+        services.TryAddScoped<IUserLanguagePreferenceSync, UserLanguagePreferenceSync>();
+        services.TryAddScoped<IUserSignOutService, UserSignOutService>();
 
         services.AddOptions<BlazorBaseUserClientOptions>();
 

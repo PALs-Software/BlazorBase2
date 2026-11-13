@@ -20,6 +20,7 @@ And the backend side:
 - [Architecture & Overview](#architecture--overview)
 - [Getting Started](#getting-started)
 - [Services & Components](#services--components)
+- [User menu](#user-menu)
 - [Navigation](#navigation)
 - [Models / DTOs](#models--dtos)
 - [Auth Flow](#auth-flow)
@@ -37,7 +38,7 @@ And the backend side:
 │  UserManagementView.razor (generic user CRUD; host adds route)│
 ├──────────────────────────────────────────────────────────────┤
 │  Components                                                  │
-│   RedirectToLogin   ResetPasswordDialog                      │
+│   RedirectToLogin   ResetPasswordDialog   BaseUserMenu       │
 ├──────────────────────────────────────────────────────────────┤
 │  Services                                                    │
 │  ┌────────────────────────────────────────────────────────┐  │
@@ -46,6 +47,7 @@ And the backend side:
 │  │ ITokenStorage   (platform impl)                        │  │
 │  │ IAppConfigService (platform impl)                      │  │
 │  │ ILanguageService LanguageService                       │  │
+│  │ IUserSignOutService UserSignOutService                 │  │
 │  │ AuthTokenHandler        : DelegatingHandler            │  │
 │  │ BlazorBaseUserAuthState : AuthenticationStateProvider  │  │
 │  └────────────────────────────────────────────────────────┘  │
@@ -97,6 +99,8 @@ This registers:
 - `ILanguageService` → `LanguageService`
 - `IThemeService` → `ThemeService`
 - `IThemePreferenceSync` → `UserThemePreferenceSync` (stores the theme choice of a signed-in user via `PUT api/user/me/settings`; fails soft when offline)
+- `IUserLanguagePreferenceSync` → `UserLanguagePreferenceSync` (the same for the language choice of [`BaseUserMenu`](#user-menu); `TryAdd`)
+- `IUserSignOutService` → `UserSignOutService` (the framework sign-out path, see [Logout](#logout); `TryAdd`)
 - `AuthorizationCore` with a `FallbackPolicy` requiring authenticated users
 - `BlazorBaseUserClientOptions` with default values (all flags off)
 
@@ -484,6 +488,7 @@ For this to work the host must register the user-management custom inputs and an
 - `RedirectToLogin` — placed inside `<NotAuthorized>` in `<AuthorizeRouteView>`. Captures the current URI as an app-relative path and navigates to `/login?returnUrl=<encoded>`. If the current path is already `/login` (or starts with `login`), navigates to `/login` without a `returnUrl` to avoid loops.
 - `ResetPasswordDialog` — dialog content (`BaseDialogInstance<ResetPasswordModel>`) that prompts for a new password and writes it to `ResetPasswordModel.NewPassword`. Open it with `IDialogService.ShowBaseDialogAsync<ResetPasswordDialog, ResetPasswordModel>(title, model)`; it shows Fluent's OK and Cancel buttons and the result's `Cancelled` tells which one closed it.
 - `OAuthConnectedAppsPanel` — lists the apps the signed-in user connected through OAuth and disconnects one after an `IConfirmationService.ConfirmDestructiveAsync` prompt — see below.
+- `BaseUserMenu` (namespace `BlazorBase.User.Components.UserMenu`) — the account menu for the header: avatar button, name and account, language and theme choice, host entries and "Sign out" — see [User menu](#user-menu).
 
 ### OAuth consent page and connected apps
 
@@ -790,6 +795,20 @@ public partial class LoginPage(IAuthService auth, BlazorBaseUserAuthStateProvide
 
 ### Logout
 
+`IUserSignOutService.SignOutAsync()` is the framework path and works under both transports (see
+[User menu](#user-menu)); `BaseUserMenu` and a bottom-bar entry such as
+`new() { Label = L["Logout"], OnClick = SignOutAsync }` can share it:
+
+```csharp
+private async Task SignOutAsync()
+{
+    await SignOutService.SignOutAsync();
+    Nav.NavigateTo("login");
+}
+```
+
+What it does, written out by hand for the bearer transport:
+
 ```csharp
 public partial class TopBar(IAuthService auth, ITokenStorage tokenStorage,
                             BlazorBaseUserAuthStateProvider authState, NavigationManager nav)
@@ -896,6 +915,95 @@ public class UserController(UserManager<AppUser> userManager, SignInManager<AppU
     </Authorized>
 </AuthorizeView>
 ```
+
+---
+
+## User menu
+
+`BaseUserMenu` (namespace `BlazorBase.User.Components.UserMenu`) is the account menu of the header: a 44 px button
+with the signed-in user's initials that opens a menu with the user's name and account, the language choice, the theme
+choice, optional entries of the host and "Sign out". It lives here rather than in `BlazorBase.Components` because it
+signs out, which needs the auth client. Put it into `HeaderEndContent` of `BaseLayout`, so it is the last control of
+the header (see the header order in [BlazorBase.Components](BlazorBase.Components.md#baselayout-parameters-and-behavior)):
+
+```razor
+@using BlazorBase.User.Components.UserMenu
+
+<BaseLayout AppTitle="Notes" ...>
+    <HeaderContent>
+        <BaseThemeToggle />
+    </HeaderContent>
+    <HeaderEndContent>
+        <BaseUserMenu Items="UserMenuItems" />
+    </HeaderEndContent>
+    ...
+</BaseLayout>
+```
+
+```csharp
+private IReadOnlyList<UserMenuItem> UserMenuItems =>
+[
+    new() { Key = "settings", Label = Localizer["Settings"], Href = "settings", Icon = new Size20.Settings() },
+];
+```
+
+| Parameter | Default | Purpose |
+|---|---|---|
+| `ShowLanguage` | `true` | Shows the language choice. It is left out anyway with fewer than two `Languages`. |
+| `Languages` | `["en", "de"]` | Two-letter codes of the languages the app ships resources for, in display order. Labels come from the menu's resources (`Language_en` = "English", `Language_de` = "Deutsch"), otherwise from the culture's native name. Pass the same list as to `UseBlazorBaseLanguageAsync`. The account (`UpdateUserSettingsRequest`) only stores `en` and `de`. |
+| `ShowTheme` | `true` | Shows System / Light / Dark. Hide it when the host offers the choice elsewhere and wants it only once. |
+| `Items` | none | `UserMenuItem` entries (`Key`, `Label`, `Href` or `OnClick`, optional `Icon`) listed above "Sign out", for example "Settings" or "Profile". An entry with `Href` is a link, one with `OnClick` a button; with both, the link wins. |
+| `LoginPath` | `login` | Where "Sign out" navigates to, relative to the base address. |
+| `AvatarSrc` | none | A picture shown instead of the initials. |
+
+**What it shows.** Nothing for an anonymous visitor; it follows `AuthenticationStateChanged`, so it disappears after
+a sign-out anywhere. The name is the `displayName` claim (falling back to the user name, then the e-mail address); the
+second line is the `email` claim (or the user name) when it differs from the name. The initials are the first letters
+of the first and the last word of the name, one letter for a single word, `?` without one.
+
+**What the entries do.**
+
+| Entry | Effect |
+|---|---|
+| Language | `IUserLanguagePreferenceSync.SaveAsync(code)` stores it on the account (`PUT api/user/me/settings`, theme kept; under the bearer transport the token pair is refreshed afterwards so the next session read carries the new claim), then `ILanguageService.SetLanguageAsync(code)`, which reloads the page under WebAssembly. The order matters: the reload resolves the language from the account (`UseBlazorBaseLanguageAsync`), so it has to be stored first. Nothing happens for the current language; an offline user still gets the switch for the session. |
+| Theme | `IThemeService.SetThemeAsync(preference)`, which applies it, keeps it in the browser and stores it on the account (`IThemePreferenceSync`). |
+| Host entry | Navigates to `Href` or awaits `OnClick`. |
+| Sign out | `IUserSignOutService.SignOutAsync()`, then `NavigationManager.NavigateTo(LoginPath)`. |
+
+**Sign-out per transport.** `UserSignOutService` posts `api/auth/logout` first and calls
+`BlazorBaseUserAuthStateProvider.MarkUserAsLoggedOut()` afterwards, under both transports:
+
+- **Bearer** (`ITokenStorage` holds a pair): the refresh token is sent, the server revokes its family, the stored
+  tokens are cleared.
+- **Cookie** (`NoOpTokenStorage`, nothing held): the request carries a placeholder token
+  (`UserSignOutService.CookieSessionPlaceholderToken`) because the request model requires one; the server acts on
+  the session cookie alone, removes the server-side ticket and clears the cookie. `CsrfHeaderHandler` on the auth
+  client sends the antiforgery token. Only afterwards does `MarkUserAsLoggedOut()` fetch the anonymous antiforgery
+  token, so the login form works without a reload.
+- A logout request that fails on the network still signs the client out locally.
+
+**Keyboard and accessibility.** The button is a native `<button>` with `aria-haspopup="menu"`, `aria-expanded` and,
+while open, `aria-controls`; its accessible name is "Account menu of {name}". Enter or Space opens the menu (Arrow Down
+opens it at the first entry, Arrow Up at the last), and focus moves to the first entry. The menu is a plain
+`role="menu"` region (no `FluentMenu`, so it needs no provider and is bUnit-testable) that is only in the DOM while
+open: the name block above it, the language and the theme choice as `role="group"`s of `menuitemradio` entries with
+`aria-checked`, host entries and "Sign out" as `menuitem`s, `role="separator"` lines between the sections. Arrow keys,
+Home and End move between the entries, Enter or Space activates one (Space also on a link entry), Escape closes the
+menu and returns the focus to the button, and so does choosing an entry. A pointer press or the focus moving outside,
+Tab out of the menu and any navigation close it without moving the focus. The outside, Escape and arrow handling is a
+small WASM-safe module, `_content/BlazorBase.User/js/userMenu.js`, attached only while the menu is open.
+
+**Layout.** Above 768 px the menu is anchored below the button at the end of the header, 300 px wide, and scrolls
+when the viewport is short. At 768 px and below it is a bottom sheet with a dimmed backdrop and a grab handle, entries
+44 px high (also on any coarse pointer). It is styled with the `--color-*`, spacing and radius tokens only, so it
+follows light and dark themes; the button uses `--base-header-control-size` and the selected background while open,
+like the plain header icons. All texts are localized in English and German (`BaseUserMenu.razor.resx`).
+
+**Registration and tests.** `AddBlazorBaseUserClient()` registers `IUserSignOutService` and
+`IUserLanguagePreferenceSync` (`TryAdd`, so a host can replace either — for example a sign-out that also ends an
+external identity provider session). The component additionally needs `ILanguageService`, `IThemeService` (both
+registered by `AddBlazorBaseUserClient()`), `NavigationManager` and `IJSRuntime`. A bUnit test of a layout that hosts
+it registers stubs for the two services and sets the JS interop to loose mode.
 
 ---
 

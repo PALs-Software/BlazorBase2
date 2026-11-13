@@ -230,7 +230,7 @@ component owns the appearance of the tabs and the sheet, not where the bar lives
 | `NavigationItems` | The navigation entries the command palette lists as pages (falls back to `BottomNavigationItems`). Unlike `BottomNavigationItems` it shows no bottom bar. |
 | `Navigation` | The navigation content, usually `BaseSideNavigation`. Without it the header shows no navigation button. |
 | `HeaderContent` | Controls on the right of the header, in front of the built-in buttons (for example a notification bell). |
-| `HeaderEndContent` | Controls rendered after the built-in buttons, at the very end of the header (for example sign out). |
+| `HeaderEndContent` | Controls rendered after the built-in buttons, at the very end of the header (for example the user menu, `BaseUserMenu` of `BlazorBase.User`). |
 | `Banner` | Content shown above the page, inside the scrolling main area. |
 | `BottomNavigationItems`, `MaxBottomBarItems` | The entries a phone's bottom bar (768 px and below) draws its quick links from, and the most quick links it shows (default 4, not counting "More"). The bar is left out while the list is null or empty. |
 | `BottomBarMore` | `BottomBarMoreMode`, default `Navigation`. What the "More" tab of the bottom bar reveals: `Navigation` opens the navigation drawer (the same list the header button opens), `Sheet` opens the bottom sheet of `BaseBottomNavigation` with only the entries that are not tabs, so "More" no longer repeats the drawer. See [Bottom bar "More"](#bottom-bar-more). |
@@ -246,7 +246,9 @@ component owns the appearance of the tabs and the sheet, not where the bar lives
 - the command palette — `ShowCommandPalette` together with `NavigationItems`, so the search field sits in the middle of the top bar;
 - a grouped `NavigationItem` tree (groups with `Key`, `Label`, `Icon`, `ExpandedByDefault`, `Children`) so the sidebar shows
   section headings; the same tree feeds `BaseSideNavigation`, `NavigationItems` and the bottom bar (`IsMobilePrimary`);
-- `BaseThemeToggle` in `HeaderContent`.
+- `BaseThemeToggle` in `HeaderContent`;
+- the user menu — `BaseUserMenu` (`BlazorBase.User`) in `HeaderEndContent` for signed-in users, with the account,
+  language, theme and "Sign out" (see [User menu](BlazorBase.User.md#user-menu)), never a plain avatar span.
 
 The template's `MainLayoutTests` guards them. The README of the template also holds a new-app checklist and an update
 checklist for apps scaffolded from an older template.
@@ -267,12 +269,15 @@ guess, otherwise the page scrolls although its content fits.
 **Header order.** From left to right the end of the header shows the search button of the command palette
 (`ShowCommandPalette`, phones only), `HeaderContent`, the help button
 (`ShowHelp`), the theme toggle (`ShowThemeToggle`), the settings button (`ShowSettings`) and finally
-`HeaderEndContent`.
+`HeaderEndContent`. The user menu (`BaseUserMenu` of `BlazorBase.User`, see
+[User menu](BlazorBase.User.md#user-menu)) goes into `HeaderEndContent`, so the avatar is always the last control of
+the header.
 
 **Plain header icons.** The icon buttons in the header — the navigation button, help, theme toggle, settings,
 the header actions and whatever a host puts into `HeaderContent` / `HeaderEndContent` — are `FluentButton`s with
 `Appearance="ButtonAppearance.Transparent"`, `IconOnly="true"` and an `IconStart` icon, and carry the class
-`base-header-control`. That class gives them the header control size (44 px) and a rounded
+`base-header-control` (the user menu's avatar button is a plain `<button>` with the same class and size, because it
+shows initials instead of an icon). That class gives them the header control size (44 px) and a rounded
 hit area, and `--color-bg-selected` while their popup is open (`aria-expanded="true"`); the transparent appearance
 draws the muted text color, `--color-bg-hover` on hover and the focus ring. A host button in the header sets
 `Class="base-header-control"` to match; the unread badge of the notification bell is not affected.

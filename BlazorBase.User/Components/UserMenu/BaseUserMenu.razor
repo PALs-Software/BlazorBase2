@@ -1,0 +1,167 @@
+@namespace BlazorBase.User.Components.UserMenu
+@using Microsoft.FluentUI.AspNetCore.Components.Icons.Regular
+
+@if (IsAuthenticated)
+{
+    <div class="base-user-menu @(IsOpen ? "open" : null)" @ref="Root" @onkeydown="OnKeyDownAsync">
+        <button type="button"
+                class="base-user-menu-toggle base-header-control"
+                aria-haspopup="menu"
+                aria-expanded="@(IsOpen ? "true" : "false")"
+                aria-controls="@(IsOpen ? MenuId : null)"
+                aria-label="@ToggleLabel"
+                title="@ToggleLabel"
+                @ref="Toggle"
+                @onclick="ToggleAsync"
+                @onkeydown="OnToggleKeyDown">
+            @if (HasAvatarImage)
+            {
+                <img class="base-user-menu-avatar base-user-menu-avatar-image" src="@AvatarSrc" alt="" />
+            }
+            else
+            {
+                <span class="base-user-menu-avatar" aria-hidden="true">@Initials</span>
+            }
+        </button>
+        @if (IsOpen)
+        {
+            <div class="base-user-menu-backdrop" @onclick="CloseFromBackdropAsync"></div>
+            <div class="base-user-menu-popup" @ref="Popup">
+                <div class="base-user-menu-grab" aria-hidden="true"><span></span></div>
+                <div class="base-user-menu-identity">
+                    @if (HasAvatarImage)
+                    {
+                        <img class="base-user-menu-identity-avatar base-user-menu-avatar-image" src="@AvatarSrc" alt="" />
+                    }
+                    else
+                    {
+                        <span class="base-user-menu-identity-avatar" aria-hidden="true">@Initials</span>
+                    }
+                    <span class="base-user-menu-identity-text">
+                        <span class="base-user-menu-name">@DisplayName</span>
+                        @if (!String.IsNullOrEmpty(AccountName))
+                        {
+                            <span class="base-user-menu-account">@AccountName</span>
+                        }
+                    </span>
+                </div>
+                <div id="@MenuId" class="base-user-menu-list" role="menu" aria-label="@MenuLabel">
+                    @if (ShowLanguageSection)
+                    {
+                        <div class="base-user-menu-section base-user-menu-languages" role="group" aria-label="@Localizer["Language"]">
+                            <span class="base-user-menu-section-title" aria-hidden="true">@Localizer["Language"]</span>
+                            @foreach (var language in LanguageOptions)
+                            {
+                                var isCurrent = IsCurrentLanguage(language.Code);
+                                <button type="button"
+                                        role="menuitemradio"
+                                        class="base-user-menu-item"
+                                        aria-checked="@(isCurrent ? "true" : "false")"
+                                        lang="@language.Code"
+                                        data-language="@language.Code"
+                                        @key="language.Code"
+                                        @onclick="() => SelectLanguageAsync(language.Code)">
+                                    <span class="base-user-menu-item-icon" aria-hidden="true"></span>
+                                    <span class="base-user-menu-item-label">@language.Label</span>
+                                    @if (isCurrent)
+                                    {
+                                        <FluentIcon Value="@(new Size20.Checkmark())" Color="Color.Custom" CustomColor="currentColor" Class="base-user-menu-check" />
+                                    }
+                                </button>
+                            }
+                        </div>
+                    }
+                    @if (ShowThemeSection)
+                    {
+                        @if (ShowLanguageSection)
+                        {
+                            <div class="base-user-menu-separator" role="separator"></div>
+                        }
+                        <div class="base-user-menu-section base-user-menu-themes" role="group" aria-label="@Localizer["Theme"]">
+                            <span class="base-user-menu-section-title" aria-hidden="true">@Localizer["Theme"]</span>
+                            @foreach (var theme in ThemeOptions)
+                            {
+                                var isCurrent = ThemeService.CurrentTheme == theme.Preference;
+                                <button type="button"
+                                        role="menuitemradio"
+                                        class="base-user-menu-item"
+                                        aria-checked="@(isCurrent ? "true" : "false")"
+                                        data-theme-option="@theme.Preference"
+                                        @key="theme.Preference"
+                                        @onclick="() => SelectThemeAsync(theme.Preference)">
+                                    <FluentIcon Value="@theme.Icon" Color="Color.Custom" CustomColor="currentColor" Class="base-user-menu-item-icon" />
+                                    <span class="base-user-menu-item-label">@theme.Label</span>
+                                    @if (isCurrent)
+                                    {
+                                        <FluentIcon Value="@(new Size20.Checkmark())" Color="Color.Custom" CustomColor="currentColor" Class="base-user-menu-check" />
+                                    }
+                                </button>
+                            }
+                        </div>
+                    }
+                    @if (HasExtraItems)
+                    {
+                        @if (ShowLanguageSection || ShowThemeSection)
+                        {
+                            <div class="base-user-menu-separator" role="separator"></div>
+                        }
+                        <div class="base-user-menu-section base-user-menu-extra" role="group">
+                            @foreach (var item in Items!)
+                            {
+                                @if (!String.IsNullOrEmpty(item.Href))
+                                {
+                                    <a role="menuitem"
+                                       class="base-user-menu-item"
+                                       href="@item.Href"
+                                       data-item-key="@item.Key"
+                                       @key="item.Key"
+                                       @onclick="CloseAfterLinkAsync">
+                                        @if (item.Icon is not null)
+                                        {
+                                            <FluentIcon Value="@item.Icon" Color="Color.Custom" CustomColor="currentColor" Class="base-user-menu-item-icon" />
+                                        }
+                                        else
+                                        {
+                                            <span class="base-user-menu-item-icon" aria-hidden="true"></span>
+                                        }
+                                        <span class="base-user-menu-item-label">@item.Label</span>
+                                    </a>
+                                }
+                                else
+                                {
+                                    <button type="button"
+                                            role="menuitem"
+                                            class="base-user-menu-item"
+                                            data-item-key="@item.Key"
+                                            @key="item.Key"
+                                            @onclick="() => RunItemAsync(item)">
+                                        @if (item.Icon is not null)
+                                        {
+                                            <FluentIcon Value="@item.Icon" Color="Color.Custom" CustomColor="currentColor" Class="base-user-menu-item-icon" />
+                                        }
+                                        else
+                                        {
+                                            <span class="base-user-menu-item-icon" aria-hidden="true"></span>
+                                        }
+                                        <span class="base-user-menu-item-label">@item.Label</span>
+                                    </button>
+                                }
+                            }
+                        </div>
+                    }
+                    @if (ShowLanguageSection || ShowThemeSection || HasExtraItems)
+                    {
+                        <div class="base-user-menu-separator" role="separator"></div>
+                    }
+                    <button type="button"
+                            role="menuitem"
+                            class="base-user-menu-item base-user-menu-sign-out"
+                            @onclick="SignOutAsync">
+                        <FluentIcon Value="@(new Size20.SignOut())" Color="Color.Custom" CustomColor="currentColor" Class="base-user-menu-item-icon" />
+                        <span class="base-user-menu-item-label">@Localizer["SignOut"]</span>
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}

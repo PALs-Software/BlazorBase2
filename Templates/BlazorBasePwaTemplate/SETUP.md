@@ -81,4 +81,8 @@ replace the groups in `Layout/MainLayout.razor.cs` with your own (still grouped,
 and feed the palette with your own entries through
 `builder.Services.AddCommandPaletteProvider<YourProvider>()` in `AppTemplate.Client/Program.cs`; the
 page entries come from the navigation items in `Layout/MainLayout.razor.cs` automatically.
+The avatar at the end of the top bar is the framework's user menu (`<BaseUserMenu />` in
+`Layout/MainLayout.razor`): name and e-mail, language, theme and "Sign out". Keep it; when the app gets a
+settings or profile page, add it through the menu's `Items`. Its language choice relies on
+`UseBlazorBaseLanguageAsync("en", "de")` in `AppTemplate.Client/Program.cs`, so keep that call too.
 `AppTemplate.Tests/Layout/MainLayoutTests.cs` fails when one of these defaults is dropped.

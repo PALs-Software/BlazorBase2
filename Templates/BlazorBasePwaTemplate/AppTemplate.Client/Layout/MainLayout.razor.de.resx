@@ -43,7 +43,4 @@
   <data name="NavGroupAdministration" xml:space="preserve">
     <value>Verwaltung</value>
   </data>
-  <data name="AvatarTitle" xml:space="preserve">
-    <value>Angemeldet</value>
-  </data>
 </root>

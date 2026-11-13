@@ -62,10 +62,11 @@ keeps all of them; a change to `AppTemplate.Client/Layout/MainLayout.razor(.cs)`
 | Command palette | `ShowCommandPalette="@IsAuthenticated"` and `NavigationItems="@NavigationItems"` on `BaseLayout` | The search field sits in the middle of the top bar for signed-in users (a search icon on a phone, Ctrl+K anywhere) and lists the navigation entries as pages. |
 | Grouped sidebar with section headings | `BuildNavigationItems()` in `Layout/MainLayout.razor.cs` | A tree of groups (`Key`, `Label`, `Icon`, `ExpandedByDefault = true`, `Children`), not a flat list. The group labels are the section headings of the sidebar. |
 | One navigation tree | `NavigationItems` passed to `BaseSideNavigation` and `BaseLayout.NavigationItems` | The rail, the mobile bottom bar (`IsMobilePrimary`) and the command palette read the same tree, so role visibility cannot diverge. |
-| Theme toggle | `<BaseThemeToggle />` in `HeaderContent` | The theme switch in the top bar, next to the avatar. |
+| Theme toggle | `<BaseThemeToggle />` in `HeaderContent` | The theme switch in the top bar, next to the user menu. |
+| User menu | `<BaseUserMenu />` (`BlazorBase.User.Components.UserMenu`) in `HeaderEndContent`, signed-in users only | The avatar button at the very end of the top bar opens the account menu: name and e-mail, language, theme and "Sign out". Never a plain avatar span that does nothing. Host entries such as "Settings" go into its `Items`. |
 
 `AppTemplate.Tests/Layout/MainLayoutTests.cs` guards these defaults: it fails when the brand, the
-palette, the group headings or the role gating of the admin group disappear. If one of those tests
+palette, the group headings, the role gating of the admin group or the user menu disappear. If one of those tests
 breaks, fix the layout, not the test. A test may only change together with an intentional redesign of
 the shell.
 
@@ -79,6 +80,9 @@ What to change per app, and nothing else:
   Keep at least two groups with headings, mark the entries a phone needs most with `IsMobilePrimary`,
   and gate admin-only groups and their entries with `RequiredRole`.
 - **Palette content.** Add providers (see below); the page entries need no work.
+- **User menu entries.** When the app has a settings or profile page, pass it to `<BaseUserMenu Items="..." />`
+  (`UserMenuItem` with `Key`, `Label`, `Href`, `Icon`); keep the language list in line with
+  `UseBlazorBaseLanguageAsync` in `Program.cs` (`Languages` parameter, default `en`, `de`).
 
 ### New app checklist
 
@@ -86,8 +90,9 @@ What to change per app, and nothing else:
 2. Swap `wwwroot/icon.svg` and the wordmark in `Layout/AppBrand.razor` for the app's identity.
 3. Replace the template navigation groups in `Layout/MainLayout.razor.cs` with the app's groups; keep the
    group headings, `ExpandedByDefault`, `IsMobilePrimary` and the role gates.
-4. Leave `ShowCommandPalette`, `NavigationItems`, `BrandPosition.Start` and `<BaseThemeToggle />` in
-   `Layout/MainLayout.razor` untouched.
+4. Leave `ShowCommandPalette`, `NavigationItems`, `BrandPosition.Start`, `<BaseThemeToggle />` and
+   `<BaseUserMenu />` in `Layout/MainLayout.razor` untouched (add `Items` to the menu if the app has a settings
+   page), and keep `UseBlazorBaseLanguageAsync` in `Program.cs` so the menu's language choice takes effect.
 5. Run the tests (`dotnet test`): `Layout/MainLayoutTests.cs` must pass. When you add or rename navigation
    groups, adapt the group-heading assertions there to the new labels instead of deleting them.
 
@@ -99,15 +104,18 @@ To catch up, compare these files of the app against the current template and por
 - `AppTemplate.Client/Layout/*` (`MainLayout.razor`, `MainLayout.razor.cs`, `MainLayout.razor.css`,
   `MainLayout.razor.resx`, `MainLayout.razor.de.resx`, `AppBrand.*`)
 - `AppTemplate.Client/App.razor`
-- `AppTemplate.Client/Program.cs`
+- `AppTemplate.Client/Program.cs` (and `AppTemplate.Client.csproj` for `BlazorWebAssemblyLoadAllGlobalizationData`)
 - `AppTemplate.Client/wwwroot/index.html` (and `wwwroot/icon.svg`)
-- `AppTemplate.Tests/Layout/MainLayoutTests.cs`
+- `AppTemplate.Tests/Layout/MainLayoutTests.cs` (and the stubs it registers, `AppTemplate.Tests/Infrastructure/Stub*.cs`)
 
-Then verify the three defaults that were lost before:
+Then verify the defaults that were lost or missing before:
 
 1. **Section headings.** The sidebar shows group headings: `BuildNavigationItems()` returns groups with `Children`, not a flat list.
 2. **Command palette.** `BaseLayout` has `ShowCommandPalette="@IsAuthenticated"` and `NavigationItems="@NavigationItems"`; the search field appears in the middle of the top bar.
 3. **Brand.** `<Brand><AppBrand /></Brand>` with `BrandPosition="BrandPosition.Start"` shows the icon and the app name, not just a title.
+4. **User menu.** `HeaderEndContent` holds `<BaseUserMenu />` for signed-in users instead of a plain `<span class="avatar">`
+   (remove that span, its `.avatar` CSS, the `UserInitials` code and the `AvatarTitle` resources); tapping the avatar
+   opens the menu with "Sign out". `Program.cs` calls `UseBlazorBaseLanguageAsync(...)` after the development session.
 
 Keep the app's own icon, wordmark, groups and entries while porting; only the structure is taken over.
 Copy `Layout/MainLayoutTests.cs` along so the defaults stay guarded.

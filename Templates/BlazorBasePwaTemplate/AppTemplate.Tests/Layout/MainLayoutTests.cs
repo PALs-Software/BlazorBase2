@@ -4,6 +4,8 @@ using AppTemplate.Tests.Infrastructure;
 using BlazorBase.Components.Layout;
 using BlazorBase.Components.Layout.Navigation;
 using BlazorBase.Components.Services;
+using BlazorBase.User.Components.UserMenu;
+using BlazorBase.User.Services;
 using Bunit;
 using Bunit.TestDoubles;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +24,8 @@ public class MainLayoutTests : BunitContext
         Services.AddLocalization();
         Services.AddSingleton<IThemeService, StubThemeService>();
         Services.AddSingleton<ILanguageService, StubLanguageService>();
+        Services.AddSingleton<IUserSignOutService, StubUserSignOutService>();
+        Services.AddSingleton<IUserLanguagePreferenceSync, StubUserLanguagePreferenceSync>();
         Services.AddBlazorBaseComponents();
 
         Authorization = this.AddAuthorization();
@@ -99,6 +103,38 @@ public class MainLayoutTests : BunitContext
         var component = Render<MainLayout>();
 
         Assert.NotEmpty(component.FindComponents<BaseThemeToggle>());
+    }
+
+    [Fact]
+    public void Render_SignedIn_ShowsTheUserMenuAsTheLastHeaderControl()
+    {
+        var component = Render<MainLayout>();
+
+        Assert.Single(component.FindComponents<BaseUserMenu>());
+        var toggle = component.Find("header .base-header-end .base-user-menu-toggle");
+        Assert.Equal("menu", toggle.GetAttribute("aria-haspopup"));
+        var lastHeaderControl = component.Find("header .base-header-end").LastElementChild;
+        Assert.NotNull(lastHeaderControl);
+        Assert.Contains("base-user-menu", lastHeaderControl.ClassList);
+    }
+
+    [Fact]
+    public void Render_SignedIn_ShowsNoDeadAvatarSpan()
+    {
+        var component = Render<MainLayout>();
+
+        Assert.Empty(component.FindAll("header span.avatar"));
+    }
+
+    [Fact]
+    public void Render_AnonymousVisitor_ShowsNoUserMenu()
+    {
+        Authorization.SetNotAuthorized();
+
+        var component = Render<MainLayout>();
+
+        Assert.Empty(component.FindComponents<BaseUserMenu>());
+        Assert.Empty(component.FindAll(".base-user-menu-toggle"));
     }
 
     [Fact]

@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using AppTemplate.Shared.Modules.Authentication;
 using BlazorBase.Components.Layout.Navigation;
 using Microsoft.AspNetCore.Components;
@@ -23,8 +22,6 @@ public partial class MainLayout(
 
     private bool IsAuthenticated;
 
-    private string UserInitials = string.Empty;
-
     protected override async Task OnInitializedAsync()
     {
         AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
@@ -39,7 +36,6 @@ public partial class MainLayout(
 
         IsAuthenticated = user.Identity?.IsAuthenticated == true;
         NavigationItems = BuildNavigationItems();
-        UserInitials = ResolveUserInitials(user);
     }
 
     /// <summary>
@@ -99,20 +95,6 @@ public partial class MainLayout(
             },
         ],
     };
-
-    private static string ResolveUserInitials(ClaimsPrincipal user)
-    {
-        var displayName = user.FindFirst("displayName")?.Value;
-
-        if (string.IsNullOrWhiteSpace(displayName))
-            return "?";
-
-        var parts = displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        return parts.Length == 1
-            ? parts[0][..1].ToUpperInvariant()
-            : string.Concat(parts[0][..1], parts[^1][..1]).ToUpperInvariant();
-    }
 
     private void OnAuthenticationStateChanged(Task<AuthenticationState> authenticationStateTask)
         => InvokeAsync(async () =>

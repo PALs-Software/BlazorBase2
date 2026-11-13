@@ -15,6 +15,12 @@
     -->
     <OverrideHtmlAssetPlaceholders>false</OverrideHtmlAssetPlaceholders>
     <ServiceWorkerAssetsManifest>service-worker-assets.js</ServiceWorkerAssetsManifest>
+    <!--
+      The language of the account is applied at startup (UseBlazorBaseLanguageAsync in Program.cs), and the
+      language choice of the user menu reloads into it. Without all globalization data the runtime only has
+      the shard of the culture the browser booted with and refuses the switch.
+    -->
+    <BlazorWebAssemblyLoadAllGlobalizationData>true</BlazorWebAssemblyLoadAllGlobalizationData>
   </PropertyGroup>
 
   <PropertyGroup>

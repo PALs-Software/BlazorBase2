@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 @using BlazorBase.Components.Layout
 @using BlazorBase.Components.Layout.Navigation
+@using BlazorBase.User.Components.UserMenu
 
 <BaseLayout AppTitle="AppTemplate"
             BrandPosition="BrandPosition.Start"
@@ -11,11 +12,13 @@
     </Brand>
     <HeaderContent>
         <BaseThemeToggle />
+    </HeaderContent>
+    <HeaderEndContent>
         @if (IsAuthenticated)
         {
-            <span class="avatar" title="@Localizer["AvatarTitle"]">@UserInitials</span>
+            <BaseUserMenu />
         }
-    </HeaderContent>
+    </HeaderEndContent>
     <Navigation>
         @if (IsAuthenticated)
         {
@@ -28,4 +31,3 @@
         @Body
     </ChildContent>
 </BaseLayout>
-
