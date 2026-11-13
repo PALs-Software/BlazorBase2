@@ -221,6 +221,13 @@
     color: var(--color-danger);
 }
 
+.base-user-menu-error {
+    padding: var(--space-2) var(--space-3);
+    color: var(--color-danger);
+    font-size: var(--font-size-xs);
+    line-height: var(--line-height-xs);
+}
+
 .base-user-menu ::deep .base-user-menu-sign-out .base-user-menu-item-icon {
     color: var(--color-danger);
 }

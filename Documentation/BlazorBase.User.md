@@ -248,7 +248,7 @@ that writes its own `MainLayout` instead **has to add it** and register the serv
 | `LoginAsync(LoginRequest)` | POST `api/auth/login` | `AuthServiceLoginOutcome` | A completed login (`Tokens`) or, when the account has two-factor authentication enabled, a pending token (`PendingToken`) to complete with `LoginTwoFactorAsync` — the server answers `202 Accepted` rather than a token pair, so the caller never receives half-authenticated tokens by mistake |
 | `LoginTwoFactorAsync(TwoFactorLoginRequest)` | POST `api/auth/login/two-factor` | `LoginResponse` | Completes a login `LoginAsync` reported as `RequiresTwoFactor` |
 | `RefreshAsync(refreshToken)` | POST `api/auth/refresh` | `LoginResponse` | Single-use rotation — the server revokes the presented token atomically; a replayed/already-used token returns `401` |
-| `LogoutAsync(refreshToken)` | POST `api/auth/logout` | — | Revokes the refresh token by its hash; anonymous endpoint, so it succeeds even if the access token has already expired |
+| `LogoutAsync(refreshToken)` | POST `api/auth/logout` | — | Revokes the refresh token by its hash; anonymous endpoint, so it succeeds even if the access token has already expired. Throws `HttpRequestException` for any non-success status |
 | `DevelopmentLoginAsync()` | POST `api/auth/development-login` | `LoginResponse?` | Signs in as the server's development account; `null` when the server does not offer it, which is every environment but Development |
 
 ### `IUserService` — `UserService`
@@ -802,10 +802,19 @@ public partial class LoginPage(IAuthService auth, BlazorBaseUserAuthStateProvide
 ```csharp
 private async Task SignOutAsync()
 {
-    await SignOutService.SignOutAsync();
+    var result = await SignOutService.SignOutAsync();
+    if (result == SignOutResult.Failed)
+    {
+        ShowSignOutFailedMessage();
+        return;
+    }
+
     Nav.NavigateTo("login");
 }
 ```
+
+`SignOutResult.Failed` means the server did not confirm the logout under the cookie transport, so the user is still
+signed in and must not be sent to the login page (see [Sign-out per transport](#user-menu)).
 
 What it does, written out by hand for the bearer transport:
 
@@ -824,7 +833,15 @@ public partial class TopBar(IAuthService auth, ITokenStorage tokenStorage,
     {
         var tokens = await TokenStorage.GetTokensAsync();
         if (tokens is not null)
-            await Auth.LogoutAsync(tokens.RefreshToken);
+        {
+            try
+            {
+                await Auth.LogoutAsync(tokens.RefreshToken);
+            }
+            catch (HttpRequestException)
+            {
+            }
+        }
 
         await AuthState.MarkUserAsLoggedOut();
         Nav.NavigateTo("/login");
@@ -968,19 +985,37 @@ of the first and the last word of the name, one letter for a single word, `?` wi
 | Language | `IUserLanguagePreferenceSync.SaveAsync(code)` stores it on the account (`PUT api/user/me/settings`, theme kept; under the bearer transport the token pair is refreshed afterwards so the next session read carries the new claim), then `ILanguageService.SetLanguageAsync(code)`, which reloads the page under WebAssembly. The order matters: the reload resolves the language from the account (`UseBlazorBaseLanguageAsync`), so it has to be stored first. Nothing happens for the current language; an offline user still gets the switch for the session. |
 | Theme | `IThemeService.SetThemeAsync(preference)`, which applies it, keeps it in the browser and stores it on the account (`IThemePreferenceSync`). |
 | Host entry | Navigates to `Href` or awaits `OnClick`. |
-| Sign out | `IUserSignOutService.SignOutAsync()`, then `NavigationManager.NavigateTo(LoginPath)`. |
+| Sign out | `IUserSignOutService.SignOutAsync()`, then `NavigationManager.NavigateTo(LoginPath)` once the user is signed out; when the server did not confirm the logout (`SignOutResult.Failed`) it shows an alert instead and does not navigate. |
 
 **Sign-out per transport.** `UserSignOutService` posts `api/auth/logout` first and calls
-`BlazorBaseUserAuthStateProvider.MarkUserAsLoggedOut()` afterwards, under both transports:
+`BlazorBaseUserAuthStateProvider.MarkUserAsLoggedOut()` afterwards, under both transports. The transport is told
+apart by what `ITokenStorage` holds: a stored refresh token means bearer, nothing stored (`NoOpTokenStorage`) means
+cookie. The server has to confirm the logout with a success status; `IAuthService.LogoutAsync` throws
+`HttpRequestException` for any other status (for example `403` for a missing antiforgery token, `429`, `5xx`), and a
+network error or timeout counts as unconfirmed too. `SignOutAsync()` returns a `SignOutResult`:
 
-- **Bearer** (`ITokenStorage` holds a pair): the refresh token is sent, the server revokes its family, the stored
-  tokens are cleared.
-- **Cookie** (`NoOpTokenStorage`, nothing held): the request carries a placeholder token
-  (`UserSignOutService.CookieSessionPlaceholderToken`) because the request model requires one; the server acts on
-  the session cookie alone, removes the server-side ticket and clears the cookie. `CsrfHeaderHandler` on the auth
-  client sends the antiforgery token. Only afterwards does `MarkUserAsLoggedOut()` fetch the anonymous antiforgery
-  token, so the login form works without a reload.
-- A logout request that fails on the network still signs the client out locally.
+| Transport | Server confirmed | Result | Client state |
+|---|---|---|---|
+| Bearer | yes | `SignedOut` | Tokens cleared, anonymous. |
+| Bearer | no | `SignedOutWithoutServerRevocation` | Tokens cleared, anonymous. The refresh token family may stay valid on the server until it expires. |
+| Cookie | yes | `SignedOut` | Anonymous. |
+| Cookie | no | `Failed` | Unchanged, still signed in. |
+
+- **Bearer**: the refresh token lives on the client, so dropping it ends the client session even when the server
+  could not revoke the family. The tokens are always cleared; the result only reports whether the revocation reached
+  the server.
+- **Cookie**: the request carries a placeholder token (`UserSignOutService.CookieSessionPlaceholderToken`) because
+  the request model requires one; the server acts on the session cookie alone, removes the server-side ticket and
+  clears the cookie. `CsrfHeaderHandler` on the auth client sends the antiforgery token. The `HttpOnly` cookie and the
+  server session are out of the client's reach, so without the server's confirmation the session stays alive and a
+  reload would sign the user straight back in (a risk on a shared device). The client therefore stays signed in and
+  returns `Failed` instead of showing an anonymous UI over a live session. Only after a confirmed logout does
+  `MarkUserAsLoggedOut()` fetch the anonymous antiforgery token, so the login form works without a reload.
+- **Failure handling in `BaseUserMenu`**: `SignedOut` and `SignedOutWithoutServerRevocation` navigate to `LoginPath`
+  (the menu disappears with the session, so it shows no notice for the bearer case; a host that wants one calls
+  `IUserSignOutService` itself and reads the result). `Failed` keeps the menu open, shows the alert "Signing out
+  failed – please try again." (German: "Abmelden hat nicht geklappt – bitte erneut versuchen.", resource
+  `SignOutFailed`) above the entry, does not navigate and lets the user retry.
 
 **Keyboard and accessibility.** The button is a native `<button>` with `aria-haspopup="menu"`, `aria-expanded` and,
 while open, `aria-controls`; its accessible name is "Account menu of {name}". Enter or Space opens the menu (Arrow Down

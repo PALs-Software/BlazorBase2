@@ -283,6 +283,7 @@ public sealed class BaseUserMenuTests : UserBunitTestContextBase
     [Fact]
     public void SignOut_RunsTheFrameworkSignOutAndNavigatesToTheLoginPage()
     {
+        SignOutService.SignOutAsync().Returns(SignOutResult.SignedOut);
         var menu = RenderMenu();
         Open(menu);
 
@@ -290,11 +291,75 @@ public sealed class BaseUserMenuTests : UserBunitTestContextBase
 
         SignOutService.Received(1).SignOutAsync();
         Assert.EndsWith("/login", Services.GetRequiredService<NavigationManager>().Uri);
+        Assert.Empty(menu.FindAll(".base-user-menu-error"));
+    }
+
+    [Fact]
+    public void SignOut_WithoutServerRevocation_StillNavigatesToTheLoginPage()
+    {
+        SignOutService.SignOutAsync().Returns(SignOutResult.SignedOutWithoutServerRevocation);
+        var menu = RenderMenu();
+        Open(menu);
+
+        menu.Find(".base-user-menu-sign-out").Click();
+
+        Assert.EndsWith("/login", Services.GetRequiredService<NavigationManager>().Uri);
+    }
+
+    [Fact]
+    public void SignOut_Failed_StaysOnThePageShowsTheMessageAndKeepsTheMenuUsable()
+    {
+        SignOutService.SignOutAsync().Returns(SignOutResult.Failed);
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        var uriBefore = navigationManager.Uri;
+        var menu = RenderMenu();
+        Open(menu);
+
+        menu.Find(".base-user-menu-sign-out").Click();
+
+        Assert.Equal(uriBefore, navigationManager.Uri);
+        var alert = menu.Find(".base-user-menu-error");
+        Assert.Equal("alert", alert.GetAttribute("role"));
+        Assert.Equal("Signing out failed – please try again.", alert.TextContent.Trim());
+        Assert.NotNull(menu.Find("[role=menu]"));
+
+        menu.Find(".base-user-menu-sign-out").Click();
+
+        SignOutService.Received(2).SignOutAsync();
+    }
+
+    [Fact]
+    public void SignOut_Failed_ThenSucceeded_NavigatesAndClearsTheMessage()
+    {
+        SignOutService.SignOutAsync().Returns(SignOutResult.Failed, SignOutResult.SignedOut);
+        var menu = RenderMenu();
+        Open(menu);
+        menu.Find(".base-user-menu-sign-out").Click();
+
+        menu.Find(".base-user-menu-sign-out").Click();
+
+        Assert.EndsWith("/login", Services.GetRequiredService<NavigationManager>().Uri);
+        Assert.Empty(menu.FindAll(".base-user-menu-error"));
+    }
+
+    [Fact]
+    public void SignOut_Failed_TheMessageDisappearsWhenTheMenuIsClosed()
+    {
+        SignOutService.SignOutAsync().Returns(SignOutResult.Failed);
+        var menu = RenderMenu();
+        Open(menu);
+        menu.Find(".base-user-menu-sign-out").Click();
+
+        Open(menu);
+        Open(menu);
+
+        Assert.Empty(menu.FindAll(".base-user-menu-error"));
     }
 
     [Fact]
     public void SignOut_NavigatesToTheConfiguredLoginPath()
     {
+        SignOutService.SignOutAsync().Returns(SignOutResult.SignedOut);
         var menu = RenderMenu(parameters => parameters.Add(p => p.LoginPath, "account/sign-in"));
         Open(menu);
 
@@ -434,6 +499,9 @@ public sealed class BaseUserMenuTests : UserBunitTestContextBase
 
         Assert.Equal("Kontomenü von Ada Lovelace", ToggleOf(menu).GetAttribute("aria-label"));
         Assert.Equal("Abmelden", menu.Find(".base-user-menu-sign-out").TextContent.Trim());
+        SignOutService.SignOutAsync().Returns(SignOutResult.Failed);
+        menu.Find(".base-user-menu-sign-out").Click();
+        Assert.Equal("Abmelden hat nicht geklappt – bitte erneut versuchen.", menu.Find(".base-user-menu-error").TextContent.Trim());
         Assert.Equal(["System", "Hell", "Dunkel"], menu.FindAll(".base-user-menu-themes [role=menuitemradio]").Select(entry => entry.TextContent.Trim()));
     }
 }

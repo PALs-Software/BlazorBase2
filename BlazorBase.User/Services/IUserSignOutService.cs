@@ -6,5 +6,10 @@ namespace BlazorBase.User.Services;
 /// </summary>
 public interface IUserSignOutService
 {
-    Task SignOutAsync();
+    /// <summary>
+    /// Signs the user out. The returned <see cref="SignOutResult"/> says whether the client is anonymous now
+    /// (<see cref="SignOutResult.SignedOut"/>, <see cref="SignOutResult.SignedOutWithoutServerRevocation"/>) or
+    /// still signed in because the server did not confirm the logout (<see cref="SignOutResult.Failed"/>).
+    /// </summary>
+    Task<SignOutResult> SignOutAsync();
 }

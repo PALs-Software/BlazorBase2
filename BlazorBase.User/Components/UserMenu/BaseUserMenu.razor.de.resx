@@ -57,6 +57,9 @@
   <data name="SignOut" xml:space="preserve">
     <value>Abmelden</value>
   </data>
+  <data name="SignOutFailed" xml:space="preserve">
+    <value>Abmelden hat nicht geklappt – bitte erneut versuchen.</value>
+  </data>
   <data name="Language_en" xml:space="preserve">
     <value>English</value>
   </data>

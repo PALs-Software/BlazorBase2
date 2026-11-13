@@ -57,6 +57,9 @@
   <data name="SignOut" xml:space="preserve">
     <value>Sign out</value>
   </data>
+  <data name="SignOutFailed" xml:space="preserve">
+    <value>Signing out failed – please try again.</value>
+  </data>
   <data name="Language_en" xml:space="preserve">
     <value>English</value>
   </data>

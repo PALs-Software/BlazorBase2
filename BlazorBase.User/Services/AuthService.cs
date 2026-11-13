@@ -146,7 +146,8 @@ public class AuthService(HttpClient httpClient, ITokenStorage tokenStorage) : IA
     public async Task LogoutAsync(string refreshToken)
     {
         var request = new RefreshTokenRequest { RefreshToken = refreshToken };
-        await HttpClient.PostAsJsonAsync("api/auth/logout", request);
+        var response = await HttpClient.PostAsJsonAsync("api/auth/logout", request);
+        response.EnsureSuccessStatusCode();
     }
 
     public async Task<LoginResponse?> DevelopmentLoginAsync()

@@ -6,10 +6,10 @@ public class StubUserSignOutService : IUserSignOutService
 {
     public int SignOutCount { get; private set; }
 
-    public Task SignOutAsync()
+    public Task<SignOutResult> SignOutAsync()
     {
         SignOutCount++;
 
-        return Task.CompletedTask;
+        return Task.FromResult(SignOutResult.SignedOut);
     }
 }

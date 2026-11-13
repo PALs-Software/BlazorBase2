@@ -161,6 +161,10 @@
                         <span class="base-user-menu-item-label">@Localizer["SignOut"]</span>
                     </button>
                 </div>
+                @if (SignOutFailed)
+                {
+                    <div class="base-user-menu-error" role="alert">@Localizer["SignOutFailed"]</div>
+                }
             </div>
         }
     </div>

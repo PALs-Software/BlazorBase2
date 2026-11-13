@@ -19,6 +19,13 @@ public interface IAuthService
     Task<LoginResponse> LoginTwoFactorAsync(TwoFactorLoginRequest request);
 
     Task<LoginResponse> RefreshAsync(string refreshToken);
+
+    /// <summary>
+    /// Posts the logout. Completes only when the server answered with a success status (the endpoint is
+    /// idempotent, so an unknown token is a success too); any other status (for example <c>403</c> for a missing
+    /// antiforgery token or <c>5xx</c>) throws <see cref="HttpRequestException"/>, because a logout the server did
+    /// not confirm leaves the session alive. A network failure throws as well.
+    /// </summary>
     Task LogoutAsync(string refreshToken);
 
     /// <summary>

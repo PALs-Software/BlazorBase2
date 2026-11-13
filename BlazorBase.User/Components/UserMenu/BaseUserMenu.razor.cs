@@ -27,7 +27,13 @@ namespace BlazorBase.User.Components.UserMenu;
 /// button after Escape or a choice. A language choice is stored on the account first
 /// (<see cref="IUserLanguagePreferenceSync"/>) and then applied through <see cref="ILanguageService"/>, which reloads
 /// the page under WebAssembly; a theme choice goes through <see cref="IThemeService"/>, which stores it on the account
-/// itself. "Sign out" runs <see cref="IUserSignOutService"/> and navigates to <see cref="LoginPath"/>.
+/// itself. "Sign out" runs <see cref="IUserSignOutService"/> and navigates to <see cref="LoginPath"/> once the user
+/// is signed out (<see cref="SignOutResult.SignedOut"/>, <see cref="SignOutResult.SignedOutWithoutServerRevocation"/>).
+/// When the server did not confirm the logout (<see cref="SignOutResult.Failed"/>) the user is still signed in: the
+/// menu stays open, shows an alert ("Signing out failed - please try again.") above the entry and does not navigate,
+/// so the entry can be used again. The menu itself disappears with the session, so the bearer-only notice of
+/// <see cref="SignOutResult.SignedOutWithoutServerRevocation"/> is not rendered; a host that wants one calls
+/// <see cref="IUserSignOutService"/> itself.
 /// </remarks>
 public partial class BaseUserMenu(
     AuthenticationStateProvider authenticationStateProvider,
@@ -104,6 +110,7 @@ public partial class BaseUserMenu(
     private bool IsOpen;
     private bool IsAttached;
     private bool IsDisposed;
+    private bool SignOutFailed;
     private string? PendingFocus;
     private string DisplayName = String.Empty;
     private string? AccountName;
@@ -208,6 +215,7 @@ public partial class BaseUserMenu(
             return;
 
         IsOpen = false;
+        SignOutFailed = false;
         PendingFocus = null;
         StateHasChanged();
 
@@ -267,8 +275,17 @@ public partial class BaseUserMenu(
 
     private async Task SignOutAsync()
     {
+        SignOutFailed = false;
+
+        var result = await SignOutService.SignOutAsync();
+
+        if (result == SignOutResult.Failed)
+        {
+            SignOutFailed = true;
+            return;
+        }
+
         await CloseAsync(false);
-        await SignOutService.SignOutAsync();
         NavigationManager.NavigateTo(LoginPath);
     }
 
