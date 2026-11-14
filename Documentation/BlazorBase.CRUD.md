@@ -1308,8 +1308,10 @@ The full path: interceptor `throw` → `BaseEndpointMapper` catches → `400 Bad
 | `GET` | `/api/base/<route>/{id}` | `?select=Name,Price` optional |
 | `GET` | `/api/base/<route>/count` | |
 | `POST` | `/api/base/<route>` | Create |
-| `PATCH` | `/api/base/<route>/{id}` | `PatchModel` body. **404** when `UserFilter` (below) excludes the row from the caller's scope. |
-| `DELETE` | `/api/base/<route>/{id}` | **404** when `UserFilter` excludes the row from the caller's scope. |
+| `PATCH` | `/api/base/<route>/{id}` | `PatchModel` body. **200** with the updated row, **404** when the row does not exist, when `UserFilter` (below) excludes it from the caller's scope, or when an EF global query filter hides it; **409** on a concurrency conflict, **400** on a validation failure. |
+| `DELETE` | `/api/base/<route>/{id}` | **204**, **404** under the same conditions as `PATCH`, **400** on a validation failure. |
+
+A `404` from `GET {id}`, `PATCH` and `DELETE` has an empty body, so a missing row and a row outside the caller's scope cannot be told apart. Providers signal the missing row from `PatchAsync`/`DeleteAsync` with `EntityNotFoundException` (`BlazorBase.CRUD.Models`, derived from `InvalidOperationException`); `DbContextBaseDataProvider` and `UserDataProvider` do so, and a custom `IBaseDataProvider<TModel>` should too, otherwise the endpoint answers `500`.
 
 `{id}` is parsed as `string`, `Guid`, `int` or `long` automatically.
 
@@ -1340,7 +1342,7 @@ app.MapBlazorBaseCrudEndpoints<Product>("products", o =>
 });
 ```
 
-`UserFilter` is a per-`ClaimsPrincipal` row predicate, enforced as a row-level-security boundary on `query`, `count` and `GET {id}` (passed through as the `scopeFilter` argument to `IBaseDataProvider<TModel>`), and — via a scoped existence pre-check — on `PATCH`/`DELETE`, which return **404** instead of leaking the existence of an out-of-scope row.
+`UserFilter` is a per-`ClaimsPrincipal` row predicate, enforced as a row-level-security boundary on `query`, `count` and `GET {id}` (passed through as the `scopeFilter` argument to `IBaseDataProvider<TModel>`), and — via a scoped existence pre-check — on `PATCH`/`DELETE`, which return **404** instead of leaking the existence of an out-of-scope row. Rows hidden by an EF Core global query filter (a tenant filter, for example) and ids that do not exist answer **404** as well, whether or not a `UserFilter` is configured.
 
 > **BREAKING:** The public property `BaseEndpointOptions.QueryCustomizer` has been removed (it was non-functional/dead code). To shape queries at the DI level, pass a `queryCustomizer` argument to the `DbContextBaseDataProvider<T>` constructor when registering it manually; to scope rows per user/request, use `UserFilter` above instead.
 

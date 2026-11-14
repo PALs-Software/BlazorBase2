@@ -145,7 +145,7 @@ public class UserDataProvider<TUser>(
     public async Task<UserModel> PatchAsync(object id, Dictionary<string, object?> changedFields, string? concurrencyStamp = null, CancellationToken cancellationToken = default)
     {
         var user = await UserManager.FindByIdAsync(id.ToString()!)
-            ?? throw new InvalidOperationException($"User '{id}' not found.");
+            ?? throw EntityNotFoundException.For(typeof(UserModel), id);
 
         foreach (var (key, value) in changedFields)
         {
@@ -208,7 +208,7 @@ public class UserDataProvider<TUser>(
             throw new InvalidOperationException("Cannot delete your own account.");
 
         var user = await UserManager.FindByIdAsync(id.ToString()!)
-            ?? throw new InvalidOperationException($"User '{id}' not found.");
+            ?? throw EntityNotFoundException.For(typeof(UserModel), id);
 
         var result = await UserManager.DeleteAsync(user);
         if (!result.Succeeded)

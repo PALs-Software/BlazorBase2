@@ -721,7 +721,7 @@ public class DbContextBaseDataProviderTests
     {
         using var db = new SqliteInMemoryDatabase();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
+        await Assert.ThrowsAsync<EntityNotFoundException>(
             () => ProductProvider(db).PatchAsync(Guid.NewGuid(), new Dictionary<string, object?> { ["Name"] = "x" }));
     }
 
@@ -976,7 +976,7 @@ public class DbContextBaseDataProviderTests
     {
         using var db = new SqliteInMemoryDatabase();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => ProductProvider(db).DeleteAsync(Guid.NewGuid()));
+        await Assert.ThrowsAsync<EntityNotFoundException>(() => ProductProvider(db).DeleteAsync(Guid.NewGuid()));
     }
 
     #endregion

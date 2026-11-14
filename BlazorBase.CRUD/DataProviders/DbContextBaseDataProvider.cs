@@ -174,12 +174,12 @@ public class DbContextBaseDataProvider<TEntity>(
 
     public async Task<TEntity> PatchAsync(object id, Dictionary<string, object?> changedFields, string? concurrencyStamp = null, CancellationToken cancellationToken = default)
     {
+        var entity = await FindByKeyAsync(id, cancellationToken)
+            ?? throw EntityNotFoundException.For(typeof(TEntity), id);
+
         var interceptedFields = PatchFieldValueConverter.ConvertToClrTypes(typeof(TEntity), changedFields);
         foreach (var interceptor in Interceptors)
             interceptedFields = await interceptor.OnBeforePatchAsync(id, interceptedFields, cancellationToken);
-
-        var entity = await FindByKeyAsync(id, cancellationToken)
-            ?? throw new InvalidOperationException($"Entity of type {typeof(TEntity).Name} with id '{id}' not found.");
 
         if (concurrencyStamp is not null)
             VerifyConcurrencyStamp(entity, concurrencyStamp);
@@ -205,7 +205,7 @@ public class DbContextBaseDataProvider<TEntity>(
     public async Task DeleteAsync(object id, CancellationToken cancellationToken = default)
     {
         var entity = await FindByKeyAsync(id, cancellationToken)
-            ?? throw new InvalidOperationException($"Entity of type {typeof(TEntity).Name} with id '{id}' not found.");
+            ?? throw EntityNotFoundException.For(typeof(TEntity), id);
 
         foreach (var interceptor in Interceptors)
             await interceptor.OnBeforeDeleteAsync(id, entity, cancellationToken);
