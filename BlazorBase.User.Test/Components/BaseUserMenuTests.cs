@@ -411,7 +411,7 @@ public sealed class BaseUserMenuTests : UserBunitTestContextBase
     [Fact]
     public void LanguageAndThemeHidden_LeavesOnlySignOutWithoutSeparator()
     {
-        var menu = RenderMenu(parameters => parameters.Add(p => p.ShowLanguage, false).Add(p => p.ShowTheme, false));
+        var menu = RenderMenu(parameters => parameters.Add(p => p.ShowLanguage, false).Add(p => p.ShowTheme, false).Add(p => p.ShowChangePassword, false));
         Open(menu);
 
         Assert.Single(menu.FindAll("[role=menu] [role^=menuitem]"));
@@ -435,7 +435,7 @@ public sealed class BaseUserMenuTests : UserBunitTestContextBase
         Assert.Equal("Settings", link.TextContent.Trim());
 
         var entries = menu.FindAll("[role=menu] [role^=menuitem]").Select(entry => entry.TextContent.Trim()).ToList();
-        Assert.Equal(["Settings", "Profile", "Sign out"], entries.TakeLast(3));
+        Assert.Equal(["Settings", "Profile", "Change password", "Sign out"], entries.TakeLast(4));
 
         menu.Find("button[data-item-key=profile]").Click();
 
@@ -453,6 +453,61 @@ public sealed class BaseUserMenuTests : UserBunitTestContextBase
         menu.Find("a[data-item-key=settings]").Click();
 
         Assert.Empty(menu.FindAll("[role=menu]"));
+    }
+
+    [Fact]
+    public void ChangePassword_IsShownByDefault_AsALinkToTheFrameworkPageAboveSignOut()
+    {
+        var menu = RenderMenu();
+        Open(menu);
+
+        var link = menu.Find("a[data-item-key=change-password]");
+        Assert.Equal("menuitem", link.GetAttribute("role"));
+        Assert.Equal("account/password", link.GetAttribute("href"));
+        Assert.Equal("Change password", link.TextContent.Trim());
+
+        var entries = menu.FindAll("[role=menu] [role^=menuitem]").Select(entry => entry.TextContent.Trim()).ToList();
+        Assert.Equal(["Change password", "Sign out"], entries.TakeLast(2));
+    }
+
+    [Fact]
+    public void ChangePassword_CanBeHiddenWithTheParameter()
+    {
+        var menu = RenderMenu(parameters => parameters.Add(p => p.ShowChangePassword, false));
+        Open(menu);
+
+        Assert.Empty(menu.FindAll("[data-item-key=change-password]"));
+        Assert.Equal("Sign out", menu.FindAll("[role=menu] [role^=menuitem]").Last().TextContent.Trim());
+    }
+
+    [Fact]
+    public void ChangePassword_LinksToTheConfiguredPath()
+    {
+        var menu = RenderMenu(parameters => parameters.Add(p => p.ChangePasswordPath, "settings/security"));
+        Open(menu);
+
+        Assert.Equal("settings/security", menu.Find("a[data-item-key=change-password]").GetAttribute("href"));
+    }
+
+    [Fact]
+    public void ChoosingChangePassword_ClosesTheMenu()
+    {
+        var menu = RenderMenu();
+        Open(menu);
+
+        menu.Find("a[data-item-key=change-password]").Click();
+
+        Assert.Empty(menu.FindAll("[role=menu]"));
+    }
+
+    [Fact]
+    public void ChangePassword_IsTranslatedToGerman()
+    {
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de");
+        var menu = RenderMenu();
+        Open(menu);
+
+        Assert.Equal("Passwort ändern", menu.Find("a[data-item-key=change-password]").TextContent.Trim());
     }
 
     [Fact]

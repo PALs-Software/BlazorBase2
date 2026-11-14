@@ -99,14 +99,14 @@
                             }
                         </div>
                     }
-                    @if (HasExtraItems)
+                    @if (HasAccountEntries)
                     {
                         @if (ShowLanguageSection || ShowThemeSection)
                         {
                             <div class="base-user-menu-separator" role="separator"></div>
                         }
                         <div class="base-user-menu-section base-user-menu-extra" role="group">
-                            @foreach (var item in Items!)
+                            @foreach (var item in Items ?? [])
                             {
                                 @if (!String.IsNullOrEmpty(item.Href))
                                 {
@@ -147,9 +147,20 @@
                                     </button>
                                 }
                             }
+                            @if (ShowChangePassword)
+                            {
+                                <a role="menuitem"
+                                   class="base-user-menu-item base-user-menu-change-password"
+                                   href="@ChangePasswordPath"
+                                   data-item-key="change-password"
+                                   @onclick="CloseAfterLinkAsync">
+                                    <FluentIcon Value="@(new Size20.Key())" Color="Color.Custom" CustomColor="currentColor" Class="base-user-menu-item-icon" />
+                                    <span class="base-user-menu-item-label">@Localizer["ChangePassword"]</span>
+                                </a>
+                            }
                         </div>
                     }
-                    @if (ShowLanguageSection || ShowThemeSection || HasExtraItems)
+                    @if (ShowLanguageSection || ShowThemeSection || HasAccountEntries)
                     {
                         <div class="base-user-menu-separator" role="separator"></div>
                     }

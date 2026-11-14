@@ -4,7 +4,7 @@ using BlazorBase.Mailing.Models;
 namespace BlazorBase.Mailing.Services;
 
 /// <summary>
-/// Builds the standard account emails - invitation, password reset, email confirmation - as ready-to-send
+/// Builds the standard account emails - invitation, password reset, email confirmation, password changed - as ready-to-send
 /// <see cref="EmailMessage"/>s: the subject and body are rendered from the localized templates in
 /// <c>BlazorBase.Mailing.Templates.Account</c> with the configured <see cref="EmailBrandingOptions"/>.
 /// </summary>
@@ -19,4 +19,9 @@ public interface IAccountEmailBuilder
     Task<EmailMessage> BuildPasswordResetAsync(string recipientEmail, PasswordResetEmailModel model, CultureInfo? culture = null);
 
     Task<EmailMessage> BuildEmailConfirmationAsync(string recipientEmail, EmailConfirmationEmailModel model, CultureInfo? culture = null);
+
+    /// <summary>
+    /// Builds the "your password was changed" notification. It carries no link and no token.
+    /// </summary>
+    Task<EmailMessage> BuildPasswordChangedAsync(string recipientEmail, PasswordChangedEmailModel model, CultureInfo? culture = null);
 }

@@ -52,6 +52,17 @@ public interface IAuthService
     Task ForgotPasswordAsync(ForgotPasswordRequest request);
     Task ResetPasswordAsync(ResetPasswordRequest request);
 
+    /// <summary>
+    /// Changes the signed-in account's own password through <c>POST api/auth/manage/change-password</c>. A
+    /// refusal the server explains with a <c>400</c> (wrong current password, a new password the rules
+    /// reject, an account without a password) comes back as a <see cref="ChangePasswordOutcome"/> that is not
+    /// <see cref="ChangePasswordOutcome.Succeeded"/>; any other failure (<c>401</c>, <c>429</c>, <c>5xx</c>, a
+    /// network error) throws <see cref="HttpRequestException"/>. Under the bearer transport the replacement
+    /// token pair of the response is stored, so the caller stays signed in; under the cookie transport the
+    /// server has already rewritten the session cookie.
+    /// </summary>
+    Task<ChangePasswordOutcome> ChangePasswordAsync(ChangePasswordRequest request);
+
     Task<TwoFactorStatusResponse> GetTwoFactorStatusAsync();
     Task<TwoFactorRecoveryCodesResponse> EnableTwoFactorAsync(TwoFactorEnableRequest request);
     Task DisableTwoFactorAsync(TwoFactorVerificationRequest request);

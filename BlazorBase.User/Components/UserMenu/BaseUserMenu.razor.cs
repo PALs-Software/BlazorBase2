@@ -17,7 +17,7 @@ namespace BlazorBase.User.Components.UserMenu;
 /// <summary>
 /// The account menu for the header of <c>BaseLayout</c>: a 44 px button with the signed-in user's initials (or
 /// avatar) that opens a menu with the user's name and account, the language and theme choice, host-provided
-/// entries and "Sign out".
+/// entries, "Change password" (<see cref="ShowChangePassword"/>) and "Sign out".
 /// </summary>
 /// <remarks>
 /// Renders nothing for an anonymous visitor. The menu is a plain <c>role="menu"</c> region (no <c>FluentMenu</c>, so
@@ -79,6 +79,21 @@ public partial class BaseUserMenu(
     [Parameter]
     public IReadOnlyList<UserMenuItem>? Items { get; set; }
 
+    /// <summary>
+    /// Shows the built-in "Change password" entry, listed after the host-provided <see cref="Items"/> and above
+    /// "Sign out". Default <see langword="true"/>; set it to <see langword="false"/> for an app whose accounts have
+    /// no password (external sign-in only) or that offers its own page.
+    /// </summary>
+    [Parameter]
+    public bool ShowChangePassword { get; set; } = true;
+
+    /// <summary>
+    /// Where "Change password" navigates to, relative to the app's base address. Default <c>account/password</c>,
+    /// the page <c>BlazorBase.User</c> ships.
+    /// </summary>
+    [Parameter]
+    public string ChangePasswordPath { get; set; } = "account/password";
+
     /// <summary>Where "Sign out" navigates to, relative to the app's base address. Default <c>login</c>.</summary>
     [Parameter]
     public string LoginPath { get; set; } = "login";
@@ -126,7 +141,7 @@ public partial class BaseUserMenu(
 
     private bool ShowThemeSection => ShowTheme;
 
-    private bool HasExtraItems => Items is { Count: > 0 };
+    private bool HasAccountEntries => ShowChangePassword || Items is { Count: > 0 };
 
     private string ToggleLabel => String.IsNullOrEmpty(DisplayName) ? Localizer["MenuLabel"] : Localizer["ToggleLabel", DisplayName];
 

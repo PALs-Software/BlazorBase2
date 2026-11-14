@@ -128,6 +128,48 @@ public sealed class AccountEmailBuilderTests
     }
 
     [Fact]
+    public async Task Password_changed_renders_in_english_with_brand_and_without_a_link()
+    {
+        var model = new PasswordChangedEmailModel { RecipientName = "Alex" };
+
+        var message = await BuildAsync(builder => builder.BuildPasswordChangedAsync("alex@example.com", model, CultureInfo.GetCultureInfo("en")));
+
+        Assert.Equal(["alex@example.com"], message.To);
+        Assert.Equal("Your ForkTest password was changed", message.Subject);
+        Assert.Contains("Hello Alex,", message.HtmlBody);
+        Assert.Contains("The password of your account was just changed.", message.HtmlBody);
+        Assert.Contains("Forgot your password?", WebUtility.HtmlDecode(message.HtmlBody));
+        Assert.Contains("contact your administrator", message.HtmlBody);
+        Assert.Contains("lang=\"en\"", message.HtmlBody);
+        Assert.Contains("#123456", message.HtmlBody);
+        Assert.DoesNotContain("href=", message.HtmlBody);
+        Assert.DoesNotContain("class=\"button\"", message.HtmlBody);
+    }
+
+    [Fact]
+    public async Task Password_changed_renders_in_german()
+    {
+        var model = new PasswordChangedEmailModel { RecipientName = "Alex" };
+
+        var message = await BuildAsync(builder => builder.BuildPasswordChangedAsync("alex@example.com", model, CultureInfo.GetCultureInfo("de")));
+
+        Assert.Equal("Ihr Passwort für ForkTest wurde geändert", message.Subject);
+        Assert.Contains("Guten Tag Alex,", message.HtmlBody);
+        Assert.Contains("Das Passwort Ihres Kontos wurde soeben geändert.", WebUtility.HtmlDecode(message.HtmlBody));
+        Assert.Contains("Passwort vergessen?", WebUtility.HtmlDecode(message.HtmlBody));
+        Assert.Contains("lang=\"de\"", message.HtmlBody);
+        Assert.DoesNotContain("href=", message.HtmlBody);
+    }
+
+    [Fact]
+    public async Task Password_changed_without_a_name_uses_the_neutral_greeting()
+    {
+        var message = await BuildAsync(builder => builder.BuildPasswordChangedAsync("alex@example.com", new PasswordChangedEmailModel(), CultureInfo.GetCultureInfo("en")));
+
+        Assert.Contains("Hello,", message.HtmlBody);
+    }
+
+    [Fact]
     public async Task Brand_name_is_html_encoded()
     {
         var message = await BuildAsync(

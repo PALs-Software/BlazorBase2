@@ -63,7 +63,7 @@ keeps all of them; a change to `AppTemplate.Client/Layout/MainLayout.razor(.cs)`
 | Grouped sidebar with section headings | `BuildNavigationItems()` in `Layout/MainLayout.razor.cs` | A tree of groups (`Key`, `Label`, `Icon`, `ExpandedByDefault = true`, `Children`), not a flat list. The group labels are the section headings of the sidebar. |
 | One navigation tree | `NavigationItems` passed to `BaseSideNavigation` and `BaseLayout.NavigationItems` | The rail, the mobile bottom bar (`IsMobilePrimary`) and the command palette read the same tree, so role visibility cannot diverge. |
 | Theme toggle | `<BaseThemeToggle />` in `HeaderContent` | The theme switch in the top bar, next to the user menu. |
-| User menu | `<BaseUserMenu />` (`BlazorBase.User.Components.UserMenu`) in `HeaderEndContent`, signed-in users only | The avatar button at the very end of the top bar opens the account menu: name and e-mail, language, theme and "Sign out". Never a plain avatar span that does nothing. Host entries such as "Settings" go into its `Items`. |
+| User menu | `<BaseUserMenu />` (`BlazorBase.User.Components.UserMenu`) in `HeaderEndContent`, signed-in users only | The avatar button at the very end of the top bar opens the account menu: name and e-mail, language, theme, "Change password" (the framework page `/account/password`, switch off with `ShowChangePassword="false"`) and "Sign out". Never a plain avatar span that does nothing. Host entries such as "Settings" go into its `Items`. |
 
 `AppTemplate.Tests/Layout/MainLayoutTests.cs` guards these defaults: it fails when the brand, the
 palette, the group headings, the role gating of the admin group or the user menu disappear. If one of those tests
@@ -115,7 +115,7 @@ Then verify the defaults that were lost or missing before:
 3. **Brand.** `<Brand><AppBrand /></Brand>` with `BrandPosition="BrandPosition.Start"` shows the icon and the app name, not just a title.
 4. **User menu.** `HeaderEndContent` holds `<BaseUserMenu />` for signed-in users instead of a plain `<span class="avatar">`
    (remove that span, its `.avatar` CSS, the `UserInitials` code and the `AvatarTitle` resources); tapping the avatar
-   opens the menu with "Sign out". `Program.cs` calls `UseBlazorBaseLanguageAsync(...)` after the development session.
+   opens the menu with "Change password" and "Sign out". `Program.cs` calls `UseBlazorBaseLanguageAsync(...)` after the development session.
 
 Keep the app's own icon, wordmark, groups and entries while porting; only the structure is taken over.
 Copy `Layout/MainLayoutTests.cs` along so the defaults stay guarded.

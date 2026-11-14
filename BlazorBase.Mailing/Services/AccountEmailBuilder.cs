@@ -34,6 +34,9 @@ public class AccountEmailBuilder(
     public Task<EmailMessage> BuildEmailConfirmationAsync(string recipientEmail, EmailConfirmationEmailModel model, CultureInfo? culture = null) =>
         BuildAsync<EmailConfirmationEmail>(recipientEmail, model, culture);
 
+    public Task<EmailMessage> BuildPasswordChangedAsync(string recipientEmail, PasswordChangedEmailModel model, CultureInfo? culture = null) =>
+        BuildAsync<PasswordChangedEmail>(recipientEmail, model, culture);
+
     private async Task<EmailMessage> BuildAsync<TTemplate>(string recipientEmail, object model, CultureInfo? culture)
         where TTemplate : IComponent
     {

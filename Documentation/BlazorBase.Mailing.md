@@ -167,7 +167,7 @@ Two consequences a host has to accept in exchange:
 
 ## Standard account emails
 
-Three ready-made Razor templates on `EmailLayoutBase`, localized in English and German (`.razor.resx` /
+Four ready-made Razor templates on `EmailLayoutBase`, localized in English and German (`.razor.resx` /
 `.razor.de.resx`), in the namespace `BlazorBase.Mailing.Templates.Account`:
 
 | Template | Model | Used by |
@@ -175,12 +175,13 @@ Three ready-made Razor templates on `EmailLayoutBase`, localized in English and 
 | `InvitationEmail` | `InvitationEmailModel` (`RecipientName?`, `InvitedByName?`, `AcceptLink`, `ExpiresAt`) | the invitation flow of [BlazorBase.User.Server](BlazorBase.User.Server.md#user-invitations) |
 | `PasswordResetEmail` | `PasswordResetEmailModel` (`RecipientName?`, `ResetLink?` or `ResetCode?`) | `MailingEmailSender<TUser>` (reset link and reset code) |
 | `EmailConfirmationEmail` | `EmailConfirmationEmailModel` (`RecipientName?`, `ConfirmationLink`) | `MailingEmailSender<TUser>` |
+| `PasswordChangedEmail` | `PasswordChangedEmailModel` (`RecipientName?`) | `MailingPasswordChangedNotifier<TUser>`, after a successful `POST api/auth/manage/change-password` |
 
 Each renders a heading, a greeting (neutral when no name is known), a button and the same link as copyable
-text, plus a hint for an unexpected email; the invitation also names the inviter and the expiry date. Every
+text, plus a hint for an unexpected email; the invitation also names the inviter and the expiry date. The password-changed notification has no button, no link and no token: it only says that the password was changed and to use "Forgot your password?" or contact the administrator when it was not the owner. Every
 value goes through the renderer's HTML encoding - links included - and is never concatenated into markup.
 
-`IAccountEmailBuilder` (registered by `AddBlazorBaseMailing`, scoped) turns a model into a ready-to-send
+`IAccountEmailBuilder` (registered by `AddBlazorBaseMailing`, scoped; `BuildInvitationAsync`, `BuildPasswordResetAsync`, `BuildEmailConfirmationAsync`, `BuildPasswordChangedAsync`) turns a model into a ready-to-send
 `EmailMessage` - recipient, localized subject, rendered body - in the requested culture:
 
 ```csharp

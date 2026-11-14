@@ -135,6 +135,7 @@ app.MapBlazorBaseUserAdminEndpoints();      // → /api/base/users  (Admin role)
 - `IBaseDataProvider<UserModel>` → `UserDataProvider<TUser>`
 - `IHttpContextAccessor`
 - `IEmailSender<TUser>` → `NoOpEmailSender<TUser>` by default (logs a warning instead of sending; see [`AddBlazorBaseMailingEmailSender`](#account-management-email-confirmation-password-reset-two-factor))
+- `IPasswordChangedNotifier<TUser>` → `NoOpPasswordChangedNotifier<TUser>` by default (logs at information level, sends nothing); `AddBlazorBaseMailingEmailSender<TUser>()` replaces it with `MailingPasswordChangedNotifier<TUser>` (the "password changed" mail of `POST api/auth/manage/change-password`)
 - `RefreshTokenCleanupService<TUser>` — a hosted service that periodically deletes expired/revoked `RefreshToken` rows (see [Services](#services))
 - A **rate limiter** with a fixed-window policy named `"BlazorBaseAuth"` (partitioned by client IP) applied to the `login`/`refresh`/`setup` actions. Thresholds come from `AuthTokens:RateLimit:*` (see [Configuration](#configuration-authtokens)). The policy is only enforced once the host adds `app.UseRateLimiter()` to its middleware pipeline — registering the policy without the middleware is harmless.
 
@@ -687,6 +688,38 @@ calling out explicitly:
   that ignores the field is signed out on its next request, exactly as it would have been before this
   mechanism existed. Under the cookie transport the pair travels as a rewritten session cookie instead,
   with both token strings in the body blanked, the same as every other response this transport touches.
+- **`change-password` lets a signed-in account change its own password.** The request carries the current
+  and the new password; the handler calls `UserManager.ChangePasswordAsync`, so the configured Identity
+  password rules apply and the server's reasons come back to the client. It answers `401` without a valid
+  session, `400` with a generic `current_password_incorrect` when the current password is wrong (nothing
+  more is revealed), `400` with `errors` keyed by field (`newPassword`, or `currentPassword` when a field
+  is empty) for a new password the rules refuse, and `400` `no_password_set` for an account without a
+  password (external sign-in only), which can use `forgot-password` to set one. Like every other write of
+  this group it sits on the `"BlazorBaseAuth"` rate limit, and under the cookie transport the global
+  CSRF middleware (`app.UseBlazorBaseCsrf()`) protects it. A wrong current password is not counted as a
+  failed sign-in (no lockout counter), so the rate limit is the only brake on a stolen session guessing
+  the current password.
+- **Changing the password rotates the security stamp and keeps the caller signed in.** Every other
+  cookie session ends at its next stamp validation (at the latest after
+  `SecurityStampValidatorOptions.ValidationInterval`, five minutes by default), every other bearer access
+  token on its next request (see [Access-token security-stamp revalidation](#access-token-security-stamp-revalidation)),
+  and every refresh token of the account is revoked and fails the stamp check, so no `refresh` can bring a
+  session back. The caller's own session is re-issued the same way the `2fa` operations do it. Under the
+  **cookie transport** the session cookie is rewritten (the server-side session key is renewed in place
+  with the new stamp) and the `RefreshedTokens` strings in the response are blank. Under the **bearer
+  transport** the response carries a new pair in `RefreshedTokens`, which the client must adopt;
+  `AuthService.ChangePasswordAsync` stores it through `ITokenStorage`. A bearer client that ignores it is
+  signed out on its next request. Personal access tokens (`AccessToken` rows) and OAuth grants are separate
+  credentials and are not touched by a password change.
+- **A "password changed" notification mail follows every successful change.** `IPasswordChangedNotifier<TUser>`
+  is registered as `NoOpPasswordChangedNotifier<TUser>` by default (logs at information level, sends
+  nothing). `AddBlazorBaseMailingEmailSender<TUser>()` replaces it with `MailingPasswordChangedNotifier<TUser>`,
+  which renders `PasswordChangedEmail` (see [Standard account emails](BlazorBase.Mailing.md#standard-account-emails))
+  in the user's `Language` and hands it to `IEmailDispatcher`. The mail has no link and no token; it tells
+  the owner to use "forgot password" or contact the administrator when the change was not theirs. The
+  notification is best-effort: an exception is logged and never changes the response, and a user without an
+  email address gets none. A host with its own `IEmailSender<TUser>` that does not call
+  `AddBlazorBaseMailingEmailSender` registers its own `IPasswordChangedNotifier<TUser>` to get the mail.
 - **Email delivery goes through `IEmailSender<TUser>`**, registered as `NoOpEmailSender<TUser>` by
   default (logs a warning and sends nothing — a missing mail configuration must not stop the host from
   starting). Call `AddBlazorBaseMailingEmailSender<TUser>()` after `AddBlazorBaseMailing` (see
@@ -697,7 +730,8 @@ calling out explicitly:
   the `EmailBranding` brand and HTML-encoded links.
 - **Client pages for the links.** `BlazorBase.User` ships the anonymous `/forgot-password` and
   `/reset-password?email=..&token=..` pages that match the links built here; the login page links to the
-  first one when `BlazorBaseUserClientOptions.ShowForgotPasswordLink` is on.
+  first one when `BlazorBaseUserClientOptions.ShowForgotPasswordLink` is on. The authenticated
+  `/account/password` page calls `change-password`; the `BaseUserMenu` links to it by default.
 - **Links embedded in outgoing email point at the client, not this API.** `AccountManagementOptions.ClientBaseUrl`
   is the base URL of the client's own confirm-email and reset-password pages; this API has no
   server-rendered pages of its own to redirect to. `AccountManagementOptions.Issuer` is the name shown
@@ -1094,7 +1128,7 @@ POST /api/auth/logout       { "refreshToken": "..." }
 
 Mapped separately via `app.MapBlazorBaseAccountEndpoints<AppUser>()`; every route below is rate-limited
 by the `"BlazorBaseAuth"` policy. `confirm-email`, `resend-confirmation`, `forgot-password` and
-`reset-password` are anonymous; every `2fa` route requires an authenticated caller.
+`reset-password` are anonymous; `change-password` and every `2fa` route require an authenticated caller.
 
 ```http
 POST /api/auth/manage/confirm-email        { "userId": "...", "token": "..." }
@@ -1109,6 +1143,13 @@ POST /api/auth/manage/forgot-password      { "email": "..." }
 
 POST /api/auth/manage/reset-password       { "email": "...", "token": "...", "newPassword": "..." }
 204 No Content   |   400 Bad Request   { "errors": [ "..." ] }
+
+POST /api/auth/manage/change-password      { "currentPassword": "...", "newPassword": "..." }   (Authorization: Bearer ... or the session cookie + CSRF header)
+200 OK   { "refreshedTokens": { "accessToken": "...", "refreshToken": "...", "expiresAt": "..." } }   (cookie transport: both token strings blank, the session cookie is rewritten)
+400 Bad Request   { "code": "current_password_incorrect", "message": "The current password is incorrect." }
+400 Bad Request   { "code": "validation_failed", "message": "...", "errors": { "newPassword": [ "..." ] } }   (also "currentPassword" when a field is empty)
+400 Bad Request   { "code": "no_password_set", "message": "This account has no password. Use \"forgot password\" to set one." }
+401 Unauthorized   |   429 Too Many Requests
 
 GET  /api/auth/manage/2fa                              (Authorization: Bearer ...)
 200 OK   { "enabled": false, "recoveryCodesRemaining": 0, "authenticatorUri": "otpauth://totp/...", "refreshedTokens": null }

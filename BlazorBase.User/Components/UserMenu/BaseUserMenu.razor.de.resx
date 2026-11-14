@@ -60,6 +60,9 @@
   <data name="SignOutFailed" xml:space="preserve">
     <value>Abmelden hat nicht geklappt – bitte erneut versuchen.</value>
   </data>
+  <data name="ChangePassword" xml:space="preserve">
+    <value>Passwort ändern</value>
+  </data>
   <data name="Language_en" xml:space="preserve">
     <value>English</value>
   </data>

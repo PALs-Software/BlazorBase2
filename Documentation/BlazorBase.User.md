@@ -254,6 +254,7 @@ that writes its own `MainLayout` instead **has to add it** and register the serv
 | `RefreshAsync(refreshToken)` | POST `api/auth/refresh` | `LoginResponse` | Single-use rotation — the server revokes the presented token atomically; a replayed/already-used token returns `401` |
 | `LogoutAsync(refreshToken)` | POST `api/auth/logout` | — | Revokes the refresh token by its hash; anonymous endpoint, so it succeeds even if the access token has already expired. Throws `HttpRequestException` for any non-success status |
 | `DevelopmentLoginAsync()` | POST `api/auth/development-login` | `LoginResponse?` | Signs in as the server's development account; `null` when the server does not offer it, which is every environment but Development |
+| `ChangePasswordAsync(ChangePasswordRequest)` | POST `api/auth/manage/change-password` | `ChangePasswordOutcome` | Changes the signed-in account's own password. A refusal the server explains with a `400` (`current_password_incorrect`, a rejected new password with its reasons per field, `no_password_set`) is returned as a not-succeeded outcome with `Code`, `Message` and `FieldErrors`; `401`, `429`, `5xx` and network errors throw `HttpRequestException`. Attaches the stored access token itself (this client has no `AuthTokenHandler`; under the cookie transport there is none and the cookie plus CSRF header do the work) and stores the replacement token pair of the response, so a bearer client stays signed in |
 
 ### `IUserService` — `UserService`
 
@@ -414,6 +415,7 @@ Two behavior changes follow from this and are intended:
 | `InvitationManagementView.razor` | Invitation administration: list, invite, resend, new link, revoke (no route, no `[Authorize]`) — see [User invitations](#user-invitations) | host-supplied |
 | `ForgotPassword.razor` (`/forgot-password`) | Requests a password reset link — see [Password reset pages](#password-reset-pages) | `[AllowAnonymous]` |
 | `ResetPassword.razor` (`/reset-password?email=...&token=...`) | Sets the new password from the reset link — see [Password reset pages](#password-reset-pages) | `[AllowAnonymous]` |
+| `ChangePassword.razor` (`/account/password`) | The signed-in user changes their own password — see [Change password page](#change-password-page) | `[Authorize]` |
 
 #### `Login` — `CollectHouseholdName` opt-in
 
@@ -497,7 +499,7 @@ For this to work the host must register the user-management custom inputs and an
 - `ResetPasswordDialog` — dialog content (`BaseDialogInstance<ResetPasswordModel>`) that prompts for a new password and writes it to `ResetPasswordModel.NewPassword`. Open it with `IDialogService.ShowBaseDialogAsync<ResetPasswordDialog, ResetPasswordModel>(title, model)`; it shows Fluent's OK and Cancel buttons and the result's `Cancelled` tells which one closed it.
 - `OAuthConnectedAppsPanel` — lists the apps the signed-in user connected through OAuth and disconnects one after an `IConfirmationService.ConfirmDestructiveAsync` prompt — see below.
 - `InviteUserDialog` (namespace `BlazorBase.User.Components.Invitations`) — the invite form of `InvitationManagementView`; creates the invitation itself and closes with the `UserInvitationLinkResponse` — see [User invitations](#user-invitations).
-- `BaseUserMenu` (namespace `BlazorBase.User.Components.UserMenu`) — the account menu for the header: avatar button, name and account, language and theme choice, host entries and "Sign out" — see [User menu](#user-menu).
+- `BaseUserMenu` (namespace `BlazorBase.User.Components.UserMenu`) — the account menu for the header: avatar button, name and account, language and theme choice, host entries, "Change password" and "Sign out" — see [User menu](#user-menu).
 
 ### OAuth consent page and connected apps
 
@@ -631,6 +633,28 @@ Both need the server's `MapBlazorBaseAccountEndpoints<TUser>()` and, to actually
 ```csharp
 builder.Services.Configure<BlazorBaseUserClientOptions>(options => options.ShowForgotPasswordLink = true);
 ```
+
+### Change password page
+
+**`ChangePassword` (`/account/password`, `[Authorize]`).** The authenticated counterpart of the reset pages: the
+signed-in user enters the current password and the new one twice (each field has a show/hide toggle) and the page
+calls `IAuthService.ChangePasswordAsync`. It needs the server's `MapBlazorBaseAccountEndpoints<TUser>()` (the
+`change-password` route, see [BlazorBase.User.Server](BlazorBase.User.Server.md#account-management--apiauthmanage)) and
+the auth client registered as for the other pages (cookie transport: the auth client carries
+`CsrfHeaderHandler`; no further registration is needed).
+
+- **Inline validation.** A missing current or new password and a confirmation that differs from the new password are
+  reported next to the field without a request (the mismatch while typing). The page does not hard-code a length: the
+  server's Identity password rules decide, and their reasons are shown under the new-password field.
+- **Server refusals map to fields.** `current_password_incorrect` is shown under the current-password field (in the
+  page's own localized text), the reasons of a rejected new password under the new-password field, `no_password_set`
+  above the button ("use Forgot your password? on the sign-in page"). `401` shows "session expired", `429` "too many
+  attempts", anything else a generic message.
+- **Success.** The form is replaced by a confirmation and the user stays signed in: under the cookie transport the
+  server has rewritten the session cookie, under the bearer transport `AuthService` stored the replacement token
+  pair. Every other session of the account is ended by the server.
+- **Reaching it.** `BaseUserMenu` links to it by default (`ShowChangePassword`, `ChangePasswordPath`, see
+  [User menu](#user-menu)); a host without passwords (external sign-in only) hides that entry.
 
 ---
 
@@ -1038,7 +1062,7 @@ public class UserController(UserManager<AppUser> userManager, SignInManager<AppU
 
 `BaseUserMenu` (namespace `BlazorBase.User.Components.UserMenu`) is the account menu of the header: a 44 px button
 with the signed-in user's initials that opens a menu with the user's name and account, the language choice, the theme
-choice, optional entries of the host and "Sign out". It lives here rather than in `BlazorBase.Components` because it
+choice, optional entries of the host, "Change password" and "Sign out". It lives here rather than in `BlazorBase.Components` because it
 signs out, which needs the auth client. Put it into `HeaderEndContent` of `BaseLayout`, so it is the last control of
 the header (see the header order in [BlazorBase.Components](BlazorBase.Components.md#baselayout-parameters-and-behavior)):
 
@@ -1070,6 +1094,8 @@ private IReadOnlyList<UserMenuItem> UserMenuItems =>
 | `ShowTheme` | `true` | Shows System / Light / Dark. Hide it when the host offers the choice elsewhere and wants it only once. |
 | `Items` | none | `UserMenuItem` entries (`Key`, `Label`, `Href` or `OnClick`, optional `Icon`) listed above "Sign out", for example "Settings" or "Profile". An entry with `Href` is a link, one with `OnClick` a button; with both, the link wins. |
 | `LoginPath` | `login` | Where "Sign out" navigates to, relative to the base address. |
+| `ShowChangePassword` | `true` | Shows the built-in "Change password" entry (a link to `ChangePasswordPath`) after the host `Items` and above "Sign out". Hide it for an app whose accounts have no password (external sign-in only) or that offers its own page. |
+| `ChangePasswordPath` | `account/password` | Where "Change password" navigates to, relative to the base address; the default is the [`ChangePassword` page](#change-password-page) of this library. |
 | `AvatarSrc` | none | A picture shown instead of the initials. |
 
 **What it shows.** Nothing for an anonymous visitor; it follows `AuthenticationStateChanged`, so it disappears after
@@ -1084,6 +1110,7 @@ of the first and the last word of the name, one letter for a single word, `?` wi
 | Language | `IUserLanguagePreferenceSync.SaveAsync(code)` stores it on the account (`PUT api/user/me/settings`, theme kept; under the bearer transport the token pair is refreshed afterwards so the next session read carries the new claim), then `ILanguageService.SetLanguageAsync(code)`, which reloads the page under WebAssembly. The order matters: the reload resolves the language from the account (`UseBlazorBaseLanguageAsync`), so it has to be stored first. Nothing happens for the current language; an offline user still gets the switch for the session. |
 | Theme | `IThemeService.SetThemeAsync(preference)`, which applies it, keeps it in the browser and stores it on the account (`IThemePreferenceSync`). |
 | Host entry | Navigates to `Href` or awaits `OnClick`. |
+| Change password | A link (`<a role="menuitem" href="{ChangePasswordPath}">`, Blazor intercepts it as a client-side navigation) to the [change password page](#change-password-page); the menu closes after the choice. |
 | Sign out | `IUserSignOutService.SignOutAsync()`, then `NavigationManager.NavigateTo(LoginPath)` once the user is signed out; when the server did not confirm the logout (`SignOutResult.Failed`) it shows an alert instead and does not navigate. |
 
 **Sign-out per transport.** `UserSignOutService` posts `api/auth/logout` first and calls
@@ -1121,7 +1148,7 @@ while open, `aria-controls`; its accessible name is "Account menu of {name}". En
 opens it at the first entry, Arrow Up at the last), and focus moves to the first entry. The menu is a plain
 `role="menu"` region (no `FluentMenu`, so it needs no provider and is bUnit-testable) that is only in the DOM while
 open: the name block above it, the language and the theme choice as `role="group"`s of `menuitemradio` entries with
-`aria-checked`, host entries and "Sign out" as `menuitem`s, `role="separator"` lines between the sections. Arrow keys,
+`aria-checked`, host entries, "Change password" and "Sign out" as `menuitem`s, `role="separator"` lines between the sections. Arrow keys,
 Home and End move between the entries, Enter or Space activates one (Space also on a link entry), Escape closes the
 menu and returns the focus to the button, and so does choosing an entry. A pointer press or the focus moving outside,
 Tab out of the menu and any navigation close it without moving the focus. The outside, Escape and arrow handling is a

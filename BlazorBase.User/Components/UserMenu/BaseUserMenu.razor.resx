@@ -60,6 +60,9 @@
   <data name="SignOutFailed" xml:space="preserve">
     <value>Signing out failed – please try again.</value>
   </data>
+  <data name="ChangePassword" xml:space="preserve">
+    <value>Change password</value>
+  </data>
   <data name="Language_en" xml:space="preserve">
     <value>English</value>
   </data>
