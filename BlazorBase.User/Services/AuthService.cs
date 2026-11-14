@@ -178,10 +178,34 @@ public class AuthService(HttpClient httpClient, ITokenStorage tokenStorage) : IA
         response.EnsureSuccessStatusCode();
     }
 
+    /// <summary>
+    /// A refused reset throws an <see cref="HttpRequestException"/> whose message joins the server's
+    /// <c>errors</c> (an invalid or expired link, a password the policy rejects), so the page can show why.
+    /// </summary>
     public async Task ResetPasswordAsync(ResetPasswordRequest request)
     {
         var response = await HttpClient.PostAsJsonAsync("api/auth/manage/reset-password", request);
-        response.EnsureSuccessStatusCode();
+
+        if (response.IsSuccessStatusCode)
+            return;
+
+        var body = await response.Content.ReadAsStringAsync();
+        string? message = null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            if (document.RootElement.ValueKind == JsonValueKind.Object && document.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
+                message = string.Join(" ", errors.EnumerateArray().Select(error => error.GetString()));
+        }
+        catch (JsonException)
+        {
+        }
+
+        if (string.IsNullOrWhiteSpace(message))
+            response.EnsureSuccessStatusCode();
+
+        throw new HttpRequestException(message, inner: null, response.StatusCode);
     }
 
     public async Task<TwoFactorStatusResponse> GetTwoFactorStatusAsync()

@@ -1,0 +1,64 @@
+@using BlazorBase.Components.Dialogs
+@inherits BaseDialogInstance<InviteUserDialogContent>
+
+<BaseDialogBody>
+    <ChildContent>
+        <div class="invite-user-dialog">
+            <EditForm EditContext="RequestEditContext" FormName="InviteUserForm">
+                <DataAnnotationsValidator />
+
+                <FluentStack Orientation="Orientation.Vertical" VerticalGap="var(--space-4)" Class="invite-user-dialog-form">
+                    <FluentTextInput @bind-Value="Request.Email"
+                                     Immediate="true"
+                                     Label="@DialogLocalizer["Email"]"
+                                     TextInputType="TextInputType.Email"
+                                     Required="true"
+                                     AutoComplete="off"
+                                     Class="invite-user-dialog-full-width"
+                                     data-autofocus="true" />
+
+                    <FluentTextInput @bind-Value="Request.DisplayName"
+                                     Immediate="true"
+                                     Label="@DialogLocalizer["DisplayName"]"
+                                     AutoComplete="off"
+                                     Class="invite-user-dialog-full-width" />
+
+                    <FluentSelect TOption="string"
+                                  TValue="string"
+                                  Items="@Content.Roles"
+                                  OptionValue="@(role => role)"
+                                  OptionText="@(role => role ?? string.Empty)"
+                                  @bind-Value="Request.Role"
+                                  Label="@DialogLocalizer["Role"]"
+                                  Class="invite-user-dialog-full-width" />
+
+                    @if (Content.ContextContent is not null)
+                    {
+                        @Content.ContextContent(Request)
+                    }
+
+                    @if (ErrorMessages.Count > 0)
+                    {
+                        <FluentMessageBar Intent="MessageBarIntent.Error" Title="@DialogLocalizer["Error"]" AllowDismiss="false" role="alert" Class="invite-user-dialog-error">
+                            @foreach (var errorMessage in ErrorMessages)
+                            {
+                                <div>@errorMessage</div>
+                            }
+                        </FluentMessageBar>
+                    }
+                </FluentStack>
+            </EditForm>
+        </div>
+    </ChildContent>
+    <ActionTemplate>
+        <FluentButton Appearance="ButtonAppearance.Primary"
+                      Loading="IsSubmitting"
+                      Class="invite-user-dialog-submit"
+                      OnClick="SubmitAsync">
+            @DialogLocalizer["Invite"]
+        </FluentButton>
+        <FluentButton Appearance="ButtonAppearance.Outline" Disabled="IsSubmitting" OnClick="CancelAsync">
+            @DialogLocalizer["Cancel"]
+        </FluentButton>
+    </ActionTemplate>
+</BaseDialogBody>

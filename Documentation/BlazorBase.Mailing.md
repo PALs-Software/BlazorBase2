@@ -20,6 +20,8 @@ builder.Services.AddBlazorBaseMailing(builder.Configuration, sectionName: "Email
 `AddBlazorBaseMailing` binds `SmtpSettings` (options pattern), registers `IEmailSender` →
 `SmtpEmailSender` and `IEmailTemplateRenderer`, and registers an `IEmailDispatcher` selected by the
 `dispatchMode` parameter — see [Dispatch: keeping the send off the request path](#dispatch-keeping-the-send-off-the-request-path).
+It also registers localization, `EmailBrandingOptions` (section `EmailBranding`) and `IAccountEmailBuilder`
+for the [standard account emails](#standard-account-emails).
 
 ```json
 // appsettings.json
@@ -161,3 +163,69 @@ Two consequences a host has to accept in exchange:
 - **Messages still queued at shutdown are lost.** The queue is in-process and not persisted. A host
   that cannot lose a message needs a durable outbox, not this queue.
 
+---
+
+## Standard account emails
+
+Three ready-made Razor templates on `EmailLayoutBase`, localized in English and German (`.razor.resx` /
+`.razor.de.resx`), in the namespace `BlazorBase.Mailing.Templates.Account`:
+
+| Template | Model | Used by |
+|---|---|---|
+| `InvitationEmail` | `InvitationEmailModel` (`RecipientName?`, `InvitedByName?`, `AcceptLink`, `ExpiresAt`) | the invitation flow of [BlazorBase.User.Server](BlazorBase.User.Server.md#user-invitations) |
+| `PasswordResetEmail` | `PasswordResetEmailModel` (`RecipientName?`, `ResetLink?` or `ResetCode?`) | `MailingEmailSender<TUser>` (reset link and reset code) |
+| `EmailConfirmationEmail` | `EmailConfirmationEmailModel` (`RecipientName?`, `ConfirmationLink`) | `MailingEmailSender<TUser>` |
+
+Each renders a heading, a greeting (neutral when no name is known), a button and the same link as copyable
+text, plus a hint for an unexpected email; the invitation also names the inviter and the expiry date. Every
+value goes through the renderer's HTML encoding - links included - and is never concatenated into markup.
+
+`IAccountEmailBuilder` (registered by `AddBlazorBaseMailing`, scoped) turns a model into a ready-to-send
+`EmailMessage` - recipient, localized subject, rendered body - in the requested culture:
+
+```csharp
+public class WelcomeMailer(IAccountEmailBuilder accountEmailBuilder, IEmailDispatcher emailDispatcher)
+{
+    private readonly IAccountEmailBuilder AccountEmailBuilder = accountEmailBuilder;
+    private readonly IEmailDispatcher EmailDispatcher = emailDispatcher;
+
+    public async Task SendResetAsync(string address, string link)
+    {
+        var message = await AccountEmailBuilder.BuildPasswordResetAsync(
+            address,
+            new PasswordResetEmailModel { RecipientName = "Ada", ResetLink = link },
+            CultureInfo.GetCultureInfo("de"));
+
+        await EmailDispatcher.DispatchAsync(message);
+    }
+}
+```
+
+A `null` culture keeps the ambient UI culture. The subject is read from the template's own resources
+(key `Subject`, formatted with the brand name), so subject and body always share one language.
+
+### Branding: `EmailBrandingOptions`
+
+Bound from the `EmailBranding` section (`EmailBrandingOptions.SectionName`):
+
+```json
+{
+  "EmailBranding": {
+    "BrandName": "Example",
+    "HeaderColor": "#014B43",
+    "HeaderTextColor": "#FFFFFF",
+    "AccentColor": "#F6C445",
+    "AccentTextColor": "#1F2933"
+  }
+}
+```
+
+| Key | Default | Meaning |
+|---|---|---|
+| `BrandName` | `App` | header, footer, subject lines and the invitation text |
+| `HeaderColor`, `HeaderTextColor` | `#014B43`, `#FFFFFF` | header bar |
+| `AccentColor`, `AccentTextColor` | `#F6C445`, `#1F2933` | the button |
+
+The defaults are those of `EmailLayoutBase`. `AddBlazorBaseMailing` also calls `AddLocalization()` so the
+templates can resolve their resources; `EmailLayoutBase` gained the CSS classes `muted`, `link-fallback`
+and `code` that the templates use.

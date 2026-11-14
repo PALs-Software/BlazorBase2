@@ -1,0 +1,121 @@
+.invitation-management-view {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-5);
+}
+
+.invitation-management-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+.invitation-management-title {
+    margin: 0;
+}
+
+.invitation-management-empty {
+    color: var(--color-text-secondary);
+    margin: 0;
+}
+
+.invitation-management-link {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border: var(--stroke-width-thin) solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-elevated);
+}
+
+.invitation-management-link-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.invitation-management-link-value {
+    flex: 1 1 280px;
+    min-width: 0;
+    font-family: var(--font-monospace);
+    word-break: break-all;
+    user-select: all;
+}
+
+.invitation-management-copy-status {
+    color: var(--color-text-muted);
+}
+
+.invitation-management-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.invitation-management-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border: var(--stroke-width-thin) solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-elevated);
+}
+
+.invitation-management-details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+    flex: 1 1 240px;
+}
+
+.invitation-management-email {
+    word-break: break-all;
+}
+
+.invitation-management-dates {
+    color: var(--color-text-muted);
+}
+
+.invitation-management-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.invitation-management-status {
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    border: var(--stroke-width-thin) solid var(--color-border);
+    color: var(--color-text-secondary);
+}
+
+.invitation-management-status-pending {
+    color: var(--color-accent-text);
+    border-color: var(--color-accent);
+}
+
+.invitation-management-status-accepted {
+    color: var(--color-success);
+    border-color: var(--color-success);
+}
+
+.invitation-management-status-expired {
+    color: var(--color-warning);
+    border-color: var(--color-warning);
+}
+
+.invitation-management-status-revoked {
+    color: var(--color-text-muted);
+}

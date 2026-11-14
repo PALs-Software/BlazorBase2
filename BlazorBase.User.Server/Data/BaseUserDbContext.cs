@@ -44,6 +44,13 @@ public abstract class BaseUserDbContext<TUser>(DbContextOptions options) : Ident
     public DbSet<OAuthRefreshToken> OAuthRefreshTokens => Set<OAuthRefreshToken>();
 
     /// <summary>
+    /// Invitations created through <c>MapBlazorBaseUserInvitationEndpoints</c>. Declared here, like
+    /// <see cref="AccessTokens"/>, so a host that later calls <c>AddBlazorBaseUserInvitations</c> needs no
+    /// model change - only a migration.
+    /// </summary>
+    public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
+
+    /// <summary>
     /// A real foreign key with cascade delete, so a deleted user cannot leave orphaned refresh-token
     /// rows behind - the deleted table's original defect. The OAuth tables cascade the same way: a
     /// deleted user or client takes its grants, and a deleted grant its codes and refresh tokens.

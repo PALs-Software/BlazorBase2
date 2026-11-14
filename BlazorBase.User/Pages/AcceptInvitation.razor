@@ -1,0 +1,79 @@
+@page "/invitation/accept"
+@attribute [AllowAnonymous]
+
+<PageTitle>@Localizer["PageTitle"]</PageTitle>
+
+<div class="accept-invitation">
+<FluentStack Orientation="Orientation.Vertical" HorizontalAlignment="HorizontalAlignment.Center"
+             Class="accept-invitation-container">
+    <FluentCard Class="accept-invitation-card">
+        <h2>@Localizer["PageTitle"]</h2>
+
+        @if (IsLoading)
+        {
+            <FluentSpinner Size="SpinnerSize.Medium" />
+        }
+        else if (Preview is null || !Preview.IsValid)
+        {
+            <FluentMessageBar Intent="MessageBarIntent.Warning" AllowDismiss="false" role="alert" Class="accept-invitation-status">
+                @StatusMessage
+            </FluentMessageBar>
+            <a href="login" class="accept-invitation-login-link">@Localizer["GoToLogin"]</a>
+        }
+        else
+        {
+            <p>@Localizer["Description"]</p>
+            <p>
+                @Localizer["EmailLabel"]
+                <strong class="accept-invitation-email">@Preview.Email</strong>
+            </p>
+
+            <EditForm EditContext="AcceptEditContext" OnValidSubmit="AcceptAsync" FormName="AcceptInvitationForm">
+                <DataAnnotationsValidator />
+
+                <FluentStack Orientation="Orientation.Vertical" VerticalGap="var(--space-4)" Class="accept-invitation-form">
+                    <FluentTextInput @bind-Value="AcceptModel.DisplayName"
+                                     Immediate="true"
+                                     Label="@Localizer["DisplayName"]"
+                                     Required="true"
+                                     AutoComplete="name"
+                                     Class="accept-invitation-full-width" />
+
+                    <FluentTextInput @bind-Value="AcceptModel.Password"
+                                     Immediate="true"
+                                     Label="@Localizer["Password"]"
+                                     TextInputType="TextInputType.Password"
+                                     Required="true"
+                                     AutoComplete="new-password"
+                                     Class="accept-invitation-full-width" />
+
+                    <FluentTextInput @bind-Value="PasswordConfirmation"
+                                     Immediate="true"
+                                     Label="@Localizer["ConfirmPassword"]"
+                                     TextInputType="TextInputType.Password"
+                                     Required="true"
+                                     AutoComplete="new-password"
+                                     Class="accept-invitation-full-width" />
+
+                    @if (ErrorMessages.Count > 0)
+                    {
+                        <FluentMessageBar Intent="MessageBarIntent.Error" Title="@Localizer["Error"]" AllowDismiss="false" role="alert" Class="accept-invitation-error">
+                            @foreach (var errorMessage in ErrorMessages)
+                            {
+                                <div>@errorMessage</div>
+                            }
+                        </FluentMessageBar>
+                    }
+
+                    <FluentButton Type="ButtonType.Submit"
+                                  Appearance="ButtonAppearance.Primary"
+                                  Loading="IsSubmitting"
+                                  Class="accept-invitation-full-width accept-invitation-submit">
+                        @Localizer["Submit"]
+                    </FluentButton>
+                </FluentStack>
+            </EditForm>
+        }
+    </FluentCard>
+</FluentStack>
+</div>

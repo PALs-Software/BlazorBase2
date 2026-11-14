@@ -25,6 +25,7 @@ The server-side companion to [`BlazorBase.User`](BlazorBase.User.md). Bundles AS
 - [Services](#services)
 - [Controllers](#controllers)
 - [Account management: email confirmation, password reset, two-factor](#account-management-email-confirmation-password-reset-two-factor)
+- [User invitations](#user-invitations)
 - [Choosing a token transport, CSRF, and forwarded headers](#choosing-a-token-transport-csrf-and-forwarded-headers)
 - [Configuration: AuthTokens](#configuration-authtokens)
 - [Upgrade / Breaking Behavior](#upgrade--breaking-behavior)
@@ -275,6 +276,8 @@ public abstract class BaseUserDbContext<TUser>(DbContextOptions options) : Ident
     public DbSet<AccessToken> AccessTokens => Set<AccessToken>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<SetupCompletionMarker> SetupCompletionMarkers => Set<SetupCompletionMarker>();
+    public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();   // see User invitations
+    // plus the OAuth tables, see BlazorBase.User.Server.OAuth.md
 }
 ```
 
@@ -688,7 +691,13 @@ calling out explicitly:
   default (logs a warning and sends nothing — a missing mail configuration must not stop the host from
   starting). Call `AddBlazorBaseMailingEmailSender<TUser>()` after `AddBlazorBaseMailing` (see
   [`BlazorBase.Mailing`](BlazorBase.Mailing.md)) to route confirmation and reset links through the
-  framework's existing mail pipeline instead of writing a second one.
+  framework's existing mail pipeline instead of writing a second one. `MailingEmailSender<TUser>` renders
+  the standard templates (`EmailConfirmationEmail`, `PasswordResetEmail`, see
+  [Standard account emails](BlazorBase.Mailing.md#standard-account-emails)) in the user's `Language`, with
+  the `EmailBranding` brand and HTML-encoded links.
+- **Client pages for the links.** `BlazorBase.User` ships the anonymous `/forgot-password` and
+  `/reset-password?email=..&token=..` pages that match the links built here; the login page links to the
+  first one when `BlazorBaseUserClientOptions.ShowForgotPasswordLink` is on.
 - **Links embedded in outgoing email point at the client, not this API.** `AccountManagementOptions.ClientBaseUrl`
   is the base URL of the client's own confirm-email and reset-password pages; this API has no
   server-rendered pages of its own to redirect to. `AccountManagementOptions.Issuer` is the name shown
@@ -705,6 +714,164 @@ calling out explicitly:
   }
 }
 ```
+
+---
+
+## User invitations
+
+An opt-in flow for applications without self-registration: an administrator invites an email address
+with a role, the person opens the link, chooses a display name and a password, and an active account
+exists - email confirmed, role assigned, signed in. The client side (accept page, administration view)
+is described in [BlazorBase.User](BlazorBase.User.md#user-invitations).
+
+```csharp
+// Program.cs (server)
+builder.Services.AddBlazorBaseUserServer<AppUser, AppDbContext>(builder.Configuration);
+builder.Services.AddBlazorBaseMailing(builder.Configuration);            // optional - without it nothing is mailed
+builder.Services.AddBlazorBaseUserInvitations<AppUser>();                // binds the "Invitations" section
+builder.Services.AddUserInvitationHandler<AppUser, HouseholdInvitationHandler>();   // optional
+
+app.MapBlazorBaseUserInvitationEndpoints<AppUser>();                     // api/auth/invitations, role "Admin"
+// or: app.MapBlazorBaseUserInvitationEndpoints<AppUser>("api/auth/invitations", adminRoles: "Admin,Owner");
+```
+
+**Migration required.** `BaseUserDbContext` declares `DbSet<UserInvitation> UserInvitations`, so every
+host's next migration adds the `UserInvitations` table, whether or not it calls
+`AddBlazorBaseUserInvitations`.
+
+### `UserInvitation`
+
+| Column | Notes |
+|---|---|
+| `Id` | `Guid` key |
+| `Email`, `NormalizedEmail` | the invited address; `NormalizedEmail` (Identity-normalized) is indexed |
+| `DisplayName` | optional suggestion; the person may change it when accepting |
+| `Role` | an existing Identity role, stored with its canonical name |
+| `Context` | optional application value (max 2000), passed to the handler |
+| `Language` | optional, for example `de`: language of the email and of the new account; the user type's default (`new TUser().Language`) when empty |
+| `TokenHash` | Base64Url SHA-256 of the token, unique index; the plain token is never stored |
+| `CreatedAt`, `ExpiresAt` | UTC; `ExpiresAt` = now + `Invitations:LifetimeDays` (default 7) |
+| `InvitedByUserId` | the creating administrator |
+| `AcceptedAt`, `AcceptedUserId` | set when redeemed |
+| `RevokedAt` | set when revoked or replaced |
+| `LastSentAt`, `SendCount` | updated whenever an email was handed to the mail pipeline |
+
+The status the API reports is derived: `Accepted`, otherwise `Revoked`, otherwise `Pending` before
+`ExpiresAt` and `Expired` after it.
+
+### Token rules
+
+- A token is 32 random bytes from `RandomNumberGenerator`, Base64Url-encoded (43 characters). Only its
+  SHA-256 hash is stored; a presented token is looked up by hash and compared in constant time
+  (`UserInvitationTokenGenerator`).
+- **Create, resend and new link each create a new token** and replace the hash, so the previous link stops
+  working at once. Resend and new link also restart the lifetime, which revives an expired invitation.
+- **A link works once.** Accepting claims the invitation with a conditional update
+  (`AcceptedAt IS NULL AND RevokedAt IS NULL AND ExpiresAt > now AND TokenHash = ...`) inside the accept
+  transaction, so of two concurrent requests only one creates an account.
+- **Creating an invitation for an address with an account answers `409`** (`user_exists`). Creating one for
+  an address that already has an open invitation revokes the older one; only the newest link works.
+- The link is `{AccountManagement:ClientBaseUrl}/{Invitations:AcceptPagePath}?token=...`; the default page
+  path `invitation/accept` matches the accept page of `BlazorBase.User`. Without a `ClientBaseUrl` the link
+  is relative (`/invitation/accept?token=...`); `InvitationManagementView` makes it absolute before copying.
+
+### Accepting
+
+`POST accept` validates the token, refuses an address that got an account meanwhile (`409`), and then, in
+one transaction (with the context's execution strategy): claims the invitation, creates the user
+(`UserName = Email`, `EmailConfirmed = true`, `IsActive = true`, `Language` from the invitation), checks
+the password through Identity's validators, adds the role, and runs every handler's `OnAcceptedAsync`. A
+rejected password, a missing role or a refusing handler rolls everything back and leaves the link usable.
+On success the account is signed in exactly like a login - a token pair from `AuthTokenIssuer<TUser>`
+written through the active `IAuthTokenTransport` (a session cookie under the cookie transport) - and the
+response body is the `LoginResponse`.
+
+### Mail
+
+`AddBlazorBaseUserInvitations` registers `IUserInvitationEmailSender` per scope: when `IEmailDispatcher` and
+`IAccountEmailBuilder` are registered (`AddBlazorBaseMailing`, in either call order) it renders the standard
+invitation template of [BlazorBase.Mailing](BlazorBase.Mailing.md#standard-account-emails) in the
+invitation's language and dispatches it; otherwise `NoOpUserInvitationEmailSender` sends nothing. Creating
+an invitation never fails because of mail: without mailing, or when the send throws (logged, the address
+is not), the response carries `emailSent: false` and the administrator passes the link on. A host may
+register its own `IUserInvitationEmailSender` instead.
+
+### `IUserInvitationHandler<TUser>` (application hook)
+
+Every member has a default implementation that allows everything; handlers run in registration order and
+the first refusal wins.
+
+```csharp
+public interface IUserInvitationHandler<TUser> where TUser : BaseUser
+{
+    // Before a new invitation is stored. May validate or set invitation.Context; Reject(...) answers 400 (invitation_rejected).
+    Task<UserInvitationHandlerResult> OnCreatingAsync(UserInvitation invitation, ClaimsPrincipal invitedBy, CancellationToken cancellationToken);
+
+    // Whether the administrator may list, resend, renew and revoke this invitation; false hides it (404).
+    Task<bool> CanManageAsync(UserInvitation invitation, ClaimsPrincipal administrator, CancellationToken cancellationToken);
+
+    // Inside the accept transaction, after user and role exist. Work through the same scoped DbContext
+    // commits or rolls back with the account; Reject(...) rolls everything back.
+    Task<UserInvitationHandlerResult> OnAcceptedAsync(TUser user, UserInvitation invitation, CancellationToken cancellationToken);
+}
+```
+
+Example: a multi-tenant application stores the inviting administrator's household in the context and
+adds the new user to it.
+
+```csharp
+public sealed class HouseholdInvitationHandler(AppDbContext dbContext, IHouseholdAccessor householdAccessor) : IUserInvitationHandler<AppUser>
+{
+    #region Injects
+    private readonly AppDbContext DbContext = dbContext;
+    private readonly IHouseholdAccessor HouseholdAccessor = householdAccessor;
+    #endregion
+
+    public Task<UserInvitationHandlerResult> OnCreatingAsync(UserInvitation invitation, ClaimsPrincipal invitedBy, CancellationToken cancellationToken)
+    {
+        invitation.Context = HouseholdAccessor.CurrentHouseholdId.ToString();
+        return Task.FromResult(UserInvitationHandlerResult.Success);
+    }
+
+    public Task<bool> CanManageAsync(UserInvitation invitation, ClaimsPrincipal administrator, CancellationToken cancellationToken) =>
+        Task.FromResult(invitation.Context == HouseholdAccessor.CurrentHouseholdId.ToString());
+
+    public async Task<UserInvitationHandlerResult> OnAcceptedAsync(AppUser user, UserInvitation invitation, CancellationToken cancellationToken)
+    {
+        DbContext.HouseholdMembers.Add(new HouseholdMember { UserId = user.Id, HouseholdId = Guid.Parse(invitation.Context!) });
+        await DbContext.SaveChangesAsync(cancellationToken);
+        return UserInvitationHandlerResult.Success;
+    }
+}
+```
+
+Note: creating an invitation revokes any open invitation for the same address regardless of
+`CanManageAsync`, so two tenants cannot hold competing open invitations for one person.
+
+### `UserInvitationService<TUser>`
+
+The scoped service behind the endpoints, usable directly from server code: `ListAsync`, `CreateAsync`,
+`ResendAsync`, `RenewLinkAsync`, `RevokeAsync`, `PreviewAsync`, `AcceptAsync`. Every operation returns a
+`UserInvitationResult<T>` (`Outcome`: `Succeeded`, `Invalid`, `NotFound`, `Conflict`, `Rejected`;
+`ErrorCode` from `UserInvitationErrorCodes`; `ErrorMessage`; field `Errors`) instead of throwing.
+
+### Configuration: `Invitations`
+
+```json
+{
+  "AccountManagement": { "ClientBaseUrl": "https://app.example.com" },
+  "Invitations": { "LifetimeDays": 7, "AcceptPagePath": "invitation/accept" },
+  "EmailBranding": { "BrandName": "Example" }
+}
+```
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Invitations:LifetimeDays` | `7` | lifetime of a link after create, resend or new link; validated at startup (at least 1) |
+| `Invitations:AcceptPagePath` | `invitation/accept` | client page the link points to, relative to `AccountManagement:ClientBaseUrl` |
+
+The brand name and colors of the email come from `EmailBranding` (BlazorBase.Mailing), shared with the
+password reset and confirmation emails.
 
 ---
 
@@ -997,6 +1164,41 @@ GET    /api/oauth/authorization-requests?request=...        { "clientName", "red
 POST   /api/oauth/authorization-requests/decision           { "request", "approved" } -> { "redirectUri" }
 GET    /api/oauth/grants                                    [ { "id", "clientName", "redirectHost", "scope", "createdAt", "lastUsedAt" } ]
 DELETE /api/oauth/grants/{id}                               204 | 404
+```
+
+### User invitations — `api/auth/invitations/*`
+
+Mapped via `app.MapBlazorBaseUserInvitationEndpoints<AppUser>()` after `AddBlazorBaseUserInvitations<AppUser>()`
+(mapping without the registration throws at startup). The administration routes require one of
+`adminRoles` (default `Admin`); `accept` is anonymous and rate-limited by `"BlazorBaseAuth"`. Failures are
+problem details (`application/problem+json`) with a `code` member from `UserInvitationErrorCodes`
+(`validation_failed`, `invitation_not_found`, `invitation_invalid`, `user_exists`, `role_unknown`,
+`invitation_not_pending`, `password_rejected`, `invitation_rejected`); validation failures add `errors`.
+
+```http
+GET    /api/auth/invitations
+200 OK   [ { "id", "email", "displayName", "role", "context", "language", "status": "Pending|Accepted|Expired|Revoked",
+             "createdAt", "expiresAt", "invitedByUserId", "acceptedAt", "acceptedUserId", "revokedAt", "lastSentAt", "sendCount" } ]
+
+POST   /api/auth/invitations              { "email", "displayName"?, "role", "context"?, "language"? }
+201 Created   { "invitation": { ... }, "link": "https://app.example.com/invitation/accept?token=...", "emailSent": true }
+400 (validation_failed | role_unknown | invitation_rejected)   |   409 (user_exists)
+
+POST   /api/auth/invitations/{id}/resend    new token and expiry, email sent again
+POST   /api/auth/invitations/{id}/link      new token and expiry, no email
+200 OK   { "invitation": { ... }, "link": "...", "emailSent": true|false }
+404 (invitation_not_found)   |   409 (invitation_not_pending | user_exists)
+
+DELETE /api/auth/invitations/{id}
+204 No Content (also when already revoked)   |   404 (invitation_not_found)   |   409 (invitation_not_pending: accepted)
+
+GET    /api/auth/invitations/accept?token=...                      (anonymous)
+200 OK   { "isValid": true, "email": "...", "displayName": "...", "expiresAt": "..." }
+200 OK   { "isValid": false, "email": null, "displayName": null, "expiresAt": null }   (unknown, expired, revoked, used or missing token - identical)
+
+POST   /api/auth/invitations/accept       { "token", "displayName", "password" }   (anonymous)
+200 OK   { "accessToken", "refreshToken", "expiresAt" }   (session written through the active transport)
+400 (invitation_invalid | password_rejected with errors.Password | validation_failed | invitation_rejected)   |   409 (user_exists)
 ```
 
 ### Admin user CRUD — delegated to BlazorBase.CRUD

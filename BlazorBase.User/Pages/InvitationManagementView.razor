@@ -1,0 +1,93 @@
+@using BlazorBase.User.Models
+
+<div class="invitation-management-view">
+    <div class="invitation-management-header">
+        <h2 class="invitation-management-title">@Localizer["Title"]</h2>
+        <FluentButton Appearance="ButtonAppearance.Primary"
+                      Class="invitation-management-invite"
+                      Disabled="IsBusy"
+                      OnClick="OpenInviteDialogAsync">
+            @Localizer["Invite"]
+        </FluentButton>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FluentMessageBar Intent="MessageBarIntent.Error" Title="@Localizer["Error"]" AllowDismiss="false" role="alert">
+            @ErrorMessage
+        </FluentMessageBar>
+    }
+
+    @if (LatestLink is not null)
+    {
+        <div class="invitation-management-link" role="status">
+            <FluentMessageBar Intent="@(LatestLink.EmailSent ? MessageBarIntent.Success : MessageBarIntent.Warning)" AllowDismiss="false" Class="invitation-management-link-status">
+                @LatestLinkMessage
+            </FluentMessageBar>
+            <div class="invitation-management-link-row">
+                <code class="invitation-management-link-value">@AbsoluteLatestLink</code>
+                <FluentButton Appearance="ButtonAppearance.Outline"
+                              Class="invitation-management-copy"
+                              OnClick="CopyLatestLinkAsync">
+                    @Localizer["CopyLink"]
+                </FluentButton>
+            </div>
+            @if (!string.IsNullOrEmpty(CopyMessage))
+            {
+                <span class="invitation-management-copy-status">@CopyMessage</span>
+            }
+        </div>
+    }
+
+    @if (IsLoading)
+    {
+        <FluentSpinner Size="SpinnerSize.Medium" />
+    }
+    else if (Invitations.Count == 0)
+    {
+        <p class="invitation-management-empty">@Localizer["Empty"]</p>
+    }
+    else
+    {
+        <ul class="invitation-management-list">
+            @foreach (var invitation in Invitations)
+            {
+                <li class="invitation-management-item">
+                    <div class="invitation-management-details">
+                        <strong class="invitation-management-email">@invitation.Email</strong>
+                        @if (!string.IsNullOrWhiteSpace(invitation.DisplayName))
+                        {
+                            <span>@invitation.DisplayName</span>
+                        }
+                        <span>@Localizer["Role"]: @invitation.Role</span>
+                        <span class="invitation-management-dates">@DescribeDates(invitation)</span>
+                    </div>
+                    <span class="@StatusClass(invitation.Status)">@Localizer[$"Status_{invitation.Status}"]</span>
+                    @if (CanChange(invitation))
+                    {
+                        <div class="invitation-management-actions">
+                            <FluentButton Appearance="ButtonAppearance.Outline"
+                                          Class="invitation-management-resend"
+                                          Disabled="IsBusy"
+                                          OnClick="() => ResendAsync(invitation)">
+                                @Localizer["Resend"]
+                            </FluentButton>
+                            <FluentButton Appearance="ButtonAppearance.Outline"
+                                          Class="invitation-management-new-link"
+                                          Disabled="IsBusy"
+                                          OnClick="() => RenewLinkAsync(invitation)">
+                                @Localizer["NewLink"]
+                            </FluentButton>
+                            <FluentButton Appearance="ButtonAppearance.Outline"
+                                          Class="invitation-management-revoke"
+                                          Disabled="IsBusy"
+                                          OnClick="() => RevokeAsync(invitation)">
+                                @Localizer["Revoke"]
+                            </FluentButton>
+                        </div>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</div>

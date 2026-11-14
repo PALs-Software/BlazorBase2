@@ -119,6 +119,10 @@ builder.Services.Configure<BlazorBaseUserClientOptions>(o =>
     o.CollectHouseholdNameOnSetup = true);
 ```
 
+The other options: `ShowForgotPasswordLink` (default `false`) adds a link to `/forgot-password` on the login
+page - see [Password reset pages](#password-reset-pages); `OAuthEndpointBasePath` (default `api/oauth`) and
+`InvitationEndpointBasePath` (default `api/auth/invitations`) must match the server's paths.
+
 ### 3. Register platform-specific services
 
 These supply the three platform seams — `ITokenStorage`, `IAppConfigService` and
@@ -406,6 +410,10 @@ Two behavior changes follow from this and are intended:
 | `SetupServer.razor` (`/setup-server`) | Asks the user for the backend URL (MAUI first-run) | `[AllowAnonymous]` |
 | `UserManagementView.razor` | Generic, reusable user CRUD UI (no route, no `[Authorize]`) | host-supplied |
 | `OAuthConsent.razor` (`/oauth/consent`) | Consent page of the OAuth authorization server — see [OAuth consent page and connected apps](#oauth-consent-page-and-connected-apps) | `[Authorize]` |
+| `AcceptInvitation.razor` (`/invitation/accept?token=...`) | Redeems an invitation link: display name and password, then signed in — see [User invitations](#user-invitations) | `[AllowAnonymous]` |
+| `InvitationManagementView.razor` | Invitation administration: list, invite, resend, new link, revoke (no route, no `[Authorize]`) — see [User invitations](#user-invitations) | host-supplied |
+| `ForgotPassword.razor` (`/forgot-password`) | Requests a password reset link — see [Password reset pages](#password-reset-pages) | `[AllowAnonymous]` |
+| `ResetPassword.razor` (`/reset-password?email=...&token=...`) | Sets the new password from the reset link — see [Password reset pages](#password-reset-pages) | `[AllowAnonymous]` |
 
 #### `Login` — `CollectHouseholdName` opt-in
 
@@ -488,6 +496,7 @@ For this to work the host must register the user-management custom inputs and an
 - `RedirectToLogin` — placed inside `<NotAuthorized>` in `<AuthorizeRouteView>`. Captures the current URI as an app-relative path and navigates to `/login?returnUrl=<encoded>`. If the current path is already `/login` (or starts with `login`), navigates to `/login` without a `returnUrl` to avoid loops.
 - `ResetPasswordDialog` — dialog content (`BaseDialogInstance<ResetPasswordModel>`) that prompts for a new password and writes it to `ResetPasswordModel.NewPassword`. Open it with `IDialogService.ShowBaseDialogAsync<ResetPasswordDialog, ResetPasswordModel>(title, model)`; it shows Fluent's OK and Cancel buttons and the result's `Cancelled` tells which one closed it.
 - `OAuthConnectedAppsPanel` — lists the apps the signed-in user connected through OAuth and disconnects one after an `IConfirmationService.ConfirmDestructiveAsync` prompt — see below.
+- `InviteUserDialog` (namespace `BlazorBase.User.Components.Invitations`) — the invite form of `InvitationManagementView`; creates the invitation itself and closes with the `UserInvitationLinkResponse` — see [User invitations](#user-invitations).
 - `BaseUserMenu` (namespace `BlazorBase.User.Components.UserMenu`) — the account menu for the header: avatar button, name and account, language and theme choice, host entries and "Sign out" — see [User menu](#user-menu).
 
 ### OAuth consent page and connected apps
@@ -541,6 +550,87 @@ The consent page is always entered by a full page load (the redirect from `autho
 transport the session survives it; under the bearer transport with the default in-memory token storage
 it does not, so the user signs in on every connection attempt - one more reason the cookie transport is
 the recommended mode for a browser host.
+
+### User invitations
+
+The client half of the [invitation flow](BlazorBase.User.Server.md#user-invitations): an administrator
+invites a person by email, the person opens the link, chooses a display name and a password and is signed
+in.
+
+**`AcceptInvitation` (`/invitation/accept?token=...`, `[AllowAnonymous]`).** The page the invitation email
+links to. It loads the preview (`GET api/auth/invitations/accept`), shows the invited email address,
+prefills the suggested display name and asks for the password twice. Submitting redeems the token, calls
+`BlazorBaseUserAuthStateProvider.MarkUserAsAuthenticated` with the returned session (as `Login` does) and
+navigates to `/` - with a full page load when the new account's language differs from the current one. An
+unknown, expired, revoked or used link shows one message and a link to `/login`; a password the policy
+rejects shows the server's reasons; an address that got an account meanwhile shows a sign-in hint.
+
+**`InvitationManagementView` (namespace `BlazorBase.User.Pages`, no route).** Routeless like
+`UserManagementView`; the host places it on an administrator page. It lists the invitations (email,
+display name, role, status `Pending`/`Accepted`/`Expired`/`Revoked`, validity) and offers, for open and
+expired ones, *Send again* (new token, new email), *New link* (new token, no email) and *Revoke* (after
+`IConfirmationService.ConfirmDestructiveAsync`). *Invite person* opens `InviteUserDialog`
+(`BlazorBase.User.Components.Invitations`): email, optional display name, role from the registered
+`IUserRoleProvider`, plus the application's own fields. After each create, resend or new link the view shows
+the link (made absolute with `NavigationManager.ToAbsoluteUri`) with a *Copy link* button
+(`navigator.clipboard.writeText`) and either "The email was sent to ..." or a warning that no email was
+sent and the link has to be passed on by hand. Every new link invalidates the previous one.
+
+| Parameter | Meaning |
+|---|---|
+| `ContextContent` (`RenderFragment<CreateUserInvitationRequest>?`) | application fields rendered in the invite dialog; they set `request.Context` |
+| `DefaultRole` (`string?`) | role preselected in the dialog; the first offered role when empty |
+| `Language` (`string?`) | language of the invitation emails and of the new accounts; the user type's default when empty |
+
+```razor
+@page "/admin/invitations"
+@attribute [Authorize(Roles = "Admin")]
+
+<InvitationManagementView DefaultRole="User" Language="de" />
+```
+
+**Registration.** `AddBlazorBaseUserInvitationClient` registers `IUserInvitationService` as a typed client
+and returns its `IHttpClientBuilder`; add the handlers of the transport exactly like for `IUserService`. The
+anonymous accept call needs the antiforgery header under the cookie transport, which
+`AddBlazorBaseCookieSessionHandlers()` adds.
+
+```csharp
+// Cookie transport (AddBlazorBaseUserWasmCookieAuth)
+builder.Services.AddBlazorBaseUserInvitationClient(client => client.BaseAddress = apiBase)
+    .AddBlazorBaseCookieSessionHandlers();
+
+// Bearer transport (AddBlazorBaseUserWasm, MAUI)
+builder.Services.AddBlazorBaseUserInvitationClient(client => client.BaseAddress = apiBase)
+    .AddHttpMessageHandler<AuthTokenHandler>();
+```
+
+`IUserInvitationService` members: `GetInvitationsAsync`, `CreateAsync`, `ResendAsync`, `RenewLinkAsync`,
+`RevokeAsync`, `GetPreviewAsync`, `AcceptAsync`. A refusal of the server throws `UserInvitationException`
+(an `HttpRequestException` with `ErrorCode` from `UserInvitationErrorCodes` and the flattened field
+`Errors`); other failures stay plain `HttpRequestException`s. Change
+`BlazorBaseUserClientOptions.InvitationEndpointBasePath` (default `api/auth/invitations`) only together
+with the path given to `MapBlazorBaseUserInvitationEndpoints`.
+
+### Password reset pages
+
+**`ForgotPassword` (`/forgot-password`, `[AllowAnonymous]`).** Asks for the email address and calls
+`IAuthService.ForgotPasswordAsync`; it confirms in neutral words whether or not the address has an
+account, matching the server's anti-enumeration answer.
+
+**`ResetPassword` (`/reset-password?email=...&token=...`, `[AllowAnonymous]`).** The page the password
+reset email links to (the link `MapBlazorBaseAccountEndpoints` builds from
+`AccountManagement:ClientBaseUrl`). It asks for the new password twice and calls
+`IAuthService.ResetPasswordAsync`; a refusal shows the server's reason (`ResetPasswordAsync` now throws an
+`HttpRequestException` whose message joins the server's `errors`). A link without email or token shows a
+message instead of the form.
+
+Both need the server's `MapBlazorBaseAccountEndpoints<TUser>()` and, to actually send mail,
+`AddBlazorBaseMailing` plus `AddBlazorBaseMailingEmailSender<TUser>()`. The login page links to
+`/forgot-password` only when the host turns it on:
+
+```csharp
+builder.Services.Configure<BlazorBaseUserClientOptions>(options => options.ShowForgotPasswordLink = true);
+```
 
 ---
 
@@ -599,6 +689,15 @@ public string Role { get; set; } = "";
 [RegularExpression("^(System|Light|Dark)$")] public string ThemePreference { get; set; }
 [RegularExpression("^(de|en)$")]             public string Language { get; set; }
 ```
+
+### Invitation DTOs
+
+`CreateUserInvitationRequest` (`Email`, `DisplayName?`, `Role`, `Context?` max 2000, `Language?`),
+`UserInvitationSummary` (one listed invitation, never the token), `UserInvitationStatus`
+(`Pending`, `Accepted`, `Expired`, `Revoked`), `UserInvitationLinkResponse` (`Invitation`, `Link`,
+`EmailSent`), `UserInvitationPreview` (`IsValid`, `Email?`, `DisplayName?`, `ExpiresAt?`),
+`AcceptUserInvitationRequest` (`Token`, `DisplayName`, `Password`) and the `UserInvitationErrorCodes`
+constants - see the [REST reference](BlazorBase.User.Server.md#user-invitations--apiauthinvitations).
 
 ### OAuth consent DTOs
 

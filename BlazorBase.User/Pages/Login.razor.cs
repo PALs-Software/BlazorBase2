@@ -32,6 +32,7 @@ public partial class Login(IAuthService authService, BlazorBaseUserAuthStateProv
     private bool IsLoading { get; set; } = true;
     private bool IsSetupMode { get; set; }
     private bool IsSubmitting { get; set; }
+    private bool ShowForgotPasswordLink => ClientOptions.Value.ShowForgotPasswordLink;
 
     /// <summary>
     /// Set once <see cref="AuthService.LoginAsync"/> answers with a pending token, switching the form

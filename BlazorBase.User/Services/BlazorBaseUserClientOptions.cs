@@ -20,4 +20,18 @@ public sealed class BlazorBaseUserClientOptions
     /// <c>OAuthServer:EndpointBasePath</c>; defaults to the server default <c>api/oauth</c>.
     /// </summary>
     public string OAuthEndpointBasePath { get; set; } = "api/oauth";
+
+    /// <summary>
+    /// When <see langword="true"/> the lib-routed <c>/login</c> page links to <c>/forgot-password</c>. Turn it on
+    /// only when the server maps <c>MapBlazorBaseAccountEndpoints</c> and sends mail; defaults to
+    /// <see langword="false"/> so existing hosts are unaffected.
+    /// </summary>
+    public bool ShowForgotPasswordLink { get; set; }
+
+    /// <summary>
+    /// The API path of the server's invitation endpoints, relative to the <see cref="IUserInvitationService"/>
+    /// client's base address. Must match the path given to <c>MapBlazorBaseUserInvitationEndpoints</c>;
+    /// defaults to its default <c>api/auth/invitations</c>.
+    /// </summary>
+    public string InvitationEndpointBasePath { get; set; } = "api/auth/invitations";
 }

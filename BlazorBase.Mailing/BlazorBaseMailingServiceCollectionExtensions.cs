@@ -13,8 +13,10 @@ public static class BlazorBaseMailingServiceCollectionExtensions
     /// <summary>
     /// Registers <see cref="SmtpSettings"/> via the options pattern, the built-in
     /// <see cref="HtmlRenderer"/>, a <see cref="IEmailTemplateRenderer"/> implementation that uses it,
-    /// a MailKit-based <see cref="IEmailSender"/>, and an <see cref="IEmailDispatcher"/> selected by
-    /// <paramref name="dispatchMode"/>.
+    /// a MailKit-based <see cref="IEmailSender"/>, an <see cref="IEmailDispatcher"/> selected by
+    /// <paramref name="dispatchMode"/>, and the standard account emails: localization,
+    /// <see cref="EmailBrandingOptions"/> bound from the <see cref="EmailBrandingOptions.SectionName"/>
+    /// section, and <see cref="IAccountEmailBuilder"/>.
     /// </summary>
     /// <param name="sectionName">Configuration section name for <see cref="SmtpSettings"/>. Defaults to "Smtp".</param>
     /// <param name="dispatchMode">
@@ -41,6 +43,10 @@ public static class BlazorBaseMailingServiceCollectionExtensions
 
         services.AddScoped<IEmailTemplateRenderer, RazorEmailTemplateRenderer>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
+
+        services.AddLocalization();
+        services.Configure<EmailBrandingOptions>(configuration.GetSection(EmailBrandingOptions.SectionName));
+        services.AddScoped<IAccountEmailBuilder, AccountEmailBuilder>();
 
         if (dispatchMode == EmailDispatchMode.Background)
         {

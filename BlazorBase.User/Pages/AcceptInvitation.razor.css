@@ -1,0 +1,28 @@
+::deep .accept-invitation-container {
+    min-height: 80vh;
+    justify-content: center;
+}
+
+::deep .accept-invitation-card {
+    padding: var(--space-5);
+    width: 100%;
+    max-width: 440px;
+}
+
+::deep .accept-invitation-form {
+    width: 100%;
+}
+
+::deep .accept-invitation-full-width {
+    width: 100%;
+}
+
+.accept-invitation-email {
+    word-break: break-all;
+}
+
+.accept-invitation-login-link {
+    display: inline-block;
+    margin-top: var(--space-4);
+    color: var(--color-accent-text);
+}

@@ -127,4 +127,7 @@
   <data name="InvalidTwoFactorCode" xml:space="preserve">
     <value>Ungültiger Code.</value>
   </data>
+  <data name="ForgotPassword" xml:space="preserve">
+    <value>Passwort vergessen?</value>
+  </data>
 </root>

@@ -150,6 +150,11 @@
                                   Class="full-width">
                         @Localizer["Login"]
                     </FluentButton>
+
+                    @if (ShowForgotPasswordLink)
+                    {
+                        <a href="forgot-password" class="login-forgot-password">@Localizer["ForgotPassword"]</a>
+                    }
                 </FluentStack>
             </EditForm>
         }
