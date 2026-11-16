@@ -40,7 +40,7 @@ internal sealed class CookieLogoutClearsProbe : IAuthProbe
         var headerName = CookieTransportSupport.GetCsrfHeaderName(context);
         var logoutHeaders = new[] { new KeyValuePair<string, string>(headerName, logoutCsrfToken) };
         var logoutExchange = await CoreSessionSupport.SendAsync(client, HttpMethod.Post, context.BaseAddress, "api/auth/logout",
-            new RefreshTokenRequest { RefreshToken = "irrelevant-the-cookie-is-the-session" }, headers: logoutHeaders, cancellationToken: cancellationToken);
+            headers: logoutHeaders, cancellationToken: cancellationToken);
 
         var logoutSetCookieHeaders = CookieTransportSupport.GetSetCookieHeaders(logoutExchange);
         var clearingCookieHeader = CookieTransportSupport.FindCookieHeader(logoutSetCookieHeaders, cookieName);

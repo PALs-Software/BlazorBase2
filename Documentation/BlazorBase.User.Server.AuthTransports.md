@@ -92,7 +92,8 @@ That single extra call changes three things:
    handler and a cookie request to Identity's application-cookie handler, so the same endpoints serve
    both kinds of client without either being aware of the other.
 3. The refresh and logout endpoints act on the cookie alone and ignore any token in the request body —
-   honouring a body value would let a caller present a token the browser never held. There is no
+   honouring a body value would let a caller present a token the browser never held. Logout needs no
+   body at all and answers `204` with the cookie cleared; refresh answers `400` without a token. There is no
    separate refresh token under this transport: the session lives entirely in the Identity cookie,
    renewed by sliding expiration on every request.
 

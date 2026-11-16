@@ -16,8 +16,9 @@ public static class BlazorBaseFluentUiServiceCollectionExtensions
 
     /// <summary>
     /// Calls <c>AddFluentUIComponents</c> with toasts at the top end of the window below the header, at most
-    /// <see cref="MaxToastCount"/> at a time, and fields without Fluent's default 12px vertical margin (the layouts
-    /// set their own gaps). <paramref name="configure"/> runs afterwards and can change anything.
+    /// <see cref="MaxToastCount"/> at a time, fields without Fluent's default 12px vertical margin (the layouts
+    /// set their own gaps) and the Fluent UI texts in the current UI culture (<see cref="BlazorBaseFluentLocalizer"/>).
+    /// <paramref name="configure"/> runs afterwards and can change anything.
     /// Use it instead of calling <c>AddFluentUIComponents</c> yourself.
     /// </summary>
     public static IServiceCollection AddBlazorBaseFluentUI(this IServiceCollection services, Action<LibraryConfiguration>? configure = null)
@@ -28,6 +29,7 @@ public static class BlazorBaseFluentUiServiceCollectionExtensions
             configuration.Toast.Position = ToastPosition.TopEnd;
             configuration.Toast.VerticalOffset = ToastVerticalOffset;
             configuration.DefaultStyles.FluentFieldClass = null;
+            configuration.Localizer = new BlazorBaseFluentLocalizer();
             configure?.Invoke(configuration);
         });
     }

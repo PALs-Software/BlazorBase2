@@ -143,10 +143,12 @@ public class AuthService(HttpClient httpClient, ITokenStorage tokenStorage) : IA
             ?? throw new InvalidOperationException("Invalid refresh response.");
     }
 
-    public async Task LogoutAsync(string refreshToken)
+    public async Task LogoutAsync(string? refreshToken = null)
     {
-        var request = new RefreshTokenRequest { RefreshToken = refreshToken };
-        var response = await HttpClient.PostAsJsonAsync("api/auth/logout", request);
+        var response = string.IsNullOrEmpty(refreshToken)
+            ? await HttpClient.PostAsync("api/auth/logout", content: null)
+            : await HttpClient.PostAsJsonAsync("api/auth/logout", new RefreshTokenRequest { RefreshToken = refreshToken });
+
         response.EnsureSuccessStatusCode();
     }
 

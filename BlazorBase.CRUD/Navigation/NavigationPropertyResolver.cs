@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Reflection;
+using BlazorBase.CRUD.Core;
 
 namespace BlazorBase.CRUD.Navigation;
-
 /// <summary>
 /// Discovers and caches navigation property metadata for entity types,
 /// including FK property resolution via [ForeignKey] attribute and naming conventions.
@@ -93,7 +93,7 @@ public static class NavigationPropertyResolver
         if (!type.IsClass)
             return false;
 
-        return type.GetProperty("Id", BindingFlags.Public | BindingFlags.Instance) is not null;
+        return EntityKeyResolver.Find(type) is not null;
     }
 
     private static string? ResolveForeignKeyName(Type entityType, PropertyInfo navigationProperty)

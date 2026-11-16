@@ -21,12 +21,14 @@ public interface IAuthService
     Task<LoginResponse> RefreshAsync(string refreshToken);
 
     /// <summary>
-    /// Posts the logout. Completes only when the server answered with a success status (the endpoint is
-    /// idempotent, so an unknown token is a success too); any other status (for example <c>403</c> for a missing
-    /// antiforgery token or <c>5xx</c>) throws <see cref="HttpRequestException"/>, because a logout the server did
-    /// not confirm leaves the session alive. A network failure throws as well.
+    /// Ends the session on the server. Pass the refresh token under the bearer transport; leave it null under the
+    /// cookie transport, where the cookie is the session and the request carries no body. Completes only when the
+    /// server answered with a success status (the endpoint is idempotent, so an unknown token is a success too); any
+    /// other status (for example <c>403</c> for a missing antiforgery token or <c>5xx</c>) throws
+    /// <see cref="HttpRequestException"/>, because a logout the server did not confirm leaves the session alive.
+    /// A network failure throws as well.
     /// </summary>
-    Task LogoutAsync(string refreshToken);
+    Task LogoutAsync(string? refreshToken = null);
 
     /// <summary>
     /// Signs in as the server's configured development account. Returns null when the server

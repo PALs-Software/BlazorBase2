@@ -317,13 +317,13 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
         if (IsNewModel)
             return;
 
-        var key = typeof(TModel).GetProperty(DisplayKeyResolver.GetPrimaryKeyPropertyName(typeof(TModel)))?.GetValue(Model);
+        var key = EntityKeyResolver.Find(typeof(TModel))?.GetValue(Model);
         builder.EntityKey = Convert.ToString(key, System.Globalization.CultureInfo.InvariantCulture) ?? builder.EntityKey;
     }
 
     private bool InferIsNewFromKey()
     {
-        var idProperty = typeof(TModel).GetProperty("Id");
+        var idProperty = EntityKeyResolver.Find(typeof(TModel));
         var idValue = idProperty?.GetValue(Model);
 
         if (idValue is null)
@@ -578,7 +578,7 @@ public partial class BaseCard<TModel> : ComponentBase, IFieldCollector<TModel>, 
             return;
         }
 
-        var idProperty = typeof(TModel).GetProperty("Id");
+        var idProperty = EntityKeyResolver.Find(typeof(TModel));
         var idValue = idProperty?.GetValue(Model);
         var isNew = IsNewModel;
 

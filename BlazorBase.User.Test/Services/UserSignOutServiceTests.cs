@@ -63,7 +63,7 @@ public sealed class UserSignOutServiceTests
     }
 
     [Fact]
-    public async Task Cookie_PostsTheLogoutWithAPlaceholderToken_ThenSignsTheClientOut()
+    public async Task Cookie_PostsTheLogoutWithoutAToken_ThenSignsTheClientOut()
     {
         HoldNoTokens();
         var service = CreateService();
@@ -71,7 +71,7 @@ public sealed class UserSignOutServiceTests
         var result = await service.SignOutAsync();
 
         Assert.Equal(SignOutResult.SignedOut, result);
-        await AuthService.Received(1).LogoutAsync(UserSignOutService.CookieSessionPlaceholderToken);
+        await AuthService.Received(1).LogoutAsync(null);
         Assert.Equal(["Logout", "MarkUserAsLoggedOut"], Calls);
     }
 

@@ -253,6 +253,7 @@ function hideTip(current) {
     cancelHide(current);
 
     if (current.tip) {
+        closePopover(current.tip);
         current.tip.hidden = true;
     }
 
@@ -278,6 +279,7 @@ function ensureTip(current) {
     tip.id = tipId;
     tip.className = 'base-help-tip';
     tip.setAttribute('role', 'note');
+    tip.setAttribute('popover', 'manual');
     tip.hidden = true;
 
     const text = document.createElement('div');
@@ -338,6 +340,7 @@ function show(current, match) {
     const tip = ensureTip(current);
     current.textElement.replaceChildren(sanitizeInline(match.entry.html));
     current.linkElement.textContent = current.moreLabel;
+    current.linkElement.hidden = isInModalDialog(match.element);
 
     if (current.anchor !== match.element) {
         current.describedBy = match.element.getAttribute('aria-describedby');
@@ -347,7 +350,31 @@ function show(current, match) {
     current.anchor = match.element;
     current.entry = match.entry;
     tip.hidden = false;
+    openPopover(tip);
     position(tip, match.element);
+}
+
+/** True when the element sits in an open modal dialog (also inside a shadow tree); everything outside such a dialog is inert. */
+function isInModalDialog(element) {
+    for (let node = element; node; node = node.assignedSlot ?? node.parentNode ?? node.host) {
+        if (node instanceof HTMLDialogElement && node.matches(':modal')) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function openPopover(tip) {
+    if (typeof tip.showPopover === 'function' && !tip.matches(':popover-open')) {
+        tip.showPopover();
+    }
+}
+
+function closePopover(tip) {
+    if (typeof tip.hidePopover === 'function' && tip.matches(':popover-open')) {
+        tip.hidePopover();
+    }
 }
 
 function position(tip, element) {
@@ -393,7 +420,7 @@ function onPointerOver(event) {
         return;
     }
 
-    if (current.pending?.contains(target)) {
+    if (current.pending === target) {
         return;
     }
 

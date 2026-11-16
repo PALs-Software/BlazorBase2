@@ -44,27 +44,7 @@
 
     <!-- Plain name on purpose; see OverrideHtmlAssetPlaceholders in AppTemplate.Client.csproj. -->
     <script src="_framework/blazor.webassembly.js"></script>
-    <script>
-        navigator.serviceWorker?.register('service-worker.js', { updateViaCache: 'none' });
-
-        /*
-          A new worker takes over as soon as it is installed, which can swap the assets underneath a
-          page that booted from the previous deployment — the app would then be running an old client
-          against a new API. Reloading once on the handover keeps the two halves in step. The flag
-          guards the reload loop that would otherwise follow the very first install.
-        */
-        const wasAlreadyControlled = Boolean(navigator.serviceWorker?.controller);
-        let hasReloadedForUpdate = false;
-
-        navigator.serviceWorker?.addEventListener('controllerchange', () => {
-            // The first install also hands over control, and there is nothing stale to replace then.
-            if (!wasAlreadyControlled || hasReloadedForUpdate)
-                return;
-
-            hasReloadedForUpdate = true;
-            location.reload();
-        });
-    </script>
+    <script src="_content/BlazorBase.Components/js/service-worker-registration.js"></script>
 </body>
 
 </html>

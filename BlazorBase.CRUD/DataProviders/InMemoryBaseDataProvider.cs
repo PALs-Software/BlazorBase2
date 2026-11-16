@@ -33,7 +33,7 @@ public class InMemoryBaseDataProvider<T>(
     private readonly Func<IReadOnlyList<T>> ItemsAccessor = itemsAccessor ?? throw new ArgumentNullException(nameof(itemsAccessor));
     #endregion
 
-    private static readonly PropertyInfo? IdProperty = typeof(T).GetProperty("Id");
+    private static readonly PropertyInfo? IdProperty = EntityKeyResolver.Find(typeof(T));
     private static readonly ConcurrentDictionary<string, PropertyPath?> PropertyPaths = new(StringComparer.OrdinalIgnoreCase);
 
     public Task<BaseQueryResult<T>> GetListAsync(BaseQuery query, Expression<Func<T, bool>>? scopeFilter = null, CancellationToken cancellationToken = default)

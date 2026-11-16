@@ -7,10 +7,9 @@ namespace BlazorBase.User.Services;
 /// <remarks>
 /// The transport is told apart by what <see cref="ITokenStorage"/> holds. A stored refresh token means the bearer
 /// transport; nothing stored (<see cref="NoOpTokenStorage"/>) means the cookie transport. Under the bearer
-/// transport the stored refresh token is sent, so the server revokes its family. Under the cookie transport the
-/// server acts on the session cookie alone and ignores the body, which still has to carry a non-empty token because
-/// the request model requires one. The order matters there: the antiforgery token is bound to the identity that
-/// minted it, so the anonymous replacement that <see cref="BlazorBaseUserAuthStateProvider.MarkUserAsLoggedOut"/>
+/// transport the stored refresh token is sent, so the server revokes its family. Under the cookie transport the request
+/// carries no body and the server acts on the session cookie alone. The order matters there: the antiforgery token is
+/// bound to the identity that minted it, so the anonymous replacement that <see cref="BlazorBaseUserAuthStateProvider.MarkUserAsLoggedOut"/>
 /// reads must be fetched after the cookie is gone.
 /// The server must confirm the logout (a 2xx answer, which <see cref="IAuthService.LogoutAsync"/> turns into an
 /// exception otherwise). Under the cookie transport an unconfirmed logout leaves the HttpOnly session cookie and the
@@ -33,16 +32,12 @@ public sealed class UserSignOutService(
 
     #endregion
 
-    /// <summary>The body token sent when no refresh token is held; the server ignores it under the cookie transport.</summary>
-    public const string CookieSessionPlaceholderToken = "cookie-session";
-
     public async Task<SignOutResult> SignOutAsync()
     {
         var tokens = await TokenStorage.GetTokensAsync();
         var holdsRefreshToken = !String.IsNullOrEmpty(tokens?.RefreshToken);
-        var refreshToken = holdsRefreshToken ? tokens!.RefreshToken : CookieSessionPlaceholderToken;
 
-        var serverConfirmed = await TryLogoutAsync(refreshToken);
+        var serverConfirmed = await TryLogoutAsync(holdsRefreshToken ? tokens!.RefreshToken : null);
 
         if (!serverConfirmed && !holdsRefreshToken)
             return SignOutResult.Failed;
@@ -53,7 +48,7 @@ public sealed class UserSignOutService(
         return serverConfirmed ? SignOutResult.SignedOut : SignOutResult.SignedOutWithoutServerRevocation;
     }
 
-    private async Task<bool> TryLogoutAsync(string refreshToken)
+    private async Task<bool> TryLogoutAsync(string? refreshToken)
     {
         try
         {

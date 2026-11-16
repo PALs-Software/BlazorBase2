@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="AppBar_MoreItems" xml:space="preserve"><value>Weitere Apps anzeigen</value></data>
+  <data name="AutoComplete_MaximumSelectedOptionsMessage" xml:space="preserve"><value>Die maximale Anzahl von {0} ausgewählten Einträgen ist erreicht.</value></data>
+  <data name="Calendar_FieldMustBeADate" xml:space="preserve"><value>Das Feld {0} muss ein Datum sein.</value></data>
+  <data name="ColorPickerInput_InvalidHexMessage" xml:space="preserve"><value>Ungültiger hexadezimaler Farbwert</value></data>
+  <data name="ColorPickerInput_OpenPickerTitle" xml:space="preserve"><value>Farbauswahl öffnen</value></data>
+  <data name="DataGrid_EmptyContent" xml:space="preserve"><value>Keine Daten vorhanden.</value></data>
+  <data name="DataGrid_ErrorContent" xml:space="preserve"><value>Beim Abrufen der Daten ist ein Fehler aufgetreten.</value></data>
+  <data name="DataGrid_LoadingContent" xml:space="preserve"><value>Wird geladen …</value></data>
+  <data name="DataGrid_OptionsMenu" xml:space="preserve"><value>Spaltenoptionen</value></data>
+  <data name="DataGrid_ReorderMenu" xml:space="preserve"><value>Spalten neu anordnen</value></data>
+  <data name="DataGrid_ReorderMoveLeft" xml:space="preserve"><value>Nach links verschieben</value></data>
+  <data name="DataGrid_ReorderMoveRight" xml:space="preserve"><value>Nach rechts verschieben</value></data>
+  <data name="DataGrid_ReorderMoveToEnd" xml:space="preserve"><value>Ans Ende verschieben</value></data>
+  <data name="DataGrid_ReorderMoveToStart" xml:space="preserve"><value>An den Anfang verschieben</value></data>
+  <data name="DataGrid_ResizeDiscrete" xml:space="preserve"><value>Spaltenbreite</value></data>
+  <data name="DataGrid_ResizeExact" xml:space="preserve"><value>Spaltenbreite (in Pixeln)</value></data>
+  <data name="DataGrid_ResizeGrow" xml:space="preserve"><value>Spalte verbreitern</value></data>
+  <data name="DataGrid_ResizeMenu" xml:space="preserve"><value>Größe ändern</value></data>
+  <data name="DataGrid_ResizeReset" xml:space="preserve"><value>Spaltenbreiten zurücksetzen</value></data>
+  <data name="DataGrid_ResizeShrink" xml:space="preserve"><value>Spalte verschmälern</value></data>
+  <data name="DataGrid_ResizeSubmit" xml:space="preserve"><value>Spaltenbreiten festlegen</value></data>
+  <data name="DataGrid_SelectColumn_AllChecked" xml:space="preserve"><value>Alle Zeilen sind ausgewählt</value></data>
+  <data name="DataGrid_SelectColumn_AllIndeterminate" xml:space="preserve"><value>Einige Zeilen sind ausgewählt</value></data>
+  <data name="DataGrid_SelectColumn_AllUnchecked" xml:space="preserve"><value>Keine Zeilen sind ausgewählt</value></data>
+  <data name="DataGrid_SelectColumn_RowChecked" xml:space="preserve"><value>Zeile ausgewählt</value></data>
+  <data name="DataGrid_SelectColumn_RowUnchecked" xml:space="preserve"><value>Zeile nicht ausgewählt</value></data>
+  <data name="DataGrid_SortAnnouncement" xml:space="preserve"><value>Sortiert nach {0}</value></data>
+  <data name="DataGrid_SortAnnouncementCleared" xml:space="preserve"><value>Sortierung aufgehoben</value></data>
+  <data name="DataGrid_SortAnnouncementSeparator" xml:space="preserve"><value>, dann nach </value></data>
+  <data name="DataGrid_SortAscending" xml:space="preserve"><value>Aufsteigend sortieren</value></data>
+  <data name="DataGrid_SortColumnAscending" xml:space="preserve"><value>{0} aufsteigend</value></data>
+  <data name="DataGrid_SortColumnDescending" xml:space="preserve"><value>{0} absteigend</value></data>
+  <data name="DataGrid_SortDescending" xml:space="preserve"><value>Absteigend sortieren</value></data>
+  <data name="DataGrid_SortDirectionAscending" xml:space="preserve"><value>aufsteigend</value></data>
+  <data name="DataGrid_SortDirectionDescending" xml:space="preserve"><value>absteigend</value></data>
+  <data name="DataGrid_SortLevel" xml:space="preserve"><value>Sortiert {0}, Sortierebene {1} von {2}</value></data>
+  <data name="DataGrid_SortMenu" xml:space="preserve"><value>Sortieren</value></data>
+  <data name="DataGrid_SortMenuAddToSort" xml:space="preserve"><value>Hinzufügen</value></data>
+  <data name="DataGrid_SortMenuAscending" xml:space="preserve"><value>Sortieren (aufsteigend)</value></data>
+  <data name="DataGrid_SortMenuClearAllSorts" xml:space="preserve"><value>Alle löschen</value></data>
+  <data name="DataGrid_SortMenuClearSort" xml:space="preserve"><value>Löschen</value></data>
+  <data name="DataGrid_SortMenuDescending" xml:space="preserve"><value>Sortieren (absteigend)</value></data>
+  <data name="DataGrid_SortMenuResetAllSorts" xml:space="preserve"><value>Zurücksetzen</value></data>
+  <data name="DataGrid_ToggleNesting" xml:space="preserve"><value>Verschachtelung umschalten</value></data>
+  <data name="DataGrid_ToggleRowDetails" xml:space="preserve"><value>Zeilendetails umschalten</value></data>
+  <data name="DatePicker_ButtonTitle" xml:space="preserve"><value>Datumsauswahl anzeigen</value></data>
+  <data name="ErrorBoundary_Close" xml:space="preserve"><value>Schließen</value></data>
+  <data name="ErrorBoundary_Message" xml:space="preserve"><value>Ein unbehandelter Fehler ist aufgetreten. Bitte wenden Sie sich an Ihren IT-Support.</value></data>
+  <data name="ErrorBoundary_Title" xml:space="preserve"><value>Ein Fehler ist aufgetreten</value></data>
+  <data name="Field_ErrorMessage" xml:space="preserve"><value>Ein Fehler ist aufgetreten</value></data>
+  <data name="Field_SuccessMessage" xml:space="preserve"><value>Gültige Daten</value></data>
+  <data name="Field_WarningMessage" xml:space="preserve"><value>Bitte prüfen Sie diesen Wert</value></data>
+  <data name="FluentInputBase_Required" xml:space="preserve"><value>Pflichtfeld</value></data>
+  <data name="FluentInputBase_RequiredMessage" xml:space="preserve"><value>Dieses Feld ist erforderlich</value></data>
+  <data name="FluentInputFile_LoadingBefore" xml:space="preserve"><value>Wird geladen …</value></data>
+  <data name="FluentInputFile_LoadingCanceled" xml:space="preserve"><value>Abgebrochen</value></data>
+  <data name="FluentInputFile_LoadingCompleted" xml:space="preserve"><value>Abgeschlossen</value></data>
+  <data name="FluentInputFile_LoadingInProgress" xml:space="preserve"><value>Lädt {0}/{1} – {2}</value></data>
+  <data name="LabelInfo_InfoActionText" xml:space="preserve"><value>Mehr erfahren</value></data>
+  <data name="LabelInfo_InfoText" xml:space="preserve"><value>Weitere Informationen</value></data>
+  <data name="LayoutHamburger_Close" xml:space="preserve"><value>Schließen</value></data>
+  <data name="LayoutHamburger_Title" xml:space="preserve"><value>Menü</value></data>
+  <data name="MessageBar_Dismiss" xml:space="preserve"><value>Meldung ausblenden</value></data>
+  <data name="MessageBox_ButtonCancel" xml:space="preserve"><value>Abbrechen</value></data>
+  <data name="MessageBox_ButtonNo" xml:space="preserve"><value>Nein</value></data>
+  <data name="MessageBox_ButtonOk" xml:space="preserve"><value>OK</value></data>
+  <data name="MessageBox_ButtonYes" xml:space="preserve"><value>Ja</value></data>
+  <data name="MessageBox_Confirmation" xml:space="preserve"><value>Bestätigung</value></data>
+  <data name="MessageBox_Error" xml:space="preserve"><value>Fehler</value></data>
+  <data name="MessageBox_Information" xml:space="preserve"><value>Information</value></data>
+  <data name="MessageBox_Success" xml:space="preserve"><value>Erfolg</value></data>
+  <data name="MessageBox_Warning" xml:space="preserve"><value>Warnung</value></data>
+  <data name="Nav_ToggleTitle" xml:space="preserve"><value>Navigation umschalten</value></data>
+  <data name="Paginator_GoFirstPage" xml:space="preserve"><value>Zur ersten Seite</value></data>
+  <data name="Paginator_GoLastPage" xml:space="preserve"><value>Zur letzten Seite</value></data>
+  <data name="Paginator_GoNextPage" xml:space="preserve"><value>Zur nächsten Seite</value></data>
+  <data name="Paginator_GoPreviousPage" xml:space="preserve"><value>Zur vorherigen Seite</value></data>
+  <data name="Paginator_Status" xml:space="preserve"><value>Seite {0} von {1}</value></data>
+  <data name="Paginator_SummaryItem" xml:space="preserve"><value>{0} Eintrag</value></data>
+  <data name="Paginator_SummaryItems" xml:space="preserve"><value>{0} Einträge</value></data>
+  <data name="Paginator_SummaryNoItems" xml:space="preserve"><value>Keine Einträge</value></data>
+  <data name="PresenceStatus_Available" xml:space="preserve"><value>verfügbar</value></data>
+  <data name="PresenceStatus_Away" xml:space="preserve"><value>abwesend</value></data>
+  <data name="PresenceStatus_Blocked" xml:space="preserve"><value>blockiert</value></data>
+  <data name="PresenceStatus_Busy" xml:space="preserve"><value>beschäftigt</value></data>
+  <data name="PresenceStatus_DoNotDisturb" xml:space="preserve"><value>nicht stören</value></data>
+  <data name="PresenceStatus_Offline" xml:space="preserve"><value>offline</value></data>
+  <data name="PresenceStatus_OutOfOffice" xml:space="preserve"><value>außer Haus</value></data>
+  <data name="PresenceStatus_Unknown" xml:space="preserve"><value>unbekannt</value></data>
+  <data name="Tabs_MoreItems" xml:space="preserve"><value>{0} weitere Tabs anzeigen</value></data>
+  <data name="TimeAgo_DayAgo" xml:space="preserve"><value>vor {0} Tag</value></data>
+  <data name="TimeAgo_DaysAgo" xml:space="preserve"><value>vor {0} Tagen</value></data>
+  <data name="TimeAgo_HourAgo" xml:space="preserve"><value>vor {0} Stunde</value></data>
+  <data name="TimeAgo_HoursAgo" xml:space="preserve"><value>vor {0} Stunden</value></data>
+  <data name="TimeAgo_MinuteAgo" xml:space="preserve"><value>vor {0} Minute</value></data>
+  <data name="TimeAgo_MinutesAgo" xml:space="preserve"><value>vor {0} Minuten</value></data>
+  <data name="TimeAgo_MonthAgo" xml:space="preserve"><value>vor {0} Monat</value></data>
+  <data name="TimeAgo_MonthsAgo" xml:space="preserve"><value>vor {0} Monaten</value></data>
+  <data name="TimeAgo_SecondAgo" xml:space="preserve"><value>Gerade eben</value></data>
+  <data name="TimeAgo_SecondsAgo" xml:space="preserve"><value>vor {0} Sekunden</value></data>
+  <data name="TimeAgo_YearAgo" xml:space="preserve"><value>vor {0} Jahr</value></data>
+  <data name="TimeAgo_YearsAgo" xml:space="preserve"><value>vor {0} Jahren</value></data>
+  <data name="TreeItem_LoadingMessage" xml:space="preserve"><value>Wird geladen …</value></data>
+  <data name="Wizard_LabelButtonDone" xml:space="preserve"><value>Fertig</value></data>
+  <data name="Wizard_LabelButtonNext" xml:space="preserve"><value>Weiter</value></data>
+  <data name="Wizard_LabelButtonPrevious" xml:space="preserve"><value>Zurück</value></data>
+</root>

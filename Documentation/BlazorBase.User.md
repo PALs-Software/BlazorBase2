@@ -252,7 +252,7 @@ that writes its own `MainLayout` instead **has to add it** and register the serv
 | `LoginAsync(LoginRequest)` | POST `api/auth/login` | `AuthServiceLoginOutcome` | A completed login (`Tokens`) or, when the account has two-factor authentication enabled, a pending token (`PendingToken`) to complete with `LoginTwoFactorAsync` — the server answers `202 Accepted` rather than a token pair, so the caller never receives half-authenticated tokens by mistake |
 | `LoginTwoFactorAsync(TwoFactorLoginRequest)` | POST `api/auth/login/two-factor` | `LoginResponse` | Completes a login `LoginAsync` reported as `RequiresTwoFactor` |
 | `RefreshAsync(refreshToken)` | POST `api/auth/refresh` | `LoginResponse` | Single-use rotation — the server revokes the presented token atomically; a replayed/already-used token returns `401` |
-| `LogoutAsync(refreshToken)` | POST `api/auth/logout` | — | Revokes the refresh token by its hash; anonymous endpoint, so it succeeds even if the access token has already expired. Throws `HttpRequestException` for any non-success status |
+| `LogoutAsync(refreshToken = null)` | POST `api/auth/logout` | — | Revokes the refresh token by its hash; anonymous endpoint, so it succeeds even if the access token has already expired. Under the cookie transport pass no token: the call sends no body and the cookie is the session. Throws `HttpRequestException` for any non-success status |
 | `DevelopmentLoginAsync()` | POST `api/auth/development-login` | `LoginResponse?` | Signs in as the server's development account; `null` when the server does not offer it, which is every environment but Development |
 | `ChangePasswordAsync(ChangePasswordRequest)` | POST `api/auth/manage/change-password` | `ChangePasswordOutcome` | Changes the signed-in account's own password. A refusal the server explains with a `400` (`current_password_incorrect`, a rejected new password with its reasons per field, `no_password_set`) is returned as a not-succeeded outcome with `Code`, `Message` and `FieldErrors`; `401`, `429`, `5xx` and network errors throw `HttpRequestException`. Attaches the stored access token itself (this client has no `AuthTokenHandler`; under the cookie transport there is none and the cookie plus CSRF header do the work) and stores the replacement token pair of the response, so a bearer client stays signed in |
 
@@ -441,7 +441,8 @@ The field is optional — the user may leave it blank. The value travels in `Set
 #### Development login — provisioning host-specific data on first use
 
 `POST api/auth/development-login` resolves (creating on first call, reusing afterwards) the account
-configured under `DevelopmentAuthentication` and signs it in. A host that provisions additional data by
+configured under `DevelopmentAuthentication` and signs it in; a deactivated account (`IsActive == false`)
+is refused with `401`, like the password login and the token refresh. A host that provisions additional data by
 email on real sign-in — a separate domain user row created from `IExternalUserResolver<TUser>` on first
 external sign-in, for instance — needs the same thing to happen for a development account, or it 404s
 on any endpoint that reads that other table. Override
@@ -972,6 +973,10 @@ public partial class TopBar(IAuthService auth, ITokenStorage tokenStorage,
 }
 ```
 
+Under the cookie transport `tokens` is `null`; `Auth.LogoutAsync()` without a token sends no body and the server ends
+the cookie session. Do not sign out locally there when the call throws: the session cookie is still alive, which is
+why `IUserSignOutService` returns `Failed` in that case.
+
 ### Reading the current user
 
 ```csharp
@@ -1130,8 +1135,7 @@ network error or timeout counts as unconfirmed too. `SignOutAsync()` returns a `
 - **Bearer**: the refresh token lives on the client, so dropping it ends the client session even when the server
   could not revoke the family. The tokens are always cleared; the result only reports whether the revocation reached
   the server.
-- **Cookie**: the request carries a placeholder token (`UserSignOutService.CookieSessionPlaceholderToken`) because
-  the request model requires one; the server acts on the session cookie alone, removes the server-side ticket and
+- **Cookie**: the request carries no body; the server acts on the session cookie alone, removes the server-side ticket and
   clears the cookie. `CsrfHeaderHandler` on the auth client sends the antiforgery token. The `HttpOnly` cookie and the
   server session are out of the client's reach, so without the server's confirmation the session stays alive and a
   reload would sign the user straight back in (a risk on a shared device). The client therefore stays signed in and

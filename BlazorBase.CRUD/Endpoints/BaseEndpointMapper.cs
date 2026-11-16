@@ -317,7 +317,7 @@ public static class BaseEndpointMapper
 
     private static object ParseId<TModel>(string id)
     {
-        var idProperty = typeof(TModel).GetProperty("Id");
+        var idProperty = EntityKeyResolver.Find(typeof(TModel));
 
         if (idProperty is null)
             return id;
@@ -338,7 +338,7 @@ public static class BaseEndpointMapper
 
     private static object? GetId<TModel>(TModel model)
     {
-        return typeof(TModel).GetProperty("Id")?.GetValue(model);
+        return EntityKeyResolver.Find(typeof(TModel))?.GetValue(model);
     }
 
     private static async Task<bool> IsOutOfScopeAsync<TModel>(
@@ -350,7 +350,7 @@ public static class BaseEndpointMapper
         if (scopeFilter is null)
             return false;
 
-        return await provider.GetByIdAsync(parsedId, new[] { "Id" }, scopeFilter, cancellationToken) is null;
+        return await provider.GetByIdAsync(parsedId, new[] { EntityKeyResolver.GetName(typeof(TModel)) }, scopeFilter, cancellationToken) is null;
     }
 
     #endregion
