@@ -124,6 +124,24 @@ public sealed class OAuthRevocationAndGrantsTests
     }
 
     [Fact]
+    public async Task An_oauth_access_token_can_neither_list_nor_revoke_grants_even_when_the_default_policy_accepts_it()
+    {
+        await using var host = await OAuthTestHost.StartAsync(acceptAccessTokensByDefault: true);
+        var (clientId, _) = await host.RegisterClientAsync();
+        var user = await host.SeedUserAsync("ada@example.test");
+        var tokens = await host.ObtainTokensAsync(user, clientId);
+        var grants = await (await SendAsSessionAsync(host, await host.IssueSessionTokenAsync(user), HttpMethod.Get, "/api/oauth/grants"))
+            .Content.ReadFromJsonAsync<List<OAuthGrantSummary>>();
+
+        var listResponse = await SendAsSessionAsync(host, tokens.AccessToken, HttpMethod.Get, "/api/oauth/grants");
+        var revokeResponse = await SendAsSessionAsync(host, tokens.AccessToken, HttpMethod.Delete, $"/api/oauth/grants/{grants!.Single().Id}");
+
+        Assert.Equal(HttpStatusCode.Forbidden, listResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, revokeResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.CallProtectedResourceAsync(tokens.AccessToken)).StatusCode);
+    }
+
+    [Fact]
     public async Task The_grants_api_requires_a_signed_in_user()
     {
         await using var host = await OAuthTestHost.StartAsync();

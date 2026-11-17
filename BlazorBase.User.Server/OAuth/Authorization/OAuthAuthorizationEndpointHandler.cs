@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using BlazorBase.User.Models;
-using BlazorBase.User.Server.AccessTokens;
 using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.OAuth.Clients;
 using BlazorBase.User.Server.OAuth.Configuration;
@@ -176,7 +175,7 @@ internal sealed class OAuthAuthorizationEndpointHandler<TUser>(
                 ("state", authorizationRequest.State),
                 ("iss", issuer)));
 
-        if (!await GrantService.IsUserActiveAsync(userId, httpContext.RequestAborted))
+        if (!await GrantService.IsUserEntitledAsync(userId, httpContext.RequestAborted))
             return Results.StatusCode(StatusCodes.Status403Forbidden);
 
         var code = await GrantService.CreateAuthorizationAsync(authorizationRequest, userId, httpContext.RequestAborted);
@@ -195,12 +194,9 @@ internal sealed class OAuthAuthorizationEndpointHandler<TUser>(
     /// </summary>
     private string? ResolveApprovingUserId(ClaimsPrincipal user)
     {
-        if (user.HasClaim(claim => claim.Type == AccessTokenClaimTypes.TokenId))
-            return null;
+        var userId = OAuthSessionPrincipal.FindUserId(user);
 
-        var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        if (string.IsNullOrEmpty(userId))
+        if (userId is null)
             return null;
 
         var requiredRoles = Options.CurrentValue.RequiredRoles;

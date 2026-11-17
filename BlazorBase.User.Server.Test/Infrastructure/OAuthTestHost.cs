@@ -14,6 +14,7 @@ using BlazorBase.User.Server.OAuth.Maintenance;
 using BlazorBase.User.Server.Security;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Tokens;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -69,12 +70,14 @@ public sealed class OAuthTestHost : IAsyncDisposable
     /// Starts a host. <paramref name="oauthSettings"/> entries are added below the <c>OAuthServer</c>
     /// section; <paramref name="registerAccessTokens"/> leaves out <c>AddBlazorBaseAccessTokens</c> to
     /// exercise the startup guard; <paramref name="useCookies"/> adds the cookie transport and the CSRF
-    /// middleware.
+    /// middleware; <paramref name="acceptAccessTokensByDefault"/> makes the default authorization policy accept
+    /// access tokens next to the session bearer, as a host that opens its other APIs to access tokens does.
     /// </summary>
     public static async Task<OAuthTestHost> StartAsync(
         IDictionary<string, string?>? oauthSettings = null,
         bool registerAccessTokens = true,
-        bool useCookies = false)
+        bool useCookies = false,
+        bool acceptAccessTokensByDefault = false)
     {
         var connection = new SqliteConnection("DataSource=:memory:");
         connection.Open();
@@ -120,6 +123,13 @@ public sealed class OAuthTestHost : IAsyncDisposable
                         services.AddBlazorBaseAccessTokens<TestUserDbContext>(configuration);
                         services.AddAccessTokenOwnerRoleClaims<TestUser>();
                     }
+
+                    if (acceptAccessTokensByDefault)
+                        services.AddAuthorization(authorizationOptions => authorizationOptions.DefaultPolicy = new AuthorizationPolicyBuilder(
+                                IdentityConstants.BearerScheme,
+                                AccessTokenAuthenticationDefaults.AuthenticationScheme)
+                            .RequireAuthenticatedUser()
+                            .Build());
 
                     services.AddBlazorBaseOAuthServer<TestUser, TestUserDbContext>(configuration);
                     services.Remove(services.Single(descriptor => descriptor.ServiceType == typeof(IHostedService) && descriptor.ImplementationType == typeof(OAuthCleanupService<TestUser>)));
@@ -181,6 +191,16 @@ public sealed class OAuthTestHost : IAsyncDisposable
 
         await userManager.AddToRoleAsync(user, role);
         return user;
+    }
+
+    public async Task RemoveFromRoleAsync(TestUser user, string role)
+    {
+        using var scope = Host.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
+        var currentUser = await userManager.FindByIdAsync(user.Id);
+
+        var result = await userManager.RemoveFromRoleAsync(currentUser!, role);
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors.Select(error => error.Description)));
     }
 
     /// <summary>Mints the Identity bearer token a signed-in browser session would carry.</summary>

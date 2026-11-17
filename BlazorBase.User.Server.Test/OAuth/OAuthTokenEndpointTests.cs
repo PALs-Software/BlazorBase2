@@ -342,6 +342,50 @@ public sealed class OAuthTokenEndpointTests
     }
 
     [Fact]
+    public async Task An_owner_who_lost_the_required_role_can_no_longer_refresh_and_the_grant_is_revoked()
+    {
+        await using var host = await OAuthTestHost.StartAsync(new Dictionary<string, string?> { ["RequiredRoles:0"] = "Admin" });
+        var (clientId, _) = await host.RegisterClientAsync();
+        var admin = await host.SeedUserAsync("admin@example.test", role: "Admin");
+        var tokens = await host.ObtainTokensAsync(admin, clientId);
+        Assert.Equal(HttpStatusCode.OK, (await host.CallProtectedResourceAsync(tokens.AccessToken)).StatusCode);
+
+        await host.RemoveFromRoleAsync(admin, "Admin");
+        var response = await host.RefreshAsync(clientId, tokens.RefreshToken!);
+
+        Assert.Equal("invalid_grant", await OAuthTestHost.ReadErrorAsync(response));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await host.CallProtectedResourceAsync(tokens.AccessToken)).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_code_is_refused_when_the_owner_lost_the_required_role_before_redeeming_it()
+    {
+        await using var host = await OAuthTestHost.StartAsync(new Dictionary<string, string?> { ["RequiredRoles:0"] = "Admin" });
+        var (clientId, _) = await host.RegisterClientAsync();
+        var admin = await host.SeedUserAsync("admin@example.test", role: "Admin");
+        var codeVerifier = OAuthTestHost.CreateCodeVerifier();
+        var code = await host.ObtainCodeAsync(admin, clientId, codeVerifier);
+
+        await host.RemoveFromRoleAsync(admin, "Admin");
+        var response = await host.RedeemCodeAsync(clientId, code, codeVerifier);
+
+        Assert.Equal("invalid_grant", await OAuthTestHost.ReadErrorAsync(response));
+    }
+
+    [Fact]
+    public async Task An_owner_who_still_holds_a_required_role_keeps_refreshing()
+    {
+        await using var host = await OAuthTestHost.StartAsync(new Dictionary<string, string?> { ["RequiredRoles:0"] = "Admin" });
+        var (clientId, _) = await host.RegisterClientAsync();
+        var admin = await host.SeedUserAsync("admin@example.test", role: "Admin");
+        var tokens = await host.ObtainTokensAsync(admin, clientId);
+
+        var response = await host.RefreshAsync(clientId, tokens.RefreshToken!);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task A_client_registered_without_the_refresh_grant_gets_no_refresh_token()
     {
         await using var host = await OAuthTestHost.StartAsync();
