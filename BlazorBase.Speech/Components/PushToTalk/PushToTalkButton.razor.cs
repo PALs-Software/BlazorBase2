@@ -46,6 +46,10 @@ public partial class PushToTalkButton(
     [Parameter]
     public bool ShowCaption { get; set; } = true;
 
+    /// <summary>Renders the built-in localized error text. Turn it off when the host shows its own error UI. Defaults to <c>true</c>.</summary>
+    [Parameter]
+    public bool ShowErrorMessage { get; set; } = true;
+
     /// <summary>Additional CSS classes for the wrapper.</summary>
     [Parameter]
     public string? Class { get; set; }
@@ -57,6 +61,10 @@ public partial class PushToTalkButton(
     /// <summary>Raised with the finished recording when the button is released.</summary>
     [Parameter]
     public EventCallback<SpeechRecording> OnRecorded { get; set; }
+
+    /// <summary>Raised whenever recording fails - permission denied, no microphone, unsupported browser, or a recorder failure.</summary>
+    [Parameter]
+    public EventCallback<SpeechRecorderError> OnError { get; set; }
 
     private ElementReference ButtonElement;
 
@@ -122,7 +130,7 @@ public partial class PushToTalkButton(
         }
         catch (JSException)
         {
-            ShowError(SpeechRecorderError.Failed);
+            await ShowErrorAsync(SpeechRecorderError.Failed);
             return;
         }
 
@@ -143,8 +151,7 @@ public partial class PushToTalkButton(
     public Task NotifyRecordingFailed(string error)
     {
         var recorderError = Enum.TryParse<SpeechRecorderError>(error, out var parsed) ? parsed : SpeechRecorderError.Failed;
-        ShowError(recorderError);
-        return Task.CompletedTask;
+        return ShowErrorAsync(recorderError);
     }
 
     /// <inheritdoc/>
@@ -163,10 +170,11 @@ public partial class PushToTalkButton(
         GC.SuppressFinalize(this);
     }
 
-    private void ShowError(SpeechRecorderError error)
+    private async Task ShowErrorAsync(SpeechRecorderError error)
     {
         State = PushToTalkState.Idle;
         ErrorMessage = SpeechMessages.Describe(error);
         StateHasChanged();
+        await OnError.InvokeAsync(error);
     }
 }

@@ -13,7 +13,7 @@
         <FluentIcon Value="@ButtonIcon" Color="Color.Custom" CustomColor="currentColor" Class="push-to-talk-icon" />
     </button>
     <span id="@CaptionId" class="push-to-talk-caption @(ShowCaption ? string.Empty : "push-to-talk-caption-hidden")" role="status">@Caption</span>
-    @if (ErrorMessage is not null)
+    @if (ShowErrorMessage && ErrorMessage is not null)
     {
         <span class="push-to-talk-error" role="alert">@ErrorMessage</span>
     }
