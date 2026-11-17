@@ -185,7 +185,7 @@ The client side - the consent page, the connected-apps panel and `IOAuthConsentS
 | `EndpointBasePath` | `api/oauth` | Base of the flow, consent and grants endpoints. Keep it under `api/` (see below). Must match `BlazorBaseUserClientOptions.OAuthEndpointBasePath` on the client. |
 | `ConsentPagePath` | `/oauth/consent` | The client route `authorize` redirects to; a local path. |
 | `Scopes` | `mcp` | Name → description. Advertised and recorded only. Empty means the single `mcp` scope. |
-| `RequiredRoles` | empty | The approving user must hold one of these roles; empty allows any signed-in user. |
+| `RequiredRoles` | empty | The approving user must hold one of these roles; empty allows any signed-in user. Checked again, against the database, on every code redemption and refresh: an owner who lost all of them gets `invalid_grant` and the grant is revoked. |
 | `EnableDynamicClientRegistration` | `true` | Maps `register`. When `false`, the endpoint is not mapped and not advertised; the host creates clients through `IOAuthClientService.RegisterAsync` (same validation). |
 | `EnableClientIdMetadataDocuments` | `true` | Accepts an `https` URL as `client_id` and loads the client from the document there; advertised as `client_id_metadata_document_supported`. When `false`, such a client id is unknown. |
 | `AllowedClientIdMetadataDocumentHosts` | empty | When set, documents are fetched only from these hosts (case-insensitive) - recommended: `claude.ai`, `claude.com`. Empty allows any host that resolves to a public address. |
@@ -378,13 +378,14 @@ or a method other than the registered one is `invalid_client`.
 | `redirect_uri` differs from the one the authorization request named (or, when it named none, from the grant's) | `invalid_grant` |
 | `code_verifier` not 43-128 unreserved characters, or `BASE64URL(SHA256(verifier))` ≠ challenge (constant time) | `invalid_grant` |
 | `resource` differs from the grant's | `invalid_target` |
-| owner inactive or deleted | `invalid_grant` |
+| owner inactive or deleted, or holds none of the `RequiredRoles` any more | `invalid_grant` **and the grant is revoked** |
 
 The code is consumed by a conditional update (`WHERE ConsumedAt IS NULL`); a parallel redemption that
 loses the race is treated as a replay.
 
 `grant_type=refresh_token` - `refresh_token`, optional `scope` (must be within the grant's) and `resource`:
-unknown token, revoked grant, another client's grant, expired token or inactive owner → `invalid_grant`;
+unknown token, revoked grant, another client's grant or expired token → `invalid_grant`; an owner who is
+inactive, deleted or holds none of the `RequiredRoles` any more → the grant is revoked, then `invalid_grant`;
 a client not registered for `refresh_token` → `unauthorized_client`; a consumed token within
 `RefreshTokenReuseGracePeriod` → `invalid_grant`, after it → the grant is revoked, then `invalid_grant`.
 Otherwise the token is consumed (conditional update) and a new pair is issued.
@@ -405,7 +406,9 @@ revoked on its own. Unknown tokens and other clients' tokens are answered `200` 
 
 `GET` returns the current user's grants that are not revoked: `{ id, clientName, redirectHost, scope,
 createdAt, lastUsedAt }`, newest first. `DELETE grants/{id}` revokes one (`204`; `404` when it is not the
-caller's or already revoked). Revoking a grant sets `RevokedAt`, consumes all its refresh tokens, sets
+caller's or already revoked). Both require a session principal like `decision`: a principal authenticated by
+an access token gets `403`, even when the host's default policy accepts access tokens, so an OAuth client can
+neither read nor revoke its user's grants. Revoking a grant sets `RevokedAt`, consumes all its refresh tokens, sets
 `IsRevoked` on every `AccessToken` carrying its id (one bulk update) and evicts those ids from
 `IAccessTokenCache` - the tokens stop authenticating on the very next request, on every instance, because
 access-token validation always re-reads the row. `IOAuthGrantService` exposes the same `ListAsync` and
@@ -483,7 +486,8 @@ challenge with `resource_metadata` rather than a `403` from the antiforgery chec
 - **Issuer.** Set `IssuerUri` in production. A request-derived issuer is only as trustworthy as the
   `Host` header and the forwarded scheme.
 - **Owner checks.** Deactivating or deleting the owner rejects their OAuth access tokens at once (the
-  access-token validation checks the owner) and refuses further refreshes.
+  access-token validation checks the owner) and refuses further refreshes. Removing the last of the
+  `RequiredRoles` from the owner revokes the grant, and with it its access tokens, on the next refresh.
 
 ---
 

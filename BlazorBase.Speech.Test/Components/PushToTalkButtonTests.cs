@@ -126,6 +126,72 @@ public sealed class PushToTalkButtonTests : BunitContext
         Assert.Contains("The recording failed", cut.Find("[role=alert]").TextContent);
     }
 
+    [Theory]
+    [InlineData("PermissionDenied", SpeechRecorderError.PermissionDenied)]
+    [InlineData("NoMicrophone", SpeechRecorderError.NoMicrophone)]
+    [InlineData("Unsupported", SpeechRecorderError.Unsupported)]
+    [InlineData("SomethingNew", SpeechRecorderError.Failed)]
+    public async Task RecordingFailed_RaisesOnErrorWithTheReportedError(string reported, SpeechRecorderError expected)
+    {
+        var raised = new List<SpeechRecorderError>();
+        var cut = Render<PushToTalkButton>(parameters => parameters
+            .Add(button => button.OnError, error => raised.Add(error)));
+
+        await cut.InvokeAsync(() => cut.Instance.NotifyRecordingFailed(reported));
+
+        Assert.Equal([expected], raised);
+        Assert.NotEmpty(cut.FindAll("[role=alert]"));
+    }
+
+    [Fact]
+    public async Task TakingTheRecordingFails_RaisesOnErrorWithFailed()
+    {
+        RecorderInterop
+            .TakeRecordingAsync(Arg.Any<ElementReference>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            .Returns(ValueTask.FromException<byte[]>(new JSException("recorder failed")));
+        var raised = new List<SpeechRecorderError>();
+        var recorded = false;
+        var cut = Render<PushToTalkButton>(parameters => parameters
+            .Add(button => button.OnError, error => raised.Add(error))
+            .Add(button => button.OnRecorded, _ => recorded = true));
+
+        await cut.InvokeAsync(() => cut.Instance.NotifyRecordingCompleted(1500));
+
+        Assert.Equal([SpeechRecorderError.Failed], raised);
+        Assert.False(recorded);
+        Assert.NotEmpty(cut.FindAll("[role=alert]"));
+    }
+
+    [Fact]
+    public async Task SuccessfulRecording_DoesNotRaiseOnError()
+    {
+        RecorderInterop
+            .TakeRecordingAsync(Arg.Any<ElementReference>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            .Returns(ValueTask.FromResult<byte[]>([82, 73, 70, 70]));
+        var raised = false;
+        var cut = Render<PushToTalkButton>(parameters => parameters
+            .Add(button => button.OnError, _ => raised = true));
+
+        await cut.InvokeAsync(() => cut.Instance.NotifyRecordingStarted());
+        await cut.InvokeAsync(() => cut.Instance.NotifyRecordingCompleted(1500));
+
+        Assert.False(raised);
+    }
+
+    [Fact]
+    public async Task ShowErrorMessageDisabled_HidesTheTextButStillRaisesOnError()
+    {
+        var raised = false;
+        var cut = Render<PushToTalkButton>(parameters => parameters
+            .Add(button => button.ShowErrorMessage, false)
+            .Add(button => button.OnError, _ => raised = true));
+
+        await cut.InvokeAsync(() => cut.Instance.NotifyRecordingFailed("PermissionDenied"));
+
+        Assert.True(raised);
+        Assert.Empty(cut.FindAll("[role=alert]"));
+    }
+
     [Fact]
     public async Task NewRecording_ClearsAPreviousError()
     {

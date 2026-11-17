@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using System.Text.Json;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.OAuth.Authorization;
@@ -179,9 +178,9 @@ public static class OAuthEndpointMapper
 
     private static async Task<IResult> ListGrantsAsync(HttpContext httpContext, IOAuthGrantService grantService)
     {
-        var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userId = OAuthSessionPrincipal.FindUserId(httpContext.User);
 
-        if (string.IsNullOrEmpty(userId))
+        if (userId is null)
             return Results.StatusCode(StatusCodes.Status403Forbidden);
 
         return Results.Ok(await grantService.ListAsync(userId, httpContext.RequestAborted));
@@ -189,9 +188,9 @@ public static class OAuthEndpointMapper
 
     private static async Task<IResult> RevokeGrantAsync(HttpContext httpContext, Guid grantId, IOAuthGrantService grantService)
     {
-        var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userId = OAuthSessionPrincipal.FindUserId(httpContext.User);
 
-        if (string.IsNullOrEmpty(userId))
+        if (userId is null)
             return Results.StatusCode(StatusCodes.Status403Forbidden);
 
         return await grantService.RevokeAsync(grantId, userId, httpContext.RequestAborted)

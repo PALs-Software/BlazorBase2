@@ -128,7 +128,24 @@ public sealed class OAuthGrantService<TUser>(
         return code;
     }
 
-    /// <summary>Returns <see langword="true"/> when the account exists and is active.</summary>
-    public async Task<bool> IsUserActiveAsync(string userId, CancellationToken cancellationToken = default) =>
-        await DbContext.Users.AnyAsync(user => user.Id == userId && user.IsActive, cancellationToken);
+    /// <summary>
+    /// Returns <see langword="true"/> when the account exists, is active and, when
+    /// <see cref="OAuthServerOptions.RequiredRoles"/> are configured, still holds one of them. Read from the
+    /// database, not from a principal, so a role removed after the consent takes effect on the next redemption.
+    /// </summary>
+    public async Task<bool> IsUserEntitledAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        if (!await DbContext.Users.AnyAsync(user => user.Id == userId && user.IsActive, cancellationToken))
+            return false;
+
+        var requiredRoles = Options.CurrentValue.RequiredRoles;
+
+        if (requiredRoles.Count == 0)
+            return true;
+
+        return await DbContext.UserRoles
+            .Where(userRole => userRole.UserId == userId)
+            .Join(DbContext.Roles, userRole => userRole.RoleId, role => role.Id, (userRole, role) => role.Name)
+            .AnyAsync(roleName => roleName != null && requiredRoles.Contains(roleName), cancellationToken);
+    }
 }

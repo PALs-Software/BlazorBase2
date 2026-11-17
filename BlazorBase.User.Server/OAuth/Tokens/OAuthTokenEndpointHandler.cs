@@ -138,8 +138,8 @@ internal sealed class OAuthTokenEndpointHandler<TUser>(
         if (resource is not null && !OAuthResourceIdentifier.AreEquivalent(resource, grant.Resource))
             return OAuthErrorResults.Error(httpContext, OAuthErrorCodes.InvalidTarget, "resource does not match the authorization request.");
 
-        if (!await GrantService.IsUserActiveAsync(grant.UserId, cancellationToken))
-            return InvalidGrant(httpContext);
+        if (!await GrantService.IsUserEntitledAsync(grant.UserId, cancellationToken))
+            return await RevokeAfterLostEntitlementAsync(httpContext, grant);
 
         var consumed = await DbContext.OAuthAuthorizationCodes
             .Where(entry => entry.Id == storedCode.Id && entry.ConsumedAt == null)
@@ -199,8 +199,8 @@ internal sealed class OAuthTokenEndpointHandler<TUser>(
         if (resource is not null && !OAuthResourceIdentifier.AreEquivalent(resource, grant.Resource))
             return OAuthErrorResults.Error(httpContext, OAuthErrorCodes.InvalidTarget, "resource does not match the grant.");
 
-        if (!await GrantService.IsUserActiveAsync(grant.UserId, cancellationToken))
-            return InvalidGrant(httpContext);
+        if (!await GrantService.IsUserEntitledAsync(grant.UserId, cancellationToken))
+            return await RevokeAfterLostEntitlementAsync(httpContext, grant);
 
         var consumed = await DbContext.OAuthRefreshTokens
             .Where(entry => entry.Id == storedToken.Id && entry.ConsumedAt == null)
@@ -318,6 +318,18 @@ internal sealed class OAuthTokenEndpointHandler<TUser>(
     {
         await GrantService.RevokeGrantAsync(grant.Id, httpContext.RequestAborted);
         Logger.LogWarning("A redeemed OAuth {CredentialKind} was presented again for grant {GrantId} of client {ClientId}; the grant has been revoked.", credentialKind, grant.Id, grant.ClientId);
+
+        return InvalidGrant(httpContext);
+    }
+
+    /// <summary>
+    /// The grant's user was deactivated, deleted or lost every <see cref="OAuthServerOptions.RequiredRoles"/> role
+    /// since the consent: the grant is revoked, so the access tokens already issued under it stop at once too.
+    /// </summary>
+    private async Task<IResult> RevokeAfterLostEntitlementAsync(HttpContext httpContext, OAuthGrant grant)
+    {
+        await GrantService.RevokeGrantAsync(grant.Id, httpContext.RequestAborted);
+        Logger.LogInformation("The user of OAuth grant {GrantId} of client {ClientId} is no longer entitled to it; the grant has been revoked.", grant.Id, grant.ClientId);
 
         return InvalidGrant(httpContext);
     }

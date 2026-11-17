@@ -63,9 +63,11 @@ localization. Every registration uses `TryAdd`, so a host can replace any of the
 | `MaximumDurationSeconds` | `60` | Recording stops by itself after this long. |
 | `MinimumDurationMilliseconds` | `300` | Shorter presses are discarded as accidental taps. |
 | `ShowCaption` | `true` | Shows the hint next to the button; screen readers get it either way (`aria-describedby`). |
+| `ShowErrorMessage` | `true` | Renders the built-in localized error text; set `false` when the host shows its own error UI. |
 | `Class` | — | Extra classes on the wrapper. |
 | `OnRecordingStarted` | — | Fires once the microphone records — the moment to stop anything being read aloud. |
 | `OnRecorded` | — | Receives a `SpeechRecording(byte[] Wav, TimeSpan Duration)`. |
+| `OnError` | — | Receives a `SpeechRecorderError` (`PermissionDenied`, `NoMicrophone`, `Unsupported`, `Failed`) whenever recording fails, whether the browser reported it or taking the recording threw. Raised regardless of `ShowErrorMessage`. |
 
 Behavior worth knowing:
 
@@ -84,7 +86,9 @@ Behavior worth knowing:
 - **Level ring**: the recorder sets `--speech-level` (0..1) on the button while recording; the
   isolated CSS scales a ring with it. `--push-to-talk-size` (default `56px`) sizes the button.
 - **Errors** (`PermissionDenied`, `NoMicrophone`, `Unsupported`, `Failed`) render as a localized
-  `role="alert"` next to the button; the next successful press clears it.
+  `role="alert"` next to the button; the next successful press clears it. `OnError` reports the same
+  error to the host (for example to fall back to typed input); `ShowErrorMessage="false"` hides the
+  built-in text.
 
 The button styles itself from the theme tokens (`--color-accent-fill`, `--color-accent-fill-hover`,
 `--color-text-on-accent`, `--color-danger`, `--color-text-on-danger`, `--color-border-focus`,
