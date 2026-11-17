@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>Invitations</value>
+  </data>
+  <data name="Invite" xml:space="preserve">
+    <value>Invite person</value>
+  </data>
+  <data name="InviteTitle" xml:space="preserve">
+    <value>Invite person</value>
+  </data>
+  <data name="Empty" xml:space="preserve">
+    <value>No invitations yet.</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Role" xml:space="preserve">
+    <value>Role</value>
+  </data>
+  <data name="Status_Pending" xml:space="preserve">
+    <value>Pending</value>
+  </data>
+  <data name="Status_Accepted" xml:space="preserve">
+    <value>Accepted</value>
+  </data>
+  <data name="Status_Expired" xml:space="preserve">
+    <value>Expired</value>
+  </data>
+  <data name="Status_Revoked" xml:space="preserve">
+    <value>Revoked</value>
+  </data>
+  <data name="ExpiresOn" xml:space="preserve">
+    <value>Link valid until {0}</value>
+  </data>
+  <data name="ExpiredOn" xml:space="preserve">
+    <value>Link expired on {0}</value>
+  </data>
+  <data name="AcceptedOn" xml:space="preserve">
+    <value>Accepted on {0}</value>
+  </data>
+  <data name="RevokedOn" xml:space="preserve">
+    <value>Revoked on {0}</value>
+  </data>
+  <data name="Resend" xml:space="preserve">
+    <value>Send again</value>
+  </data>
+  <data name="NewLink" xml:space="preserve">
+    <value>New link</value>
+  </data>
+  <data name="Revoke" xml:space="preserve">
+    <value>Revoke</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="RevokeConfirmTitle" xml:space="preserve">
+    <value>Revoke invitation</value>
+  </data>
+  <data name="RevokeConfirmMessage" xml:space="preserve">
+    <value>Revoke the invitation for {0}? The link stops working.</value>
+  </data>
+  <data name="Created" xml:space="preserve">
+    <value>The invitation was created.</value>
+  </data>
+  <data name="Resent" xml:space="preserve">
+    <value>A new link was created.</value>
+  </data>
+  <data name="NewLinkCreated" xml:space="preserve">
+    <value>A new link was created; the previous link no longer works.</value>
+  </data>
+  <data name="EmailSent" xml:space="preserve">
+    <value>{0} The email was sent to {1}.</value>
+  </data>
+  <data name="EmailNotSent" xml:space="preserve">
+    <value>{0} No email was sent - copy the link and pass it on yourself.</value>
+  </data>
+  <data name="CopyLink" xml:space="preserve">
+    <value>Copy link</value>
+  </data>
+  <data name="Copied" xml:space="preserve">
+    <value>The link was copied.</value>
+  </data>
+  <data name="CopyFailed" xml:space="preserve">
+    <value>The link could not be copied. Select it and copy it by hand.</value>
+  </data>
+  <data name="UserExists" xml:space="preserve">
+    <value>An account with this email address already exists.</value>
+  </data>
+  <data name="LoadError" xml:space="preserve">
+    <value>The invitations could not be loaded.</value>
+  </data>
+  <data name="ActionError" xml:space="preserve">
+    <value>The action failed. Please try again.</value>
+  </data>
+</root>

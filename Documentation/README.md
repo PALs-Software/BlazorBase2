@@ -31,7 +31,9 @@ This folder contains the documentation for all reusable BlazorBase libraries shi
 | **BlazorBase.Speech.Server** | ASP.NET Core library (net10.0) | [BlazorBase.Speech.Server.md](BlazorBase.Speech.Server.md) |
 | **BlazorBase.User** | Razor Class Library (net10.0) | [BlazorBase.User.md](BlazorBase.User.md) |
 | **BlazorBase.User.Server** | ASP.NET Core library (net10.0) | [BlazorBase.User.Server.md](BlazorBase.User.Server.md) |
+| ↳ *user invitations* | section | [BlazorBase.User.Server.md#user-invitations](BlazorBase.User.Server.md#user-invitations) |
 | ↳ *auth token transports* | topic guide | [BlazorBase.User.Server.AuthTransports.md](BlazorBase.User.Server.AuthTransports.md) |
+| ↳ *OAuth 2.1 authorization server (claude.ai connectors for MCP endpoints)* | topic guide | [BlazorBase.User.Server.OAuth.md](BlazorBase.User.Server.OAuth.md) |
 | **BlazorBase.User.Wasm** | WebAssembly library (net10.0) | [BlazorBase.User.Wasm.md](BlazorBase.User.Wasm.md) |
 | **BlazorBase.User.Maui** | MAUI library (net10.0-android/ios/maccatalyst/windows) | [BlazorBase.User.Maui.md](BlazorBase.User.Maui.md) |
 
@@ -188,6 +190,11 @@ References:
 | Login / Setup / User management UI | BlazorBase.User |
 | Auth state read from the server, session expiry handling, language service | BlazorBase.User |
 | Identity, token issuance, account management and two-factor, Auth/User controllers | BlazorBase.User.Server |
+| User invitations (entity, endpoints, `IUserInvitationHandler`) | BlazorBase.User.Server (`Invitations/`) |
+| Invitation accept page, invitation administration, forgot/reset password pages | BlazorBase.User |
+| Standard account emails (invitation, password reset, email confirmation) and email branding | BlazorBase.Mailing |
+| OAuth 2.1 authorization server for access-token-protected (MCP) endpoints | BlazorBase.User.Server (`OAuth/`) |
+| OAuth consent page and connected-apps panel | BlazorBase.User |
 | Bearer or cookie transport, in-memory tokens by default, same-origin config | BlazorBase.User.Wasm |
 | `SecureStorage` tokens, configurable server URL | BlazorBase.User.Maui |
 

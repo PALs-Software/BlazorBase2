@@ -9,6 +9,8 @@ public partial class BaseFileInputDialog : BaseDialogInstance<FileInputDialogCon
     [Inject]
     private IStringLocalizer<BaseFileInputDialog> DialogLocalizer { get; set; } = default!;
 
+    private readonly string PickerButtonId = $"base-file-input-dialog-picker-{Guid.NewGuid():N}";
+
     private string? SelectedFileName;
     private byte[]? SelectedFileContent;
     private string? ErrorMessage;

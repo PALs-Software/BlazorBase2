@@ -75,6 +75,8 @@
     background: var(--color-accent);
 }
 
+/* While the "More" tab is expanded the tab of the current page carries `base-bottom-tab-current` instead
+   of `active`, which has no rules on purpose: only "More" shows as active, never two tabs at once. */
 ::deep .base-bottom-tab {
     position: relative;
     min-height: var(--control-height-touch);

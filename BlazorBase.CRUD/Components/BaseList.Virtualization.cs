@@ -36,6 +36,9 @@ public partial class BaseList<TModel> where TModel : class, new()
         if (AdditionalFilters is not null)
             filters.AddRange(AdditionalFilters);
 
+        if (BuildQuickSearchFilter() is { } quickSearchFilter)
+            filters.Add(quickSearchFilter);
+
         return new BaseQuery
         {
             Filters = filters,

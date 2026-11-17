@@ -550,4 +550,101 @@ public sealed class BaseLayoutTests : ComponentsBunitTestContextBase
         Assert.Empty(cut.FindAll("a[href=\"/alerts\"]"));
         Assert.Single(cut.FindAll("aside#base-navigation a[href=\"/\"]"));
     }
+
+    private static IReadOnlyList<NavigationItem> QuickLinksWithOverflow() =>
+    [
+        new() { Href = "/", Label = "Home", MatchAll = true, IsMobilePrimary = true },
+        new() { Href = "/projects", Label = "Projects", IsMobilePrimary = true },
+        new() { Href = "/archive", Label = "Archive" },
+        new() { Href = "/reports", Label = "Reports" },
+    ];
+
+    private IRenderedComponent<BaseLayout> RenderWithSheetMore(IReadOnlyList<NavigationItem> items) =>
+        Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.BottomNavigationItems, items)
+            .Add(p => p.BottomBarMore, BottomBarMoreMode.Sheet)
+            .Add(p => p.Navigation, builder =>
+            {
+                builder.OpenComponent<BaseSideNavigation>(0);
+                builder.AddAttribute(1, nameof(BaseSideNavigation.Items), items);
+                builder.CloseComponent();
+            }));
+
+    [Fact]
+    public void NewParameters_DefaultToTheBehaviourOfEarlierVersions()
+    {
+        var cut = Render<BaseLayout>(parameters => parameters.Add(p => p.AppTitle, "Shell"));
+
+        Assert.Equal(BottomBarMoreMode.Navigation, cut.Instance.BottomBarMore);
+        Assert.False(cut.Instance.ShowTitleOnPhone);
+    }
+
+    [Fact]
+    public void SheetMode_MoreTabOpensTheSheetWithOnlyTheOverflowItems_AndLeavesTheDrawerClosed()
+    {
+        SimulatePhoneViewport(alsoCompact: true);
+        var cut = RenderWithSheetMore(QuickLinksWithOverflow());
+
+        cut.Find("button.base-bottom-more").Click();
+
+        var sheet = cut.Find(".base-more-sheet");
+        Assert.Equal(["/archive", "/reports"], sheet.QuerySelectorAll("a.base-more-item").Select(link => link.GetAttribute("href")).ToList());
+        Assert.DoesNotContain("open", cut.Find("aside#base-navigation").ClassList);
+        Assert.Equal("true", cut.Find("button.base-bottom-more").GetAttribute("aria-expanded"));
+        Assert.Null(cut.Find("button.base-bottom-more").GetAttribute("aria-controls"));
+        Assert.Equal("dialog", cut.Find("button.base-bottom-more").GetAttribute("aria-haspopup"));
+    }
+
+    [Fact]
+    public void SheetMode_WithoutOverflowItems_ShowsNoMoreTab()
+    {
+        SimulatePhoneViewport(alsoCompact: true);
+        var cut = RenderWithSheetMore(QuickLinks());
+
+        Assert.Empty(cut.FindAll("button.base-bottom-more"));
+    }
+
+    [Fact]
+    public void SheetMode_WhileTheSheetIsOpen_TheCurrentTabIsNoLongerActive()
+    {
+        SimulatePhoneViewport(alsoCompact: true);
+        var cut = RenderWithSheetMore(QuickLinksWithOverflow());
+        Assert.Contains("active", cut.Find(".base-bottom-host a[href=\"/\"]").ClassList);
+
+        cut.Find("button.base-bottom-more").Click();
+
+        Assert.DoesNotContain("active", cut.Find(".base-bottom-host a[href=\"/\"]").ClassList);
+        Assert.Contains("more-active", cut.Find("button.base-bottom-more").ClassList);
+    }
+
+    [Fact]
+    public void NavigationMode_WhileTheDrawerIsOpen_TheCurrentTabIsNoLongerActive()
+    {
+        SimulatePhoneViewport(alsoCompact: true);
+        var cut = RenderWithBottomBar(QuickLinks());
+        Assert.Contains("active", cut.Find(".base-bottom-host a[href=\"/\"]").ClassList);
+
+        cut.Find("button.base-bottom-more").Click();
+
+        Assert.DoesNotContain("active", cut.Find(".base-bottom-host a[href=\"/\"]").ClassList);
+        Assert.Contains("more-active", cut.Find("button.base-bottom-more").ClassList);
+
+        cut.Find("button.base-bottom-more").Click();
+
+        Assert.Contains("active", cut.Find(".base-bottom-host a[href=\"/\"]").ClassList);
+    }
+
+    [Fact]
+    public void ShowTitleOnPhone_AddsTheClassThatKeepsTheTitleVisible_OnlyWhenSet()
+    {
+        var hidden = Render<BaseLayout>(parameters => parameters.Add(p => p.AppTitle, "Shell"));
+        var shown = Render<BaseLayout>(parameters => parameters
+            .Add(p => p.AppTitle, "Shell")
+            .Add(p => p.ShowTitleOnPhone, true));
+
+        Assert.DoesNotContain("show-title-on-phone", hidden.Find("header.base-header").ClassList);
+        Assert.Contains("show-title-on-phone", shown.Find("header.base-header").ClassList);
+        Assert.Equal("Shell", shown.Find(".base-header-title").TextContent);
+    }
 }

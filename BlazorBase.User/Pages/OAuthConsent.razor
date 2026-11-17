@@ -1,0 +1,76 @@
+@page "/oauth/consent"
+@attribute [Authorize]
+
+<PageTitle>@Localizer["PageTitle"]</PageTitle>
+
+<div class="oauth-consent">
+<FluentStack Orientation="Orientation.Vertical" HorizontalAlignment="HorizontalAlignment.Center"
+             Class="oauth-consent-container">
+    <FluentCard Class="oauth-consent-card">
+        <h2>@Localizer["PageTitle"]</h2>
+
+        @if (IsLoading)
+        {
+            <FluentSpinner Size="SpinnerSize.Medium" />
+        }
+        else if (Details is null)
+        {
+            <FluentMessageBar Intent="MessageBarIntent.Warning" AllowDismiss="false" role="alert" Class="oauth-consent-status">
+                @StatusMessage
+            </FluentMessageBar>
+        }
+        else
+        {
+            <p class="oauth-consent-headline">
+                @string.Format(Localizer["RequestHeadline"], Details.ClientName)
+            </p>
+
+            @if (!string.IsNullOrEmpty(Details.ClientIdHost))
+            {
+                <p>
+                    @Localizer["ClientIdHostLabel"]
+                    <strong class="oauth-consent-client-id-host">@Details.ClientIdHost</strong>
+                </p>
+            }
+
+            <p>
+                @Localizer["RedirectHostLabel"]
+                <strong class="oauth-consent-redirect-host">@Details.RedirectHost</strong>
+            </p>
+            <p class="oauth-consent-hint">@Localizer["ClientNameHint"]</p>
+
+            <h3>@Localizer["ScopesTitle"]</h3>
+            <ul class="oauth-consent-scopes">
+                @foreach (var scope in Details.Scopes)
+                {
+                    <li><strong>@scope.Name</strong>: @DescribeScope(scope)</li>
+                }
+            </ul>
+
+            <p class="oauth-consent-hint">@Localizer["RevokeHint"]</p>
+
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <FluentMessageBar Intent="MessageBarIntent.Error" Title="@Localizer["Error"]" AllowDismiss="false" role="alert">
+                    @ErrorMessage
+                </FluentMessageBar>
+            }
+
+            <FluentStack Orientation="Orientation.Horizontal" HorizontalGap="var(--space-3)" Class="oauth-consent-actions">
+                <FluentButton Appearance="ButtonAppearance.Primary"
+                              Loading="IsSubmitting"
+                              Class="oauth-consent-approve"
+                              OnClick="ApproveAsync">
+                    @Localizer["Allow"]
+                </FluentButton>
+                <FluentButton Appearance="ButtonAppearance.Outline"
+                              Disabled="IsSubmitting"
+                              Class="oauth-consent-deny"
+                              OnClick="DenyAsync">
+                    @Localizer["Deny"]
+                </FluentButton>
+            </FluentStack>
+        }
+    </FluentCard>
+</FluentStack>
+</div>

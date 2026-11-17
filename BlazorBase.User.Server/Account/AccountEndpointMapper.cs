@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using BlazorBase.User.Models;
 using BlazorBase.User.Server.Configuration;
+using BlazorBase.User.Server.Data;
 using BlazorBase.User.Server.Entities;
 using BlazorBase.User.Server.Services;
 using BlazorBase.User.Server.Tokens;
@@ -11,6 +12,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -29,11 +31,15 @@ public static class AccountEndpointMapper
     /// </summary>
     private const string LogCategory = "BlazorBase.User.Server.Account.AccountEndpointMapper";
 
+    private const string CurrentPasswordField = "currentPassword";
+
+    private const string NewPasswordField = "newPassword";
+
     /// <summary>
     /// Maps every account-management endpoint under <paramref name="path"/>, all rate-limited by the
     /// "BlazorBaseAuth" policy registered by <c>AddBlazorBaseUserServer</c>. <c>confirm-email</c>,
     /// <c>resend-confirmation</c>, <c>forgot-password</c> and <c>reset-password</c> are anonymous;
-    /// every <c>2fa</c> endpoint requires an authenticated caller.
+    /// every <c>2fa</c> endpoint and <c>change-password</c> require an authenticated caller.
     /// </summary>
     public static IEndpointRouteBuilder MapBlazorBaseAccountEndpoints<TUser>(
         this IEndpointRouteBuilder endpoints,
@@ -46,6 +52,8 @@ public static class AccountEndpointMapper
         group.MapPost("resend-confirmation", ResendConfirmationAsync<TUser>).AllowAnonymous();
         group.MapPost("forgot-password", ForgotPasswordAsync<TUser>).AllowAnonymous();
         group.MapPost("reset-password", ResetPasswordAsync<TUser>).AllowAnonymous();
+
+        group.MapPost("change-password", ChangePasswordAsync<TUser>).RequireAuthorization();
 
         group.MapGet("2fa", GetTwoFactorStatusAsync<TUser>).RequireAuthorization();
         group.MapPost("2fa/enable", EnableTwoFactorAsync<TUser>).RequireAuthorization();
@@ -187,6 +195,104 @@ public static class AccountEndpointMapper
             return Results.BadRequest(new { errors = result.Errors.Select(error => error.Description) });
 
         return Results.NoContent();
+    }
+
+    /// <summary>
+    /// Changes the caller's own password after verifying the current one with
+    /// <see cref="UserManager{TUser}.ChangePasswordAsync"/>, so the Identity password rules apply. A
+    /// wrong current password is answered with a generic <c>400</c> (code
+    /// <see cref="ChangePasswordErrorCodes.CurrentPasswordIncorrect"/>) that says nothing more, a new
+    /// password the rules refuse with a <c>400</c> whose <c>errors</c> are keyed by field, and an account
+    /// without a password with <c>400</c> <see cref="ChangePasswordErrorCodes.NoPasswordSet"/>.
+    /// </summary>
+    /// <remarks>
+    /// A successful change rotates the security stamp, which ends every other cookie session (at its next
+    /// stamp validation, at most <see cref="SecurityStampValidatorOptions.ValidationInterval"/> later),
+    /// every other bearer access token (checked on each request unless
+    /// <c>AuthTokens:SecurityStampValidationInterval</c> says otherwise) and every refresh token. The
+    /// account's refresh-token rows are revoked as well, then the caller's own session is re-issued exactly
+    /// as the <c>2fa</c> endpoints do: under the cookie transport the session cookie is rewritten and the
+    /// returned token strings are empty, under the bearer transport the response carries the new pair in
+    /// <see cref="ChangePasswordResponse.RefreshedTokens"/> for the client to adopt. Personal access
+    /// tokens and OAuth grants are separate credentials and are not touched. The notification mail is
+    /// best-effort: a failure to send is logged and never fails the request.
+    /// </remarks>
+    private static async Task<IResult> ChangePasswordAsync<TUser>(
+        ChangePasswordRequest request,
+        HttpContext httpContext,
+        UserManager<TUser> userManager,
+        SignInManager<TUser> signInManager,
+        AuthTokenIssuer<TUser> tokenIssuer,
+        IAuthTokenTransport tokenTransport,
+        BaseUserDbContext<TUser> dbContext,
+        IPasswordChangedNotifier<TUser> passwordChangedNotifier,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+        where TUser : BaseUser
+    {
+        var user = await ResolveCurrentUserAsync(httpContext, userManager);
+        if (user is null)
+            return Results.Unauthorized();
+
+        var fieldErrors = new Dictionary<string, string[]>();
+        if (string.IsNullOrEmpty(request.CurrentPassword))
+            fieldErrors[CurrentPasswordField] = ["The current password is required."];
+
+        if (string.IsNullOrEmpty(request.NewPassword))
+            fieldErrors[NewPasswordField] = ["The new password is required."];
+
+        if (fieldErrors.Count > 0)
+            return Results.BadRequest(new { code = ChangePasswordErrorCodes.ValidationFailed, message = "The request is invalid.", errors = fieldErrors });
+
+        if (!await userManager.HasPasswordAsync(user))
+            return Results.BadRequest(new { code = ChangePasswordErrorCodes.NoPasswordSet, message = "This account has no password. Use \"forgot password\" to set one." });
+
+        var result = await userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        if (!result.Succeeded)
+            return RejectPasswordChange(result);
+
+        await dbContext.RefreshTokens
+            .Where(token => token.UserId == user.Id && !token.IsRevoked)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(token => token.IsRevoked, true), cancellationToken);
+
+        var refreshedTokens = await RefreshSessionAsync(httpContext, user, signInManager, tokenIssuer, tokenTransport, cancellationToken);
+
+        await NotifyPasswordChangedAsync(user, passwordChangedNotifier, loggerFactory, cancellationToken);
+
+        return Results.Ok(new ChangePasswordResponse { RefreshedTokens = refreshedTokens });
+    }
+
+    private static IResult RejectPasswordChange(IdentityResult result)
+    {
+        if (result.Errors.Any(error => error.Code == nameof(IdentityErrorDescriber.PasswordMismatch)))
+            return Results.BadRequest(new { code = ChangePasswordErrorCodes.CurrentPasswordIncorrect, message = "The current password is incorrect." });
+
+        var errors = new Dictionary<string, string[]>
+        {
+            [NewPasswordField] = [.. result.Errors.Select(error => error.Description)],
+        };
+
+        return Results.BadRequest(new { code = ChangePasswordErrorCodes.ValidationFailed, message = "The new password was rejected.", errors });
+    }
+
+    private static async Task NotifyPasswordChangedAsync<TUser>(
+        TUser user,
+        IPasswordChangedNotifier<TUser> passwordChangedNotifier,
+        ILoggerFactory loggerFactory,
+        CancellationToken cancellationToken)
+        where TUser : BaseUser
+    {
+        if (string.IsNullOrWhiteSpace(user.Email))
+            return;
+
+        try
+        {
+            await passwordChangedNotifier.NotifyPasswordChangedAsync(user, user.Email, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            loggerFactory.CreateLogger(LogCategory).LogError(exception, "The password changed notification for user {UserId} could not be sent.", user.Id);
+        }
     }
 
     private static async Task<IResult> GetTwoFactorStatusAsync<TUser>(

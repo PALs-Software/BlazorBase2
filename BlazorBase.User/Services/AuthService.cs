@@ -180,11 +180,108 @@ public class AuthService(HttpClient httpClient, ITokenStorage tokenStorage) : IA
         response.EnsureSuccessStatusCode();
     }
 
+    /// <summary>
+    /// A refused reset throws an <see cref="HttpRequestException"/> whose message joins the server's
+    /// <c>errors</c> (an invalid or expired link, a password the policy rejects), so the page can show why.
+    /// </summary>
     public async Task ResetPasswordAsync(ResetPasswordRequest request)
     {
         var response = await HttpClient.PostAsJsonAsync("api/auth/manage/reset-password", request);
-        response.EnsureSuccessStatusCode();
+
+        if (response.IsSuccessStatusCode)
+            return;
+
+        var body = await response.Content.ReadAsStringAsync();
+        string? message = null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            if (document.RootElement.ValueKind == JsonValueKind.Object && document.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
+                message = string.Join(" ", errors.EnumerateArray().Select(error => error.GetString()));
+        }
+        catch (JsonException)
+        {
+        }
+
+        if (string.IsNullOrWhiteSpace(message))
+            response.EnsureSuccessStatusCode();
+
+        throw new HttpRequestException(message, inner: null, response.StatusCode);
     }
+
+    /// <summary>
+    /// Attaches the stored access token by hand, like <see cref="GetSessionAsync"/>: this client carries no
+    /// <see cref="AuthTokenHandler"/>, so under the bearer transport nothing else would identify the caller.
+    /// Under the cookie transport there is no stored token and the session cookie plus the CSRF header of
+    /// the client's handler do the work.
+    /// </summary>
+    public async Task<ChangePasswordOutcome> ChangePasswordAsync(ChangePasswordRequest request)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Post, "api/auth/manage/change-password")
+        {
+            Content = JsonContent.Create(request),
+        };
+
+        var storedTokens = await TokenStorage.GetTokensAsync();
+        if (!string.IsNullOrEmpty(storedTokens?.AccessToken))
+            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", storedTokens.AccessToken);
+
+        var response = await HttpClient.SendAsync(message);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<ChangePasswordResponse>();
+
+            if (result?.RefreshedTokens is { } refreshedTokens && !string.IsNullOrEmpty(refreshedTokens.AccessToken))
+                await TokenStorage.SaveTokensAsync(refreshedTokens);
+
+            return ChangePasswordOutcome.Success();
+        }
+
+        if (response.StatusCode != System.Net.HttpStatusCode.BadRequest)
+        {
+            response.EnsureSuccessStatusCode();
+            throw CreateRefusalException(response);
+        }
+
+        return ParseChangePasswordRefusal(await response.Content.ReadAsStringAsync())
+            ?? throw CreateRefusalException(response);
+    }
+
+    private static ChangePasswordOutcome? ParseChangePasswordRefusal(string body)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(body);
+            var root = document.RootElement;
+
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var code = root.TryGetProperty("code", out var codeElement) && codeElement.ValueKind == JsonValueKind.String ? codeElement.GetString() : null;
+            var message = root.TryGetProperty("message", out var messageElement) && messageElement.ValueKind == JsonValueKind.String ? messageElement.GetString() : null;
+            var fieldErrors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
+
+            if (root.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var field in errors.EnumerateObject().Where(property => property.Value.ValueKind == JsonValueKind.Array))
+                    fieldErrors[field.Name] = [.. field.Value.EnumerateArray().Select(entry => entry.GetString() ?? string.Empty)];
+            }
+
+            if (code is null && message is null && fieldErrors.Count == 0)
+                return null;
+
+            return ChangePasswordOutcome.Rejected(code, message, fieldErrors);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static HttpRequestException CreateRefusalException(HttpResponseMessage response) =>
+        new("The change password request was refused.", inner: null, response.StatusCode);
 
     public async Task<TwoFactorStatusResponse> GetTwoFactorStatusAsync()
     {

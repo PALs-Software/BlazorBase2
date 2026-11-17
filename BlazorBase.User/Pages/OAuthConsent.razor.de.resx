@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="PageTitle" xml:space="preserve">
+    <value>App autorisieren</value>
+  </data>
+  <data name="RequestHeadline" xml:space="preserve">
+    <value>{0} möchte auf Ihr Konto zugreifen.</value>
+  </data>
+  <data name="ClientIdHostLabel" xml:space="preserve">
+    <value>Die App weist sich aus über:</value>
+  </data>
+  <data name="RedirectHostLabel" xml:space="preserve">
+    <value>Nach Ihrer Entscheidung werden Sie weitergeleitet zu:</value>
+  </data>
+  <data name="ClientNameHint" xml:space="preserve">
+    <value>Die App hat ihren Namen selbst gewählt. Erlauben Sie den Zugriff nur, wenn Sie diese Verbindung selbst gestartet haben und die Adresse oben kennen.</value>
+  </data>
+  <data name="ScopesTitle" xml:space="preserve">
+    <value>Die App erhält folgende Berechtigungen:</value>
+  </data>
+  <data name="Scope_mcp" xml:space="preserve">
+    <value>Die Werkzeuge und Daten dieser Anwendung mit Ihrem Konto und Ihren Berechtigungen nutzen.</value>
+  </data>
+  <data name="RevokeHint" xml:space="preserve">
+    <value>Sie können die Verbindung jederzeit in Ihren Kontoeinstellungen trennen.</value>
+  </data>
+  <data name="Allow" xml:space="preserve">
+    <value>Erlauben</value>
+  </data>
+  <data name="Deny" xml:space="preserve">
+    <value>Ablehnen</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>Fehler</value>
+  </data>
+  <data name="InvalidRequest" xml:space="preserve">
+    <value>Diese Autorisierungsanfrage ist ungültig oder abgelaufen. Starten Sie die Verbindung in der App erneut.</value>
+  </data>
+  <data name="NotPermitted" xml:space="preserve">
+    <value>Ihr Konto darf keine Apps verbinden.</value>
+  </data>
+  <data name="LoadError" xml:space="preserve">
+    <value>Die Autorisierungsanfrage konnte nicht geladen werden.</value>
+  </data>
+  <data name="SubmitError" xml:space="preserve">
+    <value>Ihre Entscheidung konnte nicht übermittelt werden. Bitte versuchen Sie es erneut.</value>
+  </data>
+</root>

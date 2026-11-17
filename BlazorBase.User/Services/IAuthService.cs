@@ -19,10 +19,14 @@ public interface IAuthService
     Task<LoginResponse> LoginTwoFactorAsync(TwoFactorLoginRequest request);
 
     Task<LoginResponse> RefreshAsync(string refreshToken);
+
     /// <summary>
-    /// Ends the session on the server. Pass the refresh token under the bearer transport; leave it
-    /// null under the cookie transport, where the cookie is the session. Throws when the server does
-    /// not answer with success, so a session that stays alive is never mistaken for a closed one.
+    /// Ends the session on the server. Pass the refresh token under the bearer transport; leave it null under the
+    /// cookie transport, where the cookie is the session and the request carries no body. Completes only when the
+    /// server answered with a success status (the endpoint is idempotent, so an unknown token is a success too); any
+    /// other status (for example <c>403</c> for a missing antiforgery token or <c>5xx</c>) throws
+    /// <see cref="HttpRequestException"/>, because a logout the server did not confirm leaves the session alive.
+    /// A network failure throws as well.
     /// </summary>
     Task LogoutAsync(string? refreshToken = null);
 
@@ -49,6 +53,17 @@ public interface IAuthService
     Task ResendConfirmationAsync(ResendConfirmationRequest request);
     Task ForgotPasswordAsync(ForgotPasswordRequest request);
     Task ResetPasswordAsync(ResetPasswordRequest request);
+
+    /// <summary>
+    /// Changes the signed-in account's own password through <c>POST api/auth/manage/change-password</c>. A
+    /// refusal the server explains with a <c>400</c> (wrong current password, a new password the rules
+    /// reject, an account without a password) comes back as a <see cref="ChangePasswordOutcome"/> that is not
+    /// <see cref="ChangePasswordOutcome.Succeeded"/>; any other failure (<c>401</c>, <c>429</c>, <c>5xx</c>, a
+    /// network error) throws <see cref="HttpRequestException"/>. Under the bearer transport the replacement
+    /// token pair of the response is stored, so the caller stays signed in; under the cookie transport the
+    /// server has already rewritten the session cookie.
+    /// </summary>
+    Task<ChangePasswordOutcome> ChangePasswordAsync(ChangePasswordRequest request);
 
     Task<TwoFactorStatusResponse> GetTwoFactorStatusAsync();
     Task<TwoFactorRecoveryCodesResponse> EnableTwoFactorAsync(TwoFactorEnableRequest request);

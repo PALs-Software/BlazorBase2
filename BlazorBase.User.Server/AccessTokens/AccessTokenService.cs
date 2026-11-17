@@ -129,6 +129,7 @@ public class AccessTokenService<TContext>(
     {
         var entities = await AccessTokens
             .AsNoTracking()
+            .Where(accessToken => accessToken.OAuthGrantId == null)
             .Where(accessToken => userId == null || accessToken.UserId == userId)
             .OrderBy(accessToken => accessToken.Name)
             .ToListAsync(cancellationToken);

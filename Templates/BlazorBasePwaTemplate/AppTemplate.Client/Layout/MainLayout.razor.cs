@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using AppTemplate.Shared.Modules.Authentication;
 using BlazorBase.Components.Layout.Navigation;
 using Microsoft.AspNetCore.Components;
@@ -23,8 +22,6 @@ public partial class MainLayout(
 
     private bool IsAuthenticated;
 
-    private string UserInitials = string.Empty;
-
     protected override async Task OnInitializedAsync()
     {
         AuthenticationStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
@@ -39,53 +36,65 @@ public partial class MainLayout(
 
         IsAuthenticated = user.Identity?.IsAuthenticated == true;
         NavigationItems = BuildNavigationItems();
-        UserInitials = ResolveUserInitials(user);
     }
 
     /// <summary>
-    /// One list for both presentations — the rail and the mobile bar render it, and
-    /// <c>NavigationVisibility</c> drops what the current user may not see, so the two cannot diverge.
+    /// One grouped tree for all presentations — the rail (with the group headings as sections), the mobile
+    /// bar (<c>IsMobilePrimary</c>) and the command palette render it, and <c>NavigationVisibility</c> drops
+    /// what the current user may not see (a group without visible children disappears as well), so they
+    /// cannot diverge. Keep the groups: a flat list leaves the sidebar without section headings.
     /// </summary>
     private IReadOnlyList<NavigationItem> BuildNavigationItems() =>
     [
-        new()
-        {
-            Href = string.Empty,
-            Label = Localizer["NavHome"],
-            MatchAll = true,
-            IsMobilePrimary = true,
-            Icon = new Size20.Home(),
-        },
-        new()
-        {
-            Href = "notes",
-            Label = Localizer["NavNotes"],
-            IsMobilePrimary = true,
-            Icon = new Size20.Notepad(),
-        },
-        new()
-        {
-            Href = "admin/users",
-            Label = Localizer["NavAdmin"],
-            RequiredRole = RoleConstants.Admin,
-            IsMobilePrimary = true,
-            Icon = new Size20.PeopleSettings(),
-        },
+        WorkspaceGroup(),
+        AdministrationGroup(),
     ];
 
-    private static string ResolveUserInitials(ClaimsPrincipal user)
+    private NavigationItem WorkspaceGroup() => new()
     {
-        var displayName = user.FindFirst("displayName")?.Value;
+        Key = "workspace",
+        Label = Localizer["NavGroupWorkspace"],
+        Icon = new Size20.Briefcase(),
+        ExpandedByDefault = true,
+        Children =
+        [
+            new()
+            {
+                Href = string.Empty,
+                Label = Localizer["NavHome"],
+                MatchAll = true,
+                IsMobilePrimary = true,
+                Icon = new Size20.Home(),
+            },
+            new()
+            {
+                Href = "notes",
+                Label = Localizer["NavNotes"],
+                IsMobilePrimary = true,
+                Icon = new Size20.Notepad(),
+            },
+        ],
+    };
 
-        if (string.IsNullOrWhiteSpace(displayName))
-            return "?";
-
-        var parts = displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-        return parts.Length == 1
-            ? parts[0][..1].ToUpperInvariant()
-            : string.Concat(parts[0][..1], parts[^1][..1]).ToUpperInvariant();
-    }
+    private NavigationItem AdministrationGroup() => new()
+    {
+        Key = "administration",
+        Label = Localizer["NavGroupAdministration"],
+        RequiredRole = RoleConstants.Admin,
+        Icon = new Size20.ShieldPerson(),
+        ExpandedByDefault = true,
+        Children =
+        [
+            new()
+            {
+                Href = "admin/users",
+                Label = Localizer["NavUsers"],
+                RequiredRole = RoleConstants.Admin,
+                IsMobilePrimary = true,
+                Icon = new Size20.PeopleSettings(),
+            },
+        ],
+    };
 
     private void OnAuthenticationStateChanged(Task<AuthenticationState> authenticationStateTask)
         => InvokeAsync(async () =>

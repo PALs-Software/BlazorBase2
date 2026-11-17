@@ -332,6 +332,8 @@ ID parameters are automatically parsed as `string`, `Guid`, `int`, or `long`.
 
 `UserFilter` (`Func<ClaimsPrincipal, Expression<Func<TEntity, bool>>>?`) is a per-request row predicate enforced as a row-level-security boundary: it is passed through as `scopeFilter` on `query`/`count`/`GET {id}`, and — via a scoped existence pre-check — makes `PATCH`/`DELETE` return **404** for rows outside the caller's scope, instead of leaking whether the row exists.
 
+`PATCH` and `DELETE` also answer **404** (empty body, like `GET {id}`) when the row does not exist at all or when the provider's query cannot see it, for example because of an EF Core global query filter such as a tenant filter; nothing is changed. `IBaseDataProvider<TModel>.PatchAsync`/`DeleteAsync` signal this by throwing `EntityNotFoundException` (derived from `InvalidOperationException`, so existing `catch (InvalidOperationException)` code keeps working), which `DbContextBaseDataProvider` throws before any interceptor runs. A custom provider should throw it for a missing row to get the same `404` instead of a `500`.
+
 > **BREAKING:** `BaseEndpointOptions.QueryCustomizer` has been removed (it was non-functional/dead code). Use the server provider's DI-level `queryCustomizer` constructor argument (see [Manual Registration](#manual-registration)) for query shaping, and `UserFilter` above for per-user row scoping.
 
 ---
@@ -428,6 +430,7 @@ public partial class ProductList : ComponentBase
 - **Custom Context Menu Actions**: Use the `ContextMenuActions` template to add custom menu items per row (rendered as `<div role="menuitem">` elements).
 - **Infinite Scroll**: The list automatically loads more items when the user reaches the end.
 - **Filtering**: Every column is filterable by default. Disable per column with `Filterable="false"`.
+- **Quick Search**: Opt-in search box in the toolbar (`QuickSearchProperties` / `BaseListBuilder.QuickSearch(...)`, or `ShowQuickSearch="true"` for the `[DisplayKey]` properties). A case-insensitive-by-collation "contains" over the chosen text properties, ANDed with every other filter. See [Documentation/BlazorBase.CRUD.md](../Documentation/BlazorBase.CRUD.md) "Quick search".
 - **Sorting**: Every column is sortable by default. Disable per column with `Sortable="false"`.
 - **Add/Edit/Delete**: Controllable via `AllowAdd`, `AllowEdit`, `AllowDelete`.
 - **Role-Based Access**: Use `[CrudAccess]` on entities/properties or `.Access(roles, rights)` on columns to restrict R/I/M/D rights by role.
@@ -804,6 +807,7 @@ new BaseListBuilder<TModel>()
         .Format("N2")
         .Width("200px")
     )
+    .QuickSearch(x => x.Name, x => x.Category.Name)
     .Build();
 ```
 
@@ -1176,7 +1180,7 @@ public class Product
 - `POST` (create): Requires class-level `I`. Body fields without property-level `I` cause `403`. The response is field-stripped the same way as `GET`/`query`.
 - `PATCH`: Requires class-level `M`. Changed fields without property-level `M` cause `403`. Always-excluded fields (`[CrudAccess("*", "")]`) cause `400`. The response is field-stripped the same way as `GET`/`query`.
 - `DELETE`: Requires class-level `D`.
-- **Row-level scoping:** when `BaseEndpointOptions.UserFilter` is configured, `PATCH`/`DELETE` return `404` for rows outside the caller's scope (see [Registering Server Endpoints](#registering-server-endpoints)). The same predicate is applied server-side to `query`/`count`/`GET {id}` via the `scopeFilter` parameter of `IBaseDataProvider<TModel>` — it is a server-only mechanism, ignored by `HttpBaseDataProvider` and unsupported (`NotSupportedException`) by the Identity-backed `UserDataProvider`.
+- **Row-level scoping:** `PATCH`/`DELETE` return `404` for a row that does not exist or is hidden by an EF global query filter, and, when `BaseEndpointOptions.UserFilter` is configured, for rows outside the caller's scope (see [Registering Server Endpoints](#registering-server-endpoints)). The same predicate is applied server-side to `query`/`count`/`GET {id}` via the `scopeFilter` parameter of `IBaseDataProvider<TModel>` — it is a server-only mechanism, ignored by `HttpBaseDataProvider` and unsupported (`NotSupportedException`) by the Identity-backed `UserDataProvider`.
 
 **Client-side enforcement:**
 - `BaseList` hides columns without `R`, hides Add/Edit/Delete buttons by class-level `I`/`M`/`D`.

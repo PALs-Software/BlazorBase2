@@ -12,6 +12,7 @@ public class BaseListBuilder<TModel> where TModel : class
     private readonly List<PropertyColumnConfig<TModel>> columns = [];
     private readonly List<CrudActionGroup<TModel>> actionGroups = [];
     private readonly List<SortDescriptor> defaultSorts = [];
+    private readonly List<string> quickSearchProperties = [];
     private readonly SavedFilters.ListFilterDefaultsBuilder<TModel> filterDefaults = new();
     private FilterConfiguration<TModel>? filterConfiguration;
     private MobileCardConfiguration<TModel>? mobileCard;
@@ -70,6 +71,19 @@ public class BaseListBuilder<TModel> where TModel : class
             PropertyName = ExpressionHelper.GetPropertyName(property),
             Direction = descending ? SortDirection.Descending : SortDirection.Ascending
         });
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a search box to the list's toolbar that finds the rows whose given text properties contain what is typed. A
+    /// nested property such as <c>x =&gt; x.Category.Name</c> searches the related row. Call repeatedly or pass several
+    /// properties; a row matches when any of them contains the text.
+    /// </summary>
+    public BaseListBuilder<TModel> QuickSearch(params Expression<Func<TModel, object?>>[] properties)
+    {
+        foreach (var property in properties)
+            quickSearchProperties.Add(ExpressionHelper.GetPropertyName(property));
+
         return this;
     }
 
@@ -133,6 +147,7 @@ public class BaseListBuilder<TModel> where TModel : class
             ActionGroups = [.. actionGroups],
             Filter = filterConfiguration,
             DefaultSorts = [.. defaultSorts],
+            QuickSearchProperties = [.. quickSearchProperties],
             FilterDefaults = filterDefaults.HasContent ? filterDefaults.Build() : null,
             MobileCard = mobileCard,
             MobileBreakpoint = mobileBreakpoint

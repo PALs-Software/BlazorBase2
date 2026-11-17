@@ -1,0 +1,45 @@
+<div class="oauth-connected-apps">
+    <h2 class="oauth-connected-apps-title">@Localizer["Title"]</h2>
+    <p class="oauth-connected-apps-description">@Localizer["Description"]</p>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <FluentMessageBar Intent="MessageBarIntent.Error" Title="@Localizer["Error"]" AllowDismiss="false" role="alert">
+            @ErrorMessage
+        </FluentMessageBar>
+    }
+
+    @if (IsLoading)
+    {
+        <FluentSpinner Size="SpinnerSize.Medium" />
+    }
+    else if (Grants.Count == 0)
+    {
+        <p class="oauth-connected-apps-empty">@Localizer["Empty"]</p>
+    }
+    else
+    {
+        <ul class="oauth-connected-apps-list">
+            @foreach (var grant in Grants)
+            {
+                <li class="oauth-connected-app">
+                    <div class="oauth-connected-app-details">
+                        <strong class="oauth-connected-app-name">@grant.ClientName</strong>
+                        <span>@Localizer["RedirectHost"]: <code>@grant.RedirectHost</code></span>
+                        <span>@Localizer["Scope"]: @grant.Scope</span>
+                        <span class="oauth-connected-app-dates">
+                            @Localizer["ConnectedOn"]: @FormatDate(grant.CreatedAt) · @Localizer["LastUsed"]: @FormatDate(grant.LastUsedAt)
+                        </span>
+                    </div>
+                    <FluentButton Appearance="ButtonAppearance.Outline"
+                                  Class="oauth-connected-app-revoke"
+                                  Disabled="IsRevoking"
+                                  aria-label="@string.Format(Localizer["RevokeAriaLabel"], grant.ClientName)"
+                                  OnClick="() => RevokeAsync(grant)">
+                        @Localizer["Revoke"]
+                    </FluentButton>
+                </li>
+            }
+        </ul>
+    }
+</div>

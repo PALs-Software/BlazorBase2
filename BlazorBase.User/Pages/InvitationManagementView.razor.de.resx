@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title" xml:space="preserve">
+    <value>Einladungen</value>
+  </data>
+  <data name="Invite" xml:space="preserve">
+    <value>Person einladen</value>
+  </data>
+  <data name="InviteTitle" xml:space="preserve">
+    <value>Person einladen</value>
+  </data>
+  <data name="Empty" xml:space="preserve">
+    <value>Noch keine Einladungen.</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>Fehler</value>
+  </data>
+  <data name="Role" xml:space="preserve">
+    <value>Rolle</value>
+  </data>
+  <data name="Status_Pending" xml:space="preserve">
+    <value>Offen</value>
+  </data>
+  <data name="Status_Accepted" xml:space="preserve">
+    <value>Angenommen</value>
+  </data>
+  <data name="Status_Expired" xml:space="preserve">
+    <value>Abgelaufen</value>
+  </data>
+  <data name="Status_Revoked" xml:space="preserve">
+    <value>Widerrufen</value>
+  </data>
+  <data name="ExpiresOn" xml:space="preserve">
+    <value>Link gültig bis {0}</value>
+  </data>
+  <data name="ExpiredOn" xml:space="preserve">
+    <value>Link abgelaufen am {0}</value>
+  </data>
+  <data name="AcceptedOn" xml:space="preserve">
+    <value>Angenommen am {0}</value>
+  </data>
+  <data name="RevokedOn" xml:space="preserve">
+    <value>Widerrufen am {0}</value>
+  </data>
+  <data name="Resend" xml:space="preserve">
+    <value>Erneut senden</value>
+  </data>
+  <data name="NewLink" xml:space="preserve">
+    <value>Neuer Link</value>
+  </data>
+  <data name="Revoke" xml:space="preserve">
+    <value>Widerrufen</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Abbrechen</value>
+  </data>
+  <data name="RevokeConfirmTitle" xml:space="preserve">
+    <value>Einladung widerrufen</value>
+  </data>
+  <data name="RevokeConfirmMessage" xml:space="preserve">
+    <value>Die Einladung für {0} widerrufen? Der Link funktioniert danach nicht mehr.</value>
+  </data>
+  <data name="Created" xml:space="preserve">
+    <value>Die Einladung wurde angelegt.</value>
+  </data>
+  <data name="Resent" xml:space="preserve">
+    <value>Ein neuer Link wurde erstellt.</value>
+  </data>
+  <data name="NewLinkCreated" xml:space="preserve">
+    <value>Ein neuer Link wurde erstellt; der bisherige Link funktioniert nicht mehr.</value>
+  </data>
+  <data name="EmailSent" xml:space="preserve">
+    <value>{0} Die E-Mail wurde an {1} gesendet.</value>
+  </data>
+  <data name="EmailNotSent" xml:space="preserve">
+    <value>{0} Es wurde keine E-Mail gesendet - kopieren Sie den Link und geben Sie ihn selbst weiter.</value>
+  </data>
+  <data name="CopyLink" xml:space="preserve">
+    <value>Link kopieren</value>
+  </data>
+  <data name="Copied" xml:space="preserve">
+    <value>Der Link wurde kopiert.</value>
+  </data>
+  <data name="CopyFailed" xml:space="preserve">
+    <value>Der Link konnte nicht kopiert werden. Markieren und kopieren Sie ihn von Hand.</value>
+  </data>
+  <data name="UserExists" xml:space="preserve">
+    <value>Für diese E-Mail-Adresse gibt es bereits ein Konto.</value>
+  </data>
+  <data name="LoadError" xml:space="preserve">
+    <value>Die Einladungen konnten nicht geladen werden.</value>
+  </data>
+  <data name="ActionError" xml:space="preserve">
+    <value>Die Aktion ist fehlgeschlagen. Bitte versuchen Sie es erneut.</value>
+  </data>
+</root>

@@ -59,4 +59,17 @@ public sealed class AuthServiceLogoutTests
 
         await Assert.ThrowsAsync<HttpRequestException>(() => CreateAuthService(handler).LogoutAsync());
     }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.TooManyRequests)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task LogoutAsync_NonSuccessStatus_ThrowsWithTheStatus(HttpStatusCode statusCode)
+    {
+        var handler = new RecordingHandler(statusCode);
+
+        var exception = await Assert.ThrowsAsync<HttpRequestException>(() => CreateAuthService(handler).LogoutAsync("refresh-1"));
+
+        Assert.Equal(statusCode, exception.StatusCode);
+    }
 }

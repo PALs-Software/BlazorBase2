@@ -355,4 +355,48 @@ public sealed class BaseBottomNavigationTests : ComponentsBunitTestContextBase
 
         Assert.Contains("href=\"/more-alerts\"", cut.Find(".base-more-sheet").InnerHtml);
     }
+
+    [Fact]
+    public async Task OpenSheet_SuppressesTheActiveMarkOfTheCurrentTab_AndOnlyMoreShowsAsActive()
+    {
+        var cut = Render(SampleItems());
+        var home = cut.Find("a[href=\"/\"]");
+        Assert.Contains("active", home.ClassList);
+
+        await cut.InvokeAsync(() => cut.Find("button.base-bottom-more").Click());
+
+        home = cut.Find("a[href=\"/\"]");
+        Assert.DoesNotContain("active", home.ClassList);
+        Assert.Contains("base-bottom-tab-current", home.ClassList);
+        Assert.Equal("page", home.GetAttribute("aria-current"));
+        Assert.Contains("more-active", cut.Find("button.base-bottom-more").ClassList);
+        Assert.Single(cut.FindAll(".base-bottom-nav .active, .base-bottom-nav .more-active"));
+    }
+
+    [Fact]
+    public async Task ClosingTheSheet_RestoresTheActiveMarkOfTheCurrentTab()
+    {
+        var cut = Render(SampleItems());
+        await cut.InvokeAsync(() => cut.Find("button.base-bottom-more").Click());
+
+        await cut.InvokeAsync(() => cut.Find(".base-more-backdrop").Click());
+
+        var home = cut.Find("a[href=\"/\"]");
+        Assert.Contains("active", home.ClassList);
+        Assert.DoesNotContain("base-bottom-tab-current", home.ClassList);
+        Assert.DoesNotContain("more-active", cut.Find("button.base-bottom-more").ClassList);
+    }
+
+    [Fact]
+    public void WhatOnMoreRevealsIsExpanded_TheActiveMarkOfTheCurrentTabIsSuppressed()
+    {
+        var cut = RenderWith(SampleItems(), parameters => parameters
+            .Add(p => p.OnMore, EventCallback.Factory.Create(this, () => { }))
+            .Add(p => p.IsMoreExpanded, true));
+
+        var home = cut.Find("a[href=\"/\"]");
+
+        Assert.DoesNotContain("active", home.ClassList);
+        Assert.Contains("more-active", cut.Find("button.base-bottom-more").ClassList);
+    }
 }

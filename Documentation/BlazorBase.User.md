@@ -20,6 +20,7 @@ And the backend side:
 - [Architecture & Overview](#architecture--overview)
 - [Getting Started](#getting-started)
 - [Services & Components](#services--components)
+- [User menu](#user-menu)
 - [Navigation](#navigation)
 - [Models / DTOs](#models--dtos)
 - [Auth Flow](#auth-flow)
@@ -37,7 +38,7 @@ And the backend side:
 │  UserManagementView.razor (generic user CRUD; host adds route)│
 ├──────────────────────────────────────────────────────────────┤
 │  Components                                                  │
-│   RedirectToLogin   ResetPasswordDialog                      │
+│   RedirectToLogin   ResetPasswordDialog   BaseUserMenu       │
 ├──────────────────────────────────────────────────────────────┤
 │  Services                                                    │
 │  ┌────────────────────────────────────────────────────────┐  │
@@ -46,6 +47,7 @@ And the backend side:
 │  │ ITokenStorage   (platform impl)                        │  │
 │  │ IAppConfigService (platform impl)                      │  │
 │  │ ILanguageService LanguageService                       │  │
+│  │ IUserSignOutService UserSignOutService                 │  │
 │  │ AuthTokenHandler        : DelegatingHandler            │  │
 │  │ BlazorBaseUserAuthState : AuthenticationStateProvider  │  │
 │  └────────────────────────────────────────────────────────┘  │
@@ -97,6 +99,8 @@ This registers:
 - `ILanguageService` → `LanguageService`
 - `IThemeService` → `ThemeService`
 - `IThemePreferenceSync` → `UserThemePreferenceSync` (stores the theme choice of a signed-in user via `PUT api/user/me/settings`; fails soft when offline)
+- `IUserLanguagePreferenceSync` → `UserLanguagePreferenceSync` (the same for the language choice of [`BaseUserMenu`](#user-menu); `TryAdd`)
+- `IUserSignOutService` → `UserSignOutService` (the framework sign-out path, see [Logout](#logout); `TryAdd`)
 - `AuthorizationCore` with a `FallbackPolicy` requiring authenticated users
 - `BlazorBaseUserClientOptions` with default values (all flags off)
 
@@ -114,6 +118,10 @@ To opt in to collecting a household/group name during first-run setup:
 builder.Services.Configure<BlazorBaseUserClientOptions>(o =>
     o.CollectHouseholdNameOnSetup = true);
 ```
+
+The other options: `ShowForgotPasswordLink` (default `false`) adds a link to `/forgot-password` on the login
+page - see [Password reset pages](#password-reset-pages); `OAuthEndpointBasePath` (default `api/oauth`) and
+`InvitationEndpointBasePath` (default `api/auth/invitations`) must match the server's paths.
 
 ### 3. Register platform-specific services
 
@@ -244,8 +252,9 @@ that writes its own `MainLayout` instead **has to add it** and register the serv
 | `LoginAsync(LoginRequest)` | POST `api/auth/login` | `AuthServiceLoginOutcome` | A completed login (`Tokens`) or, when the account has two-factor authentication enabled, a pending token (`PendingToken`) to complete with `LoginTwoFactorAsync` — the server answers `202 Accepted` rather than a token pair, so the caller never receives half-authenticated tokens by mistake |
 | `LoginTwoFactorAsync(TwoFactorLoginRequest)` | POST `api/auth/login/two-factor` | `LoginResponse` | Completes a login `LoginAsync` reported as `RequiresTwoFactor` |
 | `RefreshAsync(refreshToken)` | POST `api/auth/refresh` | `LoginResponse` | Single-use rotation — the server revokes the presented token atomically; a replayed/already-used token returns `401` |
-| `LogoutAsync(refreshToken = null)` | POST `api/auth/logout` | — | Revokes the refresh token by its hash; anonymous endpoint, so it succeeds even if the access token has already expired. Under the cookie transport pass no token: the call sends no body and the cookie is the session. Throws when the server does not answer with success |
+| `LogoutAsync(refreshToken = null)` | POST `api/auth/logout` | — | Revokes the refresh token by its hash; anonymous endpoint, so it succeeds even if the access token has already expired. Under the cookie transport pass no token: the call sends no body and the cookie is the session. Throws `HttpRequestException` for any non-success status |
 | `DevelopmentLoginAsync()` | POST `api/auth/development-login` | `LoginResponse?` | Signs in as the server's development account; `null` when the server does not offer it, which is every environment but Development |
+| `ChangePasswordAsync(ChangePasswordRequest)` | POST `api/auth/manage/change-password` | `ChangePasswordOutcome` | Changes the signed-in account's own password. A refusal the server explains with a `400` (`current_password_incorrect`, a rejected new password with its reasons per field, `no_password_set`) is returned as a not-succeeded outcome with `Code`, `Message` and `FieldErrors`; `401`, `429`, `5xx` and network errors throw `HttpRequestException`. Attaches the stored access token itself (this client has no `AuthTokenHandler`; under the cookie transport there is none and the cookie plus CSRF header do the work) and stores the replacement token pair of the response, so a bearer client stays signed in |
 
 ### `IUserService` — `UserService`
 
@@ -253,6 +262,20 @@ that writes its own `MainLayout` instead **has to add it** and register the serv
 |---|---|---|---|
 | `GetMeAsync()` | GET `api/user/me` | `UserProfile` | |
 | `UpdateSettingsAsync(req)` | PUT `api/user/me/settings` | — | Theme + language |
+
+### `IOAuthConsentService` — `OAuthConsentService`
+
+The client of the OAuth authorization server's user-facing API (see
+[OAuth consent page and connected apps](#oauth-consent-page-and-connected-apps)). Paths are relative to
+`BlazorBaseUserClientOptions.OAuthEndpointBasePath` (default `api/oauth`, must match the server's
+`OAuthServer:EndpointBasePath`).
+
+| Method | HTTP | Returns | Purpose |
+|---|---|---|---|
+| `GetAuthorizationRequestAsync(request)` | GET `api/oauth/authorization-requests?request=…` | `OAuthAuthorizationRequestDetails?` | `null` for an invalid or expired request; a 403 surfaces as `HttpRequestException` with `StatusCode` |
+| `SubmitDecisionAsync(decision)` | POST `api/oauth/authorization-requests/decision` | `OAuthAuthorizationDecisionResponse?` | `null` for an invalid or expired request |
+| `GetGrantsAsync()` | GET `api/oauth/grants` | `IReadOnlyList<OAuthGrantSummary>` | Connected apps, newest first |
+| `RevokeGrantAsync(id)` | DELETE `api/oauth/grants/{id}` | — | Disconnects an app |
 
 ### `ITokenStorage`
 
@@ -387,6 +410,12 @@ Two behavior changes follow from this and are intended:
 | `Login.razor` (`/login`) | Login + initial admin setup form. Accepts a `[Parameter] bool CollectHouseholdName` (default `false`). When `true` and in setup mode, renders an optional household-name text field bound to `SetupRequest.HouseholdName`. After a successful login, navigates to the `returnUrl` query parameter when present and safe; falls back to `/`. | `[AllowAnonymous]` |
 | `SetupServer.razor` (`/setup-server`) | Asks the user for the backend URL (MAUI first-run) | `[AllowAnonymous]` |
 | `UserManagementView.razor` | Generic, reusable user CRUD UI (no route, no `[Authorize]`) | host-supplied |
+| `OAuthConsent.razor` (`/oauth/consent`) | Consent page of the OAuth authorization server — see [OAuth consent page and connected apps](#oauth-consent-page-and-connected-apps) | `[Authorize]` |
+| `AcceptInvitation.razor` (`/invitation/accept?token=...`) | Redeems an invitation link: display name and password, then signed in — see [User invitations](#user-invitations) | `[AllowAnonymous]` |
+| `InvitationManagementView.razor` | Invitation administration: list, invite, resend, new link, revoke (no route, no `[Authorize]`) — see [User invitations](#user-invitations) | host-supplied |
+| `ForgotPassword.razor` (`/forgot-password`) | Requests a password reset link — see [Password reset pages](#password-reset-pages) | `[AllowAnonymous]` |
+| `ResetPassword.razor` (`/reset-password?email=...&token=...`) | Sets the new password from the reset link — see [Password reset pages](#password-reset-pages) | `[AllowAnonymous]` |
+| `ChangePassword.razor` (`/account/password`) | The signed-in user changes their own password — see [Change password page](#change-password-page) | `[Authorize]` |
 
 #### `Login` — `CollectHouseholdName` opt-in
 
@@ -469,6 +498,164 @@ For this to work the host must register the user-management custom inputs and an
 
 - `RedirectToLogin` — placed inside `<NotAuthorized>` in `<AuthorizeRouteView>`. Captures the current URI as an app-relative path and navigates to `/login?returnUrl=<encoded>`. If the current path is already `/login` (or starts with `login`), navigates to `/login` without a `returnUrl` to avoid loops.
 - `ResetPasswordDialog` — dialog content (`BaseDialogInstance<ResetPasswordModel>`) that prompts for a new password and writes it to `ResetPasswordModel.NewPassword`. Open it with `IDialogService.ShowBaseDialogAsync<ResetPasswordDialog, ResetPasswordModel>(title, model)`; it shows Fluent's OK and Cancel buttons and the result's `Cancelled` tells which one closed it.
+- `OAuthConnectedAppsPanel` — lists the apps the signed-in user connected through OAuth and disconnects one after an `IConfirmationService.ConfirmDestructiveAsync` prompt — see below.
+- `InviteUserDialog` (namespace `BlazorBase.User.Components.Invitations`) — the invite form of `InvitationManagementView`; creates the invitation itself and closes with the `UserInvitationLinkResponse` — see [User invitations](#user-invitations).
+- `BaseUserMenu` (namespace `BlazorBase.User.Components.UserMenu`) — the account menu for the header: avatar button, name and account, language and theme choice, host entries, "Change password" and "Sign out" — see [User menu](#user-menu).
+
+### OAuth consent page and connected apps
+
+The client half of the [OAuth 2.1 authorization server](BlazorBase.User.Server.OAuth.md) that lets an
+access-token-protected endpoint (an MCP server) be added as a claude.ai custom connector.
+
+**`OAuthConsent` (`/oauth/consent`, `[Authorize]`).** `api/oauth/authorize` redirects the browser here
+with a sealed `request` query parameter. The page shows the client name **and** the redirect host the
+browser will be sent to — the name is chosen by whoever registered the client, the host is the one fact
+the user can check; for a client identified by a Client ID Metadata Document also the host that
+published it (`ClientIdHost`) — plus the requested scopes with their descriptions (a localized `Scope_{name}`
+resource wins over the server-configured description; `Scope_mcp` ships in English and German). *Allow*
+and *Deny* post the decision and then leave the application with `NavigateTo(redirectUri, forceLoad: true)`.
+An invalid or expired request, or an account outside `OAuthServer:RequiredRoles`, shows a message and no
+buttons. An unauthenticated visitor is sent by the host's `RedirectToLogin` to
+`/login?returnUrl=%2Foauth%2Fconsent%3Frequest%3D…`; `Login` accepts that local return URL and brings the
+user back after signing in.
+
+**`OAuthConnectedAppsPanel`.** A routeless component for the host's settings page: client name, redirect
+host, scope, connected and last-used dates per grant, and a *Disconnect* button that revokes the grant
+after confirmation — every token the app holds stops working on its next request. Requires
+`IConfirmationService` (registered by `AddBlazorBaseCrudComponents()`).
+
+```razor
+@page "/settings/connected-apps"
+@attribute [Authorize]
+
+<OAuthConnectedAppsPanel />
+```
+
+**Registration.** Both use `IOAuthConsentService`, which calls authenticated endpoints, so register it
+exactly like `IUserService` — the framework cannot know which handlers the host's clients use:
+
+```csharp
+// Bearer transport (AddBlazorBaseUserWasm, MAUI)
+builder.Services.AddHttpClient<IOAuthConsentService, OAuthConsentService>(c => c.BaseAddress = apiBase)
+    .AddHttpMessageHandler<AuthTokenHandler>();
+
+// Cookie transport (AddBlazorBaseUserWasmCookieAuth)
+builder.Services.AddHttpClient<IOAuthConsentService, OAuthConsentService>(c => c.BaseAddress = apiBase)
+    .AddBlazorBaseCookieSessionHandlers();
+```
+
+A Blazor Server host registers it with whatever authenticated `HttpClient` setup its `IUserService` uses.
+Change `BlazorBaseUserClientOptions.OAuthEndpointBasePath` only together with the server's
+`OAuthServer:EndpointBasePath`. In a PWA keep both under `api/`: the service worker answers every other
+navigation with `index.html`, and `authorize` is reached by a browser navigation.
+
+The consent page is always entered by a full page load (the redirect from `authorize`). Under the cookie
+transport the session survives it; under the bearer transport with the default in-memory token storage
+it does not, so the user signs in on every connection attempt - one more reason the cookie transport is
+the recommended mode for a browser host.
+
+### User invitations
+
+The client half of the [invitation flow](BlazorBase.User.Server.md#user-invitations): an administrator
+invites a person by email, the person opens the link, chooses a display name and a password and is signed
+in.
+
+**`AcceptInvitation` (`/invitation/accept?token=...`, `[AllowAnonymous]`).** The page the invitation email
+links to. It loads the preview (`GET api/auth/invitations/accept`), shows the invited email address,
+prefills the suggested display name and asks for the password twice. Submitting redeems the token, calls
+`BlazorBaseUserAuthStateProvider.MarkUserAsAuthenticated` with the returned session (as `Login` does) and
+navigates to `/` - with a full page load when the new account's language differs from the current one. An
+unknown, expired, revoked or used link shows one message and a link to `/login`; a password the policy
+rejects shows the server's reasons; an address that got an account meanwhile shows a sign-in hint.
+
+**`InvitationManagementView` (namespace `BlazorBase.User.Pages`, no route).** Routeless like
+`UserManagementView`; the host places it on an administrator page. It lists the invitations (email,
+display name, role, status `Pending`/`Accepted`/`Expired`/`Revoked`, validity) and offers, for open and
+expired ones, *Send again* (new token, new email), *New link* (new token, no email) and *Revoke* (after
+`IConfirmationService.ConfirmDestructiveAsync`). *Invite person* opens `InviteUserDialog`
+(`BlazorBase.User.Components.Invitations`): email, optional display name, role from the registered
+`IUserRoleProvider`, plus the application's own fields. After each create, resend or new link the view shows
+the link (made absolute with `NavigationManager.ToAbsoluteUri`) with a *Copy link* button
+(`navigator.clipboard.writeText`) and either "The email was sent to ..." or a warning that no email was
+sent and the link has to be passed on by hand. Every new link invalidates the previous one.
+
+| Parameter | Meaning |
+|---|---|
+| `ContextContent` (`RenderFragment<CreateUserInvitationRequest>?`) | application fields rendered in the invite dialog; they set `request.Context` |
+| `DefaultRole` (`string?`) | role preselected in the dialog; the first offered role when empty |
+| `Language` (`string?`) | language of the invitation emails and of the new accounts; the user type's default when empty |
+
+```razor
+@page "/admin/invitations"
+@attribute [Authorize(Roles = "Admin")]
+
+<InvitationManagementView DefaultRole="User" Language="de" />
+```
+
+**Registration.** `AddBlazorBaseUserInvitationClient` registers `IUserInvitationService` as a typed client
+and returns its `IHttpClientBuilder`; add the handlers of the transport exactly like for `IUserService`. The
+anonymous accept call needs the antiforgery header under the cookie transport, which
+`AddBlazorBaseCookieSessionHandlers()` adds.
+
+```csharp
+// Cookie transport (AddBlazorBaseUserWasmCookieAuth)
+builder.Services.AddBlazorBaseUserInvitationClient(client => client.BaseAddress = apiBase)
+    .AddBlazorBaseCookieSessionHandlers();
+
+// Bearer transport (AddBlazorBaseUserWasm, MAUI)
+builder.Services.AddBlazorBaseUserInvitationClient(client => client.BaseAddress = apiBase)
+    .AddHttpMessageHandler<AuthTokenHandler>();
+```
+
+`IUserInvitationService` members: `GetInvitationsAsync`, `CreateAsync`, `ResendAsync`, `RenewLinkAsync`,
+`RevokeAsync`, `GetPreviewAsync`, `AcceptAsync`. A refusal of the server throws `UserInvitationException`
+(an `HttpRequestException` with `ErrorCode` from `UserInvitationErrorCodes` and the flattened field
+`Errors`); other failures stay plain `HttpRequestException`s. Change
+`BlazorBaseUserClientOptions.InvitationEndpointBasePath` (default `api/auth/invitations`) only together
+with the path given to `MapBlazorBaseUserInvitationEndpoints`.
+
+### Password reset pages
+
+**`ForgotPassword` (`/forgot-password`, `[AllowAnonymous]`).** Asks for the email address and calls
+`IAuthService.ForgotPasswordAsync`; it confirms in neutral words whether or not the address has an
+account, matching the server's anti-enumeration answer.
+
+**`ResetPassword` (`/reset-password?email=...&token=...`, `[AllowAnonymous]`).** The page the password
+reset email links to (the link `MapBlazorBaseAccountEndpoints` builds from
+`AccountManagement:ClientBaseUrl`). It asks for the new password twice and calls
+`IAuthService.ResetPasswordAsync`; a refusal shows the server's reason (`ResetPasswordAsync` now throws an
+`HttpRequestException` whose message joins the server's `errors`). A link without email or token shows a
+message instead of the form.
+
+Both need the server's `MapBlazorBaseAccountEndpoints<TUser>()` and, to actually send mail,
+`AddBlazorBaseMailing` plus `AddBlazorBaseMailingEmailSender<TUser>()`. The login page links to
+`/forgot-password` only when the host turns it on:
+
+```csharp
+builder.Services.Configure<BlazorBaseUserClientOptions>(options => options.ShowForgotPasswordLink = true);
+```
+
+### Change password page
+
+**`ChangePassword` (`/account/password`, `[Authorize]`).** The authenticated counterpart of the reset pages: the
+signed-in user enters the current password and the new one twice (each field has a show/hide toggle) and the page
+calls `IAuthService.ChangePasswordAsync`. It needs the server's `MapBlazorBaseAccountEndpoints<TUser>()` (the
+`change-password` route, see [BlazorBase.User.Server](BlazorBase.User.Server.md#account-management--apiauthmanage)) and
+the auth client registered as for the other pages (cookie transport: the auth client carries
+`CsrfHeaderHandler`; no further registration is needed).
+
+- **Inline validation.** A missing current or new password and a confirmation that differs from the new password are
+  reported next to the field without a request (the mismatch while typing). The page does not hard-code a length: the
+  server's Identity password rules decide, and their reasons are shown under the new-password field.
+- **Server refusals map to fields.** `current_password_incorrect` is shown under the current-password field (in the
+  page's own localized text), the reasons of a rejected new password under the new-password field, `no_password_set`
+  above the button ("use Forgot your password? on the sign-in page"). `401` shows "session expired", `429` "too many
+  attempts", anything else a generic message.
+- **Success.** The form is replaced by a confirmation and the user stays signed in: under the cookie transport the
+  server has rewritten the session cookie, under the bearer transport `AuthService` stored the replacement token
+  pair. Every other session of the account is ended by the server.
+- **Reaching it.** `BaseUserMenu` links to it by default (`ShowChangePassword`, `ChangePasswordPath`, see
+  [User menu](#user-menu)); a host without passwords (external sign-in only) hides that entry.
 
 ---
 
@@ -527,6 +714,25 @@ public string Role { get; set; } = "";
 [RegularExpression("^(System|Light|Dark)$")] public string ThemePreference { get; set; }
 [RegularExpression("^(de|en)$")]             public string Language { get; set; }
 ```
+
+### Invitation DTOs
+
+`CreateUserInvitationRequest` (`Email`, `DisplayName?`, `Role`, `Context?` max 2000, `Language?`),
+`UserInvitationSummary` (one listed invitation, never the token), `UserInvitationStatus`
+(`Pending`, `Accepted`, `Expired`, `Revoked`), `UserInvitationLinkResponse` (`Invitation`, `Link`,
+`EmailSent`), `UserInvitationPreview` (`IsValid`, `Email?`, `DisplayName?`, `ExpiresAt?`),
+`AcceptUserInvitationRequest` (`Token`, `DisplayName`, `Password`) and the `UserInvitationErrorCodes`
+constants - see the [REST reference](BlazorBase.User.Server.md#user-invitations--apiauthinvitations).
+
+### OAuth consent DTOs
+
+| Type | Members |
+|---|---|
+| `OAuthAuthorizationRequestDetails` | `ClientName`, `RedirectHost`, `ClientIdHost` (nullable), `Scopes` (`List<OAuthScopeDetails>`) |
+| `OAuthScopeDetails` | `Name`, `Description` |
+| `OAuthAuthorizationDecisionRequest` | `Request` (the sealed request), `Approved` |
+| `OAuthAuthorizationDecisionResponse` | `RedirectUri` (client redirect carrying `code` or `error`, `state`, `iss`) |
+| `OAuthGrantSummary` | `Id`, `ClientName`, `RedirectHost`, `Scope`, `CreatedAt`, `LastUsedAt` |
 
 ### `UserModel` *(admin CRUD — the framework user model)*
 
@@ -713,6 +919,29 @@ public partial class LoginPage(IAuthService auth, BlazorBaseUserAuthStateProvide
 
 ### Logout
 
+`IUserSignOutService.SignOutAsync()` is the framework path and works under both transports (see
+[User menu](#user-menu)); `BaseUserMenu` and a bottom-bar entry such as
+`new() { Label = L["Logout"], OnClick = SignOutAsync }` can share it:
+
+```csharp
+private async Task SignOutAsync()
+{
+    var result = await SignOutService.SignOutAsync();
+    if (result == SignOutResult.Failed)
+    {
+        ShowSignOutFailedMessage();
+        return;
+    }
+
+    Nav.NavigateTo("login");
+}
+```
+
+`SignOutResult.Failed` means the server did not confirm the logout under the cookie transport, so the user is still
+signed in and must not be sent to the login page (see [Sign-out per transport](#user-menu)).
+
+What it does, written out by hand for the bearer transport:
+
 ```csharp
 public partial class TopBar(IAuthService auth, ITokenStorage tokenStorage,
                             BlazorBaseUserAuthStateProvider authState, NavigationManager nav)
@@ -727,24 +956,26 @@ public partial class TopBar(IAuthService auth, ITokenStorage tokenStorage,
     private async Task LogoutAsync()
     {
         var tokens = await TokenStorage.GetTokensAsync();
+        if (tokens is not null)
+        {
+            try
+            {
+                await Auth.LogoutAsync(tokens.RefreshToken);
+            }
+            catch (HttpRequestException)
+            {
+            }
+        }
 
-        try
-        {
-            await Auth.LogoutAsync(tokens?.RefreshToken);
-        }
-        finally
-        {
-            await AuthState.MarkUserAsLoggedOut();
-            Nav.NavigateTo("/login");
-        }
+        await AuthState.MarkUserAsLoggedOut();
+        Nav.NavigateTo("/login");
     }
 }
 ```
 
-`Auth.LogoutAsync(tokens?.RefreshToken)` serves both transports: under the bearer transport it sends the refresh token,
-under the cookie transport `tokens` is `null` and the call sends no body, so the server ends the cookie session. The server
-logout comes first because the anonymous antiforgery token is only valid once the session cookie is gone. The `finally`
-drops the UI to anonymous even when the server call fails; the exception still reaches the caller, which can report it.
+Under the cookie transport `tokens` is `null`; `Auth.LogoutAsync()` without a token sends no body and the server ends
+the cookie session. Do not sign out locally there when the call throws: the session cookie is still alive, which is
+why `IUserSignOutService` returns `Failed` in that case.
 
 ### Reading the current user
 
@@ -829,6 +1060,115 @@ public class UserController(UserManager<AppUser> userManager, SignInManager<AppU
     </Authorized>
 </AuthorizeView>
 ```
+
+---
+
+## User menu
+
+`BaseUserMenu` (namespace `BlazorBase.User.Components.UserMenu`) is the account menu of the header: a 44 px button
+with the signed-in user's initials that opens a menu with the user's name and account, the language choice, the theme
+choice, optional entries of the host, "Change password" and "Sign out". It lives here rather than in `BlazorBase.Components` because it
+signs out, which needs the auth client. Put it into `HeaderEndContent` of `BaseLayout`, so it is the last control of
+the header (see the header order in [BlazorBase.Components](BlazorBase.Components.md#baselayout-parameters-and-behavior)):
+
+```razor
+@using BlazorBase.User.Components.UserMenu
+
+<BaseLayout AppTitle="Notes" ...>
+    <HeaderContent>
+        <BaseThemeToggle />
+    </HeaderContent>
+    <HeaderEndContent>
+        <BaseUserMenu Items="UserMenuItems" />
+    </HeaderEndContent>
+    ...
+</BaseLayout>
+```
+
+```csharp
+private IReadOnlyList<UserMenuItem> UserMenuItems =>
+[
+    new() { Key = "settings", Label = Localizer["Settings"], Href = "settings", Icon = new Size20.Settings() },
+];
+```
+
+| Parameter | Default | Purpose |
+|---|---|---|
+| `ShowLanguage` | `true` | Shows the language choice. It is left out anyway with fewer than two `Languages`. |
+| `Languages` | `["en", "de"]` | Two-letter codes of the languages the app ships resources for, in display order. Labels come from the menu's resources (`Language_en` = "English", `Language_de` = "Deutsch"), otherwise from the culture's native name. Pass the same list as to `UseBlazorBaseLanguageAsync`. The account (`UpdateUserSettingsRequest`) only stores `en` and `de`. |
+| `ShowTheme` | `true` | Shows System / Light / Dark. Hide it when the host offers the choice elsewhere and wants it only once. |
+| `Items` | none | `UserMenuItem` entries (`Key`, `Label`, `Href` or `OnClick`, optional `Icon`) listed above "Sign out", for example "Settings" or "Profile". An entry with `Href` is a link, one with `OnClick` a button; with both, the link wins. |
+| `LoginPath` | `login` | Where "Sign out" navigates to, relative to the base address. |
+| `ShowChangePassword` | `true` | Shows the built-in "Change password" entry (a link to `ChangePasswordPath`) after the host `Items` and above "Sign out". Hide it for an app whose accounts have no password (external sign-in only) or that offers its own page. |
+| `ChangePasswordPath` | `account/password` | Where "Change password" navigates to, relative to the base address; the default is the [`ChangePassword` page](#change-password-page) of this library. |
+| `AvatarSrc` | none | A picture shown instead of the initials. |
+
+**What it shows.** Nothing for an anonymous visitor; it follows `AuthenticationStateChanged`, so it disappears after
+a sign-out anywhere. The name is the `displayName` claim (falling back to the user name, then the e-mail address); the
+second line is the `email` claim (or the user name) when it differs from the name. The initials are the first letters
+of the first and the last word of the name, one letter for a single word, `?` without one.
+
+**What the entries do.**
+
+| Entry | Effect |
+|---|---|
+| Language | `IUserLanguagePreferenceSync.SaveAsync(code)` stores it on the account (`PUT api/user/me/settings`, theme kept; under the bearer transport the token pair is refreshed afterwards so the next session read carries the new claim), then `ILanguageService.SetLanguageAsync(code)`, which reloads the page under WebAssembly. The order matters: the reload resolves the language from the account (`UseBlazorBaseLanguageAsync`), so it has to be stored first. Nothing happens for the current language; an offline user still gets the switch for the session. |
+| Theme | `IThemeService.SetThemeAsync(preference)`, which applies it, keeps it in the browser and stores it on the account (`IThemePreferenceSync`). |
+| Host entry | Navigates to `Href` or awaits `OnClick`. |
+| Change password | A link (`<a role="menuitem" href="{ChangePasswordPath}">`, Blazor intercepts it as a client-side navigation) to the [change password page](#change-password-page); the menu closes after the choice. |
+| Sign out | `IUserSignOutService.SignOutAsync()`, then `NavigationManager.NavigateTo(LoginPath)` once the user is signed out; when the server did not confirm the logout (`SignOutResult.Failed`) it shows an alert instead and does not navigate. |
+
+**Sign-out per transport.** `UserSignOutService` posts `api/auth/logout` first and calls
+`BlazorBaseUserAuthStateProvider.MarkUserAsLoggedOut()` afterwards, under both transports. The transport is told
+apart by what `ITokenStorage` holds: a stored refresh token means bearer, nothing stored (`NoOpTokenStorage`) means
+cookie. The server has to confirm the logout with a success status; `IAuthService.LogoutAsync` throws
+`HttpRequestException` for any other status (for example `403` for a missing antiforgery token, `429`, `5xx`), and a
+network error or timeout counts as unconfirmed too. `SignOutAsync()` returns a `SignOutResult`:
+
+| Transport | Server confirmed | Result | Client state |
+|---|---|---|---|
+| Bearer | yes | `SignedOut` | Tokens cleared, anonymous. |
+| Bearer | no | `SignedOutWithoutServerRevocation` | Tokens cleared, anonymous. The refresh token family may stay valid on the server until it expires. |
+| Cookie | yes | `SignedOut` | Anonymous. |
+| Cookie | no | `Failed` | Unchanged, still signed in. |
+
+- **Bearer**: the refresh token lives on the client, so dropping it ends the client session even when the server
+  could not revoke the family. The tokens are always cleared; the result only reports whether the revocation reached
+  the server.
+- **Cookie**: the request carries no body; the server acts on the session cookie alone, removes the server-side ticket and
+  clears the cookie. `CsrfHeaderHandler` on the auth client sends the antiforgery token. The `HttpOnly` cookie and the
+  server session are out of the client's reach, so without the server's confirmation the session stays alive and a
+  reload would sign the user straight back in (a risk on a shared device). The client therefore stays signed in and
+  returns `Failed` instead of showing an anonymous UI over a live session. Only after a confirmed logout does
+  `MarkUserAsLoggedOut()` fetch the anonymous antiforgery token, so the login form works without a reload.
+- **Failure handling in `BaseUserMenu`**: `SignedOut` and `SignedOutWithoutServerRevocation` navigate to `LoginPath`
+  (the menu disappears with the session, so it shows no notice for the bearer case; a host that wants one calls
+  `IUserSignOutService` itself and reads the result). `Failed` keeps the menu open, shows the alert "Signing out
+  failed – please try again." (German: "Abmelden hat nicht geklappt – bitte erneut versuchen.", resource
+  `SignOutFailed`) above the entry, does not navigate and lets the user retry.
+
+**Keyboard and accessibility.** The button is a native `<button>` with `aria-haspopup="menu"`, `aria-expanded` and,
+while open, `aria-controls`; its accessible name is "Account menu of {name}". Enter or Space opens the menu (Arrow Down
+opens it at the first entry, Arrow Up at the last), and focus moves to the first entry. The menu is a plain
+`role="menu"` region (no `FluentMenu`, so it needs no provider and is bUnit-testable) that is only in the DOM while
+open: the name block above it, the language and the theme choice as `role="group"`s of `menuitemradio` entries with
+`aria-checked`, host entries, "Change password" and "Sign out" as `menuitem`s, `role="separator"` lines between the sections. Arrow keys,
+Home and End move between the entries, Enter or Space activates one (Space also on a link entry), Escape closes the
+menu and returns the focus to the button, and so does choosing an entry. A pointer press or the focus moving outside,
+Tab out of the menu and any navigation close it without moving the focus. The outside, Escape and arrow handling is a
+small WASM-safe module, `_content/BlazorBase.User/js/userMenu.js`, attached only while the menu is open.
+
+**Layout.** Above 768 px the menu is anchored below the button at the end of the header, 300 px wide, and scrolls
+when the viewport is short. At 768 px and below it is a bottom sheet with a dimmed backdrop and a grab handle, entries
+44 px high (also on any coarse pointer). It is styled with the `--color-*`, spacing and radius tokens only, so it
+follows light and dark themes; the button uses `--base-header-control-size` and the selected background while open,
+like the plain header icons. All texts are localized in English and German (`BaseUserMenu.razor.resx`).
+
+**Registration and tests.** `AddBlazorBaseUserClient()` registers `IUserSignOutService` and
+`IUserLanguagePreferenceSync` (`TryAdd`, so a host can replace either — for example a sign-out that also ends an
+external identity provider session). The component additionally needs `ILanguageService`, `IThemeService` (both
+registered by `AddBlazorBaseUserClient()`), `NavigationManager` and `IJSRuntime`. A bUnit test of a layout that hosts
+it registers stubs for the two services and sets the JS interop to loose mode.
 
 ---
 

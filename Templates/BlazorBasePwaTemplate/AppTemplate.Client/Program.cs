@@ -49,5 +49,6 @@ builder.Services.AddBlazorBaseUserRoleProvider<AppUserRoleProvider>();
 var host = builder.Build();
 
 await host.Services.UseBlazorBaseDevelopmentSessionAsync();
+await host.Services.UseBlazorBaseLanguageAsync("en", "de");
 
 await host.RunAsync();

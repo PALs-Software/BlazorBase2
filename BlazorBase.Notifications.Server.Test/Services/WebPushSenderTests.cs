@@ -127,6 +127,45 @@ public sealed class WebPushSenderTests
     }
 
     [Fact]
+    public async Task SendAsync_SerializesThePayload_IncludingIconAndBadge_WhenProvided()
+    {
+        string? capturedJson = null;
+        WebPushClient.SendNotificationAsync(Arg.Any<WebPushSubscription>(), Arg.Any<string>(), Arg.Any<Dictionary<string, object>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                capturedJson = callInfo.ArgAt<string>(1);
+                return Task.CompletedTask;
+            });
+
+        await CreateSender().SendAsync(Subscription(), new PushPayload("Title", "Body", Icon: "/icons/icon-192.png", Badge: "/icons/badge-72.png"), CancellationToken.None);
+
+        Assert.NotNull(capturedJson);
+        using var document = JsonDocument.Parse(capturedJson);
+        var root = document.RootElement;
+        Assert.Equal("/icons/icon-192.png", root.GetProperty("icon").GetString());
+        Assert.Equal("/icons/badge-72.png", root.GetProperty("badge").GetString());
+    }
+
+    [Fact]
+    public async Task SendAsync_OmitsIconAndBadge_WhenNotProvided()
+    {
+        string? capturedJson = null;
+        WebPushClient.SendNotificationAsync(Arg.Any<WebPushSubscription>(), Arg.Any<string>(), Arg.Any<Dictionary<string, object>>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                capturedJson = callInfo.ArgAt<string>(1);
+                return Task.CompletedTask;
+            });
+
+        await CreateSender().SendAsync(Subscription(), new PushPayload("Title", "Body", "/dashboard", "tag"), CancellationToken.None);
+
+        Assert.NotNull(capturedJson);
+        using var document = JsonDocument.Parse(capturedJson);
+        Assert.False(document.RootElement.TryGetProperty("icon", out _));
+        Assert.False(document.RootElement.TryGetProperty("badge", out _));
+    }
+
+    [Fact]
     public async Task SendAsync_PassesTheConfiguredTimeToLive_AndUrgencyHeader()
     {
         Dictionary<string, object>? capturedOptions = null;

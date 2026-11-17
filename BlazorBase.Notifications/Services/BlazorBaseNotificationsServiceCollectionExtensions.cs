@@ -39,6 +39,7 @@ public static class BlazorBaseNotificationsServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddTransient<IWebPushClient, WebPushClient>();
         services.TryAddTransient<INotificationRefreshInterop, NotificationRefreshInterop>();
+        services.TryAddTransient<IPushNavigationInterop, PushNavigationInterop>();
 
         return services;
     }

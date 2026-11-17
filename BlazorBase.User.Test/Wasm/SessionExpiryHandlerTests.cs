@@ -28,6 +28,7 @@ public sealed class SessionExpiryHandlerTests
         public Task ResendConfirmationAsync(ResendConfirmationRequest request) => throw new NotSupportedException();
         public Task ForgotPasswordAsync(ForgotPasswordRequest request) => throw new NotSupportedException();
         public Task ResetPasswordAsync(ResetPasswordRequest request) => throw new NotSupportedException();
+        public Task<ChangePasswordOutcome> ChangePasswordAsync(ChangePasswordRequest request) => throw new NotSupportedException();
         public Task<TwoFactorStatusResponse> GetTwoFactorStatusAsync() => throw new NotSupportedException();
         public Task<TwoFactorRecoveryCodesResponse> EnableTwoFactorAsync(TwoFactorEnableRequest request) => throw new NotSupportedException();
         public Task DisableTwoFactorAsync(TwoFactorVerificationRequest request) => throw new NotSupportedException();

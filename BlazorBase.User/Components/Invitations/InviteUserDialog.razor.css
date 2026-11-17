@@ -1,0 +1,12 @@
+.invite-user-dialog {
+    display: flex;
+    flex-direction: column;
+}
+
+::deep .invite-user-dialog-form {
+    width: 100%;
+}
+
+::deep .invite-user-dialog-full-width {
+    width: 100%;
+}

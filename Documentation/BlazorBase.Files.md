@@ -184,6 +184,9 @@ registration and `CanHandle` shape.
 
 **Behavior:**
 - File is uploaded immediately on selection (`FluentInputFile.OnFileUploaded`).
+- The upload area is a real `<button type="button">` set as the `FluentInputFile.AnchorId`, so a click or tap opens
+  the file picker. Fluent UI lays its content over the hidden file input; without the anchor only drag and drop
+  reaches it, which phones do not have. The gallery input uses the same button.
 - The returned `Guid` ID is pushed to the model via `ValueChanged`.
 - Immediately after upload, `IFileUploadClient.GetAccessTokenAsync` is called for the new file's ID
   and the token is stored in component state. The thumbnail URL uses this token.

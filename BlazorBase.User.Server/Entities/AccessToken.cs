@@ -21,6 +21,7 @@ namespace BlazorBase.User.Server.Entities;
 /// </remarks>
 [Index(nameof(Prefix))]
 [Index(nameof(UserId))]
+[Index(nameof(OAuthGrantId))]
 public class AccessToken : AuditModel
 {
     [Key]
@@ -64,4 +65,18 @@ public class AccessToken : AuditModel
     public DateTime? LastUsedAt { get; set; }
 
     public bool IsRevoked { get; set; }
+
+    /// <summary>
+    /// The <see cref="OAuthGrant"/> this token was issued under by the OAuth authorization server, or
+    /// <see langword="null"/> for a personal access token minted directly through
+    /// <c>IAccessTokenService.CreateAsync</c>.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not a foreign key, so the access-token table stays independent of the optional
+    /// OAuth tables. Revoking the grant revokes every token carrying its id in one bulk update, and
+    /// <c>IAccessTokenService.ListAsync</c> leaves these rows out: they are managed as connected apps,
+    /// not as personal tokens. Not secret, so - like <see cref="UserId"/> - it carries no
+    /// <c>CrudAccess</c> restriction.
+    /// </remarks>
+    public Guid? OAuthGrantId { get; set; }
 }

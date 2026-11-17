@@ -12,3 +12,8 @@
 ::deep .full-width {
     width: 100%;
 }
+
+.login-forgot-password {
+    align-self: center;
+    color: var(--color-accent-text);
+}

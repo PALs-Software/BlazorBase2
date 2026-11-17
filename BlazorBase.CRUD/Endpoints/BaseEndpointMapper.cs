@@ -165,6 +165,10 @@ public static class BaseEndpointMapper
                 CrudResponseSanitizer.Strip(result, httpContext.User);
                 return Results.Ok(result);
             }
+            catch (EntityNotFoundException)
+            {
+                return Results.NotFound();
+            }
             catch (ConcurrencyConflictException ex)
             {
                 return Results.Conflict(new { error = "ConcurrencyConflict", message = ex.Message });
@@ -200,6 +204,10 @@ public static class BaseEndpointMapper
             {
                 await provider.DeleteAsync(parsedId, cancellationToken);
                 return Results.NoContent();
+            }
+            catch (EntityNotFoundException)
+            {
+                return Results.NotFound();
             }
             catch (BaseValidationException ex)
             {

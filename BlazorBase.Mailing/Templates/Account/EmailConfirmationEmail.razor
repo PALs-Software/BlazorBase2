@@ -1,0 +1,19 @@
+@namespace BlazorBase.Mailing.Templates.Account
+
+<EmailLayoutBase Subject="@Subject"
+                 PreheaderText="@Localizer["Introduction"]"
+                 Language="@LanguageCode"
+                 BrandName="@Branding.BrandName"
+                 HeaderColor="@Branding.HeaderColor"
+                 HeaderTextColor="@Branding.HeaderTextColor"
+                 AccentColor="@Branding.AccentColor"
+                 AccentTextColor="@Branding.AccentTextColor">
+    <Body>
+        <h1>@Localizer["Heading"]</h1>
+        <p>@Greeting</p>
+        <p>@Localizer["Introduction"]</p>
+        <p><a class="button" href="@Model.ConfirmationLink">@Localizer["Button"]</a></p>
+        <p class="link-fallback">@Localizer["LinkFallback"]<br /><a href="@Model.ConfirmationLink">@Model.ConfirmationLink</a></p>
+        <p class="muted">@Localizer["Ignore"]</p>
+    </Body>
+</EmailLayoutBase>

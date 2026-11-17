@@ -157,6 +157,25 @@ distributed cache instead; the framework's registration uses `TryAdd` and steps 
 `ServerSideSessionStoreEnabled` to `false` only if you are wiring `CookieAuthenticationOptions
 .SessionStore` yourself.
 
+### Changing the password keeps the caller's session and ends the others
+
+`POST api/auth/manage/change-password` (see [BlazorBase.User.Server](BlazorBase.User.Server.md#account-management--apiauthmanage))
+rotates the account's security stamp, which is what ends the other sessions, so the two transports behave
+as follows:
+
+- **Cookie transport.** The caller's own session is signed in again with the new stamp
+  (`IdentityCookieAuthTransport.WriteAsync`); the server-side ticket behind the cookie key is renewed in
+  place, so the caller's cookie keeps working and the response body carries blank tokens. Every other
+  session cookie of the account is refused at its next `SecurityStampValidator` check, at the latest after
+  `SecurityStampValidatorOptions.ValidationInterval` (five minutes by default; set it lower where a password
+  change must cut other sessions off sooner). The CSRF middleware protects the request like every other write.
+- **Bearer transport.** The response carries a new access/refresh pair (`refreshedTokens`) that the client must
+  adopt; `AuthService.ChangePasswordAsync` does it through `ITokenStorage`. The pre-change access tokens are
+  refused on their next request by the access-token stamp revalidation, the account's refresh-token rows are
+  revoked and fail the stamp check, so no `refresh` revives an old session. A client that ignores
+  `refreshedTokens` is signed out on its next request. Personal access tokens and OAuth grants are separate
+  credentials and keep working.
+
 ---
 
 ## CSRF — mandatory once you use cookies

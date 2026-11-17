@@ -15,10 +15,21 @@
     border-radius: var(--radius-sm);
     cursor: pointer;
     text-align: center;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
 }
 
 .upload-area:hover {
     border-color: var(--color-accent);
+}
+
+.upload-area:focus-visible {
+    outline: var(--stroke-width-thick) solid var(--color-accent);
+    outline-offset: 2px;
 }
 
 .preview-area {

@@ -73,3 +73,17 @@ first real module. Copy its shape: the entity in `.Shared` carrying `[BaseCrud("
 co-located `.resx`/`.de.resx` files keyed by property name so captions need no markup.
 
 The framework's own `Documentation/` folder is the authoritative reference for every library.
+
+The top bar already shows the app brand (`AppTemplate.Client/Layout/AppBrand.razor`, using
+`wwwroot/icon.svg`) and the command palette search field (Ctrl+K), and the sidebar shows grouped
+navigation with section headings. Keep all three: swap the icon and the wordmark to brand the app,
+replace the groups in `Layout/MainLayout.razor.cs` with your own (still grouped, still with headings),
+and feed the palette with your own entries through
+`builder.Services.AddCommandPaletteProvider<YourProvider>()` in `AppTemplate.Client/Program.cs`; the
+page entries come from the navigation items in `Layout/MainLayout.razor.cs` automatically.
+The avatar at the end of the top bar is the framework's user menu (`<BaseUserMenu />` in
+`Layout/MainLayout.razor`): name and e-mail, language, theme, "Change password" (the framework page
+`/account/password`, nothing to add in the app) and "Sign out". Keep it; when the app gets a
+settings or profile page, add it through the menu's `Items`. Its language choice relies on
+`UseBlazorBaseLanguageAsync("en", "de")` in `AppTemplate.Client/Program.cs`, so keep that call too.
+`AppTemplate.Tests/Layout/MainLayoutTests.cs` fails when one of these defaults is dropped.

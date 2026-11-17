@@ -279,6 +279,110 @@ public sealed class CookieAuthTokenTransportTests
         Assert.Equal(HttpStatusCode.OK, protectedResponse.StatusCode);
     }
 
+    private static async Task GiveKnownSubjectAPasswordAsync(IHost host, string password)
+    {
+        using var scope = host.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
+        var user = await userManager.FindByNameAsync("known-subject");
+        var result = await userManager.AddPasswordAsync(user!, password);
+        Assert.True(result.Succeeded, string.Join("; ", result.Errors.Select(e => e.Description)));
+    }
+
+    private static HttpRequestMessage ChangePasswordRequestFor(string cookieHeader, string? csrfToken, string currentPassword, string newPassword)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/manage/change-password")
+        {
+            Content = JsonContent.Create(new ChangePasswordRequest { CurrentPassword = currentPassword, NewPassword = newPassword }),
+        };
+        request.Headers.Add("Cookie", cookieHeader);
+
+        if (csrfToken is not null)
+            request.Headers.Add(CsrfHeader, csrfToken);
+
+        return request;
+    }
+
+    /// <summary>
+    /// Changing the password rotates the security stamp. The caller's own session is re-issued with the new
+    /// stamp and keeps authenticating, while the cookie of a second session is refused on its next request
+    /// (validation interval at zero, so no wall-clock wait).
+    /// </summary>
+    [Fact]
+    public async Task Changing_the_password_rewrites_the_callers_cookie_and_ends_every_other_session()
+    {
+        var (host, validator) = await StartHostAsync(useCookies: true, securityStampValidationInterval: TimeSpan.Zero);
+        using var _host = host;
+        await GiveKnownSubjectAPasswordAsync(host, "Secret123456");
+
+        validator.Register("other-session-token", new ClaimsPrincipal(
+            new ClaimsIdentity(
+                [
+                    new Claim(ClaimTypes.NameIdentifier, "known-subject"),
+                    new Claim("exp", DateTimeOffset.UtcNow.AddMinutes(10).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)),
+                ],
+                "External")));
+
+        var callerCookie = ReadCookies(await ExchangeAsync(host))[SessionCookie];
+        var otherSessionCookie = ReadCookies(await ExchangeAsync(host, "other-session-token"))[SessionCookie];
+        var (token, cookieHeader) = await GetCsrfAsync(host, $"{SessionCookie}={callerCookie}");
+
+        var client = host.GetTestClient();
+        var response = await client.SendAsync(ChangePasswordRequestFor(cookieHeader, token, "Secret123456", "BrandNewSecret123456"));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ChangePasswordResponse>();
+        Assert.Empty(body!.RefreshedTokens!.AccessToken);
+        Assert.Empty(body.RefreshedTokens.RefreshToken);
+
+        var rewrittenCookies = ReadCookies(response);
+        Assert.True(rewrittenCookies.ContainsKey(SessionCookie));
+
+        async Task<HttpStatusCode> ProbeAsync(string sessionCookieValue)
+        {
+            var probe = new HttpRequestMessage(HttpMethod.Get, "/protected");
+            probe.Headers.Add("Cookie", $"{SessionCookie}={sessionCookieValue}");
+            return (await client.SendAsync(probe)).StatusCode;
+        }
+
+        Assert.Equal(HttpStatusCode.OK, await ProbeAsync(rewrittenCookies[SessionCookie]));
+        Assert.Equal(HttpStatusCode.Unauthorized, await ProbeAsync(otherSessionCookie));
+    }
+
+    [Fact]
+    public async Task Changing_the_password_without_a_csrf_token_is_refused_and_changes_nothing()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true);
+        using var _host = host;
+        await GiveKnownSubjectAPasswordAsync(host, "Secret123456");
+
+        var sessionCookie = ReadCookies(await ExchangeAsync(host))[SessionCookie];
+
+        var response = await host.GetTestClient().SendAsync(
+            ChangePasswordRequestFor($"{SessionCookie}={sessionCookie}", csrfToken: null, "Secret123456", "BrandNewSecret123456"));
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+
+        using var scope = host.Services.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<TestUser>>();
+        var user = await userManager.FindByNameAsync("known-subject");
+        Assert.True(await userManager.CheckPasswordAsync(user!, "Secret123456"));
+    }
+
+    [Fact]
+    public async Task Changing_the_password_of_an_account_without_one_answers_no_password_set()
+    {
+        var (host, _) = await StartHostAsync(useCookies: true);
+        using var _host = host;
+
+        var sessionCookie = ReadCookies(await ExchangeAsync(host))[SessionCookie];
+        var (token, cookieHeader) = await GetCsrfAsync(host, $"{SessionCookie}={sessionCookie}");
+
+        var response = await host.GetTestClient().SendAsync(ChangePasswordRequestFor(cookieHeader, token, "Secret123456", "BrandNewSecret123456"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(ChangePasswordErrorCodes.NoPasswordSet, await response.Content.ReadAsStringAsync());
+    }
+
     [Fact]
     public async Task The_session_cookie_is_marked_HttpOnly()
     {

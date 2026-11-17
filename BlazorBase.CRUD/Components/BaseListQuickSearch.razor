@@ -1,0 +1,28 @@
+<div class="base-list-quick-search" role="search">
+    <FluentTextInput Value="@Text"
+                     ValueChanged="@OnTextChangedAsync"
+                     Immediate="true"
+                     ImmediateDelay="0"
+                     Class="base-list-quick-search-input"
+                     TextInputType="TextInputType.Text"
+                     Placeholder="@Placeholder"
+                     AriaLabel="@Placeholder"
+                     AutoComplete="off">
+        <StartTemplate>
+            <FluentIcon Value="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Search())" />
+        </StartTemplate>
+        <EndTemplate>
+            @if (HasText)
+            {
+                <FluentButton Appearance="ButtonAppearance.Transparent"
+                              Size="ButtonSize.Small"
+                              IconOnly="true"
+                              Class="base-list-quick-search-clear"
+                              Title="@ClearLabel"
+                              aria-label="@ClearLabel"
+                              OnClick="@ClearAsync"
+                              IconStart="@(new Microsoft.FluentUI.AspNetCore.Components.Icons.Regular.Size16.Dismiss())" />
+            }
+        </EndTemplate>
+    </FluentTextInput>
+</div>

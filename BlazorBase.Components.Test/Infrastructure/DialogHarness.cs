@@ -46,8 +46,25 @@ public sealed class DialogHarness<TDialog>
         var provider = context.Render<FluentDialogProvider>();
         var service = context.Services.GetRequiredService<IDialogService>();
         var result = service.ShowBaseDialogAsync<TDialog>(configure);
+        ThrowIfTheDialogFailedToRender(context);
         var content = provider.FindComponent<TDialog>();
 
         return new DialogHarness<TDialog>(provider, content, result);
+    }
+
+    /// <summary>
+    /// Surfaces an exception the renderer caught while showing the dialog, for example a service the content
+    /// component injects but the test did not register. Searching the render tree after such a failure overflows
+    /// the stack in bUnit's <c>FindComponents</c> and kills the test host instead of failing the test.
+    /// </summary>
+    private static void ThrowIfTheDialogFailedToRender(BunitContext context)
+    {
+        var unhandled = context.Renderer.UnhandledException;
+        if (!unhandled.IsCompletedSuccessfully)
+            return;
+
+        throw new InvalidOperationException(
+            $"{typeof(TDialog).Name} failed to render: {unhandled.Result.Message}",
+            unhandled.Result);
     }
 }

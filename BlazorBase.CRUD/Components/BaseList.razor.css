@@ -37,6 +37,27 @@
     max-width: min(240px, 55vw);
 }
 
+/*
+   The quick search sits left of the filter group and takes over the push to the right edge, so the filter group stays
+   attached to it. On the tile layout it is a row of its own above the cards, at the full width.
+*/
+.base-list-header ::deep .base-list-quick-search {
+    margin-left: auto;
+}
+
+.base-list-header ::deep .base-list-quick-search ~ .base-list-filter-group {
+    margin-left: 0;
+}
+
+.base-list-search-row {
+    display: flex;
+}
+
+.base-list-search-row ::deep .base-list-quick-search {
+    flex: 1 1 auto;
+    max-width: none;
+}
+
 /* The count is plain inline text next to the button caption. */
 .base-list-filter-count {
     display: inline-flex;
@@ -570,6 +591,11 @@
 
     .base-list-filter-group {
         flex: 0 1 auto;
+    }
+
+    .base-list-header ::deep .base-list-quick-search {
+        flex: 1 1 120px;
+        min-width: 120px;
     }
 
     .base-list-header .base-list-count {

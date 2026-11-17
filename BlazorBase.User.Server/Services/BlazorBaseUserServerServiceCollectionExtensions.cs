@@ -179,6 +179,7 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
         services.TryAddSingleton<ITwoFactorPendingTokenStore, InMemoryTwoFactorPendingTokenStore>();
         services.TryAddSingleton(typeof(TwoFactorPendingTokenService<>));
         services.TryAddScoped(typeof(IEmailSender<>), typeof(NoOpEmailSender<>));
+        services.TryAddScoped(typeof(IPasswordChangedNotifier<>), typeof(NoOpPasswordChangedNotifier<>));
         services.Configure<AccountManagementOptions>(configuration.GetSection(AccountManagementOptions.SectionName));
         services.AddScoped<BaseUserDbContext<TUser>>(serviceProvider => serviceProvider.GetRequiredService<TContext>());
         services.AddScoped<IBaseDataProvider<UserModel>, UserDataProvider<TUser>>();
@@ -379,12 +380,15 @@ public static class BlazorBaseUserServerServiceCollectionExtensions
     /// <see cref="BlazorBase.Mailing.Services.IEmailSender"/>, so account-management email travels
     /// through the framework's existing mail path instead of a second one. Requires
     /// <c>AddBlazorBaseMailing</c> (or an equivalent <c>IEmailSender</c> registration) to already be
-    /// registered.
+    /// registered. Also replaces the default <see cref="NoOpPasswordChangedNotifier{TUser}"/> with
+    /// <see cref="MailingPasswordChangedNotifier{TUser}"/>, so <c>POST change-password</c> sends its
+    /// "password changed" notification.
     /// </summary>
     public static IServiceCollection AddBlazorBaseMailingEmailSender<TUser>(this IServiceCollection services)
         where TUser : BaseUser
     {
         services.Replace(ServiceDescriptor.Scoped<IEmailSender<TUser>, MailingEmailSender<TUser>>());
+        services.Replace(ServiceDescriptor.Scoped<IPasswordChangedNotifier<TUser>, MailingPasswordChangedNotifier<TUser>>());
         return services;
     }
 }
